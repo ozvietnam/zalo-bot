@@ -56,7 +56,7 @@ test('5 cap:all', () => {
 test('6 similar:<điểm>', () => {
   const r = run({ recentBotTexts: ['Dạ mã 8413.70.90 ạ'] });
   assert.equal(r.decision, 'drop');
-  assert.match(r.reason, /^similar:\d\.\d\d$/);
+  assert.match(r.reason, /^similar:0\.\d+$/);
 });
 
 test('7 leak', () => {
@@ -113,4 +113,17 @@ test('thời gian: facts.now thiếu thì dùng msg.now, Date được chấp nh
   assert.equal(decide({ ...base, now: NOW }, { ...baseFacts, now: undefined }).decision, 'send');
   assert.equal(run({ now: new Date(NOW) }).decision, 'send');
   assert.throws(() => decide(base, { ...baseFacts, now: undefined }));
+});
+
+test('8 thuế suất %, mã HS không phải tiền: moneyCheck + evidence rỗng vẫn send', () => {
+  const m = { text: 'Dạ mã 8413.70.90, thuế NK 0%, VAT 10% ạ', pack: { moneyCheck: true }, evidence: [] };
+  assert.deepEqual(run({}, m), { decision: 'send', reason: 'ok' });
+});
+
+test('8 evidence "1.5" chỉ là 1,5, không nhận 15; "1.234" là 1234', () => {
+  const m = (ev) => ({ text: 'Phí 15 tệ', pack: { moneyCheck: true }, evidence: ev });
+  assert.equal(run({}, m(['1.5'])).reason, 'money:15');
+  assert.equal(run({}, m([15])).decision, 'send');
+  const t = { text: 'Phí 1.234đ', pack: { moneyCheck: true }, evidence: ['1.234'] };
+  assert.equal(run({}, t).decision, 'send');
 });

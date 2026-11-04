@@ -29,6 +29,15 @@ function isProactive(msg, nowMs, rules) {
   return at == null || nowMs - at > rules.directReplyMs;
 }
 
+// Một cách đọc duy nhất, cùng quy ước extractMoney: nhóm cuối đúng 3 chữ số thì mọi dấu là ngăn nghìn, ngược lại dấu cuối là thập phân.
+function parseNumeric(s) {
+  const parts = s.split(/[.,]/);
+  if (parts.length === 1) return Number(s);
+  const last = parts[parts.length - 1];
+  if (last.length === 3) return Number(parts.join(''));
+  return Number(parts.slice(0, -1).join('') + '.' + last);
+}
+
 /** Mọi số trong evidence: giá trị số, chuỗi dạng số (cả bỏ dấu . ,), và số tiền extractMoney tìm thấy trong chuỗi. */
 export function evidenceNumbers(evidence) {
   const set = new Set();
@@ -38,8 +47,7 @@ export function evidenceNumbers(evidence) {
     } else if (typeof v === 'string') {
       const s = v.trim();
       if (/^\d+(?:[.,]\d+)*$/.test(s)) {
-        set.add(Number(s.replace(',', '.')));
-        set.add(Number(s.replace(/[.,]/g, '')));
+        set.add(parseNumeric(s));
       }
       for (const n of extractMoney(s)) set.add(n);
     } else if (Array.isArray(v)) {

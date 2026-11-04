@@ -20,7 +20,7 @@ send(msg) -> Promise<{ id, decision, reason, status }>
 | `evidence` | | mảng kết quả công cụ + lời khách của lượt |
 
 ## `facts` (thi hành tự đọc từ db rồi đưa vào `decide`)
-`chatState`, `idemExists`, `hasOpenJob` (phòng có dòng `jobs` đang `waiting` hoặc vừa `done` mà chưa giao), `recentBotTexts` (≤ 4 tin trong 15 phút), `sentTodayChat`, `sentTodayAll`, `now`.
+`chatState`, `idemExists`, `hasOpenJob` (phòng có dòng `jobs` đang `waiting` hoặc vừa `done` mà chưa giao), `recentBotTexts` (≤ 4 tin trong 15 phút), `sentTodayChat`, `sentTodayAll`, `now`. (`decide` không đọc đồng hồ: `now` lấy từ `facts.now`, thiếu thì từ `msg.now`, vẫn thiếu thì ném lỗi.)
 
 ## Thứ tự kiểm (tin đầu tiên trượt thì dừng)
 | # | Điều kiện | Quyết định | `reason` |
