@@ -223,7 +223,7 @@ test('cap:chat → onTicket(chatId, "cap")', …)
 
 **Files:** Modify `core/gate.js`, `test/core/gate-send.test.mjs`
 
-- [ ] **Step 1: Test đỏ**: tin `defer` `notBefore=07:00` → sweep lúc 06:59 không gửi, 07:00 gửi; phòng sang `human` trước 07:00 → sweep chuyển `rejected: chat-human`; tin `failed` thử lại sau 1, 5, 15 phút rồi dừng ở `attempts=3`.
+- [ ] **Step 1: Test đỏ**: tin `defer` `notBefore=07:00` → sweep lúc 06:59 không gửi, 07:00 gửi; phòng sang `human` trước 07:00 → sweep chuyển `rejected: chat-human`; tin `failed` thử lại 3 lần ở +1, +5, +15 phút sau lần lỗi thứ 1, 2, 3 (chạy lại `decide` đầy đủ mỗi lần), lỗi thứ 4 thì dừng ở `attempts=4`, `onAlert` một lần; tin `cap:chat`/`cap:all` hoãn thẳng tới 07:00 VN sau nửa đêm VN kế tiếp.
 - [ ] **Step 2:** FAIL · **Step 3:** `outbox.due(now)` → chạy lại `decide` với facts mới (bỏ qua bước idem vì là chính dòng đó). · **Step 4:** PASS · **Step 5:** `git commit -m "feat(gate): sweep deferred and failed messages"`
 
 ---
