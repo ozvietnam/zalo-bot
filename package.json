@@ -1,0 +1,14 @@
+{
+  "name": "zalo-hs-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Bot Zalo tra cứu hải quan — nguồn hs-code-api (OZ Việt Nam)",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/test.mjs",
+    "webhook:set": "node scripts/set-webhook.mjs set",
+    "webhook:info": "node scripts/set-webhook.mjs info"
+  }
+}

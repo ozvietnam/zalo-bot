@@ -1,0 +1,10 @@
+node_modules
+.env
+.env.*
+!.env.example
+ban-cu/
+bot.log
+*.log
+*.bak
+*.new
+zalo-hs-bot/
