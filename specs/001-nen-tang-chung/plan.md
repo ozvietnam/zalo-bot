@@ -93,6 +93,9 @@ packs/
     ├── index.js          # manifest + match/handle/onJobResult/footer
     ├── packages.js       # từ lib/packages.js (bỏ vòng chờ waitJob)
     ├── router.js  render.js  input.js  format.js  vision.js   # chuyển nguyên
+    ├── jobs.js           # toJob/waitJob tách từ packages.js để packages.js < 300 dòng (T014)
+    ├── flow-turn.js  flow-photo.js   # phiên/bằng chứng/PackResult và lượt ảnh, tách từ index.js cho < 300 dòng (T014)
+    └── test/hs.test.mjs
 eval/
 ├── run.mjs               # phát lại fixture qua engine với kênh + MCP giả
 └── fixtures/*.jsonl
