@@ -24,11 +24,13 @@ export function inboxTable(db) {
   };
 }
 
-const OUTBOX_COLS = ['turn_id', 'kind', 'text', 'decision', 'reason', 'status', 'not_before', 'parts_sent', 'attempts', 'next_retry_at', 'created_at', 'sent_at'];
+const OUTBOX_COLS = ['turn_id', 'kind', 'text', 'decision', 'reason', 'status', 'not_before', 'parts_sent', 'attempts', 'next_retry_at', 'created_at', 'sent_at', 'ctx'];
+
+const outOut = (r) => (r ? { ...r, ctx: fromJson(r.ctx) } : null);
 
 export function outboxTable(db) {
-  const ins = db.prepare(`INSERT INTO outbox (idem_key, chat_id, turn_id, kind, text, decision, reason, status, not_before, parts_sent, attempts, next_retry_at, created_at, sent_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const ins = db.prepare(`INSERT INTO outbox (idem_key, chat_id, turn_id, kind, text, decision, reason, status, not_before, parts_sent, attempts, next_retry_at, created_at, sent_at, ctx)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const has = db.prepare('SELECT 1 FROM outbox WHERE idem_key = ?');
   const recent = db.prepare(`SELECT text FROM outbox WHERE chat_id = ? AND status = 'sent' AND kind IN ('reply','notice','job_result')
     AND sent_at >= ? ORDER BY sent_at DESC, id DESC LIMIT ?`);
@@ -41,18 +43,18 @@ export function outboxTable(db) {
     insert(m) {
       try {
         return Number(ins.run(m.idem_key, m.chat_id, m.turn_id ?? null, m.kind, m.text, m.decision, m.reason ?? null, m.status,
-          m.not_before ?? null, m.parts_sent ?? 0, m.attempts ?? 0, m.next_retry_at ?? null, m.created_at ?? null, m.sent_at ?? null).lastInsertRowid);
+          m.not_before ?? null, m.parts_sent ?? 0, m.attempts ?? 0, m.next_retry_at ?? null, m.created_at ?? null, m.sent_at ?? null, m.ctx === undefined || m.ctx === null ? null : toJson(m.ctx)).lastInsertRowid);
       } catch (e) {
         if (isUniqueViolation(e)) throw new Error(`DUPLICATE_IDEM: ${m.idem_key}`, { cause: e });
         throw e;
       }
     },
-    update: (id, patch) => patchRow(db, 'outbox', 'id', id, patch, OUTBOX_COLS),
-    get: (id) => byId.get(id) ?? null,
+    update: (id, patch) => patchRow(db, 'outbox', 'id', id, patch, OUTBOX_COLS, ['ctx']),
+    get: (id) => outOut(byId.get(id)),
     hasIdem: (key) => has.get(key) !== undefined,
     recentBotTexts: (chatId, sinceIso, limit) => recent.all(chatId, sinceIso, limit).map((r) => r.text),
     countSent: (chatId, sinceIso) => (chatId === null || chatId === undefined ? cntAll.get(sinceIso) : cntChat.get(chatId, sinceIso)).n,
-    due: (nowIso) => due.all(nowIso),
+    due: (nowIso) => due.all(nowIso).map(outOut),
   };
 }
 

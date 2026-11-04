@@ -1,8 +1,8 @@
 // Cửa gửi duy nhất (contracts/send-gate.md). Thi hành: facts -> decide -> ghi outbox -> gửi kênh -> cập nhật.
 // decide (hàm thuần) nằm ở gate-decide.js. Chỉ tệp này được gọi channel.sendText.
-import { decide, DEFAULT_RULES } from './gate-decide.js';
+import { decide, DEFAULT_RULES, evidenceNumbers } from './gate-decide.js';
 import { splitText } from './text.js';
-import { vnDayStartUtc, nextMorning } from './time.js';
+import { vnDayStartUtc } from './time.js';
 import { redact } from './redact.js';
 
 export { decide, DEFAULT_RULES, evidenceNumbers } from './gate-decide.js';
@@ -56,6 +56,7 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
   /** Gửi các phần còn thiếu của một dòng outbox. Không ném; trả status cuối. */
   async function deliver(id, extra = {}) {
     const o = store.outbox.get(id);
+    extra = { staffId: o.ctx?.staffId ?? null, ...extra };
     const parts = splitText(o.text, channel.maxText ?? 2000);
     let sent = o.parts_sent ?? 0;
     try {
@@ -94,12 +95,19 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
       return { id: null, decision: 'drop', reason: 'duplicate-idem', status: 'dropped' };
     };
     if (d.reason === 'duplicate-idem') return dup();
+    const ctx = {
+      pack: msg.pack ? { id: msg.pack.id ?? null, moneyCheck: msg.pack.moneyCheck === true } : null,
+      evidenceNumbers: [...evidenceNumbers(msg.evidence)],
+      inReplyToAt: msg.inReplyToAt ?? null,
+      debt: f.hasOpenJob,
+      staffId: msg.staffId ?? null,
+    };
     let id;
     try {
       id = store.outbox.insert({
         idem_key: msg.idemKey, chat_id: msg.chatId, turn_id: msg.turnId, kind: msg.kind, text: msg.text,
         decision: d.decision, reason: d.reason, status: STATUS[d.decision], not_before: notBeforeOf(d, nowIso),
-        created_at: nowIso,
+        created_at: nowIso, ctx,
       });
     } catch (e) {
       if (/^DUPLICATE_IDEM/.test(e?.message)) return dup();
@@ -111,12 +119,15 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
     return { id, decision: d.decision, reason: d.reason, status };
   }
 
-  /** Xử lý một dòng đến hạn. Tin hoãn: chạy lại decide với facts mới (bỏ idem: chính dòng này). */
+  /** Xử lý một dòng đến hạn (tin hoãn hoặc tin lỗi chờ thử lại): chạy lại decide ĐẦY ĐỦ với facts mới,
+   *  chỉ bỏ bước idem vì là chính dòng này. Bối cảnh (pack, số trong evidence, mốc trả lời, nợ việc nền, staffId) lấy từ ctx. */
   async function sweepRow(o, nowIso) {
-    if (o.status === 'failed') return deliver(o.id);
-    // Nợ việc nền đã được kiểm lúc gửi lần đầu; tin hoãn không còn mốc "vừa trả lời" nên coi là còn nợ.
-    const m = { idemKey: o.idem_key, chatId: o.chat_id, turnId: o.turn_id, kind: o.kind, text: o.text };
-    const d = decide(m, facts(o.chat_id, nowIso, { hasOpenJob: true }), R);
+    const c = o.ctx ?? {};
+    const m = { idemKey: o.idem_key, chatId: o.chat_id, turnId: o.turn_id, kind: o.kind, text: o.text,
+      inReplyToAt: c.inReplyToAt ?? null, pack: c.pack ?? undefined, evidence: c.evidenceNumbers ?? [] };
+    const f = facts(o.chat_id, nowIso);
+    f.hasOpenJob = Boolean(c.debt) || f.hasOpenJob;
+    const d = decide(m, f, R);
     auditGate(m, d, nowIso);
     signal(o.chat_id, d);
     const status = STATUS[d.decision];

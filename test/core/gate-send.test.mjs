@@ -238,6 +238,7 @@ test('sweep: phòng sang human trước 07:00 → rejected chat-human', async ()
 
 test('sweep: tin defer cap:chat gửi sau khi sang ngày mới (qua giờ yên)', async () => {
   const { gate, ch, clock, tickets, msg, store } = setup({ rules: { capChatDay: 1 } });
+  store.jobs.add(WAITING_JOB); // có nợ việc nền → sáng hôm sau vẫn được gửi
   await gate.send(msg({ idemKey: 'a', text: 'alpha bravo charlie' }));
   const r = await gate.send(msg({ idemKey: 'b', text: 'delta echo foxtrot' }));
   assert.equal(r.reason, 'cap:chat');
@@ -309,4 +310,99 @@ test('sweep: chạy chồng → lần sau trả 0 ngay', async () => {
   assert.equal(ch.sent.length, 1);
   assert.equal(store.outbox.get(r.id).status, 'sent');
   assert.equal(await gate.sweep(), 0);
+});
+
+// ---------- Fix round 1 (review B2) ----------
+test('C-1 money: job_result ban đêm có số tiền không bằng chứng → 07:00 bị reject money:*, onTicket', async () => {
+  const { store, clock, gate, ch, tickets } = setup({ start: LATE });
+  store.jobs.add(WAITING_JOB);
+  const r = await gate.send({ idemKey: 'a', chatId: 'c1', turnId: 't', kind: 'job_result', text: 'Thuế 12.345.000đ', pack: { id: 'hs', moneyCheck: true }, evidence: [] });
+  assert.equal(r.status, 'deferred');
+  clock.set(SEVEN);
+  assert.equal(await gate.sweep(), 1);
+  const o = store.outbox.get(r.id);
+  assert.deepEqual([o.status, o.reason], ['rejected', 'money:12345000']);
+  assert.equal(ch.sent.length, 0);
+  assert.deepEqual(tickets, [['c1', 'money:12345000']]);
+});
+
+test('C-1 money: số tiền CÓ trong evidence → 07:00 vẫn gửi; ctx chỉ chứa số, không chứa chữ của khách', async () => {
+  const { store, clock, gate, ch } = setup({ start: LATE });
+  store.jobs.add(WAITING_JOB);
+  const r = await gate.send({
+    idemKey: 'a', chatId: 'c1', turnId: 't', kind: 'job_result', text: 'Thuế 12.345.000đ',
+    pack: { id: 'hs', moneyCheck: true }, evidence: [{ tool: 'tra_thue', out: 'Khách Nguyễn Văn A 0912345678 thuế 12.345.000đ' }],
+  });
+  const raw = JSON.stringify(store.outbox.get(r.id).ctx);
+  assert.ok(!raw.includes('Nguyễn') && !raw.includes('tra_thue'));
+  assert.ok(store.outbox.get(r.id).ctx.evidenceNumbers.includes(12345000));
+  clock.set(SEVEN);
+  await gate.sweep();
+  assert.equal(store.outbox.get(r.id).status, 'sent');
+  assert.equal(ch.sent.length, 1);
+});
+
+test('C-1 proactive: reply bị cap:chat, khách im, không có nợ → sáng hôm sau rejected proactive-no-debt', async () => {
+  const { gate, ch, clock, store, msg } = setup({ rules: { capChatDay: 1 } });
+  await gate.send(msg({ idemKey: 'a', text: 'alpha bravo' }));
+  const r = await gate.send(msg({ idemKey: 'b', text: 'delta echo' }));
+  assert.equal(r.reason, 'cap:chat');
+  clock.set(SEVEN);
+  await gate.sweep();
+  clock.advance('1d');
+  await gate.sweep();
+  const o = store.outbox.get(r.id);
+  assert.deepEqual([o.status, o.reason], ['rejected', 'proactive-no-debt']);
+  assert.equal(ch.sent.length, 1);
+});
+
+test('C-3 failed retry vào phòng đã sang human → rejected chat-human, không gửi', async () => {
+  let fail = true;
+  const ch = { ...fakeChannel(), sent: [], async sendText(c, t) { if (fail) throw new Error('down'); this.sent.push(t); } };
+  const { store, clock, gate, msg } = setup({ channel: ch });
+  const r = await gate.send(msg());
+  store.chats.setState('c1', 'human', 'nv', 'x', START);
+  fail = false;
+  clock.advance('1m');
+  await gate.sweep();
+  const o = store.outbox.get(r.id);
+  assert.deepEqual([o.status, o.reason], ['rejected', 'chat-human']);
+  assert.equal(ch.sent.length, 0);
+});
+
+test('C-3 failed job_result thử lại trong giờ yên → hoãn tới 07:00', async () => {
+  let fail = true;
+  const ch = { ...fakeChannel(), sent: [], async sendText(c, t) { if (fail) throw new Error('down'); this.sent.push(t); } };
+  const { store, clock, gate, msg } = setup({ channel: ch, start: '2026-11-04T15:58:00.000Z' }); // 22:58 VN
+  store.jobs.add(WAITING_JOB);
+  const r = await gate.send(msg({ kind: 'job_result' }));
+  assert.equal(r.status, 'failed');
+  fail = false;
+  clock.advance('5m'); // 23:03
+  await gate.sweep();
+  const o = store.outbox.get(r.id);
+  assert.deepEqual([o.status, o.reason, o.not_before], ['deferred', 'quiet-hours', SEVEN]);
+  assert.equal(ch.sent.length, 0);
+  clock.set(SEVEN);
+  await gate.sweep();
+  assert.equal(ch.sent.length, 1);
+});
+
+test('I-2 staff_relay thử lại vẫn ghi speaker_id', async () => {
+  let fail = true;
+  const ch = { ...fakeChannel(), async sendText() { if (fail) throw new Error('x'); } };
+  const { store, clock, gate, msg } = setup({ channel: ch });
+  await gate.send(msg({ idemKey: 's', kind: 'staff_relay', staffId: 'nv7', text: 'chào anh' }));
+  fail = false;
+  clock.advance('1m');
+  await gate.sweep();
+  assert.deepEqual(store.messages.recent('c1', 5).map((m) => [m.speaker, m.speaker_id]), [['nhan-vien', 'nv7']]);
+});
+
+test('M-1 text rỗng/khoảng trắng → rejected empty, không messages, không kênh', async () => {
+  const { gate, ch, store, msg } = setup();
+  const r = await gate.send(msg({ text: '   \n ' }));
+  assert.deepEqual([r.decision, r.reason, r.status], ['reject', 'empty', 'rejected']);
+  assert.equal(ch.sent.length, 0);
+  assert.equal(store.messages.recent('c1', 5).length, 0);
 });

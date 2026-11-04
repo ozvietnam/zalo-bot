@@ -1,5 +1,5 @@
 // Lược đồ v1, đúng specs/001-nen-tang-chung/data-model.md.
-// Ghi chú: outbox có thêm `attempts` và `next_retry_at` để thử lại tin 'failed' (T006).
+// Ghi chú: outbox có thêm `attempts`, `next_retry_at` (thử lại tin 'failed') và `ctx` (JSON, bối cảnh để chạy lại decide).
 export const SCHEMA_VERSION = '1';
 
 const DDL = `
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS outbox (
   id INTEGER PRIMARY KEY, idem_key TEXT UNIQUE NOT NULL, chat_id TEXT NOT NULL, turn_id TEXT,
   kind TEXT NOT NULL, text TEXT NOT NULL, decision TEXT NOT NULL, reason TEXT,
   status TEXT NOT NULL, not_before TEXT, parts_sent INTEGER DEFAULT 0,
-  attempts INTEGER DEFAULT 0, next_retry_at TEXT, created_at TEXT, sent_at TEXT);
+  attempts INTEGER DEFAULT 0, next_retry_at TEXT, created_at TEXT, sent_at TEXT, ctx TEXT);
 CREATE TABLE IF NOT EXISTS jobs (
   id INTEGER PRIMARY KEY, chat_id TEXT NOT NULL, session_key TEXT NOT NULL, pack TEXT NOT NULL,
   ma_luot TEXT NOT NULL, result_tool TEXT NOT NULL, context TEXT, status TEXT NOT NULL,

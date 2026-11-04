@@ -127,3 +127,8 @@ test('8 evidence "1.5" chỉ là 1,5, không nhận 15; "1.234" là 1234', () =>
   const t = { text: 'Phí 1.234đ', pack: { moneyCheck: true }, evidence: ['1.234'] };
   assert.equal(run({}, t).decision, 'send');
 });
+
+test('0 text rỗng/khoảng trắng -> reject empty (trước cả duplicate-idem)', () => {
+  assert.deepEqual(run({}, { text: '  ' }), { decision: 'reject', reason: 'empty' });
+  assert.equal(run({ idemExists: true }, { text: '' }).reason, 'empty');
+});

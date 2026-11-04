@@ -25,6 +25,7 @@ send(msg) -> Promise<{ id, decision, reason, status }>
 ## Thứ tự kiểm (tin đầu tiên trượt thì dừng)
 | # | Điều kiện | Quyết định | `reason` |
 |---|---|---|---|
+| 0 | `text` rỗng hoặc chỉ khoảng trắng | `reject` | `empty` |
 | 1 | `idemExists` | `drop` | `duplicate-idem` |
 | 2 | `chatState ∈ {human, blocked}` và `kind ∉ {staff_relay, ticket, digest}` | `reject` | `chat-human` / `chat-blocked` |
 | 3a | Tin **chủ động** (`kind = job_result`, hoặc `reply`/`notice` mà `now − inReplyToAt > 10 phút`) nhưng không có việc nền đang nợ phòng này (`facts.hasOpenJob = false`) | `reject` | `proactive-no-debt` (FR-015: khách im thì máy im) |

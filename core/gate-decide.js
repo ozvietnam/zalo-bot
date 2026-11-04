@@ -73,6 +73,9 @@ export function decide(msg, facts = {}, rules = {}) {
   const text = String(msg.text ?? '');
   const free = NEVER_PROACTIVE.has(msg.kind);
 
+  // 0: tin rỗng không có gì để gửi
+  if (!text.trim()) return out('reject', 'empty');
+
   // 1
   if (facts.idemExists) return out('drop', 'duplicate-idem');
 

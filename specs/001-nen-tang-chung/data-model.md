@@ -60,6 +60,7 @@ Chuyển trạng thái: `bot → human` (khách xin người, `/nhan`, `/tl`, g�
 | `attempts` | INTEGER DEFAULT 0 | số lần thử gửi lại khi `failed` (tối đa 3) |
 | `next_retry_at` | TEXT | mốc thử lại kế tiếp; `outbox.due` lấy `failed` có `attempts < 3` và mốc đã qua |
 | `created_at` / `sent_at` | TEXT | |
+| `ctx` | TEXT (JSON) | bối cảnh để chạy lại `decide` khi quét: `{ pack: { id, moneyCheck }, evidenceNumbers: [số], inReplyToAt, debt, staffId }`. `debt` = `hasOpenJob` lúc quyết định đầu. Chỉ lưu **số**, không lưu chữ của khách |
 
 **Khoá idempotency**:
 - trả lời: `r:<chat_id>:<update_key>:<chỉ số tin trong lượt>`
