@@ -113,6 +113,7 @@ scripts/
 
 **Structure Decision**: Một project. `core/` là lõi chung, `packs/` là nghiệp vụ, `channels/` là kênh.
 `lib/` bị xoá sau khi chuyển xong (T030). Gói và kênh không import lẫn nhau, chỉ import `core/types.js`.
+Ngoại lệ duy nhất: `packs/hs/render.js` import `findLeak` từ `core/redact.js` để lọc câu lỗi nghiệp vụ của Cổng bằng đúng bộ dò lộ của cửa gửi (T015 vòng 2; chép bản thứ hai thì hai bộ dò sẽ lệch nhau).
 
 ## Luồng một lượt
 

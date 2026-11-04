@@ -196,3 +196,22 @@ test('việc nền hết hạn: câu "30 phút" + cách hỏi lại "kết quả
   assert.match(d.replies[0].text, /Chưa có kết quả sau 30 phút/);
   assert.match(d.replies[0].text, new RegExp(`kết quả ${ML}`));
 });
+
+test('lỗi nghiệp vụ của Cổng (gọi thành công, ok:false) vẫn hiện; lỗi truyền tải và chữ lộ nội bộ thì ẩn', async () => {
+  const biz = { ok: false, loi: 'KHONG_TIM_THAY', thongBao: 'Mã 99999999 không tồn tại trong biểu thuế' };
+  const a = await hs.handle(turn('99999999'), fakeCtx({ tra_thue: biz, tra_thu_tuc_nhap_khau: biz }).ctx);
+  assert.match(a.replies[0].text, /Mã 99999999 không tồn tại trong biểu thuế/);
+  const b = await hs.handle(turn('84137090'), fakeCtx({ tra_thue: TAX, tra_thu_tuc_nhap_khau: () => { throw new Error('MCP lỗi HTTP 502'); } }).ctx);
+  assert.doesNotMatch(b.replies[0].text, /MCP lỗi|502/);
+  assert.match(b.replies[0].text, /Cổng tra cứu gặp lỗi ở mục này/);
+  const leak = { ok: false, thongBao: 'Lỗi xử lý tại /app/core/x.js:12:3' };
+  const c = await hs.handle(turn('84137090'), fakeCtx({ tra_thue: TAX, tra_thu_tuc_nhap_khau: leak }).ctx);
+  assert.doesNotMatch(c.replies[0].text, /x\.js|\/app\//);
+  // phân loại trả LOI (dòng 164) và không có kết quả (dòng 199): câu nghiệp vụ hiện, câu lộ thì ẩn
+  const d = await hs.handle(turn('gói 1 Tên hàng: bơm'), fakeCtx({ phan_loai_hs: { ok: true, data: { trangThai: 'LOI', thongBao: 'Mô tả quá ngắn để phân loại' } } }).ctx);
+  assert.match(d.replies[0].text, /Mô tả quá ngắn để phân loại/);
+  const e = await hs.handle(turn('gói 1 Tên hàng: bơm'), fakeCtx({ phan_loai_hs: { ok: true, data: { trangThai: 'LOI', thongBao: 'MCP lỗi HTTP 500 at handler (/app/x.js:1:2)' } } }).ctx);
+  assert.doesNotMatch(e.replies[0].text, /HTTP 500|x\.js/);
+  const f = await hs.handle(turn('gói 1 Tên hàng: bơm'), fakeCtx({ phan_loai_hs: { ok: true, data: { trangThai: 'XONG', thongBao: 'fetch failed ECONNREFUSED 10.0.0.7:3000' } } }).ctx);
+  assert.doesNotMatch(f.replies[0].text, /ECONNREFUSED|10\.0\.0\.7/);
+});

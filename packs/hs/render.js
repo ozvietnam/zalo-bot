@@ -2,6 +2,8 @@
 // Không bịa, không suy: chỉ hiển thị trường máy chủ trả về. Công cụ mới chưa có mẫu riêng vẫn hiển thị được
 // nhờ bộ dựng chung (renderGeneric).
 import { fmtHs } from './format.js';
+// Ngoại lệ có chủ ý với luật "gói chỉ import core/types.js": dùng đúng một bộ dò lộ của cửa gửi (Hiến pháp IX), không chép bản thứ hai.
+import { findLeak } from '../../core/redact.js';
 
 export const MAX_REPLY = 5600;   // ~3 tin Zalo
 
@@ -82,12 +84,24 @@ export function renderGeneric(value, depth = 0, out = [], indent = '') {
 
 export const LOI_CONG = 'Cổng tra cứu gặp lỗi ở mục này, bạn thử lại sau ít phút nhé.';
 
-/** Dòng lỗi cho khách từ kết quả {ok:false, loi, thongBao}. Hiến pháp IX: không in chữ lỗi gốc (thongBao/text có thể chứa
- *  "HTTP 502", ECONNREFUSED host:port…) mà in câu cố định; chỉ `thongBaoKhach` (câu gói tự soạn) được hiện nguyên văn.
- *  Mã lỗi/thongBao chỉ dùng để chọn dòng gợi ý cố định bên dưới. */
+// Chữ của lỗi hệ thống/truyền tải lọt vào thongBao: mã HTTP, MCP/JSON-RPC, mạng, stack, đường dẫn tệp mã.
+const SYS_TEXT = /\bHTTP\s|\bMCP\s|JSON-RPC|\bE(?:CONN\w*|TIMEDOUT|NOTFOUND|AI_AGAIN|PIPE)\b|fetch failed|socket hang up|\bat\s+\S+\s+\(|[\w/.-]+\.(?:m?js|cjs|ts|py):\d+/i;
+
+/** Câu nghiệp vụ Cổng trả (gọi công cụ thành công, kể cả ok:false) được hiện cho khách nếu sạch; ngược lại null. */
+export function businessText(s) {
+  const t = String(s ?? '').split(' | EN:')[0].trim();
+  if (!t || findLeak(t) || SYS_TEXT.test(t)) return null;
+  return t;
+}
+
+/** Dòng lỗi cho khách từ kết quả {ok:false, loi, thongBao}.
+ *  - Lỗi truyền tải (gói bắt ngoại lệ → `transport: true`): câu cố định, chi tiết đã ở audit `tool` của lõi.
+ *  - Lỗi nghiệp vụ (Cổng trả về, ví dụ "mã không tồn tại"): hiện như cũ, trừ khi chữ lộ nội bộ (businessText) → câu cố định.
+ *  - `thongBaoKhach`: câu gói tự soạn, hiện nguyên văn. Hiến pháp IX. */
 export function renderError(r) {
   const msg = String(r?.thongBao || r?.text || '');
-  const lines = [`⚠️ ${r?.thongBaoKhach ? clip(String(r.thongBaoKhach), 300) : LOI_CONG}`];
+  const shown = r?.thongBaoKhach ? String(r.thongBaoKhach) : (!r?.transport && businessText(msg)) || LOI_CONG;
+  const lines = [`⚠️ ${clip(shown, 300)}`];
   if (/DANG_NHAP|TAI_KHOAN|UNAUTH|401|403/i.test(`${r?.loi} ${msg}`)) lines.push('Công cụ này cần tài khoản OZ — liên hệ quản trị bot để cấu hình.');
   if (/HET_DIEM|KHONG_DU_DIEM|DIEM/i.test(r?.loi || '')) lines.push('Tài khoản OZ của bot đã hết điểm cho công cụ này.');
   if (r?.diemDaHoan) lines.push('Điểm đã được hoàn.');
@@ -165,7 +179,7 @@ export function renderClassify(r, { title } = {}) {
   const kq = top.ketQua && typeof top.ketQua === 'object' ? top.ketQua : top;
   const st = top.trangThai || r.trangThai;
   if (st === 'DANG_XU_LY') return `${title ? `${title}\n` : ''}⏳ Đang xử lý, bot sẽ gửi kết quả khi xong.`;
-  if (st === 'LOI') return `${title ? `${title}\n` : ''}⚠️ ${clip(top.thongBao || 'Phân loại thất bại.', 200)}${top.daHoanDiem ? ' Điểm đã được hoàn.' : ''}`;
+  if (st === 'LOI') return `${title ? `${title}\n` : ''}⚠️ ${clip(businessText(top.thongBao) || 'Phân loại thất bại.', 200)}${top.daHoanDiem ? ' Điểm đã được hoàn.' : ''}`;
 
   const status = String(kq.status || '');
   const canHoi = st === 'CAN_DU_KIEN' || status === 'NEED_FACTS';
@@ -200,7 +214,7 @@ export function renderClassify(r, { title } = {}) {
   if (cwText) l.push('', `⚠️ ${clip(cwText, 200)}`);
   const vb = kq.canCuPhapLy?.vanBan?.soHieu;
   if (vb) l.push('', `Căn cứ phân loại: ${vb}`);
-  if (l.length <= (title ? 1 : 0)) l.push(clip(top.thongBao || 'Chưa có kết quả rõ ràng.', 200));
+  if (l.length <= (title ? 1 : 0)) l.push(clip(businessText(top.thongBao) || 'Chưa có kết quả rõ ràng.', 200));
   return l.join('\n');
 }
 
