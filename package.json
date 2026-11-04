@@ -4,9 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Bot Zalo tra cứu hải quan — nguồn hs-code-api (OZ Việt Nam)",
-  "engines": {
-    "node": ">=22.13"
-  },
+  "engines": { "node": ">=22.13" },
   "scripts": {
     "dev": "node --env-file=.env --disable-warning=ExperimentalWarning server.js",
     "start": "node --disable-warning=ExperimentalWarning server.js",
