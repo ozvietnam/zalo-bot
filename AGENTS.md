@@ -3,6 +3,7 @@
 Repo bot Zalo dùng chung cho toàn công ty OZ Việt Nam. Người và agent (Claude Code, Codex, Cursor…) đều theo đúng quy trình dưới đây.
 
 ## Đọc trước khi làm bất cứ việc gì
+0. **`docs/TIEP-TUC.md`**: trạng thái mới nhất, việc làm tiếp, việc đang chờ.
 1. `.specify/memory/constitution.md`: 9 nguyên tắc không thương lượng. Vi phạm là lỗi chặn merge.
 2. `docs/ROADMAP.md`: spec nào đang làm, spec nào chưa được làm.
 3. Thư mục spec đang làm, ví dụ `specs/001-nen-tang-chung/`: `spec.md` → `plan.md` → `tasks.md`.
