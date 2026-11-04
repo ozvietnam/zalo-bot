@@ -7,6 +7,7 @@ export function inboxTable(db) {
   const byKey = db.prepare('SELECT * FROM inbox WHERE update_key = ?');
   const done = db.prepare("UPDATE inbox SET status = 'done', done_at = ? WHERE update_key = ?");
   const failed = db.prepare("UPDATE inbox SET status = 'failed', done_at = ?, error = ? WHERE update_key = ?");
+  const claim = db.prepare("UPDATE inbox SET status = 'processing', claimed_at = ? WHERE update_key = ? AND status = 'pending'");
   return {
     insertIgnore(r) {
       try {
@@ -19,6 +20,8 @@ export function inboxTable(db) {
     },
     get: (key) => byKey.get(key) ?? null,
     pending: () => pending.all(),
+    /** pending → processing nguyên tử; chỉ người gọi nhận true mới được chạy gói. (T020: processing quá 5 phút coi như pending.) */
+    claim: (key, at) => Number(claim.run(at, key).changes) === 1,
     markDone: (key, at) => { done.run(at, key); },
     markFailed: (key, err, at) => { failed.run(at, String(err ?? ''), key); },
   };
@@ -66,7 +69,8 @@ const jobOut = (r) => (r ? { ...r, context: fromJson(r.context) } : r);
 export function jobsTable(db) {
   const ins = db.prepare(`INSERT INTO jobs (chat_id, session_key, pack, ma_luot, result_tool, context, status, attempts, next_poll_at, expires_at, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-  const open = db.prepare("SELECT 1 FROM jobs WHERE chat_id = ? AND (status = 'waiting' OR (status = 'done' AND done_at >= ?)) LIMIT 1");
+  const open = db.prepare("SELECT 1 FROM jobs WHERE chat_id = ? AND (status IN ('waiting','polling') OR (status = 'done' AND done_at >= ?)) LIMIT 1");
+  const claimJob = db.prepare("UPDATE jobs SET status = 'polling' WHERE id = ? AND status = 'waiting'");
   const due = db.prepare("SELECT * FROM jobs WHERE status = 'waiting' AND next_poll_at <= ? ORDER BY next_poll_at, id");
   const next = db.prepare("SELECT MIN(next_poll_at) AS t FROM jobs WHERE status = 'waiting'");
   return {
@@ -80,9 +84,11 @@ export function jobsTable(db) {
       }
     },
     due: (nowIso) => due.all(nowIso).map(jobOut),
+    /** waiting → polling nguyên tử trước khi hỏi Cổng; xong thì về waiting/done/expired/failed. */
+    claim: (id) => Number(claimJob.run(id).changes) === 1,
     /** Mốc hỏi sớm nhất của việc đang 'waiting', hoặc null. */
     nextDue: () => next.get()?.t ?? null,
-    /** Phòng còn việc nền nợ: đang 'waiting', hoặc 'done' từ sinceIso trở lại. */
+    /** Phòng còn việc nền nợ: đang 'waiting'/'polling', hoặc 'done' từ sinceIso trở lại. */
     openFor: (chatId, sinceIso) => open.get(chatId, sinceIso) !== undefined,
     update: (id, patch) => patchRow(db, 'jobs', 'id', id, patch, JOB_COLS, ['context']),
   };

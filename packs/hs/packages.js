@@ -134,7 +134,7 @@ export const PACKAGES = [
       const xuatXu = countryCode(text.replace(/[\d.\s]{4,}/, '').trim()) || findCountryInText(text) || 'CN';
       const [thue, thuTuc] = await Promise.all([
         ctx.mcp.callTool('tra_thue', { maHs, xuatXu }),
-        maHs.length === 8 && has(ctx, 'tra_thu_tuc_nhap_khau') ? ctx.mcp.callTool('tra_thu_tuc_nhap_khau', { maHs }).catch((e) => ({ ok: false, thongBao: e.message })) : null,
+        maHs.length === 8 && has(ctx, 'tra_thu_tuc_nhap_khau') ? ctx.mcp.callTool('tra_thu_tuc_nhap_khau', { maHs }).catch(() => ({ ok: false, loi: 'CONG_KHONG_TRA_LOI' })) : null,
       ]);
       const parts = [renderResult(thue, { title: `💰 Thuế — ${fmtHs(maHs)} (xuất xứ ${xuatXu})`, renderer: 'tax' })];
       if (thuTuc) parts.push(renderResult(thuTuc, { title: '📋 Thủ tục / chính sách quản lý' }));
@@ -215,7 +215,7 @@ export const PACKAGES = [
         jobs.push(['🗂️ Tiền lệ phân loại', ctx.mcp.callTool('tra_tien_le', { moTa: conLai.slice(0, 300) })]);
       }
       if (!jobs.length) return ask('Chưa thấy số hiệu văn bản, mã HS hay mô tả hàng.', this.mau);
-      const res = await Promise.all(jobs.map(([, p]) => p.catch((e) => ({ ok: false, thongBao: e.message }))));
+      const res = await Promise.all(jobs.map(([, p]) => p.catch(() => ({ ok: false, loi: 'CONG_KHONG_TRA_LOI' }))));   // lỗi gốc đã vào audit 'tool' của lõi
       return jobs.map(([t], i) => renderResult(res[i], { title: t })).join('\n\n');
     },
   },

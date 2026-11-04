@@ -7,7 +7,7 @@ import { route, autoPick } from '../lib/router.js';
 import { PACKAGES, availablePackages, menuText, pickHs } from '../lib/packages.js';
 import { parseLabeled, firstHs8, soHieuList, countryCode } from '../lib/input.js';
 import { renderResult, renderGeneric } from '../lib/render.js';
-import { createBot } from '../core/engine-compat.js';
+import { createBot } from './helpers/legacy-bot.mjs';
 import { stripMention, isGroup } from '../core/mention.js';
 
 let pass = 0;
@@ -116,7 +116,7 @@ await t('định tuyến: menu / chọn số / "gói 2 <nội dung>" / tự đ�
 
 await t('render: lỗi backend thân thiện, chung cho công cụ mới, rút gọn', () => {
   const e = renderResult(ERR, { title: 'X' });
-  assert.match(e, /Hệ thống tra cứu HS gặp lỗi/); assert.doesNotMatch(e, /EN:/); assert.match(e, /hoàn/);
+  assert.match(e, /Cổng tra cứu gặp lỗi/); assert.doesNotMatch(e, /EN:|HTTP 404/); assert.match(e, /hoàn/);
   const g = renderGeneric({ maDeXuat: '84137090', confidence: 0.82, maThayThe: [{ hsCode: '84138190', nameVi: 'Loại khác' }], nguon: [1] }).join('\n');
   assert.match(g, /Mã đề xuất: 8413\.70\.90/); assert.match(g, /82%/); assert.match(g, /8413\.81\.90 — Loại khác/); assert.doesNotMatch(g, /Nguon/i);
   assert.match(renderResult({ ok: true, text: 'chữ thường từ công cụ mới' }), /chữ thường/);
@@ -225,6 +225,7 @@ await t('bot: Cổng mất kết nối → câu báo lỗi + menu; nhóm: @tên 
   assert.match(zalo.sent[0][1], /^@An\n®️ Gói 6/);
   assert.match(zalo.sent[1][1], /^@Binh\n/);
   assert.match(zalo.sent[1][1], /lỗi tạm thời/);
+  assert.doesNotMatch(zalo.sent[1][1], /MCP lỗi HTTP 502/);
   assert.equal(stripMention('@OZ Tra cứu HS, máy bơm', ['OZ Tra cứu HS']), 'máy bơm');
   assert.ok(isGroup({ chatType: 'GROUP' }));
 });

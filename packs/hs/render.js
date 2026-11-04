@@ -80,10 +80,14 @@ export function renderGeneric(value, depth = 0, out = [], indent = '') {
   return out;
 }
 
-/** Dòng lỗi thân thiện từ kết quả {ok:false, loi, thongBao}. */
+export const LOI_CONG = 'Cổng tra cứu gặp lỗi ở mục này, bạn thử lại sau ít phút nhé.';
+
+/** Dòng lỗi cho khách từ kết quả {ok:false, loi, thongBao}. Hiến pháp IX: không in chữ lỗi gốc (thongBao/text có thể chứa
+ *  "HTTP 502", ECONNREFUSED host:port…) mà in câu cố định; chỉ `thongBaoKhach` (câu gói tự soạn) được hiện nguyên văn.
+ *  Mã lỗi/thongBao chỉ dùng để chọn dòng gợi ý cố định bên dưới. */
 export function renderError(r) {
-  const msg = String(r?.thongBao || r?.text || r?.loi || 'Không rõ lỗi').split(' | EN:')[0];
-  const lines = [`⚠️ ${clip(msg, 300)}`];
+  const msg = String(r?.thongBao || r?.text || '');
+  const lines = [`⚠️ ${r?.thongBaoKhach ? clip(String(r.thongBaoKhach), 300) : LOI_CONG}`];
   if (/DANG_NHAP|TAI_KHOAN|UNAUTH|401|403/i.test(`${r?.loi} ${msg}`)) lines.push('Công cụ này cần tài khoản OZ — liên hệ quản trị bot để cấu hình.');
   if (/HET_DIEM|KHONG_DU_DIEM|DIEM/i.test(r?.loi || '')) lines.push('Tài khoản OZ của bot đã hết điểm cho công cụ này.');
   if (r?.diemDaHoan) lines.push('Điểm đã được hoàn.');

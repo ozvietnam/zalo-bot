@@ -83,7 +83,6 @@ core/
 ├── registry.js           # nạp packs/, lọc audience + requiresTools, chọn gói
 ├── engine.js             # một lượt: inbox → state → pack → gate → audit
 ├── engine-ctx.js  engine-jobs.js   # ctx cho gói (MCP ghi audit, đệm công cụ, phiên, lịch sử) và bộ hỏi việc nền tối thiểu, tách cho engine.js < 300 dòng (T015; engine-jobs.js chuyển thành jobs.js ở T021)
-├── engine-compat.js      # createBot chữ ký cũ trên engine cho 21 test cũ (T015; bỏ khi test cũ chuyển hẳn sang createEngine)
 ├── mention.js            # stripMention + isGroup chuyển từ lib/bot.js, lõi bỏ "@Tên bot" ở text và caption (T015)
 ├── audit.js              # ghi + đọc audit
 ├── customers.js          # hồ sơ khách, nhãn theo luật, SĐT
@@ -105,6 +104,7 @@ eval/
 test/
 ├── test.mjs              # 21 test hiện có, chỉ sửa đường import
 ├── helpers/fakes.mjs     # Zalo giả, MCP giả, đồng hồ giả, db :memory:
+├── helpers/legacy-bot.mjs  # createBot chữ ký cũ trên engine, CHỈ cho test.mjs (T015; nằm ở test/ để server.js không dùng nhầm luật nới)
 └── core/*.test.mjs       # test của từng module lõi
 scripts/
 ├── set-webhook.mjs       # giữ nguyên

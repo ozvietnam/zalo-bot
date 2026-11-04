@@ -15,7 +15,8 @@ Lược đồ tạo bằng `core/store/schema.js#migrate()` (được `openStore
 | `chat_id` | TEXT NOT NULL | |
 | `user_id` | TEXT | |
 | `raw` | TEXT NOT NULL | JSON update gốc |
-| `status` | TEXT NOT NULL | `pending → done` hoặc `failed` |
+| `status` | TEXT NOT NULL | `pending → processing → done` hoặc `failed`. `inbox.claim(key, at)` đổi `pending → processing` nguyên tử; chỉ ai claim được mới chạy gói (review T015 C1). T020: `processing` quá 5 phút coi như `pending` |
+| `claimed_at` | TEXT | lúc claim |
 | `received_at` | TEXT NOT NULL | |
 | `done_at` | TEXT | |
 | `error` | TEXT | đã che bí mật |
@@ -80,7 +81,7 @@ Chuyển trạng thái: `bot → human` (khách xin người, `/nhan`, `/tl`, g�
 | `ma_luot` | TEXT NOT NULL | UNIQUE(`pack`, `ma_luot`) |
 | `result_tool` | TEXT NOT NULL | vd `ket_qua_phan_loai` |
 | `context` | TEXT | JSON gói cần để dựng tin kết quả |
-| `status` | TEXT NOT NULL | `waiting | done | expired | failed` |
+| `status` | TEXT NOT NULL | `waiting → polling → waiting | done | expired | failed`. `jobs.claim(id)` đổi `waiting → polling` nguyên tử trước khi hỏi Cổng; `polling` vẫn tính là nợ (`openFor`) |
 | `attempts` | INTEGER DEFAULT 0 | |
 | `next_poll_at` | TEXT NOT NULL | |
 | `expires_at` | TEXT NOT NULL | mặc định tạo + 30 phút |
@@ -104,7 +105,7 @@ Chuyển trạng thái: `bot → human` (khách xin người, `/nhan`, `/tl`, g�
 | `at` | TEXT NOT NULL | |
 | `turn_id` | TEXT | một lượt = một `update_key`, hoặc `job:<id>` |
 | `chat_id` | TEXT | |
-| `type` | TEXT NOT NULL | `inbound | route | tool | gate | outbound | state-change | staff-cmd | error` |
+| `type` | TEXT NOT NULL | `inbound | route | tool | gate | outbound | state-change | staff-cmd | error`. Lượt bỏ qua vì chào kết ghi `outbound` với `data.skipped = 'closer'` (không có tin ra; số liệu T029 không đếm là tin gửi) |
 | `data` | TEXT NOT NULL | JSON đã che bí mật; kết quả công cụ lưu `sha1` + 500 ký tự đầu |
 
 Giữ 90 ngày; `store.audit.prune(beforeIso)` chạy mỗi ngày lúc 03:00 giờ VN.

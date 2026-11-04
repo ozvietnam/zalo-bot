@@ -8,6 +8,8 @@ import { norm } from './input.js';
 import { photoFlow } from './flow-photo.js';
 import { openTurn, result } from './flow-turn.js';
 
+const JOB_TTL_MS = 30 * 60_000;   // lõi bỏ chờ việc nền sau 30 phút (core/engine-jobs.js); câu hết hạn ghi đúng số phút
+
 const OK_RE = /^(ok|oke|okay|dung|chuan|xac nhan|dong y|yes|y|uh|u|vang)[.!]*$/;
 const ANH_RE = /(ten hang|thong so|model|thuong hieu|chat lieu)\s*:/;
 
@@ -71,8 +73,8 @@ async function textFlow(turn, ctx, st) {
         return result(st, []);
     }
   } catch (e) {
-    ctx.log?.error?.(`[hs] lỗi (${r.kind}${r.pkg ? ` gói ${r.pkg.so}` : ''}): ${e.message}`);
-    return one(`⚠️ Cổng tra cứu OZ đang lỗi tạm thời (${String(e.message).slice(0, 120)}). Bạn thử lại sau ít phút nhé.\n\n${st.footer}`);
+    ctx.log?.error?.(`[hs] lỗi (${r.kind}${r.pkg ? ` gói ${r.pkg.so}` : ''}): ${e.message}`);   // chi tiết chỉ vào log (lõi che bí mật)
+    return one(`⚠️ Cổng tra cứu OZ đang lỗi tạm thời. Bạn thử lại sau ít phút nhé.\n\n${st.footer}`);   // Hiến pháp IX: không kèm lỗi gốc
   }
 }
 
@@ -98,7 +100,7 @@ export default {
       if (turn.photoUrl) {
         try { return await photoFlow(turn, ctx, st); } catch (e) {
           ctx.log?.error?.(`[hs] lỗi ảnh: ${e.message}`);
-          return result(st, [`⚠️ Chưa đọc được ảnh (${String(e.message).slice(0, 120)}). Bạn gõ tên hàng + thông số bằng chữ giúp bot nhé.\n\n${st.footer}`]);
+          return result(st, [`⚠️ Chưa đọc được ảnh. Bạn gõ tên hàng + thông số bằng chữ giúp bot nhé.\n\n${st.footer}`]);
         }
       }
       return await textFlow(turn, ctx, st);
@@ -112,7 +114,7 @@ export default {
     const st = openTurn(ctx);
     try {
       const c = job.context || {};
-      const r = res == null ? hetHan(job.maLuot) : { ...res, maLuot: job.maLuot };
+      const r = res == null ? hetHan(job.maLuot, JOB_TTL_MS) : { ...res, maLuot: job.maLuot };
       const pkg = PACKAGES.find((p) => p.so === c.goi);
       const body = pkg?.xong ? pkg.xong(r, c, st.pctx()) : renderResult(r, { title: `📥 Kết quả lượt ${job.maLuot}` });
       const calls = [{ name: job.resultTool, args: {}, result: r }];

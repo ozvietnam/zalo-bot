@@ -167,8 +167,32 @@ test('kiểm sâu gói 4 → job ket_qua_soat; "kết quả <mã lượt>" hỏi
   assert.match(k.replies[0].text, new RegExp(`^📥 Kết quả lượt ${ML}`)); assert.deepEqual(k.labels, ['tra-cuu-hs']);
 });
 
-test('Cổng lỗi → câu báo lỗi tạm thời + menu (như cũ), không ném', async () => {
+test('Cổng lỗi → câu báo lỗi tạm thời + menu, không ném, không kèm lỗi gốc (Hiến pháp IX)', async () => {
+  const logged = [];
   const { ctx } = fakeCtx({ tra_thue: () => { throw new Error('MCP lỗi HTTP 502'); } });
+  ctx.log = { info() {}, error: (m) => logged.push(m) };
   const r = await hs.handle(turn('84137090'), ctx);
-  assert.match(r.replies[0].text, /^⚠️ Cổng tra cứu OZ đang lỗi tạm thời \(MCP lỗi HTTP 502\)/); assert.ok(r.replies[0].text.endsWith(FOOTER));
+  assert.match(r.replies[0].text, /^⚠️ Cổng tra cứu OZ đang lỗi tạm thời\. Bạn thử lại sau ít phút nhé\./); assert.ok(r.replies[0].text.endsWith(FOOTER));
+  assert.doesNotMatch(r.replies[0].text, /502|MCP lỗi/);
+  assert.ok(logged.some((m) => /MCP lỗi HTTP 502/.test(m)));        // chi tiết chỉ vào log
+});
+
+const RAW = 'ECONNREFUSED 10.0.0.7:3000 fetch failed';
+test('lỗi gốc không lọt ra khách: ảnh lỗi, thủ tục lỗi (gói 2), gói 5 lỗi, kết quả Cổng ok:false', async () => {
+  const vision = { readSpecs: async () => { throw new Error(RAW); } };
+  const a = await hs.handle(photo(), fakeCtx({}, { vision }).ctx);
+  assert.match(a.replies[0].text, /^⚠️ Chưa đọc được ảnh\. Bạn gõ tên hàng/);
+  const b = await hs.handle(turn('84137090'), fakeCtx({ tra_thue: TAX, tra_thu_tuc_nhap_khau: () => { throw new Error(RAW); } }).ctx);
+  const c = await hs.handle(turn('gói 5 8413'), fakeCtx({ tra_chu_giai: () => { throw new Error(RAW); } }).ctx);
+  const d = await hs.handle(turn('84137090'), fakeCtx({ tra_thue: TAX, tra_thu_tuc_nhap_khau: ERR }).ctx);
+  for (const r of [a, b, c, d]) assert.doesNotMatch(r.replies[0].text, /ECONNREFUSED|10\.0\.0\.7|fetch failed|HTTP 404/, r.replies[0].text);
+  assert.match(b.replies[0].text, /Thủ tục[\s\S]*gặp lỗi/);
+  assert.match(d.replies[0].text, /Điểm đã được hoàn/);
+});
+
+test('việc nền hết hạn: câu "30 phút" + cách hỏi lại "kết quả <mã lượt>" vẫn hiện', async () => {
+  const { ctx } = fakeCtx();
+  const d = await hs.onJobResult({ maLuot: ML, resultTool: 'ket_qua_phan_loai', context: { goi: 1 } }, null, ctx);
+  assert.match(d.replies[0].text, /Chưa có kết quả sau 30 phút/);
+  assert.match(d.replies[0].text, new RegExp(`kết quả ${ML}`));
 });

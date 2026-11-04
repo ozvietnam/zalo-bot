@@ -39,6 +39,29 @@ test('inbox', () => {
   assert.equal(s.inbox.pending().length, 0);
 });
 
+test('inbox.claim: pending → processing đúng một lần (claimed_at), pending() bỏ dòng processing', () => {
+  const s = openStore();
+  s.inbox.insertIgnore({ update_key: 'q', chat_id: 'c', raw: '{}', received_at: T });
+  assert.equal(s.inbox.claim('q', at(1)), true);
+  assert.equal(s.inbox.claim('q', at(2)), false);
+  assert.equal(s.inbox.claim('khong-co', at(2)), false);
+  assert.deepEqual([s.inbox.get('q').status, s.inbox.get('q').claimed_at], ['processing', at(1)]);
+  assert.equal(s.inbox.pending().length, 0);
+  s.inbox.markDone('q', at(3));
+  assert.equal(s.inbox.claim('q', at(4)), false);
+});
+
+test('jobs.claim: waiting → polling đúng một lần; polling vẫn là nợ (openFor), không due', () => {
+  const s = openStore();
+  const id = s.jobs.add({ chat_id: 'c', session_key: 'c', pack: 'hs', ma_luot: 'L9', result_tool: 'kq', status: 'waiting', next_poll_at: at(1), expires_at: at(30), created_at: T });
+  assert.equal(s.jobs.claim(id), true);
+  assert.equal(s.jobs.claim(id), false);
+  assert.equal(s.jobs.due(at(5)).length, 0);
+  assert.equal(s.jobs.openFor('c', T), true);
+  s.jobs.update(id, { status: 'waiting' });
+  assert.equal(s.jobs.claim(id), true);
+});
+
 test('inbox: done_at uses caller clock; NOT NULL violation throws, duplicate does not', () => {
   const s = openStore();
   const row = { update_key: 'k', chat_id: 'c', raw: '{}', status: 'pending', received_at: T };

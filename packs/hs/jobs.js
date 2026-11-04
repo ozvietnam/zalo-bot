@@ -7,7 +7,10 @@ const has = (ctx, name) => !ctx.tools || ctx.tools.has(name);
 /** Câu báo việc nền đang chạy (lượt đầu gửi câu này, kết quả gửi sau). */
 export const notice = (label = 'Đang xử lý') => `⏳ ${label}… thường mất 1–3 phút, bot sẽ gửi kết quả ngay khi xong.`;
 /** Kết quả thay thế khi việc nền hết hạn mà chưa xong. */
-export const hetHan = (maLuot, maxMs = 240000) => ({ ok: false, thongBao: `Chưa có kết quả sau ${Math.round(maxMs / 60000)} phút. Mã lượt: ${maLuot} — hỏi lại sau bằng cách gõ: kết quả ${maLuot}` });
+export const hetHan = (maLuot, maxMs = 240000) => {
+  const t = `Chưa có kết quả sau ${Math.round(maxMs / 60000)} phút. Mã lượt: ${maLuot} — hỏi lại sau bằng cách gõ: kết quả ${maLuot}`;
+  return { ok: false, thongBao: t, thongBaoKhach: t };   // thongBaoKhach: câu do gói tự soạn, được phép hiện cho khách
+};
 
 /** Không chờ: biên nhận {maLuot, trangThai: DANG_XU_LY} → { job: {maLuot, resultTool} }; còn lại (hoặc Cổng thiếu resultTool) → { result: r }. */
 export function toJob(r, resultTool, ctx = {}) {

@@ -1,5 +1,5 @@
 // Lõi một lượt (plan.md "Luồng một lượt"): parse → chống trùng → chats → ALLOW/giới hạn → turn → audit → gói → cửa → jobs → inbox.done.
-// Lõi không biết gói làm gì; mọi tin ra đi qua gate.send. Thay createBot của lib/bot.js (đường cũ: core/engine-compat.js).
+// Lõi không biết gói làm gì; mọi tin ra đi qua gate.send. Thay createBot của lib/bot.js (đường cũ cho test: test/helpers/legacy-bot.mjs).
 import { createHash } from 'node:crypto';
 import { redact } from './redact.js';
 import { isCloser } from './text.js';
@@ -43,7 +43,7 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
 
   const audit = (type, chatId, turnId, data) => store.audit.add({ at: now().toISOString(), turn_id: turnId, chat_id: chatId, type, data });
 
-  /** Gửi một câu trả lời cho lượt qua cửa (idem r:<chat>:<turn>:<i>). */
+  /** Gửi một câu trả lời cho lượt qua cửa (idem r:<chat>:<turn>:<i>; câu báo lỗi chung dùng i = 'err'). */
   function reply(turn, text, i, { kind = 'reply', pack = null, evidence = [] } = {}) {
     return gate.send({
       idemKey: `r:${turn.chatId}:${turn.turnId}:${i}`, chatId: turn.chatId, turnId: turn.turnId, kind,
@@ -56,13 +56,15 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
   async function process(update) {
     const nowIso = now().toISOString();
     const u = update && typeof update === 'object' && 'updateKey' in update ? update : channel.parse(update);
-    if (!u || !u.chatId) return { skipped: 'no-chat' };
+    if (!u || !u.chatId) return { skipped: 'no-chat', turnId: null };
     const key = u.updateKey;
-    // Chống trùng: server ghi inbox (pending) trước; gọi thẳng (test) thì lõi tự ghi. Dòng đã done/failed = trùng.
-    const row = store.inbox.get(key);
-    const fresh = row ? row.status === 'pending'
-      : store.inbox.insertIgnore({ update_key: key, chat_id: u.chatId, user_id: u.userId ?? null, raw: json(u.raw ?? u), received_at: nowIso });
-    if (!fresh) return { skipped: 'duplicate', turnId: key };
+    // Chống trùng: server ghi inbox (pending) trước; gọi thẳng (test) thì lõi tự ghi. Chỉ ai claim được pending → processing
+    // mới chạy gói (cùng khoá đang chạy, done hay failed đều là trùng). Ghi + claim trong một giao dịch.
+    const mine = store.tx(() => {
+      if (!store.inbox.get(key)) store.inbox.insertIgnore({ update_key: key, chat_id: u.chatId, user_id: u.userId ?? null, raw: json(u.raw ?? u), received_at: nowIso });
+      return store.inbox.claim(key, nowIso);
+    });
+    if (!mine) return { skipped: 'duplicate', turnId: key };
     const done = (r) => { store.inbox.markDone(key, now().toISOString()); return { ...r, turnId: key }; };
 
     const group = isGroup(u);
@@ -85,23 +87,23 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
     const caption = u.caption == null ? null : stripMention(u.caption, names);
     if (!isPhoto && !text) return done({ skipped: 'empty' });
     const turn = { ...base, text, caption, photoUrl: isPhoto ? u.photoUrl : null, isStaff: staff.has(u.userId) };
-    const said = isPhoto ? `[ảnh] ${turn.photoUrl}${caption ? ` ${caption}` : ''}` : text;
-    audit('inbound', turn.chatId, key, { event: u.event, isGroup: group, userId: turn.userId, sha1: sha1(said), head: redact(said).slice(0, 500) });
-
-    const sessionKey = sessionKeyOf(u, group);
-    const session = sessionApi({ store, key: sessionKey, ttlMs, now });
-    session.touch();
-    const last = store.messages.recent(turn.chatId, 1)[0];
-    store.messages.add({ chat_id: turn.chatId, turn_id: key, speaker: 'khach', speaker_id: turn.userId, text: said, at: nowIso });
-    // Chào kết ("cảm ơn ạ") ngay sau câu bot: im. Đang chờ xác nhận ảnh thì "ok" là câu trả lời, phải tới gói.
-    if (!isPhoto && isCloser(text) && last?.speaker === 'bot' && !session.get().choXacNhanAnh) {
-      audit('outbound', turn.chatId, key, { skipped: 'closer', results: [] });
-      return done({ skipped: 'closer' });
-    }
-
     let pack = null;
     let ctx = null;
     try {
+      const said = isPhoto ? `[ảnh] ${turn.photoUrl}${caption ? ` ${caption}` : ''}` : text;
+      audit('inbound', turn.chatId, key, { event: u.event, isGroup: group, userId: turn.userId, sha1: sha1(said), head: redact(said).slice(0, 500) });
+
+      const sessionKey = sessionKeyOf(u, group);
+      const session = sessionApi({ store, key: sessionKey, ttlMs, now });
+      session.touch();
+      const last = store.messages.recent(turn.chatId, 1)[0];
+      store.messages.add({ chat_id: turn.chatId, turn_id: key, speaker: 'khach', speaker_id: turn.userId, text: said, at: nowIso });
+      // Chào kết ("cảm ơn ạ") ngay sau câu bot: im. Đang chờ xác nhận ảnh thì "ok" là câu trả lời, phải tới gói.
+      if (!isPhoto && isCloser(text) && last?.speaker === 'bot' && !session.get().choXacNhanAnh) {
+        audit('outbound', turn.chatId, key, { skipped: 'closer', results: [] });
+        return done({ skipped: 'closer' });
+      }
+
       ctx = buildCtx({ store, mcp, tools: await tools(), vision, now, log, chatId: turn.chatId, turnId: key, sessionKey, ttlMs });
       pack = registry.pick(turn, ctx);
       audit('route', turn.chatId, key, { pack: pack?.id ?? null });
@@ -125,20 +127,31 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
     } catch (e) {
       const message = redact(e?.message);
       log.error?.(`[engine] lỗi lượt (gói ${pack?.id ?? '-'}): ${message}`);
-      audit('error', turn.chatId, key, { stage: 'turn', pack: pack?.id ?? null, message: message.slice(0, 500) });
+      try { audit('error', turn.chatId, key, { stage: 'turn', pack: pack?.id ?? null, message: message.slice(0, 500) }); } catch { /* db hỏng: vẫn báo khách */ }
       try {
         const footer = pack?.footer?.(ctx ?? {}) || hsFooter(ctx ?? {});
-        await reply(turn, footer ? `${GENERIC_ERROR_TEXT}\n\n${footer}` : GENERIC_ERROR_TEXT, 0, { pack });
+        await reply(turn, footer ? `${GENERIC_ERROR_TEXT}\n\n${footer}` : GENERIC_ERROR_TEXT, 'err', { pack });
       } catch (e2) {
         log.error?.(`[engine] không gửi được câu báo lỗi: ${redact(e2?.message)}`);
       }
-      store.inbox.markFailed(key, message.slice(0, 500), now().toISOString());
+      try { store.inbox.markFailed(key, message.slice(0, 500), now().toISOString()); } catch (e3) { log.error?.(`[engine] không ghi được inbox failed: ${redact(e3?.message)}`); }
       return { handled: 'error', turnId: key };
     }
   }
 
   /** Chạy việc đến hạn (việc nền + quét outbox) tới khi một lượt quét không còn việc. Đồng hồ ảo: nhảy tới mốc việc nền kế. */
+  let draining = false;
   async function drain() {
+    if (draining) return;   // drain chồng (bộ hẹn giờ + gọi tay) → lần sau về ngay, như gate.sweep
+    draining = true;
+    try {
+      await drainLoop();
+    } finally {
+      draining = false;
+    }
+  }
+
+  async function drainLoop() {
     for (let guard = 0; guard < 10_000; guard++) {
       const n = await pollDueJobs({ store, mcp, registry, gate, now, log, tools, vision, ttlMs, addressOf });
       const m = await gate.sweep();

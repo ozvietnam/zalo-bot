@@ -1,13 +1,13 @@
-// createBot cũ (chữ ký của lib/bot.js) dựng trên lõi mới, để 21 test cũ chạy trên engine. T016 nối server.js thẳng vào createEngine.
-// Store trong bộ nhớ, cửa với luật nới (trần rất cao, tắt giờ yên và chống trùng nội dung) để test chạy mọi giờ như trước.
+// CHỈ DÙNG CHO TEST: createBot cũ (chữ ký của lib/bot.js) dựng trên lõi mới, để 21 test cũ chạy trên engine.
+// Nằm trong test/ để server.js không thể import nhầm (review T015 I4): luật cửa ở đây tắt giờ yên, trần và chống trùng nội dung, store :memory:.
 // Đồng hồ ảo: giờ thật + độ lệch; drain() nhảy tới mốc hỏi việc nền kế tiếp nên test việc nền không phải ngủ thật.
-import { openStore } from './store.js';
-import { createGate } from './gate.js';
-import { createRegistry } from './registry.js';
-import { createEngine } from './engine.js';
-import { parse } from '../channels/zalo-bot.js';
-import { PACKAGES } from '../packs/hs/packages.js';
-import hsPack from '../packs/hs/index.js';
+import { openStore } from '../../core/store.js';
+import { createGate } from '../../core/gate.js';
+import { createRegistry } from '../../core/registry.js';
+import { createEngine } from '../../core/engine.js';
+import { parse } from '../../channels/zalo-bot.js';
+import { PACKAGES } from '../../packs/hs/packages.js';
+import hsPack from '../../packs/hs/index.js';
 
 export const LEGACY_RULES = Object.freeze({ capChatDay: 1e9, capAllDay: 1e9, similarity: 2, quietHours: false });
 

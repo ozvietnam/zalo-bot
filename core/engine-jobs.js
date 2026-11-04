@@ -1,5 +1,5 @@
 // Bộ hỏi việc nền tối thiểu của T015 (để test việc nền cũ chạy trên lõi). T021 tách thành core/jobs.js (createJobs).
-// jobs.due(now) → callTool(result_tool, {maLuot}) → còn DANG_XU_LY thì dời 6→12→24→…→60 s; xong/hết hạn → onJobResult → cửa.
+// jobs.due(now) → jobs.claim (waiting → polling, nguyên tử) → callTool(result_tool, {maLuot}) → còn DANG_XU_LY thì dời 6→12→24→…→60 s; xong/hết hạn → onJobResult → cửa.
 import { redact } from './redact.js';
 import { buildCtx } from './engine-ctx.js';
 
@@ -26,7 +26,10 @@ export async function pollDueJobs({ store, mcp, registry, gate, now, log, tools,
   const nowIso = nowDate.toISOString();
   const rows = store.jobs.due(nowIso);
   const all = registry.available(null, { isStaff: true });
+  let n = 0;
   for (const row of rows) {
+    if (!store.jobs.claim(row.id)) continue;   // tiến trình/lượt khác đã nhận dòng này (waiting → polling)
+    n++;
     const c = row.context ?? {};
     const turnId = `job:${row.id}`;
     const pack = all.find((p) => p.id === row.pack);
@@ -41,7 +44,7 @@ export async function pollDueJobs({ store, mcp, registry, gate, now, log, tools,
         result = await ctx.mcp.callTool(row.result_tool, { maLuot: row.ma_luot });
         if (stateOf(result) === 'DANG_XU_LY') {
           const attempts = (row.attempts ?? 0) + 1;
-          store.jobs.update(row.id, { attempts, next_poll_at: new Date(nowDate.getTime() + backoff(attempts)).toISOString() });
+          store.jobs.update(row.id, { status: 'waiting', attempts, next_poll_at: new Date(nowDate.getTime() + backoff(attempts)).toISOString() });
           continue;
         }
       }
@@ -65,9 +68,9 @@ export async function pollDueJobs({ store, mcp, registry, gate, now, log, tools,
       if (!pack?.onJobResult || expired) store.jobs.update(row.id, { status: 'failed', done_at: nowIso });
       else {
         const attempts = (row.attempts ?? 0) + 1;
-        store.jobs.update(row.id, { attempts, next_poll_at: new Date(nowDate.getTime() + backoff(attempts)).toISOString() });
+        store.jobs.update(row.id, { status: 'waiting', attempts, next_poll_at: new Date(nowDate.getTime() + backoff(attempts)).toISOString() });
       }
     }
   }
-  return rows.length;
+  return n;
 }

@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { readFileSync, existsSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { openStore } from '../../core/store.js';
 import { createGate } from '../../core/gate.js';
@@ -10,7 +11,7 @@ import { fakeChannel, fakeClock, fakeMcp } from '../helpers/fakes.mjs';
 const START = '2026-11-04T03:00:00.000Z'; // 10:00 VN
 const silent = { info() {}, error() {} };
 
-function setup({ packs = [hsPack], script = {}, config = {}, rules, mcp } = {}) {
+function setup({ packs = [hsPack], script = {}, config = {}, rules, mcp, log = silent } = {}) {
   const store = openStore();
   const clock = fakeClock(START);
   const channel = fakeChannel();
@@ -19,7 +20,7 @@ function setup({ packs = [hsPack], script = {}, config = {}, rules, mcp } = {}) 
   const m = mcp ?? fakeMcp(script);
   const registry = createRegistry(packs);
   const gate = createGate({ store, channel, rules, now: clock.now });
-  const engine = createEngine({ config, store, channel, mcp: m, vision: null, registry, gate, now: clock.now, log: silent });
+  const engine = createEngine({ config, store, channel, mcp: m, vision: null, registry, gate, now: clock.now, log });
   return { store, clock, channel, mcp: m, engine };
 }
 
@@ -228,4 +229,72 @@ test('drain: việc nền DANG_XU_LY → hỏi lại 6 s, 12 s → xong gửi jo
   clock.advance('31m'); await engine.drain();
   assert.equal(channel.sent.at(-1).text, 'Hết hạn L-2');
   assert.ok(store.outbox.hasIdem('j:c1:L-2'));
+});
+
+const tick = () => new Promise((r) => setTimeout(r, 5));
+
+test('cùng updateKey hai lượt chạy song song → gói chạy đúng 1 lần, 1 bộ trả lời, 1 việc nền (inbox.claim)', async () => {
+  let n = 0;
+  const p = { id: 'p', audience: 'public', priority: 9, match: () => true,
+    async handle() { n++; await tick(); return { replies: [{ text: '⏳ chờ' }], jobs: [{ maLuot: `L${n}`, resultTool: 'kq' }] }; } };
+  const { store, channel, engine } = setup({ packs: [p] });
+  const u = upd('hàng A', { id: 'X' });
+  const r = await Promise.all([engine.process(u), engine.process(u)]);
+  assert.equal(n, 1);
+  assert.deepEqual(r.map((x) => x.skipped ?? x.handled).sort(), ['duplicate', 'p']);
+  assert.equal(channel.sent.length, 1);
+  assert.equal(store.jobs.due('2099-01-01T00:00:00.000Z').length, 1);
+  assert.equal(store.messages.recent('c1', 10).filter((m) => m.speaker === 'khach').length, 1);
+  assert.equal(store.inbox.get('X').status, 'done');
+});
+
+test('câu báo lỗi chung có khoá riêng r:<chat>:<turn>:err → vẫn tới khách khi reply 0 đã gửi', async () => {
+  const p = { id: 'p', audience: 'public', priority: 9, match: () => true,
+    async handle() { return { replies: [{ text: '⏳ Đang xử lý' }], jobs: [{ maLuot: 'M' }] }; } };   // thiếu resultTool → jobs.add ném
+  const { store, channel, engine } = setup({ packs: [p, hsPack] });
+  const r = await engine.process(upd('x', { id: 'E2' }));
+  assert.equal(r.handled, 'error');
+  assert.equal(channel.sent.length, 2);
+  assert.match(channel.sent[1].text, /lỗi tạm thời/);
+  assert.ok(store.outbox.hasIdem('r:c1:E2:err'));
+});
+
+test('lỗi trước khi gọi gói (ghi messages hỏng) → vẫn câu báo chung + inbox failed, không treo pending', async () => {
+  const { store, channel, engine } = setup({ packs: [spyPack().pack, hsPack] });
+  store.messages.add = () => { throw new Error('SQLITE_FULL'); };
+  const r = await engine.process(upd('x', { id: 'E3' }));
+  assert.equal(r.handled, 'error');
+  assert.match(channel.sent[0].text, /lỗi tạm thời/);
+  assert.equal(store.inbox.get('E3').status, 'failed');
+});
+
+test('hai drain() chồng nhau → hỏi Cổng 1 lần, onJobResult 1 lần', async () => {
+  let polls = 0;
+  let results = 0;
+  const p = { id: 'p', audience: 'public', priority: 9, match: () => true,
+    async handle() { return { replies: [{ text: '⏳' }], jobs: [{ maLuot: 'M1', resultTool: 'kq' }] }; },
+    async onJobResult() { results++; return { replies: [{ text: 'Xong' }] }; } };
+  const { channel, clock, engine } = setup({ packs: [p], script: { kq: async () => { polls++; await tick(); return { trangThai: 'XONG' }; } } });
+  await engine.process(upd('x'));
+  clock.advance('6s');
+  await Promise.all([engine.drain(), engine.drain()]);
+  assert.deepEqual([polls, results], [1, 1]);
+  assert.equal(channel.sent.at(-1).text, 'Xong');
+});
+
+test('createBot cũ chỉ cho test: nằm ở test/helpers, lõi và server.js không dùng', () => {
+  assert.equal(existsSync(new URL('../../core/engine-compat.js', import.meta.url)), false);
+  assert.ok(existsSync(new URL('../helpers/legacy-bot.mjs', import.meta.url)));
+  assert.doesNotMatch(readFileSync(new URL('../../server.js', import.meta.url), 'utf8'), /legacy-bot|engine-compat/);
+});
+
+test('no-chat vẫn trả turnId (null); ctx.log đã che bí mật', async () => {
+  const logged = [];
+  const p = { id: 'p', audience: 'public', priority: 9, match: () => true,
+    async handle(turn, ctx) { ctx.log.error('lỗi Bearer abcdef0123456789abcdef0123456789'); return { replies: [{ text: 'ok bot đây' }] }; } };
+  const { engine } = setup({ packs: [p], log: { info() {}, error: (m) => logged.push(m) } });
+  assert.deepEqual(await engine.process({ updateKey: 'n', chatId: null }), { skipped: 'no-chat', turnId: null });
+  await engine.process(upd('x'));
+  assert.ok(logged.length);
+  assert.doesNotMatch(logged.join('\n'), /abcdef0123456789/);
 });

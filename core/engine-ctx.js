@@ -60,6 +60,12 @@ export function sessionApi({ store, key, ttlMs, now }) {
   };
 }
 
+/** log cho gói: mọi chuỗi đi qua redact (contracts/pack.md: ctx.log "đã che bí mật"). */
+export function redactedLog(log) {
+  const clean = (a) => a.map((x) => (typeof x === 'string' ? redact(x) : x instanceof Error ? redact(x.message) : x));
+  return { info: (...a) => log.info?.(...clean(a)), error: (...a) => log.error?.(...clean(a)) };
+}
+
 /** ctx đầy đủ cho handle/onJobResult. */
 export function buildCtx({ store, mcp, tools, vision, now, log, chatId, turnId, sessionKey, ttlMs }) {
   return {
@@ -70,6 +76,6 @@ export function buildCtx({ store, mcp, tools, vision, now, log, chatId, turnId, 
     customer: store.customers.get(chatId) ?? null,
     vision: vision ?? null,
     now,
-    log,
+    log: redactedLog(log),
   };
 }

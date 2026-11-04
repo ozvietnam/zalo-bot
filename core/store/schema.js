@@ -6,7 +6,7 @@ const DDL = `
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS inbox (
   update_key TEXT PRIMARY KEY, chat_id TEXT NOT NULL, user_id TEXT, raw TEXT NOT NULL,
-  status TEXT NOT NULL, received_at TEXT NOT NULL, done_at TEXT, error TEXT);
+  status TEXT NOT NULL, received_at TEXT NOT NULL, claimed_at TEXT, done_at TEXT, error TEXT);
 CREATE TABLE IF NOT EXISTS chats (
   chat_id TEXT PRIMARY KEY, kind TEXT, title TEXT, state TEXT NOT NULL DEFAULT 'bot',
   state_by TEXT, state_at TEXT, state_reason TEXT, last_inbound_at TEXT, last_outbound_at TEXT);
