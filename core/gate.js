@@ -1,114 +1,115 @@
-// Cửa gửi (contracts/send-gate.md). Phần quyết định: hàm thuần, không I/O, không đọc đồng hồ.
-import { isQuietHours, nextMorning } from './time.js';
-import { findLeak } from './redact.js';
-import { jaccard, extractMoney } from './text.js';
+// Cửa gửi duy nhất (contracts/send-gate.md). Thi hành: facts -> decide -> ghi outbox -> gửi kênh -> cập nhật.
+// decide (hàm thuần) nằm ở gate-decide.js. Chỉ tệp này được gọi channel.sendText.
+import { decide, DEFAULT_RULES } from './gate-decide.js';
+import { splitText } from './text.js';
+import { vnDayStartUtc, nextMorning } from './time.js';
+import { redact } from './redact.js';
 
-export const DEFAULT_RULES = Object.freeze({
-  capChatDay: 8,
-  capAllDay: 300,
-  similarity: 0.8,
-  directReplyMs: 600_000,
-  bannedPatterns: [],
-});
+export { decide, DEFAULT_RULES, evidenceNumbers } from './gate-decide.js';
 
-const NEVER_PROACTIVE = new Set(['staff_relay', 'ticket', 'digest']);
-const CAPPED = new Set(['reply', 'notice', 'job_result']);
+const MIN = 60_000;
+const DAY = 86_400_000;
+const RETRY_MIN = [1, 5, 15];
+const MAX_ATTEMPTS = 3;
+const STATUS = { send: 'queued', drop: 'dropped', defer: 'deferred', reject: 'rejected' };
 
-const out = (decision, reason, extra) => ({ decision, reason, ...extra });
+export function createGate({ store, channel, rules = {}, now, onAlert = () => {}, onTicket = () => {}, log = () => {} }) {
+  const R = { ...DEFAULT_RULES, ...rules };
+  const iso = (ms) => new Date(ms).toISOString();
+  const nowDate = () => now();
+  const safe = (fn, ...args) => { try { fn(...args); } catch (e) { log('callback error', redact(e?.message)); } };
 
-function toMs(v) {
-  const t = v instanceof Date ? v.getTime() : new Date(v).getTime();
-  return Number.isNaN(t) ? null : t;
-}
+  function facts(chatId, nowIso, extra = {}) {
+    const t = Date.parse(nowIso);
+    const dayStart = vnDayStartUtc(nowIso);
+    return {
+      chatState: store.chats.get(chatId)?.state ?? 'bot',
+      idemExists: false,
+      hasOpenJob: store.jobs.openFor(chatId, iso(t - R.directReplyMs)),
+      recentBotTexts: store.outbox.recentBotTexts(chatId, iso(t - 15 * MIN), 4),
+      sentTodayChat: store.outbox.countSent(chatId, dayStart),
+      sentTodayAll: store.outbox.countSent(null, dayStart),
+      now: nowIso,
+      ...extra,
+    };
+  }
 
-/** Tin chủ động: job_result, hoặc reply/notice trả muộn quá directReplyMs / không có mốc tin khách. */
-function isProactive(msg, nowMs, rules) {
-  if (NEVER_PROACTIVE.has(msg.kind)) return false;
-  if (msg.kind === 'job_result') return true;
-  const at = msg.inReplyToAt == null ? null : toMs(msg.inReplyToAt);
-  return at == null || nowMs - at > rules.directReplyMs;
-}
+  // Defer không có notBefore (cap:*) thì hoãn tới 00:00 VN ngày kế tiếp, để bộ quét có mốc.
+  const notBeforeOf = (d, nowIso) => d.notBefore ?? (d.decision === 'defer' ? iso(Date.parse(vnDayStartUtc(nowIso)) + DAY) : null);
 
-// Một cách đọc duy nhất, cùng quy ước extractMoney: nhóm cuối đúng 3 chữ số thì mọi dấu là ngăn nghìn, ngược lại dấu cuối là thập phân.
-function parseNumeric(s) {
-  const parts = s.split(/[.,]/);
-  if (parts.length === 1) return Number(s);
-  const last = parts[parts.length - 1];
-  if (last.length === 3) return Number(parts.join(''));
-  return Number(parts.slice(0, -1).join('') + '.' + last);
-}
+  function audit(type, chatId, turnId, data, at) {
+    store.audit.add({ at, turn_id: turnId ?? null, chat_id: chatId, type, data });
+  }
 
-/** Mọi số trong evidence: giá trị số, chuỗi dạng số (cả bỏ dấu . ,), và số tiền extractMoney tìm thấy trong chuỗi. */
-export function evidenceNumbers(evidence) {
-  const set = new Set();
-  const walk = (v) => {
-    if (typeof v === 'number') {
-      if (Number.isFinite(v)) set.add(v);
-    } else if (typeof v === 'string') {
-      const s = v.trim();
-      if (/^\d+(?:[.,]\d+)*$/.test(s)) {
-        set.add(parseNumeric(s));
+  function auditGate(m, d, at) {
+    const data = { idemKey: m.idemKey, decision: d.decision, reason: d.reason, kind: m.kind };
+    if (m.kind === 'staff_relay') data.leakCheck = 'skipped';
+    audit('gate', m.chatId, m.turnId, data, at);
+  }
+
+  function signal(chatId, d) {
+    const { decision, reason } = d;
+    if ((decision === 'reject' && reason.startsWith('leak:')) || (decision === 'defer' && reason === 'cap:all')) safe(onAlert, chatId, reason);
+    else if ((decision === 'defer' && reason === 'cap:chat') || (decision === 'reject' && reason.startsWith('money:'))) safe(onTicket, chatId, reason);
+  }
+
+  /** Gửi các phần còn thiếu của một dòng outbox. Không ném; trả status cuối. */
+  async function deliver(id, extra = {}) {
+    const o = store.outbox.get(id);
+    const parts = splitText(o.text, channel.maxText ?? 2000);
+    let sent = o.parts_sent ?? 0;
+    try {
+      for (; sent < parts.length; sent++) {
+        await channel.sendText(o.chat_id, parts[sent]);
+        store.outbox.update(id, { parts_sent: sent + 1 });
       }
-      for (const n of extractMoney(s)) set.add(n);
-    } else if (Array.isArray(v)) {
-      v.forEach(walk);
-    } else if (v && typeof v === 'object') {
-      Object.values(v).forEach(walk);
+    } catch (err) {
+      const t = nowDate();
+      const attempts = (o.attempts ?? 0) + 1;
+      const wait = RETRY_MIN[Math.min(attempts - 1, RETRY_MIN.length - 1)] * MIN;
+      store.outbox.update(id, { status: 'failed', attempts, next_retry_at: iso(t.getTime() + wait) });
+      audit('error', o.chat_id, o.turn_id, { idemKey: o.idem_key, attempts, message: redact(err?.message) }, t.toISOString());
+      if (attempts >= MAX_ATTEMPTS) safe(onAlert, o.chat_id, 'send-failed');
+      return 'failed';
     }
-  };
-  walk(evidence);
-  return set;
-}
-
-/**
- * Quyết định gửi một tin. Trả về { decision, reason, notBefore? }.
- * facts.now (hoặc msg.now) bắt buộc; hàm không tự đọc đồng hồ.
- */
-export function decide(msg, facts = {}, rules = {}) {
-  const r = { ...DEFAULT_RULES, ...rules };
-  const nowRaw = facts.now ?? msg.now;
-  const nowMs = nowRaw == null ? null : toMs(nowRaw);
-  if (nowMs == null) throw new Error('decide: thiếu facts.now (hoặc msg.now)');
-  const now = new Date(nowMs).toISOString();
-  const text = String(msg.text ?? '');
-  const free = NEVER_PROACTIVE.has(msg.kind);
-
-  // 1
-  if (facts.idemExists) return out('drop', 'duplicate-idem');
-
-  if (!free) {
-    // 2
-    if (facts.chatState === 'human' || facts.chatState === 'blocked') {
-      return out('reject', `chat-${facts.chatState}`);
-    }
-    // 3a, 3b
-    if (isProactive(msg, nowMs, r)) {
-      if (!facts.hasOpenJob) return out('reject', 'proactive-no-debt');
-      if (isQuietHours(now)) return out('defer', 'quiet-hours', { notBefore: nextMorning(now) });
-    }
-    // 4, 5
-    if (CAPPED.has(msg.kind)) {
-      if ((facts.sentTodayChat ?? 0) >= r.capChatDay) return out('defer', 'cap:chat');
-      if ((facts.sentTodayAll ?? 0) >= r.capAllDay) return out('defer', 'cap:all');
-    }
-    // 6
-    let best = 0;
-    for (const prev of facts.recentBotTexts ?? []) best = Math.max(best, jaccard(text, prev));
-    if (best >= r.similarity) return out('drop', `similar:${best.toFixed(2)}`);
+    const at = nowDate().toISOString();
+    store.tx(() => {
+      store.outbox.update(id, { status: 'sent', sent_at: at, next_retry_at: null });
+      if (o.kind !== 'ticket' && o.kind !== 'digest') {
+        store.messages.add({
+          chat_id: o.chat_id, turn_id: o.turn_id, speaker: o.kind === 'staff_relay' ? 'nhan-vien' : 'bot',
+          speaker_id: extra.staffId ?? null, text: o.text, outbox_id: id, at,
+        });
+      }
+    });
+    return 'sent';
   }
 
-  // 7: staff_relay là lời người thật, không kiểm (thi hành vẫn ghi audit)
-  if (msg.kind !== 'staff_relay') {
-    const leak = findLeak(text, r.bannedPatterns);
-    if (leak) return out('reject', `leak:${leak}`);
+  async function send(msg) {
+    const nowIso = nowDate().toISOString();
+    const f = facts(msg.chatId, nowIso, { idemExists: store.outbox.hasIdem(msg.idemKey) });
+    const d = decide(msg, f, R);
+    const dup = () => {
+      auditGate(msg, { decision: 'drop', reason: 'duplicate-idem' }, nowIso);
+      return { id: null, decision: 'drop', reason: 'duplicate-idem', status: 'dropped' };
+    };
+    if (d.reason === 'duplicate-idem') return dup();
+    let id;
+    try {
+      id = store.outbox.insert({
+        idem_key: msg.idemKey, chat_id: msg.chatId, turn_id: msg.turnId, kind: msg.kind, text: msg.text,
+        decision: d.decision, reason: d.reason, status: STATUS[d.decision], not_before: notBeforeOf(d, nowIso),
+        created_at: nowIso,
+      });
+    } catch (e) {
+      if (/^DUPLICATE_IDEM/.test(e?.message)) return dup();
+      throw e;
+    }
+    auditGate(msg, d, nowIso);
+    signal(msg.chatId, d);
+    const status = d.decision === 'send' ? await deliver(id, { staffId: msg.staffId }) : STATUS[d.decision];
+    return { id, decision: d.decision, reason: d.reason, status };
   }
 
-  // 8
-  if (!free && msg.pack?.moneyCheck === true) {
-    const known = evidenceNumbers(msg.evidence);
-    const missing = extractMoney(text).find((n) => !known.has(n));
-    if (missing !== undefined) return out('reject', `money:${missing}`);
-  }
-
-  return out('send', 'ok');
+  return { send, sweep: async () => 0 };
 }

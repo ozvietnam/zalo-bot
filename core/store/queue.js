@@ -34,6 +34,7 @@ export function outboxTable(db) {
     AND sent_at >= ? ORDER BY sent_at DESC, id DESC LIMIT ?`);
   const cntChat = db.prepare("SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND chat_id = ? AND sent_at >= ?");
   const cntAll = db.prepare("SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND sent_at >= ?");
+  const byId = db.prepare('SELECT * FROM outbox WHERE id = ?');
   const due = db.prepare(`SELECT * FROM outbox WHERE (status = 'deferred' AND not_before <= ?1)
     OR (status = 'failed' AND attempts < 3 AND (next_retry_at IS NULL OR next_retry_at <= ?1)) ORDER BY id`);
   return {
@@ -47,6 +48,7 @@ export function outboxTable(db) {
       }
     },
     update: (id, patch) => patchRow(db, 'outbox', 'id', id, patch, OUTBOX_COLS),
+    get: (id) => byId.get(id) ?? null,
     hasIdem: (key) => has.get(key) !== undefined,
     recentBotTexts: (chatId, sinceIso, limit) => recent.all(chatId, sinceIso, limit).map((r) => r.text),
     countSent: (chatId, sinceIso) => (chatId === null || chatId === undefined ? cntAll.get(sinceIso) : cntChat.get(chatId, sinceIso)).n,
@@ -60,6 +62,7 @@ const jobOut = (r) => (r ? { ...r, context: fromJson(r.context) } : r);
 export function jobsTable(db) {
   const ins = db.prepare(`INSERT INTO jobs (chat_id, session_key, pack, ma_luot, result_tool, context, status, attempts, next_poll_at, expires_at, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const open = db.prepare("SELECT 1 FROM jobs WHERE chat_id = ? AND (status = 'waiting' OR (status = 'done' AND done_at >= ?)) LIMIT 1");
   const due = db.prepare("SELECT * FROM jobs WHERE status = 'waiting' AND next_poll_at <= ? ORDER BY next_poll_at, id");
   return {
     add(j) {
@@ -72,6 +75,8 @@ export function jobsTable(db) {
       }
     },
     due: (nowIso) => due.all(nowIso).map(jobOut),
+    /** Phòng còn việc nền nợ: đang 'waiting', hoặc 'done' từ sinceIso trở lại. */
+    openFor: (chatId, sinceIso) => open.get(chatId, sinceIso) !== undefined,
     update: (id, patch) => patchRow(db, 'jobs', 'id', id, patch, JOB_COLS, ['context']),
   };
 }

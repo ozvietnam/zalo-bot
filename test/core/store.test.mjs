@@ -224,3 +224,23 @@ test('tx commit / rollback / returns value', () => {
   assert.equal(s.meta.get('a'), '1');
   assert.equal(s.meta.get('b'), null);
 });
+
+test('jobs.openFor: waiting, or done within window', () => {
+  const s = openStore();
+  const j = { chat_id: 'c', session_key: 'c', pack: 'hs', ma_luot: 'L1', result_tool: 't', status: 'waiting', next_poll_at: at(1), expires_at: at(30), created_at: T };
+  const id = s.jobs.add(j);
+  assert.equal(s.jobs.openFor('c', at(-10)), true);
+  assert.equal(s.jobs.openFor('other', at(-10)), false);
+  s.jobs.update(id, { status: 'done', done_at: at(2) });
+  assert.equal(s.jobs.openFor('c', at(1)), true);
+  assert.equal(s.jobs.openFor('c', at(3)), false);
+  s.jobs.update(id, { status: 'expired' });
+  assert.equal(s.jobs.openFor('c', at(1)), false);
+});
+
+test('outbox.get', () => {
+  const s = openStore();
+  const id = s.outbox.insert(ob());
+  assert.equal(s.outbox.get(id).idem_key, 'r:c:m1:0');
+  assert.equal(s.outbox.get(999), null);
+});
