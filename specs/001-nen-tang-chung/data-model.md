@@ -57,8 +57,8 @@ Chuyển trạng thái: `bot → human` (khách xin người, `/nhan`, `/tl`, g�
 | `status` | TEXT NOT NULL | `queued | sent | dropped | deferred | rejected | failed` |
 | `not_before` | TEXT | với `defer` |
 | `parts_sent` | INTEGER DEFAULT 0 | số phần đã gửi khi tin bị chia |
-| `attempts` | INTEGER DEFAULT 0 | số lần thử gửi lại khi `failed` (tối đa 3) |
-| `next_retry_at` | TEXT | mốc thử lại kế tiếp; `outbox.due` lấy `failed` có `attempts < 3` và mốc đã qua |
+| `attempts` | INTEGER DEFAULT 0 | số lần gửi LỖI (lần lỗi thứ 4 thì dừng; 3 lần thử lại) |
+| `next_retry_at` | TEXT | mốc thử lại kế tiếp; `outbox.due` lấy `failed` có `attempts ≤ 3` và mốc đã qua |
 | `created_at` / `sent_at` | TEXT | |
 | `ctx` | TEXT (JSON) | bối cảnh để chạy lại `decide` khi quét: `{ pack: { id, moneyCheck }, evidenceNumbers: [số], inReplyToAt, debt, staffId }`. `debt` = `hasOpenJob` lúc quyết định đầu. Chỉ lưu **số**, không lưu chữ của khách |
 
