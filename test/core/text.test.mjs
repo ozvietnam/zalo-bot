@@ -27,6 +27,11 @@ test('extractMoney: nhiều dạng', () => {
   assert.deepEqual(extractMoney('lấy 2 800k'), [800000]);
   assert.deepEqual(extractMoney('25 650đ'), [650]); // giới hạn đã biết: dấu cách không ngăn nghìn
   assert.deepEqual(extractMoney('3 đồng ý'), []);
+  assert.deepEqual(extractMoney('2 đồng hồ'), []);
+  assert.deepEqual(extractMoney('3 đồng phục'), []);
+  assert.deepEqual(extractMoney('50.000 đồng và'), [50000]);
+  assert.deepEqual(extractMoney('15000 đồng'), [15000]);
+  assert.deepEqual(extractMoney('12 đồng'), []); // giới hạn đã biết
 });
 
 test('isCloser', () => {

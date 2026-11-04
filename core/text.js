@@ -18,7 +18,7 @@ export function jaccard(a, b) {
 // Số: 25.650 | 25,650 | 1,5 | 800. Chỉ `.` và `,` ngăn nghìn/thập phân; dấu cách KHÔNG ngăn nghìn
 // (giới hạn đã biết: "25 650đ" ra [650], đổi lại "mua 3 250.000đ" ra [250000]).
 const NUM = String.raw`\d+(?:[.,]\d+)*`;
-const UNIT = String.raw`nhân dân tệ|triệu|tr|tệ|vnđ|vnd|đồng(?!\s+(?:ý|thời|nghiệp|hành|loạt|bộ|tình|thuận|đội|chí))|đ|₫|usd|k|\$|¥`;
+const UNIT = String.raw`nhân dân tệ|triệu|tr|tệ|vnđ|vnd|đồng|đ|₫|usd|k|\$|¥`;
 const MONEY_RE = new RegExp(
   String.raw`(?<![\p{N}.,])(?:([¥$₫])\s*(${NUM})|(${NUM})\s*(${UNIT})(?![\p{L}\p{N}]))`,
   'giu',
@@ -41,6 +41,9 @@ export function extractMoney(s) {
   const out = [];
   for (const m of String(s ?? '').matchAll(MONEY_RE)) {
     const raw = m[2] ?? m[3];
+    // "đồng" còn là từ thường (đồng ý, đồng hồ): chỉ tính khi số có dấu . , hoặc >= 4 chữ số.
+    // Giới hạn đã biết: "12 đồng" không được coi là tiền.
+    if ((m[4] ?? '').toLowerCase() === 'đồng' && !/[.,]/.test(raw) && raw.length < 4) continue;
     let v = parseNum(raw);
     const mult = MULT[(m[4] ?? '').toLowerCase()] ?? 1;
     if (mult > 1) v = Math.round(v * mult);
