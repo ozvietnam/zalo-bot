@@ -36,6 +36,7 @@ export function outboxTable(db) {
     AND sent_at >= ? ORDER BY sent_at DESC, id DESC LIMIT ?`);
   const cntChat = db.prepare("SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND chat_id = ? AND sent_at >= ?");
   const cntAll = db.prepare("SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND sent_at >= ?");
+  const queued = db.prepare("SELECT * FROM outbox WHERE status = 'queued' ORDER BY id");
   const byId = db.prepare('SELECT * FROM outbox WHERE id = ?');
   const due = db.prepare(`SELECT * FROM outbox WHERE (status = 'deferred' AND not_before <= ?1)
     OR (status = 'failed' AND attempts <= 3 AND (next_retry_at IS NULL OR next_retry_at <= ?1)) ORDER BY id`);
@@ -50,6 +51,7 @@ export function outboxTable(db) {
       }
     },
     update: (id, patch) => patchRow(db, 'outbox', 'id', id, patch, OUTBOX_COLS, ['ctx']),
+    queued: () => queued.all().map(outOut),
     get: (id) => outOut(byId.get(id)),
     hasIdem: (key) => has.get(key) !== undefined,
     recentBotTexts: (chatId, sinceIso, limit) => recent.all(chatId, sinceIso, limit).map((r) => r.text),

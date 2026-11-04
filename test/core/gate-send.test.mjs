@@ -418,3 +418,45 @@ test('M-1 text rỗng/khoảng trắng → rejected empty, không messages, khô
   assert.equal(ch.sent.length, 0);
   assert.equal(store.messages.recent('c1', 5).length, 0);
 });
+
+test('C-2 recover(): queued bị bỏ lại sau sập → failed, sweep gửi tiếp phần thiếu, onAlert crash-mid-send', async () => {
+  const text = Array.from({ length: 3 }, (_, i) => `${i + 1}`.repeat(1500)).join('\n\n').slice(0, 4500);
+  const store = openStore();
+  const clock = fakeClock(START);
+  const hang = { ...fakeChannel(), sent: [], async sendText(c, t) { if (this.sent.length === 1) return new Promise(() => {}); this.sent.push(t); } };
+  const g1 = createGate({ store, channel: hang, now: clock.now });
+  g1.send({ idemKey: 'k1', chatId: 'c1', turnId: 't', kind: 'reply', text, inReplyToAt: START }); // "sập" giữa phần 2: không bao giờ xong
+  await Promise.resolve();
+  await new Promise((r) => setImmediate(r));
+  assert.equal(store.outbox.get(1).status, 'queued');
+  assert.equal(store.outbox.get(1).parts_sent, 1);
+  // khởi động lại: cổng mới, cùng db
+  const ch2 = fakeChannel();
+  const alerts = [];
+  const g2 = createGate({ store, channel: ch2, now: clock.now, onAlert: (c, r) => alerts.push([c, r]) });
+  clock.advance('2m');
+  assert.equal(await g2.sweep(), 0); // sweep KHÔNG tự nhặt dòng queued
+  assert.equal(g2.recover(), 1);
+  const o = store.outbox.get(1);
+  assert.deepEqual([o.status, o.attempts, o.next_retry_at], ['failed', 0, clock.now().toISOString()]);
+  assert.deepEqual(alerts, [['c1', 'crash-mid-send']]);
+  assert.equal(await g2.sweep(), 1);
+  assert.deepEqual(ch2.sent.map((x) => x.text[0]), ['2', '3']); // không gửi lại phần 1
+  assert.equal(store.outbox.get(1).status, 'sent');
+  assert.equal(store.messages.recent('c1', 5).length, 1);
+});
+
+test('C-2 recover(): có nợ việc nền → phần 2 và 3 được gửi, không gửi lại phần 1; không báo khi parts_sent = 0', async () => {
+  const text = Array.from({ length: 3 }, (_, i) => `${i + 1}`.repeat(1500)).join('\n\n').slice(0, 4500);
+  const { store, clock, ch, alerts, gate, msg } = setup();
+  store.jobs.add(WAITING_JOB);
+  store.outbox.insert({ idem_key: 'p1', chat_id: 'c1', kind: 'reply', text, decision: 'send', reason: 'ok', status: 'queued', parts_sent: 1, created_at: START, ctx: { inReplyToAt: START, debt: true } });
+  store.outbox.insert({ idem_key: 'p0', chat_id: 'c2', kind: 'ticket', text: 'phiếu', decision: 'send', reason: 'ok', status: 'queued', parts_sent: 0, created_at: START });
+  clock.advance('2m');
+  assert.equal(gate.recover(), 2);
+  assert.deepEqual(alerts, [['c1', 'crash-mid-send']]);
+  assert.equal(await gate.sweep(), 2);
+  assert.deepEqual(ch.sent.map((x) => x.text[0]), ['2', '3', 'p']);
+  assert.equal(gate.recover(), 0);
+  void msg;
+});

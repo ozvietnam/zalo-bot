@@ -162,5 +162,18 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
     }
   }
 
-  return { send, sweep };
+  /** Gọi MỘT LẦN lúc khởi động (trước sweep đầu). Dòng 'queued' còn lại là do tiến trình cũ chết giữa chừng:
+   *  chuyển thành 'failed' để bộ quét thử lại từ parts_sent (có thể gửi lặp đúng một phần đang bay). */
+  function recover() {
+    const nowIso = nowDate().toISOString();
+    const rows = store.outbox.queued();
+    for (const o of rows) {
+      store.outbox.update(o.id, { status: 'failed', next_retry_at: nowIso });
+      audit('error', o.chat_id, o.turn_id, { idemKey: o.idem_key, reason: 'crash-mid-send', parts_sent: o.parts_sent ?? 0 }, nowIso);
+      if ((o.parts_sent ?? 0) > 0) safe(onAlert, o.chat_id, 'crash-mid-send');
+    }
+    return rows.length;
+  }
+
+  return { send, sweep, recover };
 }
