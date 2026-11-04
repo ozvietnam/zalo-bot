@@ -2,7 +2,7 @@
 
 Một tệp SQLite (`DATA_DIR/bot.db`, mặc định `./data/bot.db`), `PRAGMA journal_mode=WAL`, `busy_timeout=5000`.
 Mọi cột thời gian là chuỗi ISO 8601 UTC (`2026-11-04T07:16:00.000Z`). Khoá phòng luôn là `chat_id`, không bao giờ là tên.
-Lược đồ tạo bằng `core/store.js#migrate()`, có bảng `meta(key, value)` giữ `schema_version`.
+Lược đồ tạo bằng `core/store/schema.js#migrate()` (được `openStore` gọi), có bảng `meta(key, value)` giữ `schema_version`.
 
 ## Bảng
 
@@ -104,7 +104,7 @@ Chuyển trạng thái: `bot → human` (khách xin người, `/nhan`, `/tl`, g�
 | `type` | TEXT NOT NULL | `inbound | route | tool | gate | outbound | state-change | staff-cmd | error` |
 | `data` | TEXT NOT NULL | JSON đã che bí mật; kết quả công cụ lưu `sha1` + 500 ký tự đầu |
 
-Giữ 90 ngày; `core/store.js#prune()` chạy mỗi ngày lúc 03:00 giờ VN.
+Giữ 90 ngày; `store.audit.prune(beforeIso)` chạy mỗi ngày lúc 03:00 giờ VN.
 
 ### `messages`: toàn bộ tin của phòng (FR-024)
 | Cột | Kiểu | Ghi chú |
@@ -141,7 +141,7 @@ Nhãn có nguồn `staff:*` không bị máy gỡ.
 
 ## Chỉ mục
 `inbox(status, received_at)` · `outbox(chat_id, created_at)` · `outbox(status, not_before)` · `jobs(status, next_poll_at)` ·
-`tickets(status)` · `audit(turn_id)` · `audit(chat_id, at)` · `messages(chat_id, at)` · `customers(phone)`.
+`tickets(status)` · UNIQUE `tickets(chat_id)` WHERE `status IN ('open','claimed')` (một phiếu mở mỗi phòng) · `audit(turn_id)` · `audit(chat_id, at)` · `messages(chat_id, at)` · `customers(phone)`.
 
 ## Sao lưu (FR-028)
 03:00 giờ VN mỗi ngày: `VACUUM INTO '<DATA_DIR>/backup/bot-YYYY-MM-DD.db'`, xoá bản cũ hơn 7 ngày, ghi `meta.last_backup_at`.

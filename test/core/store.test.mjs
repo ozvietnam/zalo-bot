@@ -34,9 +34,57 @@ test('inbox', () => {
   assert.equal(s.inbox.insertIgnore(row), false);
   s.inbox.insertIgnore({ ...row, update_key: 'm0', received_at: at(-1) });
   assert.deepEqual(s.inbox.pending().map((r) => r.update_key), ['m0', 'm1']);
-  s.inbox.markDone('m0');
-  s.inbox.markFailed('m1', 'boom');
+  s.inbox.markDone('m0', at(2));
+  s.inbox.markFailed('m1', 'boom', at(3));
   assert.equal(s.inbox.pending().length, 0);
+});
+
+test('inbox: done_at uses caller clock; NOT NULL violation throws, duplicate does not', () => {
+  const s = openStore();
+  const row = { update_key: 'k', chat_id: 'c', raw: '{}', status: 'pending', received_at: T };
+  s.inbox.insertIgnore(row);
+  s.inbox.markDone('k', at(9));
+  s.inbox.insertIgnore({ ...row, update_key: 'k2' });
+  s.inbox.markFailed('k2', 'e', at(10));
+  assert.deepEqual(s.inbox.get('k').done_at, at(9));
+  assert.equal(s.inbox.get('k2').done_at, at(10));
+  assert.throws(() => s.inbox.insertIgnore({ ...row, update_key: 'k3', chat_id: null }), /NOT NULL/);
+  assert.equal(s.inbox.insertIgnore(row), false);
+});
+
+test('jobs.add / outbox.insert: NOT NULL violations throw (not swallowed)', () => {
+  const s = openStore();
+  const j = { chat_id: 'c', session_key: 'c', pack: 'hs', ma_luot: 'L1', result_tool: 't', status: 'waiting', next_poll_at: T, expires_at: T };
+  assert.throws(() => s.jobs.add({ ...j, result_tool: null }), /NOT NULL/);
+  assert.throws(() => s.outbox.insert(ob({ text: null })), /NOT NULL/);
+  assert.notEqual(s.jobs.add(j), null);
+});
+
+test('sessions.get throws on invalid now', () => {
+  const s = openStore();
+  s.sessions.set('k', { a: 1 }, T);
+  assert.throws(() => s.sessions.get('k', 1000, 'garbage'), /invalid/i);
+});
+
+test('outbox.due: failed with NULL next_retry_at is due only while attempts < 3', () => {
+  const s = openStore();
+  s.outbox.insert(ob({ idem_key: 'n1', status: 'failed', attempts: 2 }));
+  s.outbox.insert(ob({ idem_key: 'n2', status: 'failed', attempts: 3 }));
+  assert.deepEqual(s.outbox.due(T).map((r) => r.idem_key), ['n1']);
+});
+
+test('tickets.open returns the existing open/claimed ticket; unique index enforces', () => {
+  const s = openStore();
+  const a = s.tickets.open('c', 'khach-xin-nguoi', T);
+  const b = s.tickets.open('c', 'cap', at(1));
+  assert.equal(a.id, b.id);
+  assert.equal(s.tickets.list('open').length, 1);
+  s.tickets.update(a.id, { status: 'claimed', claimed_by: 'u1' });
+  assert.equal(s.tickets.open('c', 'cap', at(2)).id, a.id);
+  s.tickets.update(a.id, { status: 'closed', closed_at: at(3) });
+  const c = s.tickets.open('c', 'cap', at(4));
+  assert.notEqual(c.id, a.id);
+  assert.equal(s.tickets.open('d', 'cap', at(4)).chat_id, 'd');
 });
 
 test('chats', () => {

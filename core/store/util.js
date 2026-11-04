@@ -17,3 +17,12 @@ export function patchRow(db, table, idCol, id, patch, allowed, jsonCols = []) {
   const vals = keys.map((k) => (jsonCols.includes(k) ? toJson(patch[k]) : patch[k] ?? null));
   db.prepare(`UPDATE ${table} SET ${sets} WHERE ${idCol} = ?`).run(...vals, id);
 }
+
+const SQLITE_CONSTRAINT_PRIMARYKEY = 1555;
+const SQLITE_CONSTRAINT_UNIQUE = 2067;
+
+/** Lỗi UNIQUE / PRIMARY KEY (không phải NOT NULL, CHECK...). Dùng errcode; chỉ khi thiếu mới so chuỗi. */
+export function isUniqueViolation(e) {
+  if (typeof e?.errcode === 'number') return e.errcode === SQLITE_CONSTRAINT_UNIQUE || e.errcode === SQLITE_CONSTRAINT_PRIMARYKEY;
+  return /UNIQUE constraint failed|PRIMARY KEY/i.test(e?.message ?? '');
+}

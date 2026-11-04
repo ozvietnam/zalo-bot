@@ -40,6 +40,7 @@ CREATE INDEX IF NOT EXISTS ix_outbox_chat ON outbox (chat_id, created_at);
 CREATE INDEX IF NOT EXISTS ix_outbox_status ON outbox (status, not_before);
 CREATE INDEX IF NOT EXISTS ix_jobs_status ON jobs (status, next_poll_at);
 CREATE INDEX IF NOT EXISTS ix_tickets_status ON tickets (status);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_tickets_open ON tickets (chat_id) WHERE status IN ('open','claimed');
 CREATE INDEX IF NOT EXISTS ix_audit_turn ON audit (turn_id);
 CREATE INDEX IF NOT EXISTS ix_audit_chat ON audit (chat_id, at);
 CREATE INDEX IF NOT EXISTS ix_messages_chat ON messages (chat_id, at);

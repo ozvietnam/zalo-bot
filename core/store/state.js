@@ -1,5 +1,5 @@
 // chats, sessions, tickets, meta.
-import { fromJson, patchRow, toJson } from './util.js';
+import { fromJson, isUniqueViolation, patchRow, toJson } from './util.js';
 
 export function chatsTable(db) {
   const get = db.prepare('SELECT * FROM chats WHERE chat_id = ?');
@@ -20,8 +20,11 @@ export function sessionsTable(db) {
     ON CONFLICT (key) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`);
   return {
     get(key, ttlMs, now) {
+      const t = Date.parse(now);
+      if (Number.isNaN(t)) throw new Error(`sessions.get: invalid now: ${now}`);
       const r = get.get(key);
-      if (!r || Date.parse(now) - Date.parse(r.updated_at) > ttlMs) return {};
+      if (!r) return {};
+      if (!(t - Date.parse(r.updated_at) <= ttlMs)) return {}; // NaN (updated_at hỏng) coi như hết hạn
       return fromJson(r.data, {}) ?? {};
     },
     set: (key, data, now) => { set.run(key, toJson(data), now); },
@@ -37,7 +40,16 @@ export function ticketsTable(db) {
   const list = db.prepare('SELECT * FROM tickets WHERE status = ? ORDER BY id');
   return {
     openFor: (chatId) => openFor.get(chatId) ?? null,
-    open: (chatId, reason, at) => byId.get(Number(ins.run(chatId, reason, at).lastInsertRowid)),
+    open(chatId, reason, at) {
+      const cur = openFor.get(chatId);
+      if (cur) return cur;
+      try {
+        return byId.get(Number(ins.run(chatId, reason, at).lastInsertRowid));
+      } catch (e) {
+        if (isUniqueViolation(e)) return openFor.get(chatId); // thua cuộc đua với ux_tickets_open
+        throw e;
+      }
+    },
     update: (id, patch) => patchRow(db, 'tickets', 'id', id, patch, TICKET_COLS),
     list: (status) => list.all(status),
   };

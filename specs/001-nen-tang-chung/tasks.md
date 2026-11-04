@@ -127,7 +127,7 @@ assert.equal(findLeak('gọi 0985559918', [/0985\D?559\D?918/]), 'banned');
 **Files:** Create `core/store.js` (+ `core/store/*.js` nếu > 300 dòng), `test/core/store.test.mjs`
 
 **Interfaces — Produces:** `openStore(path = ':memory:') -> Store`, `Store` có:
-`inbox.{insertIgnore(row)->boolean, pending()->row[], markDone(key), markFailed(key, err)}` ·
+`inbox.{insertIgnore(row)->boolean, get(key)->row|null, pending()->row[], markDone(key, at), markFailed(key, err, at)}` ·
 `chats.{get(id)->row|null, upsertSeen(id, kind, title, at), setState(id, state, by, reason, at)}` ·
 `sessions.{get(key, ttlMs, now)->object, set(key, data, now)}` ·
 `outbox.{insert(msg)->id /*throws 'DUPLICATE_IDEM'*/, update(id, patch), hasIdem(key)->boolean, recentBotTexts(chatId, sinceIso, limit)->string[], countSent(chatId|null, sinceIso)->number, due(nowIso)->row[]}` ·
