@@ -16,15 +16,16 @@ export function createChannel({ token, baseUrl, fetchImpl, secret } = {}) {
     parse(raw) {
       const u = parseUpdate(raw);
       if (!u) return null;
-      const updateKey = u.messageId ?? createHash('sha1').update(JSON.stringify(raw)).digest('hex');
+      const updateKey = u.messageId ?? createHash('sha1').update(stableJson(raw)).digest('hex');
       return { updateKey, ...u, raw };
     },
     async sendText(chatId, text) { await client.call('sendMessage', { chat_id: chatId, text }); },
     async typing(chatId) { await client.sendChatAction(chatId, 'typing'); },
     getMe: () => client.getMe(),
     verifyWebhook(req) {
-      if (!secret) return false;
-      return safeEqual(req?.headers?.['x-bot-api-secret-token'], secret);
+      const h = req?.headers?.['x-bot-api-secret-token'];
+      if (!secret || typeof h !== 'string') return false;   // mảng (header lặp) hay số không được ép thành chuỗi
+      return safeEqual(h, secret);
     },
     capabilities: { detectsHumanReplies: false },
   };
@@ -108,6 +109,15 @@ export function parseUpdate(raw) {
     caption: typeof m.caption === 'string' ? m.caption : null,
     messageId: m.message_id == null ? null : String(m.message_id),
   };
+}
+
+/** JSON với khoá object đã sắp xếp: cùng nội dung, khác thứ tự khoá → cùng chuỗi (cho updateKey). */
+export function stableJson(v) {
+  if (Array.isArray(v)) return `[${v.map((x) => (x === undefined ? 'null' : stableJson(x))).join(',')}]`;
+  if (v && typeof v === 'object') {
+    return `{${Object.keys(v).sort().filter((k) => v[k] !== undefined).map((k) => `${JSON.stringify(k)}:${stableJson(v[k])}`).join(',')}}`;
+  }
+  return JSON.stringify(v) ?? 'null';
 }
 
 /** So sánh secret theo thời gian hằng. */

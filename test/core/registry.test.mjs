@@ -34,6 +34,14 @@ test('loadPacks: trùng id hoặc thiếu id/handle thì ném lỗi', async () =
   await assert.rejects(loadPacks(await tmpPacks({ a: "export default { id: 'a' };" })), /handle/);
 });
 
+test('loadPacks: match phải là hàm, id phải khớp /^[a-z0-9-]+$/', async () => {
+  await assert.rejects(loadPacks(await tmpPacks({ a: "export default { id: 'a', async handle() {} };" })), /match/);
+  await assert.rejects(loadPacks(await tmpPacks({ a: "export default { id: 'a', async handle() {}, match: true };" })), /match/);
+  await assert.rejects(loadPacks(await tmpPacks({ a: packSrc('Hai_Quan') })), /id/);
+  await assert.rejects(loadPacks(await tmpPacks({ a: packSrc('hs/x') })), /id/);
+  assert.deepEqual((await loadPacks(await tmpPacks({ a: packSrc('hs-2') }))).map((p) => p.id), ['hs-2']);
+});
+
 test('pick: audience staff chỉ cho isStaff, priority lớn trước', () => {
   const a = mk({ id: 'a', priority: 5 });
   const b = mk({ id: 'b', priority: 10, audience: 'staff' });

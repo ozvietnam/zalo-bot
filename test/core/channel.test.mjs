@@ -22,6 +22,13 @@ test('parse: updateKey = sha1 ổn định khi không có message_id', () => {
   assert.deepEqual(a.raw, IMG);
 });
 
+test('parse: updateKey không phụ thuộc thứ tự khoá trong JSON', () => {
+  const ch = createChannel({ token: 't', secret: 's' });
+  const re = { result: { message: { photo_url: 'u', chat: { id: 1 } }, event_name: 'message.image.received' } };
+  assert.equal(ch.parse(re).updateKey, ch.parse(IMG).updateKey);
+  assert.notEqual(ch.parse({ result: { ...IMG.result, message: { chat: { id: 2 }, photo_url: 'u' } } }).updateKey, ch.parse(IMG).updateKey);
+});
+
 test('parse: có message_id thì updateKey = message_id', () => {
   const ch = createChannel({ token: 't', secret: 's' });
   const u = ch.parse({ result: { event_name: 'message.text.received', message: { chat: { id: 1 }, text: 'hi', message_id: 9 } } });
@@ -37,6 +44,14 @@ test('verifyWebhook: đúng/sai/secret rỗng', () => {
   assert.equal(ch.verifyWebhook({ headers: {} }), false);
   const open = createChannel({ token: 't', secret: '' });
   assert.equal(open.verifyWebhook({ headers: { 'x-bot-api-secret-token': '' } }), false);
+});
+
+test('verifyWebhook: header không phải chuỗi (mảng, số) thì từ chối', () => {
+  const ch = createChannel({ token: 't', secret: 's' });
+  assert.equal(ch.verifyWebhook({ headers: { 'x-bot-api-secret-token': ['s'] } }), false);
+  const num = createChannel({ token: 't', secret: '12' });
+  assert.equal(num.verifyWebhook({ headers: { 'x-bot-api-secret-token': 12 } }), false);
+  assert.equal(ch.verifyWebhook(null), false);
 });
 
 test('sendText: một lần POST tới <base>/bot<token>/sendMessage, không chia', async () => {

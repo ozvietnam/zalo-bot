@@ -3,7 +3,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-/** Nạp mọi `<dir>/<id>/index.js`. Thư mục không tồn tại thì []. Ném lỗi nếu thiếu id/handle hoặc trùng id. */
+const ID_RE = /^[a-z0-9-]+$/;
+
+/** Nạp mọi `<dir>/<id>/index.js`. Thư mục không tồn tại thì []. Ném lỗi nếu id sai dạng, thiếu handle/match hoặc trùng id. */
 export async function loadPacks(dir = 'packs') {
   let entries;
   try {
@@ -19,7 +21,9 @@ export async function loadPacks(dir = 'packs') {
     try { await fs.access(file); } catch { continue; }
     const pack = (await import(pathToFileURL(file).href)).default;
     if (!pack || typeof pack.id !== 'string' || !pack.id) throw new Error(`Gói ${ent.name}: thiếu id`);
+    if (!ID_RE.test(pack.id)) throw new Error(`Gói ${ent.name}: id "${pack.id}" phải khớp ${ID_RE}`);
     if (typeof pack.handle !== 'function') throw new Error(`Gói ${pack.id}: thiếu handle`);
+    if (typeof pack.match !== 'function') throw new Error(`Gói ${pack.id}: thiếu match`);
     if (seen.has(pack.id)) throw new Error(`Gói trùng id: ${pack.id}`);
     seen.add(pack.id);
     packs.push(pack);
