@@ -295,6 +295,7 @@ test('chỉ core/gate.js gọi sendText', async () => {
   assert.deepEqual(hits.map((h) => h.file), ['core/gate.js']);
 });
 ```
+- [ ] Thêm (review B2): `gate.send({text: undefined})` trả `reject: empty`, không ném lỗi.
 - [ ] **Step 2:** FAIL (server.js cũ còn gọi) · **Step 3:** `server.js` chỉ nối dây (< 120 dòng); bộ quét `setInterval(5000)` gọi `jobs.tick` + `gate.sweep`, có cờ chống chạy chồng. · **Step 4:** `npm test` PASS · **Step 5:** `git commit -m "refactor: server wiring on core, remove lib/"`
 
 ### T017 [US4] Gói mẫu `packs/echo/` (nhân viên)
@@ -332,7 +333,7 @@ test('chỉ core/gate.js gọi sendText', async () => {
 
 - [ ] **Step 1: Test đỏ**: db có 2 dòng `pending` (khác phòng) + 1 `done` → `recover()` trả 2, kênh nhận đúng 2 câu trả lời; chạy `recover()` lần nữa → 0 và kênh không nhận thêm.
   Thêm `test/core/stress.test.mjs` cho SC-001: 1.000 update giả (100 phòng, 10 % gửi lại cùng `message_id`), ép "khởi động lại" 3 lần (đóng engine, mở lại cùng tệp db, `recover()`) → mỗi `updateKey` có đúng một bộ tin ra; không `updateKey` nào thiếu tin ra.
-- [ ] **Step 2:** FAIL · **Step 3:** đọc `inbox.pending()` theo `received_at`, đẩy qua `queue`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): recover pending inbox on boot"`
+- [ ] **Step 2:** FAIL · **Step 3:** lúc khởi động gọi **`gate.recover()` trước** (đưa outbox `queued` → `failed` để bộ quét gửi tiếp phần còn thiếu; review B2 N-1), rồi `engine.recover()` đọc `inbox.pending()` theo `received_at`, đẩy qua `queue`. Test thêm: outbox có 1 dòng `queued` `parts_sent=1` → sau khởi động + sweep, kênh nhận đúng các phần còn thiếu. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): recover pending inbox on boot"`
 
 ### T021 [US3] `core/jobs.js`: việc nền bền
 
