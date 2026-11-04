@@ -33,7 +33,7 @@ description: "Danh sách việc spec 001: khuôn spec-kit, mỗi việc viết t
 1. **Update không có `message_id`** (sự kiện ảnh, sticker): `updateKey = sha1(JSON raw)`, hai bản gửi lại vẫn trùng khoá. Test ở T012.
 2. **Tin dài bị chia, chết giữa hai phần**: khởi động lại chỉ gửi phần còn thiếu (`parts_sent`). Test ở T009.
 3. **Phòng nhóm khách**: trạng thái `human` áp theo cả nhóm; `/tl` vào nhóm thì giữ nguyên dạng tin, không thêm `@tên`. Test ở T026.
-4. **Số tiền tiếng Việt nhiều dạng**: `25.650đ`, `25,650 đ`, `25 650đ`, `1,5 triệu`, `800k`, `¥108`. Test ở T007.
+4. **Số tiền tiếng Việt nhiều dạng**: `25.650đ`, `25,650 đ`, `mua 3 250.000đ` (ra 250000), `1,5 triệu`, `800k`, `¥108`. Test ở T007.
 5. **Máy chủ chạy giờ UTC** (Coolify): giờ yên và bản tin vẫn đúng giờ VN. Test ở T003 với `process.env.TZ='UTC'` và `'Asia/Tokyo'`.
 
 ---
@@ -163,7 +163,8 @@ assert.equal(s.chats.get('c2'), null);
 assert.ok(jaccard('Dạ anh gửi giúp em ảnh sản phẩm ạ', 'dạ anh gửi giúp em ảnh sản phẩm') >= 0.8);
 assert.ok(jaccard('Mã 8413.70.90 thuế 0%', 'Anh cần tra mã khác không ạ') < 0.3);
 assert.deepEqual(extractMoney('Cước 25.650đ/kg, tổng 1,5 triệu'), [25650, 1500000]);
-assert.deepEqual(extractMoney('25,650 đ · 25 650đ · 800k · ¥108'), [25650, 25650, 800000, 108]);
+assert.deepEqual(extractMoney('25,650 đ · 800k · ¥108'), [25650, 800000, 108]);
+assert.deepEqual(extractMoney('mua 3 250.000đ'), [250000]);
 assert.deepEqual(extractMoney('mã 8413.70.90, 1,5 tấn'), []);   // không có đơn vị tiền
 assert.equal(isCloser('ok ạ'), true); assert.equal(isCloser('👍'), true); assert.equal(isCloser('ok mã 8413'), false);
 ```

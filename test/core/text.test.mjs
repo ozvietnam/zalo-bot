@@ -16,13 +16,17 @@ test('jaccard', () => {
 
 test('extractMoney: nhiều dạng', () => {
   assert.deepEqual(extractMoney('Cước 25.650đ/kg, tổng 1,5 triệu'), [25650, 1500000]);
-  assert.deepEqual(extractMoney('25,650 đ · 25 650đ · 800k · ¥108'), [25650, 25650, 800000, 108]);
+  assert.deepEqual(extractMoney('25,650 đ · 800k · ¥108'), [25650, 800000, 108]);
   assert.deepEqual(extractMoney('mã 8413.70.90, 1,5 tấn'), []);
   assert.deepEqual(extractMoney('1.234.000đ và 2tr, $50, 300 tệ, 5 usd, 1.234.000 vnd, 70.000 đồng, 9.000₫'),
     [1234000, 2000000, 50, 300, 5, 1234000, 70000, 9000]);
   assert.deepEqual(extractMoney('thuế 10% và 5 kg, 3 trong'), []);
   assert.deepEqual(extractMoney('10 điểm'), []);
   assert.deepEqual(extractMoney(''), []);
+  assert.deepEqual(extractMoney('mua 3 250.000đ'), [250000]);
+  assert.deepEqual(extractMoney('lấy 2 800k'), [800000]);
+  assert.deepEqual(extractMoney('25 650đ'), [650]); // giới hạn đã biết: dấu cách không ngăn nghìn
+  assert.deepEqual(extractMoney('3 đồng ý'), []);
 });
 
 test('isCloser', () => {

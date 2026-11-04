@@ -36,7 +36,7 @@ send(msg) -> Promise<{ id, decision, reason, status }>
 | 8 | `pack.moneyCheck` và có số tiền trong `text` không thấy trong `evidence` | `reject` + mở phiếu | `money:<số>` |
 | — | còn lại | `send` | `ok` |
 
-Số tiền = số có ≥ 4 chữ số (cho phép dấu `.`/`,` ngăn nghìn) đi kèm `đ`, `vnd`, `đồng`, `₫`, `tr`, `triệu`, `k`, `tệ`, `¥`, `$`, `usd`, `%`.
+Số tiền = số có ≥ 1 chữ số, chỉ dùng dấu `.`/`,` ngăn nghìn hoặc thập phân (dấu cách **không** ngăn nghìn: `25 650đ` ra `650`), đi kèm `đ`, `vnd`, `đồng`, `₫`, `tr`, `triệu`, `k`, `tệ`, `¥`, `$`, `usd`. `%` **không** phải tiền (là thuế suất). `k` = ×1.000, `tr`/`triệu` = ×1.000.000; `đồng` không tính khi là từ khác (`đồng ý`). Chuỗi dài ở dòng 7 không tính khi nằm trong URL và phải có cả chữ lẫn số.
 So khớp sau khi chuẩn hoá về số nguyên (bài học "1,5 tấn" và "1.234.000đ", research #6).
 
 ## Luật thi hành

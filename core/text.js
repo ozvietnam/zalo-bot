@@ -15,9 +15,10 @@ export function jaccard(a, b) {
   return inter / (A.size + B.size - inter);
 }
 
-// Số: 25.650 | 25,650 | 25 650 | 1,5 | 800. Không bắt đầu giữa một số khác.
-const NUM = String.raw`\d+(?:[.,]\d+|\s\d{3}(?!\d))*`;
-const UNIT = String.raw`nhân dân tệ|triệu|tr|tệ|vnđ|vnd|đồng|đ|₫|usd|k|\$|¥`;
+// Số: 25.650 | 25,650 | 1,5 | 800. Chỉ `.` và `,` ngăn nghìn/thập phân; dấu cách KHÔNG ngăn nghìn
+// (giới hạn đã biết: "25 650đ" ra [650], đổi lại "mua 3 250.000đ" ra [250000]).
+const NUM = String.raw`\d+(?:[.,]\d+)*`;
+const UNIT = String.raw`nhân dân tệ|triệu|tr|tệ|vnđ|vnd|đồng(?!\s+(?:ý|thời|nghiệp|hành|loạt|bộ|tình|thuận|đội|chí))|đ|₫|usd|k|\$|¥`;
 const MONEY_RE = new RegExp(
   String.raw`(?<![\p{N}.,])(?:([¥$₫])\s*(${NUM})|(${NUM})\s*(${UNIT})(?![\p{L}\p{N}]))`,
   'giu',
