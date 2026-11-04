@@ -74,6 +74,7 @@ core/
 ├── time.js               # UTC ↔ giờ VN, isQuietHours, nextMorning
 ├── redact.js             # che token/đường dẫn; dùng cho log, audit, lỗi
 ├── store.js              # node:sqlite: migrate, các hàm truy vấn theo bảng
+├── store/                # schema.js, queue.js, state.js, records.js, util.js: tách theo bảng cho store.js ghép (mỗi tệp < 300 dòng)
 ├── text.js               # normVi, jaccard, extractMoney
 ├── gate.js               # decide() thuần + send() thi hành + sweepOutbox()
 ├── queue.js              # hàng đợi theo chat_id
