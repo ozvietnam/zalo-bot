@@ -8,3 +8,5 @@ bot.log
 *.bak
 *.new
 zalo-hs-bot/
+data/
+.superpowers/

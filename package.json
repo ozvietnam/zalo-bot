@@ -4,10 +4,15 @@
   "private": true,
   "type": "module",
   "description": "Bot Zalo tra cứu hải quan — nguồn hs-code-api (OZ Việt Nam)",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
-    "start": "node server.js",
-    "test": "node test/test.mjs",
+    "dev": "node --env-file=.env --disable-warning=ExperimentalWarning server.js",
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/core/**/*.test.mjs\" \"packs/**/*.test.mjs\" && node test/test.mjs",
+    "eval": "node --disable-warning=ExperimentalWarning eval/run.mjs",
+    "audit": "node scripts/audit.mjs",
     "webhook:set": "node scripts/set-webhook.mjs set",
     "webhook:info": "node scripts/set-webhook.mjs info"
   }
