@@ -34,7 +34,8 @@ export default {
     return { replies: [{ text: '...' }], evidence: [result] };
   },
 
-  /** Không bắt buộc: dòng menu cuối tin, như `menuText()` hiện nay. */
+  /** Không bắt buộc: trả dòng menu để lõi dùng cho tin LÕI tự soạn (câu báo lỗi chung, REPLY_HANDOFF…).
+      Lõi KHÔNG nối footer vào replies của gói: gói tự nhúng footer vào câu của mình (review T014 I1). */
   footer(ctx) { return ''; },
 };
 ```
@@ -46,7 +47,8 @@ export default {
 | `chatId`, `userId`, `userName` | string | |
 | `isGroup` | boolean | |
 | `text` | string \| null | đã bỏ "@Tên bot" |
-| `photoUrl`, `caption` | string \| null | |
+| `caption` | string \| null | chú thích ảnh, cũng đã bỏ "@Tên bot" (review T014 I2) |
+| `photoUrl` | string \| null | |
 | `receivedAt` | string | ISO UTC |
 | `isStaff` | boolean | `userId` có trong `STAFF_USERS` |
 
