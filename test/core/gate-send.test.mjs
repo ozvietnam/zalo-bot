@@ -460,3 +460,27 @@ test('C-2 recover(): có nợ việc nền → phần 2 và 3 được gửi, kh
   assert.equal(gate.recover(), 0);
   void msg;
 });
+
+test('R2: failed rồi quét lại bị reject proactive-no-debt → onTicket(chat, "send-failed") đúng 1 lần', async () => {
+  const ch = { ...fakeChannel(), async sendText() { throw new Error('down'); } };
+  const { gate, clock, store, tickets, msg } = setup({ channel: ch });
+  const r = await gate.send(msg());
+  assert.equal(r.status, 'failed');
+  clock.advance('15m'); // quá 10 phút kể từ tin khách → tin chủ động, không có nợ
+  assert.equal(await gate.sweep(), 1);
+  assert.equal(store.outbox.get(r.id).reason, 'proactive-no-debt');
+  assert.deepEqual(tickets, [['c1', 'send-failed']]);
+  clock.advance('1d');
+  await gate.sweep();
+  assert.equal(tickets.length, 1);
+});
+
+test('R2: tin hoãn (chưa từng failed) bị reject proactive-no-debt → KHÔNG mở phiếu send-failed', async () => {
+  const { gate, clock, tickets, msg } = setup({ rules: { capChatDay: 1 } });
+  await gate.send(msg({ idemKey: 'a', text: 'alpha bravo' }));
+  await gate.send(msg({ idemKey: 'b', text: 'delta echo' }));
+  const before = tickets.length; // 1: cap:chat
+  clock.set(SEVEN);
+  await gate.sweep();
+  assert.equal(tickets.length, before);
+});

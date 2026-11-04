@@ -134,7 +134,9 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
     f.hasOpenJob = Boolean(c.debt) || f.hasOpenJob;
     const d = decide(m, f, R);
     auditGate(m, d, nowIso);
-    if (d.reason !== o.reason) signal(o.chat_id, d); // đổi lý do mới báo; hoãn lại cùng lý do thì im
+    if (d.reason !== o.reason) signal(o.chat_id, d);
+    // Tin đã lỗi gửi mà nay bị chặn vì quá muộn: khách chưa nhận được câu trả lời → người theo dõi.
+    if (o.status === 'failed' && d.reason === 'proactive-no-debt') safe(onTicket, o.chat_id, 'send-failed'); // đổi lý do mới báo; hoãn lại cùng lý do thì im
     const status = STATUS[d.decision];
     store.outbox.update(o.id, { decision: d.decision, reason: d.reason, status, not_before: notBeforeOf(d, nowIso) });
     return d.decision === 'send' ? deliver(o.id) : status;
