@@ -111,5 +111,40 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
     return { id, decision: d.decision, reason: d.reason, status };
   }
 
-  return { send, sweep: async () => 0 };
+  /** Xử lý một dòng đến hạn. Tin hoãn: chạy lại decide với facts mới (bỏ idem: chính dòng này). */
+  async function sweepRow(o, nowIso) {
+    if (o.status === 'failed') return deliver(o.id);
+    // Nợ việc nền đã được kiểm lúc gửi lần đầu; tin hoãn không còn mốc "vừa trả lời" nên coi là còn nợ.
+    const m = { idemKey: o.idem_key, chatId: o.chat_id, turnId: o.turn_id, kind: o.kind, text: o.text };
+    const d = decide(m, facts(o.chat_id, nowIso, { hasOpenJob: true }), R);
+    auditGate(m, d, nowIso);
+    signal(o.chat_id, d);
+    const status = STATUS[d.decision];
+    store.outbox.update(o.id, { decision: d.decision, reason: d.reason, status, not_before: notBeforeOf(d, nowIso) });
+    return d.decision === 'send' ? deliver(o.id) : status;
+  }
+
+  let sweeping = false;
+  /** Quét outbox: tin hoãn đến hạn và tin lỗi chờ thử lại. Trả số dòng đã xử lý. */
+  async function sweep() {
+    if (sweeping) return 0;
+    sweeping = true;
+    try {
+      const nowIso = nowDate().toISOString();
+      let n = 0;
+      for (const o of store.outbox.due(nowIso)) {
+        try {
+          await sweepRow(o, nowIso);
+          n++;
+        } catch (e) {
+          log('sweep row error', o.id, redact(e?.message));
+        }
+      }
+      return n;
+    } finally {
+      sweeping = false;
+    }
+  }
+
+  return { send, sweep };
 }
