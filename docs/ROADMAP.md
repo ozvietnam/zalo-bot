@@ -12,10 +12,11 @@ Thứ tự xếp theo: an toàn trước, rồi tới thứ ra tiền, rồi m�
 | **005** | Kênh thứ hai | khách Fanpage, Zalo OA | Messenger / Zalo OA theo `contracts/channel.md` với `detectsHumanReplies: true`: người gõ tay trên trang thì bot tự im | 001 xong |
 | **006** | Gói nội bộ | nhân viên | Tra KPI, việc của mình, số liệu kế toán trên Google Sheet chung; `audience: 'staff'` | 001 xong; anh chốt phạm vi trợ lý kế toán |
 | **007** | Agent giám sát & vòng nâng cấp | anh Thắng, đội dev | Script đo lỗi bằng code + Gemini miễn phí gom nhu cầu tuần → tự mở GitHub issue đúng repo (zalo-bot / ozplugin / hs-code-api), đo lại sau khi sửa. Mỗi lỗi bắt sớm là một lần không mất khách | 001 xong · làm **trước 005** |
+| **008** | Cổng AI Studio (addon Chrome + hàng đợi dùng chung) | cả công ty | Chạy Gemini qua giao diện AI Studio thay vì API: soạn nháp CSKH và việc lô gần như 0 đồng; quá hạn thì tự chuyển API. Dùng chung cho hs-code-api, 007, SEO | 001 xong · phải có **trước 003** · sẽ tách repo `ozvietnam/studio-gateway` |
 
 ## Thứ tự anh Thắng chốt (04/11/2026)
 
-**001 → 007 → 005** (cập nhật 04/11 17:32): có agent giám sát trước khi mở sang Fanpage. 005: anh chọn đưa lõi sang kênh Fanpage / Zalo OA. Ở đó khách thật đang nhắn nhiều nhất
+**001 → 007 → 005**, và **008 trước 003** (cập nhật 04/11 18:05): có agent giám sát trước khi mở sang Fanpage. 005: anh chọn đưa lõi sang kênh Fanpage / Zalo OA. Ở đó khách thật đang nhắn nhiều nhất
 (1.451 tin nhân viên trả lời tay trong 7 ngày), và kênh Messenger cho phép bot tự im khi thấy người gõ tay trên trang.
 Các spec 002, 003, 004, 006 chưa xếp thứ tự; xếp lại khi 005 xong.
 
