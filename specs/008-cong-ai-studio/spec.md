@@ -14,6 +14,7 @@
 
 - Q: Addon dùng cho việc nào? → A: **Cả việc lô và soạn nháp trả lời khách** (não CSKH của spec 003).
 - Q: Chạy trên máy nào? → A: **Một máy riêng, luôn bật, Chrome profile riêng** chỉ dùng cho việc này. Addon kéo việc từ hàng đợi trên VPS.
+- (18:14) Anh Thắng: máy chạy addon là **một VPS Windows 11 Pro**, do dev server cấp, có sẵn **khoảng 5 Chrome profile đã đăng nhập Google**. Việc viết addon và cài đặt trên VPS do điều phối tự làm hoặc giao agent qua **văn phòng OZ ảo**, nơi tập trung dữ liệu, có đội code độc lập và quản trị tài nguyên của công ty. → Cách dùng 5 profile: **[NEEDS CLARIFICATION: dùng 5 tài khoản để nhân hạn mức cho cùng một luồng việc là trái FR-009; nếu mỗi profile gắn một luồng có chủ riêng (CSKH, hs-code-api, SEO, giám sát 007, dự phòng khi profile chính bị đăng xuất) thì hợp lệ — chờ anh chốt]**.
 - Q: Tab hỏng, bị giới hạn hoặc quá hạn thì sao? → A: **Chờ tab; quá hạn thì chuyển API** (Gemini API, rồi MiniMax qua 9Router như ở 201).
 
 ## Bối cảnh và ranh giới
@@ -114,7 +115,7 @@ Bot Zalo gọi `brain.draft(conv, yêu cầu)`. Cổng ẩn danh nội dung, g�
 
 ## Assumptions
 
-- Có một máy luôn bật (Mac hoặc PC) với một Chrome profile chỉ dùng cho việc này, đã đăng nhập một tài khoản Google.
+- Máy chạy addon: VPS Windows 11 Pro (dev server cấp), Chrome có ~5 profile đã đăng nhập Google; truy cập qua văn phòng OZ ảo. Phiên Windows phải luôn mở (không khoá màn hình, không ngủ) để tab không bị trình duyệt cho ngủ.
 - Hàng đợi đặt trên VPS mà cả bot lẫn máy addon cùng gọi được (qua tunnel Cloudflare hiện có).
 - Spec 001 xong (cửa gửi, ẩn danh). Spec 003 dùng cổng làm não.
 - **[NEEDS CLARIFICATION]** Hạn mức thật của giao diện AI Studio trên một tài khoản: phải đo trong tuần đầu, chưa có tài liệu.
