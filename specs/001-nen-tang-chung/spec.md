@@ -19,6 +19,15 @@ không gửi sai hay gửi trùng, người luôn đứng trước máy, không 
 Spec này **không thêm tính năng mới cho khách**. Nó dựng lõi, rồi chuyển 7 gói hải quan hiện có sang lõi mới,
 giữ nguyên hành vi. Các gói mới (CSKH, nội bộ…) là các spec sau, xem `docs/ROADMAP.md`.
 
+## Clarifications
+
+### Session 2026-11-04 (anh Thắng trả lời)
+
+- Q: Phòng đã chuyển cho nhân viên thì khi nào bot được nói lại? → A: Chỉ khi nhân viên ra lệnh `/tra-bot`. Không tự về theo thời gian, không tự về khi phiếu đóng.
+- Q: Nhân viên nhận phiếu và trả lời khách ở đâu? → A: Nhóm Zalo nhân viên (D6). Không làm Telegram, Sheet hay web console ở spec này.
+- Q: Xong 001 thì làm spec nào? → A: 005 (kênh Fanpage / Zalo OA) trước. Xem `docs/ROADMAP.md`.
+- Q: Cách thực thi `tasks.md`? → A: `superpowers:subagent-driven-development`: mỗi việc một agent làm, một agent khác review trước khi sang việc kế.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Không bao giờ gửi trùng, gửi sai (Priority: P1)
