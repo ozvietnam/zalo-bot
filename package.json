@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "node --env-file=.env --disable-warning=ExperimentalWarning server.js",
     "start": "node --disable-warning=ExperimentalWarning server.js",
-    "test": "node --disable-warning=ExperimentalWarning --test \"test/core/**/*.test.mjs\" \"packs/**/*.test.mjs\" && node test/test.mjs",
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/core/**/*.test.mjs\" \"packs/**/*.test.mjs\" && node --disable-warning=ExperimentalWarning test/test.mjs",
     "eval": "node --disable-warning=ExperimentalWarning eval/run.mjs",
     "audit": "node scripts/audit.mjs",
     "webhook:set": "node scripts/set-webhook.mjs set",

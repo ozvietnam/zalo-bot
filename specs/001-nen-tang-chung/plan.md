@@ -82,6 +82,9 @@ core/
 ├── jobs.js               # bộ hỏi kết quả việc nền
 ├── registry.js           # nạp packs/, lọc audience + requiresTools, chọn gói
 ├── engine.js             # một lượt: inbox → state → pack → gate → audit
+├── engine-ctx.js  engine-jobs.js   # ctx cho gói (MCP ghi audit, đệm công cụ, phiên, lịch sử) và bộ hỏi việc nền tối thiểu, tách cho engine.js < 300 dòng (T015; engine-jobs.js chuyển thành jobs.js ở T021)
+├── engine-compat.js      # createBot chữ ký cũ trên engine cho 21 test cũ (T015; bỏ khi test cũ chuyển hẳn sang createEngine)
+├── mention.js            # stripMention + isGroup chuyển từ lib/bot.js, lõi bỏ "@Tên bot" ở text và caption (T015)
 ├── audit.js              # ghi + đọc audit
 ├── customers.js          # hồ sơ khách, nhãn theo luật, SĐT
 ├── backup.js             # VACUUM INTO mỗi ngày, giữ 7 bản

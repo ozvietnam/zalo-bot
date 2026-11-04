@@ -68,6 +68,7 @@ export function jobsTable(db) {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const open = db.prepare("SELECT 1 FROM jobs WHERE chat_id = ? AND (status = 'waiting' OR (status = 'done' AND done_at >= ?)) LIMIT 1");
   const due = db.prepare("SELECT * FROM jobs WHERE status = 'waiting' AND next_poll_at <= ? ORDER BY next_poll_at, id");
+  const next = db.prepare("SELECT MIN(next_poll_at) AS t FROM jobs WHERE status = 'waiting'");
   return {
     add(j) {
       try {
@@ -79,6 +80,8 @@ export function jobsTable(db) {
       }
     },
     due: (nowIso) => due.all(nowIso).map(jobOut),
+    /** Mốc hỏi sớm nhất của việc đang 'waiting', hoặc null. */
+    nextDue: () => next.get()?.t ?? null,
     /** Phòng còn việc nền nợ: đang 'waiting', hoặc 'done' từ sinceIso trở lại. */
     openFor: (chatId, sinceIso) => open.get(chatId, sinceIso) !== undefined,
     update: (id, patch) => patchRow(db, 'jobs', 'id', id, patch, JOB_COLS, ['context']),

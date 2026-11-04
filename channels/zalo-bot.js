@@ -13,12 +13,7 @@ export function createChannel({ token, baseUrl, fetchImpl, secret } = {}) {
   return {
     name: 'zalo-bot',
     maxText: ZALO_MAX_TEXT,
-    parse(raw) {
-      const u = parseUpdate(raw);
-      if (!u) return null;
-      const updateKey = u.messageId ?? createHash('sha1').update(stableJson(raw)).digest('hex');
-      return { updateKey, ...u, raw };
-    },
+    parse,
     async sendText(chatId, text) { await client.call('sendMessage', { chat_id: chatId, text }); },
     async typing(chatId) { await client.sendChatAction(chatId, 'typing'); },
     getMe: () => client.getMe(),
@@ -29,6 +24,14 @@ export function createChannel({ token, baseUrl, fetchImpl, secret } = {}) {
     },
     capabilities: { detectsHumanReplies: false },
   };
+}
+
+/** Update thô → Update có updateKey (message_id, không có thì sha1 của JSON đã sắp khoá). */
+export function parse(raw) {
+  const u = parseUpdate(raw);
+  if (!u) return null;
+  const updateKey = u.messageId ?? createHash('sha1').update(stableJson(raw)).digest('hex');
+  return { updateKey, ...u, raw };
 }
 
 export function createZaloClient({ token, baseUrl = DEFAULT_BASE, fetchImpl = fetch } = {}) {

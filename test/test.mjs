@@ -7,7 +7,8 @@ import { route, autoPick } from '../lib/router.js';
 import { PACKAGES, availablePackages, menuText, pickHs } from '../lib/packages.js';
 import { parseLabeled, firstHs8, soHieuList, countryCode } from '../lib/input.js';
 import { renderResult, renderGeneric } from '../lib/render.js';
-import { createBot, stripMention, isGroup } from '../lib/bot.js';
+import { createBot } from '../core/engine-compat.js';
+import { stripMention, isGroup } from '../core/mention.js';
 
 let pass = 0;
 const t = async (name, fn) => { await fn(); pass++; console.log('✓', name); };
@@ -170,6 +171,7 @@ await t('bot: gói 1 chạy nền → báo đang xử lý → hỏi kết quả 
   const bot = createBot({ zalo, mcp, log: {}, pollMs: 1 });
   await bot.handleUpdate(dm('1', 'd0'));
   await bot.handleUpdate(dm('Tên hàng: máy bơm nước ly tâm\nChất liệu: gang\nThông số: công suất 1.5HP, điện áp 220V', 'd1'));
+  await bot.drain();
   assert.deepEqual(mcp.calls[0], ['phan_loai_hs', { tenHang: 'máy bơm nước ly tâm', chatLieu: 'gang', thongSo: { 'công suất': '1.5HP', 'điện áp': '220V' }, nguonThongSo: 'CHU' }]);
   assert.match(zalo.sent[1][1], /⏳ Đang phân loại/);
   assert.match(zalo.sent[2][1], /Mã đề xuất: 8413\.70\.90/);
@@ -280,6 +282,7 @@ await t('CAN_DU_KIEN → người dùng trả lời → bo_sung_du_kien đúng m
   await bot.handleUpdate(dm('máy bơm nước', 'r1'));
   assert.match(zalo.sent[0][1], /Bơm ly tâm hay bơm piston/); assert.match(zalo.sent[0][1], /không trừ điểm thêm/);
   await bot.handleUpdate(dm('bơm ly tâm, cánh gang', 'r2'));
+  await bot.drain();
   assert.deepEqual(mcp.calls.filter((c) => c[0] === 'phan_loai_hs').length, 1);
   assert.deepEqual(mcp.calls.find((c) => c[0] === 'bo_sung_du_kien'), ['bo_sung_du_kien', { maLuot: ML, boSung: 'bơm ly tâm, cánh gang' }]);
   assert.match(zalo.sent.at(-1)[1], /Mã đề xuất: 8413\.70\.90/);

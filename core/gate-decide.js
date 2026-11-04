@@ -9,6 +9,7 @@ export const DEFAULT_RULES = Object.freeze({
   similarity: 0.8,
   directReplyMs: 600_000,
   bannedPatterns: [],
+  quietHours: true, // false: tắt giờ yên (chỉ createBot cũ dùng để test cũ chạy mọi giờ)
 });
 
 const NEVER_PROACTIVE = new Set(['staff_relay', 'ticket', 'digest']);
@@ -87,7 +88,7 @@ export function decide(msg, facts = {}, rules = {}) {
     // 3a, 3b
     if (isProactive(msg, nowMs, r)) {
       if (!facts.hasOpenJob) return out('reject', 'proactive-no-debt');
-      if (isQuietHours(now)) return out('defer', 'quiet-hours', { notBefore: nextMorning(now) });
+      if (r.quietHours !== false && isQuietHours(now)) return out('defer', 'quiet-hours', { notBefore: nextMorning(now) });
     }
     // 4, 5
     if (CAPPED.has(msg.kind)) {
