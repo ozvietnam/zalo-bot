@@ -14,6 +14,7 @@ test('mặc định với env tối thiểu', () => {
   assert.equal(cfg.rateLimitPerMin, 10);
   assert.equal(cfg.capChatDay, 8);
   assert.equal(cfg.capAllDay, 300);
+  assert.equal(cfg.sessionTtlMs, 7_200_000);
   assert.ok(cfg.allowUsers instanceof Set && cfg.allowUsers.size === 0);
   assert.ok(cfg.staffUsers instanceof Set);
   assert.ok(cfg.companyPhones instanceof Set && cfg.companyPhones.size === 0);

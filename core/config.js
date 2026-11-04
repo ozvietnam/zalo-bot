@@ -56,7 +56,7 @@ export function loadConfig(env = process.env) {
     companyPhones: new Set(list(env, 'COMPANY_PHONES').map(normPhone).filter(Boolean)),
     capChatDay: int(env, 'CAP_CHAT_DAY', 8, 0),
     capAllDay: int(env, 'CAP_ALL_DAY', 300, 0),
-    sessionTtlMs: int(env, 'SESSION_TTL_MS', 1_800_000, 1),
+    sessionTtlMs: int(env, 'SESSION_TTL_MS', 7_200_000, 1),
     bannedPatterns: Object.freeze(patterns(env, 'BANNED_PATTERNS')),
     botNames: Object.freeze(list(env, 'BOT_NAMES')),
   });
