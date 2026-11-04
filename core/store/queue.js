@@ -38,7 +38,7 @@ export function outboxTable(db) {
   const cntAll = db.prepare("SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND sent_at >= ?");
   const byId = db.prepare('SELECT * FROM outbox WHERE id = ?');
   const due = db.prepare(`SELECT * FROM outbox WHERE (status = 'deferred' AND not_before <= ?1)
-    OR (status = 'failed' AND attempts < 3 AND (next_retry_at IS NULL OR next_retry_at <= ?1)) ORDER BY id`);
+    OR (status = 'failed' AND attempts <= 3 AND (next_retry_at IS NULL OR next_retry_at <= ?1)) ORDER BY id`);
   return {
     insert(m) {
       try {

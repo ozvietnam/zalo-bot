@@ -66,10 +66,10 @@ test('sessions.get throws on invalid now', () => {
   assert.throws(() => s.sessions.get('k', 1000, 'garbage'), /invalid/i);
 });
 
-test('outbox.due: failed with NULL next_retry_at is due only while attempts < 3', () => {
+test('outbox.due: failed with NULL next_retry_at is due only while attempts <= 3 (3 retries)', () => {
   const s = openStore();
-  s.outbox.insert(ob({ idem_key: 'n1', status: 'failed', attempts: 2 }));
-  s.outbox.insert(ob({ idem_key: 'n2', status: 'failed', attempts: 3 }));
+  s.outbox.insert(ob({ idem_key: 'n1', status: 'failed', attempts: 3 }));
+  s.outbox.insert(ob({ idem_key: 'n2', status: 'failed', attempts: 4 }));
   assert.deepEqual(s.outbox.due(T).map((r) => r.idem_key), ['n1']);
 });
 
@@ -137,10 +137,11 @@ test('outbox.due', () => {
   s.outbox.insert(ob({ idem_key: 'a', status: 'deferred', not_before: at(5) }));
   s.outbox.insert(ob({ idem_key: 'b', status: 'deferred', not_before: at(20) }));
   s.outbox.insert(ob({ idem_key: 'c', status: 'failed', attempts: 1, next_retry_at: at(5) }));
-  s.outbox.insert(ob({ idem_key: 'd', status: 'failed', attempts: 3, next_retry_at: at(5) }));
+  s.outbox.insert(ob({ idem_key: 'd', status: 'failed', attempts: 4, next_retry_at: at(5) }));
+  s.outbox.insert(ob({ idem_key: 'g', status: 'failed', attempts: 3, next_retry_at: at(5) }));
   s.outbox.insert(ob({ idem_key: 'e', status: 'failed', attempts: 1, next_retry_at: at(50) }));
   s.outbox.insert(ob({ idem_key: 'f', status: 'queued' }));
-  assert.deepEqual(s.outbox.due(at(10)).map((r) => r.idem_key).sort(), ['a', 'c']);
+  assert.deepEqual(s.outbox.due(at(10)).map((r) => r.idem_key).sort(), ['a', 'c', 'g']);
 });
 
 test('jobs', () => {

@@ -108,7 +108,7 @@ test('cap:chat → defer, onTicket(chatId, reason), not_before ngày VN kế ti�
   assert.equal(ch.sent.length, 2);
   assert.deepEqual(tickets, [['c1', 'cap:chat']]);
   assert.equal(alerts.length, 0);
-  assert.equal(store.outbox.get(r.id).not_before, '2026-11-04T17:00:00.000Z'); // 00:00 VN 05/11
+  assert.equal(store.outbox.get(r.id).not_before, '2026-11-05T00:00:00.000Z'); // 07:00 VN 05/11, một bước
 });
 
 test('cap:all → defer và onAlert', async () => {
@@ -236,22 +236,21 @@ test('sweep: phòng sang human trước 07:00 → rejected chat-human', async ()
   assert.equal(store.messages.recent('c1', 5).length, 0);
 });
 
-test('sweep: tin defer cap:chat gửi sau khi sang ngày mới (qua giờ yên)', async () => {
+test('sweep: tin defer cap:chat có nợ → gửi đúng 07:00 hôm sau, một bước, không hoãn lần hai', async () => {
   const { gate, ch, clock, tickets, msg, store } = setup({ rules: { capChatDay: 1 } });
   store.jobs.add(WAITING_JOB); // có nợ việc nền → sáng hôm sau vẫn được gửi
   await gate.send(msg({ idemKey: 'a', text: 'alpha bravo charlie' }));
   const r = await gate.send(msg({ idemKey: 'b', text: 'delta echo foxtrot' }));
   assert.equal(r.reason, 'cap:chat');
   assert.equal(tickets.length, 1);
-  clock.set('2026-11-04T17:00:00.000Z'); // 00:00 VN: quá not_before nhưng còn giờ yên → hoãn tiếp tới 07:00
-  assert.equal(await gate.sweep(), 1);
-  assert.equal(store.outbox.get(r.id).status, 'deferred');
-  assert.equal(store.outbox.get(r.id).not_before, SEVEN);
-  assert.equal(ch.sent.length, 1);
+  clock.set('2026-11-04T23:59:00.000Z');
+  assert.equal(await gate.sweep(), 0);
   clock.set(SEVEN);
   assert.equal(await gate.sweep(), 1);
-  assert.equal(ch.sent.length, 2);
   assert.equal(store.outbox.get(r.id).status, 'sent');
+  assert.equal(ch.sent.length, 2);
+  assert.equal(tickets.length, 1);
+  assert.equal(store.audit.byChat('c1', 50).filter((x) => x.type === 'gate' && x.data.idemKey === 'b').length, 2); // 1 lúc hoãn + 1 lúc gửi
 });
 
 test('sweep sau lỗi → gửi tiếp phần 2 và 3, không gửi lại phần 1', async () => {
@@ -273,32 +272,45 @@ test('sweep sau lỗi → gửi tiếp phần 2 và 3, không gửi lại phần
   assert.equal(store.messages.recent('c1', 5).length, 1);
 });
 
-test('sweep: failed thử lại sau 1, 5, 15 phút rồi dừng ở attempts=3, onAlert 1 lần', async () => {
+test('sweep: 3 lần thử lại sau lỗi 1/2/3 ở +1, +5, +15 phút; lỗi thứ 4 thì dừng và onAlert đúng 1 lần', async () => {
   let calls = 0;
   const ch = { ...fakeChannel(), async sendText() { calls++; throw new Error('down'); } };
   const { gate, clock, store, alerts, msg } = setup({ channel: ch });
-  const r = await gate.send(msg());
+  const r = await gate.send(msg({ inReplyToAt: null, kind: 'ticket', chatId: 'staff' })); // tin miễn kiểm chủ động: giữ nguyên qua nhiều phút
   const o = () => store.outbox.get(r.id);
+  const at = (min) => new Date(Date.parse(START) + min * 60_000).toISOString();
   assert.equal(calls, 1);
-  assert.equal(o().attempts, 1);
-  clock.advance('59s');
-  assert.equal(await gate.sweep(), 0);
-  clock.advance('1s'); // +1 phút
-  assert.equal(await gate.sweep(), 1);
-  assert.equal(calls, 2);
-  assert.equal(o().attempts, 2);
-  assert.equal(o().next_retry_at, new Date(clock.now().getTime() + 5 * 60_000).toISOString());
-  clock.advance('4m');
-  assert.equal(await gate.sweep(), 0);
-  clock.advance('1m');
-  assert.equal(await gate.sweep(), 1);
-  assert.equal(calls, 3);
-  assert.equal(o().attempts, 3);
-  assert.equal(o().status, 'failed');
-  assert.deepEqual(alerts, [['c1', 'send-failed']]);
+  assert.deepEqual([o().attempts, o().next_retry_at], [1, at(1)]);
+  clock.set(at(0.98)); assert.equal(await gate.sweep(), 0);
+  clock.set(at(1)); assert.equal(await gate.sweep(), 1);
+  assert.deepEqual([calls, o().attempts, o().next_retry_at], [2, 2, at(6)]);
+  clock.set(at(5.9)); assert.equal(await gate.sweep(), 0);
+  clock.set(at(6)); assert.equal(await gate.sweep(), 1);
+  assert.deepEqual([calls, o().attempts, o().next_retry_at], [3, 3, at(21)]);
+  assert.equal(alerts.length, 0);
+  clock.set(at(20.9)); assert.equal(await gate.sweep(), 0);
+  clock.set(at(21)); assert.equal(await gate.sweep(), 1);
+  assert.deepEqual([calls, o().attempts, o().status, o().next_retry_at], [4, 4, 'failed', null]);
+  assert.deepEqual(alerts, [['staff', 'send-failed']]);
   clock.advance('1d');
   assert.equal(await gate.sweep(), 0);
-  assert.equal(calls, 3);
+  assert.equal(calls, 4);
+  assert.equal(alerts.length, 1);
+});
+
+test('g: cap:all còn vướng khi quét → hoãn tiếp, KHÔNG báo lại mỗi lần quét', async () => {
+  const { gate, clock, store, alerts, msg } = setup({ rules: { capAllDay: 1 } });
+  store.jobs.add({ ...WAITING_JOB, chat_id: 'y', ma_luot: 'L2' });
+  await gate.send(msg({ idemKey: 'a', chatId: 'x', text: 'alpha bravo charlie' }));
+  const r = await gate.send(msg({ idemKey: 'b', chatId: 'y', text: 'delta echo foxtrot' }));
+  assert.equal(r.reason, 'cap:all');
+  assert.deepEqual(alerts, [['y', 'cap:all']]);
+  clock.set(SEVEN);
+  await gate.send(msg({ idemKey: 'z', chatId: 'x', text: 'golf hotel india', inReplyToAt: SEVEN })); // chiếm trần ngày mới
+  await gate.sweep();
+  await gate.sweep();
+  assert.equal(store.outbox.get(r.id).status, 'deferred');
+  assert.equal(store.outbox.get(r.id).not_before, '2026-11-06T00:00:00.000Z');
   assert.equal(alerts.length, 1);
 });
 

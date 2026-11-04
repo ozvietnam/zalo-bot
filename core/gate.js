@@ -2,15 +2,14 @@
 // decide (hàm thuần) nằm ở gate-decide.js. Chỉ tệp này được gọi channel.sendText.
 import { decide, DEFAULT_RULES, evidenceNumbers } from './gate-decide.js';
 import { splitText } from './text.js';
-import { vnDayStartUtc } from './time.js';
+import { vnDayStartUtc, nextMorning } from './time.js';
 import { redact } from './redact.js';
 
 export { decide, DEFAULT_RULES, evidenceNumbers } from './gate-decide.js';
 
 const MIN = 60_000;
 const DAY = 86_400_000;
-const RETRY_MIN = [1, 5, 15];
-const MAX_ATTEMPTS = 3;
+const RETRY_MIN = [1, 5, 15]; // 3 lần thử lại, sau lần lỗi thứ 1, 2, 3; lỗi thứ 4 thì dừng
 const STATUS = { send: 'queued', drop: 'dropped', defer: 'deferred', reject: 'rejected' };
 
 export function createGate({ store, channel, rules = {}, now, onAlert = () => {}, onTicket = () => {}, log = () => {} }) {
@@ -34,8 +33,8 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
     };
   }
 
-  // Defer không có notBefore (cap:*) thì hoãn tới 00:00 VN ngày kế tiếp, để bộ quét có mốc.
-  const notBeforeOf = (d, nowIso) => d.notBefore ?? (d.decision === 'defer' ? iso(Date.parse(vnDayStartUtc(nowIso)) + DAY) : null);
+  // Defer không có notBefore (cap:*): 07:00 VN sau nửa đêm VN kế tiếp, để bộ quét có mốc và khỏi đụng giờ yên.
+  const notBeforeOf = (d, nowIso) => d.notBefore ?? (d.decision === 'defer' ? nextMorning(iso(Date.parse(vnDayStartUtc(nowIso)) + DAY)) : null);
 
   function audit(type, chatId, turnId, data, at) {
     store.audit.add({ at, turn_id: turnId ?? null, chat_id: chatId, type, data });
@@ -61,16 +60,19 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
     let sent = o.parts_sent ?? 0;
     try {
       for (; sent < parts.length; sent++) {
-        await channel.sendText(o.chat_id, parts[sent]);
-        store.outbox.update(id, { parts_sent: sent + 1 });
+        try {
+          await channel.sendText(o.chat_id, parts[sent]);
+        } catch (err) { throw Object.assign(new Error(err?.message), { channelError: true }); }
+        store.outbox.update(id, { parts_sent: sent + 1 }); // lỗi db ở đây KHÔNG phải lỗi kênh
       }
     } catch (err) {
+      if (!err.channelError) throw err;
       const t = nowDate();
       const attempts = (o.attempts ?? 0) + 1;
-      const wait = RETRY_MIN[Math.min(attempts - 1, RETRY_MIN.length - 1)] * MIN;
-      store.outbox.update(id, { status: 'failed', attempts, next_retry_at: iso(t.getTime() + wait) });
+      const retry = attempts <= RETRY_MIN.length ? iso(t.getTime() + RETRY_MIN[attempts - 1] * MIN) : null;
+      store.outbox.update(id, { status: 'failed', attempts, next_retry_at: retry });
       audit('error', o.chat_id, o.turn_id, { idemKey: o.idem_key, attempts, message: redact(err?.message) }, t.toISOString());
-      if (attempts >= MAX_ATTEMPTS) safe(onAlert, o.chat_id, 'send-failed');
+      if (attempts > RETRY_MIN.length) safe(onAlert, o.chat_id, 'send-failed');
       return 'failed';
     }
     const at = nowDate().toISOString();
@@ -115,7 +117,10 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
     }
     auditGate(msg, d, nowIso);
     signal(msg.chatId, d);
-    const status = d.decision === 'send' ? await deliver(id, { staffId: msg.staffId }) : STATUS[d.decision];
+    let status = STATUS[d.decision];
+    if (d.decision === 'send') {
+      try { status = await deliver(id); } catch (e) { log('deliver error', redact(e?.message)); status = store.outbox.get(id).status; } // dòng 'queued' sẽ được recover() xử lý
+    }
     return { id, decision: d.decision, reason: d.reason, status };
   }
 
@@ -129,7 +134,7 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
     f.hasOpenJob = Boolean(c.debt) || f.hasOpenJob;
     const d = decide(m, f, R);
     auditGate(m, d, nowIso);
-    signal(o.chat_id, d);
+    if (d.reason !== o.reason) signal(o.chat_id, d); // đổi lý do mới báo; hoãn lại cùng lý do thì im
     const status = STATUS[d.decision];
     store.outbox.update(o.id, { decision: d.decision, reason: d.reason, status, not_before: notBeforeOf(d, nowIso) });
     return d.decision === 'send' ? deliver(o.id) : status;
