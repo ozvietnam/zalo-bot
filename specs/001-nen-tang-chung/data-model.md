@@ -104,9 +104,43 @@ Chuyển trạng thái: `bot → human` (khách xin người, `/nhan`, `/tl`, g�
 
 Giữ 90 ngày; `core/store.js#prune()` chạy mỗi ngày lúc 03:00 giờ VN.
 
+### `messages`: toàn bộ tin của phòng (FR-024)
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| `id` | INTEGER PK | |
+| `chat_id` | TEXT NOT NULL | |
+| `turn_id` | TEXT | |
+| `speaker` | TEXT NOT NULL | `khach | bot | nhan-vien` |
+| `speaker_id` | TEXT | `user_id` khách hoặc nhân viên; bot để trống |
+| `text` | TEXT | nguyên văn; ảnh ghi `[ảnh] <photo_url>` + chú thích |
+| `outbox_id` | INTEGER | với tin bot/nhân viên: trỏ `outbox.id`, chỉ ghi khi `status = sent` |
+| `at` | TEXT NOT NULL | |
+
+Không tự xoá. Chỉ bị xoá bởi `/xoa-du-lieu`. Không ghi bản sao vào `audit` (audit chỉ giữ hash + 500 ký tự đầu).
+
+### `customers`: hồ sơ khách (FR-025, FR-026)
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| `chat_id` | TEXT PK | một hồ sơ mỗi phòng khách (1-1). Nhóm khách: một hồ sơ cho nhóm |
+| `display_name` | TEXT | tên Zalo, chỉ để đọc, không bao giờ làm khoá |
+| `phone` | TEXT | chỉ khi khách tự gõ; chuẩn hoá `0xxxxxxxxx`; bỏ số trong `COMPANY_PHONES` |
+| `labels` | TEXT NOT NULL DEFAULT `'[]'` | JSON `[{ "nhan": "tra-cuu-hs", "nguon": "auto", "at": "…" }]` |
+| `interests` | TEXT NOT NULL DEFAULT `'[]'` | JSON `[{ "mon": "máy bơm ly tâm 1.5HP", "hs": "84137090", "at": "…" }]`, giữ 20 mục mới nhất |
+| `first_seen_at` / `last_seen_at` | TEXT | |
+| `turns` | INTEGER DEFAULT 0 | |
+| `note` | TEXT | ghi chú tay của nhân viên (`/ghi P1 …`) |
+
+**Nhãn tự động v1** (code gắn, FR-026): `tra-cuu-hs` (dùng gói hs) · `xin-nguoi` (`wantsHuman`) · `co-sdt` (đã có số) ·
+`hoi-ai` (`asksIfBot`) · `nhan-vien-da-nhan` (`/nhan`) · `bi-chan` (`/chan`). Gói thêm nhãn của mình qua `labels` trong kết quả `handle`.
+Nhãn có nguồn `staff:*` không bị máy gỡ.
+
 ### `meta`
-`schema_version`, `last_digest_at`.
+`schema_version`, `last_digest_at`, `last_backup_at`.
 
 ## Chỉ mục
 `inbox(status, received_at)` · `outbox(chat_id, created_at)` · `outbox(status, not_before)` · `jobs(status, next_poll_at)` ·
-`tickets(status)` · `audit(turn_id)` · `audit(chat_id, at)`.
+`tickets(status)` · `audit(turn_id)` · `audit(chat_id, at)` · `messages(chat_id, at)` · `customers(phone)`.
+
+## Sao lưu (FR-028)
+03:00 giờ VN mỗi ngày: `VACUUM INTO '<DATA_DIR>/backup/bot-YYYY-MM-DD.db'`, xoá bản cũ hơn 7 ngày, ghi `meta.last_backup_at`.
+`/health` báo `backup: stale` khi bản mới nhất cũ hơn 26 giờ.

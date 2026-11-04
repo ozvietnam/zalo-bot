@@ -44,7 +44,8 @@ Hành vi với khách không đổi: 21 test cũ phải xanh ở mọi bước.
 | VI. Đơn giản | 0 dependency; `node:sqlite` (D1); các tệp mới đều < 300 dòng | ✅, chấp nhận cảnh báo `ExperimentalWarning` của `node:sqlite` (ẩn bằng `--disable-warning=ExperimentalWarning`) |
 | VII. Sai thì dừng | db lỗi → webhook trả 503; cửa từ chối khi không đọc được `facts` | ✅ |
 | VIII. Trung thực | Câu trả lời "người hay máy" là câu cố định của lõi, gói không ghi đè | ✅ |
-| IX. Bí mật | `core/redact.js` dùng chung cho log, audit, lỗi gửi khách | ✅ |
+| IX. Bí mật | `core/redact.js` dùng chung cho log, audit, lỗi gửi khách; SĐT và nội dung tin chỉ nằm trong `messages`/`customers`, không vào audit hay log | ✅ |
+| Lõi lai (D9) | Spec này không gọi mô hình nào; giao diện `brain.draft()` để spec 003 | ✅ |
 
 ## Project Structure
 
@@ -81,6 +82,8 @@ core/
 ├── registry.js           # nạp packs/, lọc audience + requiresTools, chọn gói
 ├── engine.js             # một lượt: inbox → state → pack → gate → audit
 ├── audit.js              # ghi + đọc audit
+├── customers.js          # hồ sơ khách, nhãn theo luật, SĐT
+├── backup.js             # VACUUM INTO mỗi ngày, giữ 7 bản
 └── ops.js                # /health, /metrics, bản tin gộp
 channels/
 └── zalo-bot.js           # từ lib/zalo.js, theo contracts/channel.md
@@ -135,7 +138,8 @@ POST /webhook ─► verifyWebhook ─► store.inbox.insertIgnore ─► 200 (h
    Làm trước US3 vì US3 và US2 đều cắm vào engine.
 4. **Bền vững (US3)**: inbox, queue, jobs.
 5. **Người cầm phòng (US2)**.
-6. **Vận hành (US5)**, rồi **eval (US6)**.
+6. **Lịch sử và hồ sơ khách (US7)**: cắm vào engine và phiếu sau khi handoff chạy.
+7. **Vận hành (US5)**, rồi **eval (US6)**.
 
 ## Complexity Tracking
 

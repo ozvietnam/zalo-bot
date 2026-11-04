@@ -117,10 +117,10 @@ assert.equal(findLeak('gọi 0985559918', [/0985\D?559\D?918/]), 'banned');
 
 **Files:** Create `core/config.js`, `test/core/config.test.mjs` · Modify `.env.example`
 
-**Interfaces — Produces:** `loadConfig(env = process.env) -> Readonly<Config>` với các khoá `zaloToken, mode, port, webhookPath, webhookSecret, mcpUrl, mcpToken, mcpAuthHeader, geminiKey, geminiModel, rateLimitPerMin, allowUsers:Set, staffUsers:Set, staffChatId, dataDir, capChatDay, capAllDay, bannedPatterns:RegExp[], botNames:string[]`
+**Interfaces — Produces:** `loadConfig(env = process.env) -> Readonly<Config>` với các khoá `zaloToken, mode, port, webhookPath, webhookSecret, mcpUrl, mcpToken, mcpAuthHeader, geminiKey, geminiModel, rateLimitPerMin, allowUsers:Set, staffUsers:Set, staffChatId, dataDir, companyPhones:Set, capChatDay, capAllDay, bannedPatterns:RegExp[], botNames:string[]`
 
 - [ ] **Step 1: Test đỏ**: env tối thiểu `{ ZALO_BOT_TOKEN: 'x' }` → `mode === 'webhook'`, `capChatDay === 8`, `capAllDay === 300`, `Object.isFrozen(cfg)`; `ZALO_MODE='abc'` → throw `/ZALO_MODE/`; `CAP_CHAT_DAY='-1'` → throw; `BANNED_PATTERNS='0985\\D?559'` → `bannedPatterns[0].test('0985 559') === true`.
-- [ ] **Step 2:** FAIL · **Step 3:** viết; thêm vào `.env.example`: `STAFF_USERS`, `STAFF_CHAT_ID`, `DATA_DIR`, `CAP_CHAT_DAY`, `CAP_ALL_DAY`, `BANNED_PATTERNS`, `SESSION_TTL_MS`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): validated config"`
+- [ ] **Step 2:** FAIL · **Step 3:** viết; thêm vào `.env.example`: `STAFF_USERS`, `STAFF_CHAT_ID`, `DATA_DIR`, `CAP_CHAT_DAY`, `CAP_ALL_DAY`, `BANNED_PATTERNS`, `SESSION_TTL_MS`, `COMPANY_PHONES`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): validated config"`
 
 ### T006 `core/store.js`
 
@@ -134,6 +134,8 @@ assert.equal(findLeak('gọi 0985559918', [/0985\D?559\D?918/]), 'banned');
 `jobs.{add(job)->id|null, due(nowIso)->row[], update(id, patch)}` ·
 `tickets.{openFor(chatId)->row|null, open(chatId, reason, at)->row, update(id, patch), list(status)->row[]}` ·
 `audit.{add(rec), byTurn(turnId)->row[], byChat(chatId, limit)->row[], prune(beforeIso)}` ·
+`messages.{add(row)->id, recent(chatId, n)->row[], deleteChat(chatId)->number}` ·
+`customers.{get(chatId)->row|null, upsert(chatId, patch, at), deleteChat(chatId)}` ·
 `meta.{get(k), set(k, v)}` · `tx(fn)` · `close()`
 
 - [ ] **Step 1: Test đỏ**
@@ -415,6 +417,55 @@ test('gói trả handoff:{reason} → phòng human, phiếu mở với reason c�
 
 ---
 
+## Phase 6b: User Story 7: Lịch sử hội thoại và hồ sơ khách (P2)
+
+**Independent Test:** kịch bản eval `ho-so-khach` (T030) + `node --test test/core/customers*.test.mjs`.
+
+### T033 [US7] Ghi mọi tin vào `messages`
+
+**Files:** Modify `core/engine.js`, `core/gate.js` · Create `test/core/messages.test.mjs`
+
+**Interfaces — Consumes:** `Store.messages` (T006) · **Produces:** tin khách ghi ở `engine.process` (`speaker:'khach'`); tin bot/nhân viên ghi ở `gate.send` **chỉ khi** `status = sent` (`speaker:'bot'|'nhan-vien'`, `outbox_id`)
+
+- [ ] **Step 1: Test đỏ**: hội thoại 3 tin khách → bot trả 3 câu → `messages.recent(c, 10)` có 6 dòng xen kẽ đúng thứ tự; tin bị cửa `drop`/`reject` **không** có trong `messages`; `/tl` ghi `speaker:'nhan-vien'`, `speaker_id` là nhân viên; ảnh ghi `[ảnh] <url>`.
+- [ ] **Step 2:** FAIL · **Step 3:** viết. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): persist full chat transcript"`
+
+### T034 [US7] [P] `core/customers.js`: hồ sơ và nhãn tự động
+
+**Files:** Create `core/customers.js`, `test/core/customers.test.mjs`
+
+**Interfaces — Consumes:** `Store.customers` (T006), `normVi` (T007), `config.companyPhones` (T005)
+**Produces:** `extractPhone(text, companyPhones) -> string|null` · `createCustomers({ store, config, now }) -> { touch(turn), addLabels(chatId, labels, source), removeLabel(chatId, label, by), addInterests(chatId, items), setNote(chatId, text, by), summary(chatId) -> string, erase(chatId) }`
+
+- [ ] **Step 1: Test đỏ**
+```js
+assert.equal(extractPhone('số em 0912 345 678 nhé', new Set()), '0912345678');
+assert.equal(extractPhone('+84 912.345.678', new Set()), '0912345678');
+assert.equal(extractPhone('gọi 0916366669', new Set(['0916366669'])), null);   // số của OZ khách dán lại
+assert.equal(extractPhone('mã 8413709090', new Set()), null);                  // mã HS 10 số không phải SĐT
+// nhãn
+c.addLabels('c1', ['khoa-hoc'], 'staff:u9'); c.removeLabel('c1', 'khoa-hoc', 'auto') // → vẫn còn (máy không gỡ nhãn nhân viên)
+c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'auto') // → chỉ 1 mục
+// interests giữ 20 mục mới nhất; summary() có tên, SĐT, nhãn, 3 món gần nhất, số lượt
+```
+- [ ] **Step 2:** FAIL · **Step 3:** SĐT: chuỗi 10 số bắt đầu `0[35789]` sau khi bỏ `.`/`-`/khoảng trắng, hoặc `+84`/`84` + 9 số; số liền khối 10 số mà khách đang ở gói hs thì không coi là SĐT nếu trùng định dạng mã HS (`firstHs8` khớp). · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): customer profile and rule-based labels"`
+
+### T035 [US7] Cắm hồ sơ vào engine, phiếu và ctx gói
+
+**Files:** Modify `core/engine.js`, `core/handoff.js`, `packs/hs/index.js` · Create `test/core/engine-customers.test.mjs`
+
+- [ ] **Step 1: Test đỏ**: khách dùng gói hs với "máy bơm ly tâm 1.5HP" → hồ sơ có nhãn `tra-cuu-hs`, interest `máy bơm ly tâm 1.5HP` kèm mã HS của lượt; khách xin người → nhãn `xin-nguoi` và phiếu trong nhóm có `summary()`; gói đọc được `ctx.history(5)` (5 tin, cũ → mới) và `ctx.customer.labels`; phòng `human` vẫn `touch` hồ sơ (đếm lượt) nhưng không gọi gói.
+- [ ] **Step 2:** FAIL · **Step 3:** `engine` gọi `customers.touch(turn)` mỗi lượt, áp `labels`/`interests` từ kết quả gói; gói hs trả `labels:['tra-cuu-hs']` + `interests`. · **Step 4:** `npm test` PASS · **Step 5:** `git commit -m "feat(core): customer profile in engine, tickets and pack ctx"`
+
+### T036 [US7] Lệnh hồ sơ cho nhân viên + sao lưu
+
+**Files:** Modify `core/handoff.js` · Create `core/backup.js`, `test/core/handoff-hoso.test.mjs`, `test/core/backup.test.mjs`
+
+- [ ] **Step 1: Test đỏ**: `/ho-so P1` → nhóm nhận hồ sơ + 20 tin gần nhất (giờ VN); `/gan P1 khoa-hoc` và `/go P1 khoa-hoc`; `/ghi P1 khách hẹn thứ 6` → `note`; `/xoa-du-lieu P1` → `messages` và `customers` của phòng = 0 dòng, audit có `erase` với người xoá, không có nội dung tin; `backup.run(now)` lúc 03:00 VN tạo `backup/bot-2026-11-05.db` mở được bằng `openStore`, chạy lại cùng ngày không tạo bản hai, giữ đúng 7 bản mới nhất.
+- [ ] **Step 2:** FAIL · **Step 3:** viết; `backup` dùng `db.exec("VACUUM INTO '<path>'")`, bộ quét gọi mỗi phút, chạy khi `vnHour = 3` và `meta.last_backup_at` khác ngày. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): staff profile commands and daily backup"`
+
+---
+
 ## Phase 7: User Story 5: Vận hành nhìn thấy được (P2)
 
 ### T027 [US5] `/health` và `/metrics`
@@ -444,15 +495,15 @@ test('gói trả handoff:{reason} → phòng human, phiếu mở với reason c�
 
 ## Phase 8: User Story 6: Kiểm trước khi bật (P3)
 
-### T030 [US6] `eval/run.mjs` + 8 kịch bản từ sự cố thật
+### T030 [US6] `eval/run.mjs` + 9 kịch bản
 
-**Files:** Create `eval/run.mjs`, `eval/README.md`, `eval/fixtures/{retry-webhook,double-tap,human-room,silent-customer,leak,is-bot,restart-mid-job,quiet-hours}.jsonl`
+**Files:** Create `eval/run.mjs`, `eval/README.md`, `eval/fixtures/{retry-webhook,double-tap,human-room,silent-customer,leak,is-bot,restart-mid-job,quiet-hours,ho-so-khach}.jsonl`
 
 Định dạng một dòng fixture:
 `{"step":"in","update":{…}} | {"step":"mcp","tool":"phan_loai_hs","returns":[…]} | {"step":"advance","by":"10m"} | {"step":"restart"} | {"step":"staff","text":"/nhan P1"} | {"step":"expect","sentTo":"c1","count":1,"match":"8413"}`
 
 - [ ] **Step 1: Test đỏ**: `node eval/run.mjs` với thư mục rỗng → in `eval: 0/0` và thoát 0; với fixture cố ý sai (`count: 2` cho `retry-webhook`) → thoát 1 và in tên kịch bản.
-- [ ] **Step 2:** FAIL · **Step 3:** `run.mjs` dựng engine thật trên `:memory:` (restart = đóng engine, mở lại cùng tệp tạm) với `fakeChannel`, `fakeMcp`, `fakeClock`; viết 8 fixture, mỗi fixture ứng với một dòng trong `research.md` §1 (#1, #2, #4, #5, #7, #9, #11, #12). · **Step 4:** `npm run eval` → `eval: 8/8` · **Step 5:** `git commit -m "feat(eval): replay runner and incident fixtures"`
+- [ ] **Step 2:** FAIL · **Step 3:** `run.mjs` dựng engine thật trên `:memory:` (restart = đóng engine, mở lại cùng tệp tạm) với `fakeChannel`, `fakeMcp`, `fakeClock`; viết 9 fixture: 8 cái ứng với các dòng trong `research.md` §1 (#1, #2, #4, #5, #7, #9, #11, #12) và `ho-so-khach` (US7). · **Step 4:** `npm run eval` → `eval: 9/9` · **Step 5:** `git commit -m "feat(eval): replay runner and incident fixtures"`
 
 ### T031 [US6] [P] CI
 
@@ -481,7 +532,10 @@ test('gói trả handoff:{reason} → phòng human, phiếu mở với reason c�
 - T011 → T012 → T013 → T014 → T015 → T016 → T017
 - T018 cần T016; T019 song song; T020 cần T018 + T019; T021 cần T015
 - T022 → T023 (song song được) → T024 → T025 → T026 (cần T015)
-- T027 → T028; T029 song song; T030 cần T026 + T021; T031 sau T030
+- T033 cần T026; T034 song song; T035 cần T033 + T034; T036 cần T035
+- T027 → T028; T029 song song; T030 cần T026 + T021 + T035; T031 sau T030
 - T032 cuối cùng
 
-**MVP an toàn để bật lại cho khách** = xong Phase 1–6 (T001–T026): cửa gửi, gói hs trên lõi, bền vững, người cầm phòng.
+**MVP an toàn để bật lại cho khách** = xong Phase 1–6b (T001–T026, T033–T036): cửa gửi, gói hs trên lõi, bền vững, người cầm phòng, lịch sử và hồ sơ khách.
+
+**Thứ tự chạy thật**: T001–T026 → T033–T036 → T027–T032 (số hiệu T033–T036 thêm sau buổi hỏi đáp 04/11, nên đứng sau T032 trong bảng số).

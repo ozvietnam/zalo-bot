@@ -27,6 +27,10 @@ giữ nguyên hành vi. Các gói mới (CSKH, nội bộ…) là các spec sau,
 - Q: Nhân viên nhận phiếu và trả lời khách ở đâu? → A: Nhóm Zalo nhân viên (D6). Không làm Telegram, Sheet hay web console ở spec này.
 - Q: Xong 001 thì làm spec nào? → A: 005 (kênh Fanpage / Zalo OA) trước. Xem `docs/ROADMAP.md`.
 - Q: Cách thực thi `tasks.md`? → A: `superpowers:subagent-driven-development`: mỗi việc một agent làm, một agent khác review trước khi sang việc kế.
+- Q: Lõi tự viết hay dùng Hermes Agent? → A: **Lai.** Lõi Node trong repo này giữ mọi luật an toàn bằng code. Hermes/LLM chỉ là "não" soạn câu nháp cho gói cần (CSKH, spec 003) và không có quyền gửi. AI soạn, code quyết gửi hay không.
+- Q: Lưu gì về cuộc trò chuyện? → A: **Toàn bộ tin nhắn từng phòng** (khách, bot, nhân viên) và **nhật ký kỹ thuật 90 ngày**. Không đồng bộ sang Sheet ở spec này.
+- Q: Có theo dõi, phân loại khách không? → A: **Có: hồ sơ khách + nhãn tự động**, nhân viên sửa được.
+- Q: Dữ liệu nằm ở đâu? → A: **SQLite trên máy chạy bot**, sao lưu mỗi ngày.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -121,6 +125,27 @@ số phiếu đang chờ người; lệnh `npm run audit -- --chat <id>` in ra t
 
 ---
 
+### User Story 7 - Lịch sử hội thoại và hồ sơ khách (Priority: P2)
+
+Nhân viên nhận một phòng thì thấy ngay khách là ai, đã nói gì, quan tâm món gì, thuộc nhóm nào,
+mà không phải hỏi lại khách. Bot cũng dùng lịch sử đó để không hỏi lại điều khách đã nói.
+
+**Why this priority**: Nhân viên nhận phòng mà không có lịch sử thì phải hỏi lại khách (đúng lỗi "khách bị hỏi lại" ở 201).
+Spec 003 (CSKH) và 004 (học từ người) cần dữ liệu này. Ưu tiên P2 vì lõi an toàn (P1) phải có trước.
+
+**Independent Test**: Sau một hội thoại 6 tin (khách hỏi mã HS, để lại số điện thoại, xin gặp người),
+phiếu trong nhóm nhân viên có tên, số điện thoại, nhãn `tra-cuu-hs`, `xin-nguoi`; `/ho-so P1` in đủ hồ sơ và 20 tin gần nhất.
+
+**Acceptance Scenarios**:
+
+1. **Given** bất kỳ tin vào hay ra (khách, bot, nhân viên `/tl`), **When** tin được xử lý hoặc gửi, **Then** một dòng `messages` được ghi với người nói, nội dung, giờ.
+2. **Given** khách gõ "số em 0912 345 678", **When** xử lý, **Then** hồ sơ có `phone = 0912345678`; số nằm trong `COMPANY_PHONES` (số của OZ khách dán lại) thì không ghi.
+3. **Given** khách dùng gói hải quan, **When** lượt xong, **Then** hồ sơ có nhãn `tra-cuu-hs` và `mon_quan_tam` thêm tên hàng/mã HS của lượt.
+4. **Given** nhân viên gõ `/gan P1 khoa-hoc`, **When** xử lý, **Then** hồ sơ thêm nhãn `khoa-hoc` với nguồn `staff:<id>`; nhãn do nhân viên gắn không bị máy gỡ.
+5. **Given** khách yêu cầu xoá dữ liệu, **When** nhân viên gõ `/xoa-du-lieu P1`, **Then** tin nhắn và hồ sơ của phòng bị xoá, chỉ giữ một dòng audit "đã xoá theo yêu cầu".
+
+---
+
 ### User Story 6 - Kiểm trước khi bật (Priority: P3)
 
 Trước khi merge hay bật một gói, chạy phát lại các hội thoại mẫu và có điểm so với `main`.
@@ -179,6 +204,14 @@ Trước khi merge hay bật một gói, chạy phát lại các hội thoại m
 - **FR-022**: Tin gửi khách và log MUST NOT chứa token hay thông báo lỗi gốc của API ngoài.
 - **FR-023**: Thời gian MUST lưu UTC; mọi phép so giờ yên và giờ bản tin dùng `Asia/Ho_Chi_Minh`.
 
+**Lịch sử và hồ sơ khách**
+- **FR-024**: Hệ thống MUST lưu mọi tin của phòng (khách, bot đã gửi, nhân viên chuyển) vào `messages`, giữ tới khi bị xoá theo yêu cầu.
+- **FR-025**: Mỗi phòng khách MUST có một hồ sơ: tên hiển thị, số điện thoại (chỉ khi khách tự gõ), nhãn, món quan tâm, lần đầu/lần cuối nhắn, số lượt.
+- **FR-026**: Nhãn tự động MUST do code gắn theo luật (gói đã dùng, ý định "xin người", khách để lại số…), không dùng mô hình ở spec này; nhãn có nguồn `auto` hoặc `staff:<id>`; máy không gỡ nhãn của nhân viên.
+- **FR-027**: Phiếu cho người MUST kèm tóm tắt hồ sơ; nhân viên MUST xem được `/ho-so <mã>`, gắn/gỡ nhãn `/gan`, `/go`, và xoá dữ liệu `/xoa-du-lieu <mã>`.
+- **FR-028**: Hệ thống MUST sao lưu db mỗi ngày lúc 03:00 giờ VN (`VACUUM INTO DATA_DIR/backup/bot-YYYY-MM-DD.db`), giữ 7 bản.
+- **FR-029**: Gói MUST đọc được lịch sử và hồ sơ của phòng hiện tại qua `ctx.history(n)` và `ctx.customer` (chỉ đọc; ghi qua kết quả trả về `labels`, `interests`).
+
 ### Key Entities
 
 - **Phòng (Chat)**: một cuộc trò chuyện 1-1 hoặc một nhóm khách; khoá là `chat_id`, không bao giờ là tên.
@@ -189,6 +222,8 @@ Trước khi merge hay bật một gói, chạy phát lại các hội thoại m
 - **Phiếu (Ticket)**: yêu cầu cho người, gắn với phòng, có người nhận và trạng thái.
 - **Bản ghi audit (Audit record)**: một sự kiện trong một lượt.
 - **Gói (Pack)**: một module nghiệp vụ theo contract.
+- **Tin nhắn (Message)**: một câu trong phòng, có người nói `khach | bot | nhan-vien`.
+- **Hồ sơ khách (Customer)**: một hồ sơ mỗi phòng khách; nhãn và món quan tâm có nguồn.
 
 ## Success Criteria *(mandatory)*
 
@@ -201,6 +236,8 @@ Trước khi merge hay bật một gói, chạy phát lại các hội thoại m
 - **SC-005**: 21 test hiện có đều đạt sau khi chuyển gói; thêm gói mẫu không đổi tệp nào trong `core/`.
 - **SC-006**: Từ phiếu tới lúc nhân viên thấy trong nhóm: < 10 giây (p95).
 - **SC-007**: Mọi tin ra trong 7 ngày chạy thật đều tra được về một `turn_id` trong audit.
+- **SC-008**: Số tin trong `messages` của một phòng bằng số tin khách vào cộng số tin đã gửi (không thiếu, không thừa) trên toàn bộ fixture eval.
+- **SC-009**: Phiếu cho người luôn có tóm tắt hồ sơ; nhân viên không phải hỏi lại khách thông tin khách đã gõ (kiểm trên 20 phiếu chạy thật đầu tiên).
 
 ## Assumptions
 

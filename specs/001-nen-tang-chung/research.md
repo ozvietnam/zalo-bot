@@ -55,6 +55,10 @@ Mỗi dòng là một sự cố đo được bằng log hoặc db. Cột cuối 
 | D7 | Việc nền (`maLuot`) lưu vào bảng `jobs`; một bộ hỏi kết quả duy nhất chạy theo lịch; khởi động lên thì chạy tiếp | Không mất kết quả khi khởi động lại; tin kết quả là tin chủ động nên chịu giờ yên | Vòng `while` chờ trong lượt xử lý như hiện nay |
 | D8 | Eval = phát lại hội thoại mẫu (`eval/fixtures/*.jsonl`) qua đúng lõi, với Zalo và Cổng OZ giả lập, chấm bằng các khẳng định (assertion) | Chạy lại được, không tốn token, chặn được tụt chất lượng ở cổng merge | Để agent tự chấm (sự cố #16) |
 
+| D9 | **Lõi lai**: lõi Node tự viết giữ luật an toàn; Hermes/LLM chỉ là "não" soạn nháp cho gói cần, qua một giao diện `brain.draft()` định nghĩa ở spec 003 | 18 sự cố ở 201 đều xảy ra khi luật an toàn nằm trong prompt/skill của agent và agent có quyền gửi; lõi lai giữ được sức mạnh của AI mà quyền gửi nằm ở code (anh Thắng chốt 04/11) | Hermes làm lõi (mô hình đã phải tắt từ 19/10); không dùng AI (CSKH không tự nhiên) |
+| D10 | Lưu **toàn bộ tin nhắn** (`messages`) tách khỏi `audit` | Nhân viên cần lịch sử khi nhận phòng; spec 004 học từ tin người trả lời; audit thì xoá sau 90 ngày | Chỉ đếm số: nhân viên phải hỏi lại khách |
+| D11 | **Hồ sơ khách + nhãn do code gắn** trong 001; phân loại bằng mô hình để spec 003 | Nhãn theo luật kiểm được bằng test; 201 từng bị mô hình đổi nhóm khách theo từng lượt (bài 129) | Gắn nhãn bằng LLM ngay: không test được, đổi nhãn tuỳ hứng |
+
 ## 4. Mặc định em đã chọn (đổi được, ghi ở `.env`)
 
 | Tham số | Mặc định | Nguồn |
@@ -64,7 +68,10 @@ Mỗi dòng là một sự cố đo được bằng log hoặc db. Cột cuối 
 | Giờ yên | 23:00–07:00 giờ VN | Luật đang áp trên 201 |
 | "Trả lời trực tiếp" | tin ra trong 10 phút kể từ tin khách | Ngoài khoảng này coi là tin chủ động |
 | Phiếu chờ người quá hạn | 15 phút → nhắc một lần trong bản tin gộp | Mắt canh "khách chờ > 15 phút" trên 201 |
-| Phòng `human` tự về `bot` | Không tự về | Hiến pháp II |
+| Phòng `human` tự về `bot` | Không tự về | Hiến pháp II, anh Thắng chốt 04/11 |
+| Giữ tin nhắn | Tới khi bị xoá theo yêu cầu (`/xoa-du-lieu`) | Anh chọn lưu toàn bộ |
+| Giữ audit | 90 ngày | Anh chọn |
+| Số của OZ không ghi làm số khách | `COMPANY_PHONES` (vd 0916366669, 0966992369) | 201: số trong bài giới thiệu Page bị khách dán lại ở hàng chục phòng |
 
 ## 5. Để mở, không chặn spec này
 

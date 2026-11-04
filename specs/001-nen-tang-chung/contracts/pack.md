@@ -24,6 +24,8 @@ export default {
       evidence: [/* kết quả công cụ đã dùng */],
       jobs: [{ maLuot, resultTool, context }],  // việc nền để lõi hỏi kết quả
       handoff: null,                          // { reason } → lõi mở phiếu, chuyển phòng sang human
+      labels: ['tra-cuu-hs'],                 // nhãn gói muốn gắn (nguồn auto)
+      interests: [{ mon: 'máy bơm ly tâm', hs: '84137090' }],
     };
   },
 
@@ -54,6 +56,8 @@ export default {
 | `mcp` | `{ callTool(name, args), listTools() }` | mỗi lần gọi tự ghi audit `tool` |
 | `tools` | `Set<string> \| null` | công cụ Cổng đang có |
 | `session` | `{ get(): object, set(patch): void }` | lưu bền theo khoá phiên |
+| `history(n = 20)` | `() => Array<{speaker, text, at}>` | tin gần nhất của phòng, cũ → mới, chỉ đọc |
+| `customer` | `{ displayName, phone, labels, interests } \| null` | hồ sơ phòng, chỉ đọc |
 | `vision` | `{ readSpecs(url, caption) } \| null` | |
 | `now()` | `() => Date` | tiêm vào được để test |
 | `log` | `{ info, error }` | đã che bí mật |
