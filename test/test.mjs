@@ -1,7 +1,7 @@
 // node test/test.mjs — kiểm thử không cần mạng (Zalo + Cổng OZ MCP giả lập).
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { splitText, parseUpdate, safeEqual } from '../lib/zalo.js';
+import { splitText, parseUpdate, safeEqual } from '../channels/zalo-bot.js';
 import { createMcpClient, parseSse, unwrapToolResult } from '../lib/mcp.js';
 import { route, autoPick } from '../lib/router.js';
 import { PACKAGES, availablePackages, menuText, pickHs } from '../lib/packages.js';
