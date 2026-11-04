@@ -38,6 +38,12 @@ test('3b giờ yên -> defer tới 07:00 VN', () => {
   assert.deepEqual(r, { decision: 'defer', reason: 'quiet-hours', notBefore: '2026-11-05T00:00:00.000Z' });
 });
 
+test('3b rules.quietHours=false tắt giờ yên (createBot cũ dùng), mặc định vẫn bật', () => {
+  const f = { hasOpenJob: true, now: '2026-11-04T16:30:00Z' };
+  assert.equal(run(f, { kind: 'job_result' }, { quietHours: false }).decision, 'send');
+  assert.equal(run(f, { kind: 'job_result' }, {}).reason, 'quiet-hours');
+});
+
 test('3b trả lời trực tiếp trong giờ yên vẫn gửi', () => {
   const r = run({ now: '2026-11-04T16:30:00Z' }, { kind: 'reply', inReplyToAt: '2026-11-04T16:28:00Z' });
   assert.equal(r.decision, 'send');

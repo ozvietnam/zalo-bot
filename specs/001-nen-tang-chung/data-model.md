@@ -1,7 +1,9 @@
 # Data Model: Nền tảng dùng chung (001)
 
 Một tệp SQLite (`DATA_DIR/bot.db`, mặc định `./data/bot.db`), `PRAGMA journal_mode=WAL`, `busy_timeout=5000`.
-Mọi cột thời gian là chuỗi ISO 8601 UTC (`2026-11-04T07:16:00.000Z`). Khoá phòng luôn là `chat_id`, không bao giờ là tên.
+Mọi cột thời gian là chuỗi ISO 8601 UTC (`2026-11-04T07:16:00.000Z`). Khoá không bao giờ là tên.
+
+**Cuộc trò chuyện (`conv_id`, US8)**: chat 1-1 → `conv_id = chat_id`; trong nhóm → `conv_id = chat_id:user_id`. Các bảng theo người (`sessions`, `outbox`, `messages`, `customers`, `tickets`, `jobs`) có cột `conv_id` và mọi truy vấn trần/trùng/lịch sử/trạng thái lọc theo `conv_id`. Bảng `convs(conv_id PK, chat_id, user_id, display_name, state, state_by, state_at, state_reason, last_inbound_at, last_outbound_at)` giữ trạng thái `bot|human|blocked` theo người; bảng `chats` chỉ còn thông tin cấp phòng/nhóm (`kind`, `title`, `state` dùng cho `/chan-nhom`). `customers` đổi khoá chính sang `conv_id`.
 Lược đồ tạo bằng `core/store/schema.js#migrate()` (được `openStore` gọi), có bảng `meta(key, value)` giữ `schema_version`.
 
 ## Bảng

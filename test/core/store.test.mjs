@@ -154,8 +154,10 @@ test('jobs', () => {
   const d = s.jobs.due(at(2));
   assert.equal(d.length, 1);
   assert.deepEqual(d[0].context, { x: 1 });
+  assert.equal(s.jobs.nextDue(), at(1));
   s.jobs.update(id, { status: 'done', attempts: 2, done_at: at(2) });
   assert.equal(s.jobs.due(at(2)).length, 0);
+  assert.equal(s.jobs.nextDue(), null);
   assert.throws(() => s.jobs.update(id, { 'status=1;--': 1 }), /column/i);
 });
 

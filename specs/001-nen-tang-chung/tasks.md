@@ -32,7 +32,7 @@ description: "Danh sách việc spec 001: khuôn spec-kit, mỗi việc viết t
 
 1. **Update không có `message_id`** (sự kiện ảnh, sticker): `updateKey = sha1(JSON raw)`, hai bản gửi lại vẫn trùng khoá. Test ở T012.
 2. **Tin dài bị chia, chết giữa hai phần**: khởi động lại chỉ gửi phần còn thiếu (`parts_sent`). Test ở T009.
-3. **Phòng nhóm khách**: trạng thái `human` áp theo cả nhóm; `/tl` vào nhóm thì giữ nguyên dạng tin, không thêm `@tên`. Test ở T026.
+3. **Nhóm nghìn người**: mọi thứ theo `conv_id` (người), không theo nhóm; tên trùng phải phân biệt. Test ở T037, T038, T026.
 4. **Số tiền tiếng Việt nhiều dạng**: `25.650đ`, `25,650 đ`, `mua 3 250.000đ` (ra 250000), `1,5 triệu`, `800k`, `¥108`. Test ở T007.
 5. **Máy chủ chạy giờ UTC** (Coolify): giờ yên và bản tin vẫn đúng giờ VN. Test ở T003 với `process.env.TZ='UTC'` và `'Asia/Tokyo'`.
 
@@ -284,6 +284,22 @@ test('ALLOW_USERS và rate limit 10/phút giữ như cũ', …)
 ```
 - [ ] **Step 2:** FAIL · **Step 3:** `process`: `chats.upsertSeen` → (US2 cắm vào đây) → `registry.pick` → `pack.handle` → `gate.send` từng reply với `footer` của gói nối cuối như hiện nay → `jobs.add` → `inbox.markDone`. `drain()` chạy `jobs.tick` + `gate.sweep` tới khi không còn việc đến hạn (cho test). · **Step 4:** `npm test` PASS · **Step 5:** `git commit -m "feat(core): engine turn pipeline"`
 
+### T037 [US8] Cuộc trò chuyện riêng trong nhóm: chuyển khoá sang `conv_id`
+
+**Files:** Modify `core/store/*.js` (schema v1: thêm `convs`, cột `conv_id`), `core/gate.js`, `core/gate-decide.js`, `core/engine*.js`, `core/queue.js` nếu đã có · Create `test/core/conv.test.mjs`
+
+**Interfaces — Produces:** `convIdOf(update) -> string` (`chat_id` hoặc `chat_id:user_id` khi nhóm) trong `core/conv.js` · `Store.convs.{get, upsertSeen, setState}` · mọi `msg` gửi qua cửa có `convId`; facts của cửa (`chatState`, `recentBotTexts`, `sentTodayChat`, `hasOpenJob`) tính theo `convId`; thêm fact `sentTodayGroup` + luật `cap:group` (`CAP_GROUP_DAY=200`) và `chatState` cấp nhóm (`blocked` ở `chats` chặn mọi conv của nhóm)
+
+- [ ] **Step 1: Test đỏ**: nhóm `g1`, A và B: A chạm trần 8 tin → B vẫn gửi được; 30 người gửi cùng câu "8413.70.90" trong 5 phút → 30 tin ra (không `similar`); `convs.setState('g1:B','human')` → tin cho A `send`, cho B `reject chat-human`; `chats` `g1` `blocked` → cả A và B `reject chat-blocked`; idemKey dạng `r:<convId>:<turn>:<i>`; nhóm chạm `CAP_GROUP_DAY` → `defer cap:group`.
+- [ ] **Step 2:** FAIL · **Step 3:** sửa lược đồ v1 (chưa có db thật), thêm cột + chỉ mục `(conv_id, …)`, đổi truy vấn; engine tính `convId`, khoá phiên = `convId` (thay `chat:user` hiện tại, cùng giá trị). · **Step 4:** `npm test` PASS · **Step 5:** `git commit -m "feat(core): per-person conversations in group chats"`
+
+### T038 [US8] Gắn đúng tên trong nhóm, tách người trùng tên, hàng đợi theo người
+
+**Files:** Modify `core/engine*.js`, `core/queue.js` (nếu đã có; chưa có thì ghi chú cho T019) · Create `test/core/group-tag.test.mjs`
+
+- [ ] **Step 1: Test đỏ**: trong nhóm, mọi reply bắt đầu `@<tên>\n`; A và C trùng tên `Nguyễn Văn A` (user_id `...7f`, `...2c`) đều từng nhắn trong nhóm → tên gắn là `@Nguyễn Văn A ·7f` và `@Nguyễn Văn A ·2c`; tên không trùng thì không có hậu tố; fixture 3 người xen kẽ 12 tin (US8 Independent Test) → mỗi người chỉ nhận câu của mình; việc nền của A không chặn B (hàng đợi khoá `convId`).
+- [ ] **Step 2:** FAIL · **Step 3:** danh sách tên đã thấy trong nhóm lấy từ `convs` theo `chat_id`; nếu kênh có `capabilities.replyTo` thì gửi kèm `reply_to` (chưa có tài liệu chính thức cho Zalo Bot Platform ở nhóm, mặc định `false`). · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): unambiguous name tags in group chats"`
+
 ### T016 [US4] Nối `server.js`, xoá `lib/`, khoá "một cửa gửi"
 
 **Files:** Modify `server.js` · Delete `lib/bot.js` (và `lib/`) · Create `test/core/one-gate.test.mjs`
@@ -412,7 +428,7 @@ test('lệnh từ người không thuộc STAFF_USERS hoặc ngoài STAFF_CHAT_I
 test('phòng human: 10 tin khách → kênh nhận 0 tin tới khách, mcp.calls.length === 0, nhóm nhận 1 phiếu + ≤ 2 tin gộp', …)
 test('"cho em gặp nhân viên" → khách nhận REPLY_HANDOFF, phòng human, phiếu mở', …)
 test('"bạn là người hay máy" → khách nhận REPLY_IS_BOT, phòng vẫn bot', …)
-test('nhóm khách: /tl vào nhóm gửi nguyên văn, không thêm @tên; human áp cho cả nhóm', …)
+test('nhóm khách: /tl vào conv g1:B gửi vào nhóm với @tên của B; chỉ conv B sang human, A vẫn được bot trả lời; /chan-nhom chặn cả nhóm', …)
 test('gói trả handoff:{reason} → phòng human, phiếu mở với reason của gói', …)
 ```
 - [ ] **Step 2:** FAIL · **Step 3:** trong `process`: lệnh nhân viên → `handoff.command`; `stateOf ≠ bot` → `handoff.forward` rồi dừng; `asksIfBot` / `wantsHuman` trước `registry.pick`. · **Step 4:** `npm test` PASS · **Step 5:** `git commit -m "feat(core): human-first routing in engine"`
@@ -540,4 +556,4 @@ c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'au
 
 **MVP an toàn để bật lại cho khách** = xong Phase 1–6b (T001–T026, T033–T036): cửa gửi, gói hs trên lõi, bền vững, người cầm phòng, lịch sử và hồ sơ khách.
 
-**Thứ tự chạy thật**: T001–T026 → T033–T036 → T027–T032 (số hiệu T033–T036 thêm sau buổi hỏi đáp 04/11, nên đứng sau T032 trong bảng số).
+**Thứ tự chạy thật**: T001–T015 → **T037–T038** → T016–T026 → T033–T036 → T027–T032 (số hiệu T033–T036 thêm sau buổi hỏi đáp 04/11, nên đứng sau T032 trong bảng số).

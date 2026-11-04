@@ -31,6 +31,7 @@ giữ nguyên hành vi. Các gói mới (CSKH, nội bộ…) là các spec sau,
 - Q: Lưu gì về cuộc trò chuyện? → A: **Toàn bộ tin nhắn từng phòng** (khách, bot, nhân viên) và **nhật ký kỹ thuật 90 ngày**. Không đồng bộ sang Sheet ở spec này.
 - Q: Có theo dõi, phân loại khách không? → A: **Có: hồ sơ khách + nhãn tự động**, nhân viên sửa được.
 - Q: Dữ liệu nằm ở đâu? → A: **SQLite trên máy chạy bot**, sao lưu mỗi ngày.
+- (17:54) Anh Thắng: "Trong nhóm chat cả ngàn người, phải nhận diện được đang nói chuyện với ai, tag đúng tên và giữ nhịp phòng chat riêng." → Thêm khái niệm **cuộc trò chuyện** (`conv`): 1-1 thì `conv = chat_id`; trong nhóm thì `conv = chat_id:user_id`. Trạng thái người cầm, phiếu, hồ sơ, lịch sử, trần tin, chống trùng nội dung, hàng đợi đều theo `conv`, không theo cả nhóm. Thay giả định cũ "human áp cho cả nhóm". Xem US8.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -146,6 +147,29 @@ phiếu trong nhóm nhân viên có tên, số điện thoại, nhãn `tra-cuu-h
 
 ---
 
+### User Story 8 - Nhóm đông người: đúng người, đúng tên, nhịp riêng (Priority: P1)
+
+Trong nhóm Zalo hàng nghìn thành viên, mỗi người nhắc bot có **cuộc trò chuyện riêng** với bot: bot biết đang trả lời ai,
+gắn đúng tên người đó, nhớ đúng ngữ cảnh của người đó, và việc của người này không làm chậm, không chặn, không lẫn sang người khác.
+
+**Why this priority**: Nhóm là nơi một câu sai bị cả nghìn người đọc. Lẫn ngữ cảnh giữa hai người (gửi kết quả phân loại của A cho B) là lỗi "gửi nhầm phòng" của 201 nhân lên trước đám đông.
+
+**Independent Test**: Fixture nhóm `g1` có 3 người (A, B, và C trùng tên hiển thị với A) xen kẽ 12 tin trong 2 phút:
+A hỏi mã HS, B chọn gói 2, C gửi ảnh, A trả lời câu hỏi bổ sung, nhân viên `/nhan` B.
+Mỗi người chỉ nhận đúng câu trả lời của mình, có gắn đúng tên; sau khi B bị nhân viên nhận, A và C vẫn được bot trả lời.
+
+**Acceptance Scenarios**:
+
+1. **Given** A và B cùng nhắc bot trong nhóm, **When** bot trả lời, **Then** mỗi câu mở đầu bằng `@<tên người hỏi>` và nằm trong `conv` của người đó (`g1:A`, `g1:B`).
+2. **Given** A đang chờ câu hỏi bổ sung của gói 1 và B nhắn một câu bất kỳ, **When** xử lý, **Then** câu của B không bị ghép vào lượt của A.
+3. **Given** nhân viên `/nhan` cuộc của B, **When** A nhắn tiếp, **Then** bot vẫn trả lời A; chỉ cuộc của B ở `human`.
+4. **Given** 30 người cùng hỏi đúng một câu "8413.70.90" trong 5 phút, **When** trả lời, **Then** mỗi người nhận câu trả lời của mình (chống trùng nội dung tính theo `conv`, không theo nhóm).
+5. **Given** A và C trùng tên hiển thị, **When** bot gắn tên, **Then** bot trả lời bằng chế độ trích dẫn tin (reply-to) nếu kênh hỗ trợ; nếu không, thêm 2 ký tự cuối của mã người dùng vào sau tên (`@Nguyễn Văn A ·7f`) để hai người phân biệt được.
+6. **Given** việc nền của A đang chạy 3 phút, **When** B và C nhắn, **Then** B và C được xử lý ngay (hàng đợi theo `conv`, không theo nhóm).
+7. **Given** nhân viên `/chan-nhom g1`, **When** bất kỳ ai nhắn, **Then** bot im với cả nhóm (chặn cấp nhóm vẫn có).
+
+---
+
 ### User Story 6 - Kiểm trước khi bật (Priority: P3)
 
 Trước khi merge hay bật một gói, chạy phát lại các hội thoại mẫu và có điểm so với `main`.
@@ -167,7 +191,7 @@ Trước khi merge hay bật một gói, chạy phát lại các hội thoại m
 - Tệp db bị khoá hoặc hỏng → tiến trình không nhận webhook (trả 503) thay vì xử lý mà không ghi được (VII).
 - Hai nhân viên cùng `/nhan` một phòng → người đầu được, người sau nhận câu "phòng đã có X nhận".
 - Nhân viên `/tl` vào phòng đang ở `bot` → vẫn gửi được, đồng thời phòng sang `human` (người đã vào cuộc).
-- Trong nhóm khách, bot chỉ phản hồi khi được @nhắc hoặc được trả lời tin; trạng thái `human` áp theo cả nhóm.
+- Trong nhóm khách, bot chỉ phản hồi khi được @nhắc hoặc được trả lời tin; trạng thái `human` áp theo **từng người** (`conv`), chặn cả nhóm bằng `/chan-nhom` (US8, thay giả định cũ).
 - Cổng OZ hết điểm hoặc trả 401 → khách nhận câu báo chung, nhóm nhân viên nhận cảnh báo một lần mỗi giờ.
 
 ## Requirements *(mandatory)*
@@ -211,6 +235,12 @@ Trước khi merge hay bật một gói, chạy phát lại các hội thoại m
 - **FR-027**: Phiếu cho người MUST kèm tóm tắt hồ sơ; nhân viên MUST xem được `/ho-so <mã>`, gắn/gỡ nhãn `/gan`, `/go`, và xoá dữ liệu `/xoa-du-lieu <mã>`.
 - **FR-028**: Hệ thống MUST sao lưu db mỗi ngày lúc 03:00 giờ VN (`VACUUM INTO DATA_DIR/backup/bot-YYYY-MM-DD.db`), giữ 7 bản.
 - **FR-029**: Gói MUST đọc được lịch sử và hồ sơ của phòng hiện tại qua `ctx.history(n)` và `ctx.customer` (chỉ đọc; ghi qua kết quả trả về `labels`, `interests`).
+
+**Nhóm đông người (US8)**
+- **FR-030**: Mỗi tin MUST được gán một `conv_id`: `chat_id` với chat 1-1, `chat_id:user_id` trong nhóm. Trạng thái người cầm, phiếu, hồ sơ khách, lịch sử (`ctx.history`), phiên, trần tin theo phòng, chống trùng nội dung và hàng đợi MUST dùng `conv_id`.
+- **FR-031**: Trong nhóm, mọi tin bot MUST mở đầu bằng nhãn người nhận; tên trùng trong cùng nhóm MUST được phân biệt (trích dẫn tin nếu kênh hỗ trợ, không thì hậu tố 2 ký tự mã người dùng).
+- **FR-032**: Trạng thái `blocked` MUST có hai cấp: theo `conv` (`/chan P<n>`) và theo cả nhóm (`/chan-nhom <chat_id>`).
+- **FR-033**: Trần tin bot / ngày theo phòng (`CAP_CHAT_DAY`) MUST tính theo `conv`; thêm trần theo nhóm `CAP_GROUP_DAY` (mặc định 200) để một nhóm không ăn hết trần toàn bot.
 
 ### Key Entities
 

@@ -77,5 +77,6 @@ Mỗi dòng là một sự cố đo được bằng log hoặc db. Cột cuối 
 
 - **Nhóm Zalo nhân viên** (`STAFF_CHAT_ID`): anh tạo nhóm, mời bot vào, rồi điền id. Chưa có thì phiếu chỉ ghi vào db và audit.
 - **Tính điểm theo từng người dùng** trên Cổng OZ (hiện mọi người dùng trừ điểm vào một `OZ_MCP_TOKEN` chung): làm ở spec 002.
+- **Gắn tên / trích dẫn tin trong nhóm trên Zalo Bot Platform**: tài liệu chính thức mới mô tả sơ lược (bot nhận sự kiện khi được @nhắc hoặc được trích dẫn; `chat.id` là id nhóm), chưa có trường để @nhắc một người hay trả lời trích dẫn; tính năng nhóm còn đang thử nghiệm nội bộ (theo issue goclaw #1543). v1 gắn tên bằng chữ `@Tên` (như code hiện tại) + hậu tố khi trùng tên; `capabilities.replyTo` bật khi Zalo công bố API.
 - **Giới hạn gửi của Zalo Bot Platform** (rate limit, khung thời gian bot được nhắn sau tin người dùng): chưa có tài liệu
   chính thức trong tay. Cửa gửi đọc giới hạn từ config để chỉnh mà không phải sửa code.
