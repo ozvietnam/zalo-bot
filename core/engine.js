@@ -23,7 +23,9 @@ export const sessionKeyOf = (u, group) => (group ? `${u.chatId}:${u.userId}` : u
  * @param {object} o
  * @param {(ms:number)=>void} [o.advance]  chỉ đồng hồ ảo (createBot cũ): drain() nhảy tới mốc việc nền kế tiếp thay vì ngủ.
  */
-export function createEngine({ config = {}, store, channel, mcp, vision = null, registry, gate, now = () => new Date(), log = console, advance } = {}) {
+export function createEngine({ config = {}, store, channel, mcp, vision = null, registry, gate, now = () => new Date(), log = console, advance, missLog = null } = {}) {
+  // Sổ ghi lượt "trượt từ vựng" (gói 1 cần hỏi thêm, tiền lệ 0 kết quả, khách gõ lại) — null = tắt.
+  const ghiTruot = missLog ? (loai, info) => missLog.ghi(loai, info) : null;
   const ttlMs = config.sessionTtlMs ?? 7_200_000;
   const ratePerMin = config.rateLimitPerMin ?? 10;
   const allow = toSet(config.allowUsers);
@@ -104,7 +106,7 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
         return done({ skipped: 'closer' });
       }
 
-      ctx = buildCtx({ store, mcp, tools: await tools(), vision, now, log, chatId: turn.chatId, turnId: key, sessionKey, ttlMs });
+      ctx = buildCtx({ store, mcp, tools: await tools(), vision, now, log, chatId: turn.chatId, turnId: key, sessionKey, ttlMs, ghiTruot });
       pack = registry.pick(turn, ctx);
       audit('route', turn.chatId, key, { pack: pack?.id ?? null });
       if (!pack) return done({ skipped: 'no-pack' });
@@ -153,7 +155,7 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
 
   async function drainLoop() {
     for (let guard = 0; guard < 10_000; guard++) {
-      const n = await pollDueJobs({ store, mcp, registry, gate, now, log, tools, vision, ttlMs, addressOf });
+      const n = await pollDueJobs({ store, mcp, registry, gate, now, log, tools, vision, ttlMs, addressOf, ghiTruot });
       const m = await gate.sweep();
       if (n + m > 0) continue;
       const next = advance ? store.jobs.nextDue() : null;

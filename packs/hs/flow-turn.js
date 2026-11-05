@@ -26,7 +26,7 @@ export function openTurn(ctx) {
     session, calls, mcp, pkgs,
     footer: menuText(pkgs),
     /** ctx cho gói con trong packages.js (cùng dạng ctx cũ, không có notify/pollMs). */
-    pctx: (extra = {}) => ({ mcp, tools: ctx.tools ?? null, session, ...extra }),
+    pctx: (extra = {}) => ({ mcp, tools: ctx.tools ?? null, session, ghiTruot: ctx.ghiTruot ?? null, ...extra }),
     save() {
       const patch = {};
       for (const k of new Set([...Object.keys(before), ...Object.keys(session)])) {
