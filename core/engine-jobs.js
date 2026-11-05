@@ -21,7 +21,7 @@ export function jobRow({ chatId, sessionKey, pack, job, turn, nowMs }) {
 }
 
 /** Hỏi mọi việc đến hạn một lượt. Trả số việc đã xử lý (0 = không có việc). */
-export async function pollDueJobs({ store, mcp, registry, gate, now, log, tools, vision, ttlMs, addressOf, ghiTruot = null }) {
+export async function pollDueJobs({ store, mcp, registry, gate, now, log, tools, vision, brain = null, editor = null, ttlMs, addressOf, ghiTruot = null }) {
   const nowDate = now();
   const nowIso = nowDate.toISOString();
   const rows = store.jobs.due(nowIso);
@@ -33,7 +33,7 @@ export async function pollDueJobs({ store, mcp, registry, gate, now, log, tools,
     const c = row.context ?? {};
     const turnId = `job:${row.id}`;
     const pack = all.find((p) => p.id === row.pack);
-    const ctx = buildCtx({ store, mcp, tools: await tools(), vision, now, log, chatId: row.chat_id, turnId, sessionKey: row.session_key, ttlMs, ghiTruot });
+    const ctx = buildCtx({ store, mcp, tools: await tools(), vision, brain, editor, now, log, chatId: row.chat_id, turnId, sessionKey: row.session_key, ttlMs, ghiTruot });
     const job = { id: row.id, chatId: row.chat_id, maLuot: row.ma_luot, resultTool: row.result_tool, context: c.data ?? null };
     const audit = (type, data) => store.audit.add({ at: now().toISOString(), turn_id: turnId, chat_id: row.chat_id, type, data });
     const expired = nowDate.getTime() >= Date.parse(row.expires_at);

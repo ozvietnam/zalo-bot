@@ -71,6 +71,8 @@ async function textFlow(turn, ctx, st) {
         ctx.log?.info?.(`[hs] gói ${r.pkg.so} chat=${String(turn.chatId ?? '').slice(-4)}`);
         return out;
       }
+      case 'chi-tiet':   // mở lại bản đầy đủ của lượt phân loại gần nhất (não biên tập đã thay bằng bản chốt)
+        return one(s.chiTiet?.text ? clipReply(s.chiTiet.text) : 'Chưa có bản chi tiết nào trong phiên này (bot chỉ giữ cho lượt phân loại gần nhất, ~2 giờ).');
       case 'hoi-lai':   // não hỏi lại một câu thay vì đoán mò chạy gói
         return one(`❓ ${r.cauHoi}\n\n${st.footer}`);
       case 'khac':      // chào hỏi/xã giao: não trả lời ngắn, dẫn về menu

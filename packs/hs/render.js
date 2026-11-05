@@ -49,7 +49,15 @@ const dieuKienOf = (o) => (o && typeof o === 'object' ? o.dieu_kien ?? o.dieuKie
 
 const label = (k) => LABELS[k] || String(k).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
 const isHsKey = (k) => /^(hsCode|maHs|maDeXuat|maKhai|maHaiQuan|correctHs|candidateHs)$/.test(k);
-const clip = (s, n) => { const t = String(s ?? '').replace(/\s+/g, ' ').trim(); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
+// Chữ Hán/fullwidth — LLM backend của Cổng đôi khi lẫn vào lý do ("không dùng广泛 cho tủ điện").
+const CJK = /[\u3000-\u303f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff00-\uffef]/;
+/** Câu dính ký tự Trung → bỏ cả mệnh đề đó (che tạm lỗi Cổng, chờ bên giữ hs-code-api sửa); không còn mệnh đề nào → '…'. */
+function sachCau(s) {
+  if (!CJK.test(s)) return s;
+  const giu = String(s).split(/(?<=[.;!?])\s*/).filter((p) => !CJK.test(p));
+  return giu.length ? giu.join(' ').trim() : '…';
+}
+const clip = (s, n) => { const t = sachCau(String(s ?? '').replace(/\s+/g, ' ').trim()); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
 const scalar = (k, v) => {
   if (typeof v === 'boolean') return v ? 'có' : 'không';
   if (isHsKey(k) && /^\d{6,8}$/.test(String(v))) return fmtHs(v);

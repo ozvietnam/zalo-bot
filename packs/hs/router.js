@@ -14,6 +14,8 @@ export function route(text, { session = {}, pkgs = [] } = {}) {
   if (/^\/?(start|help|menu|goi|cac goi|huong dan|hd|\?)$/.test(n) || /^(hi|hello|xin chao|chao|alo)( bot| ban)?[!. ]*$/.test(n)) {
     return { kind: 'menu' };
   }
+  // Mở lại bản phân tích đầy đủ của lượt phân loại gần nhất (bản chốt ngắn đã thay bản dài trong tin chính).
+  if (/^(chi tiet|xem chi tiet|chi tiet day du|chi tiet day)$/.test(n)) return { kind: 'chi-tiet' };
   // Chọn gói: "7", "gói 7", "chọn gói 7", "chọn gói số 7", "dùng gói 7", "chọn 7", "gói 7: <nội dung>"
   const CHON = /^(?:(?:chon|dung|vao|mo|sang|chuyen)\s+)?(?:goi\s*(?:so\s*)?)?(\d)(?=$|[\s:.,\-])/;
   const chon = n.match(CHON);

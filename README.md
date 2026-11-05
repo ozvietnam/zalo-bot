@@ -36,7 +36,15 @@ Chưa rõ ý hoặc thiếu dữ kiện → bot **hỏi lại một câu** thay 
 - Dùng chung `GEMINI_API_KEY` với đọc ảnh; đổi mẫu bằng `GEMINI_BRAIN_MODEL` (mặc định `gemini-flash-lite-latest`); tắt bằng `GEMINI_BRAIN=0`.
 - AI chỉ được chọn trong các gói khả dụng và điền dữ kiện khách đã nêu; code kiểm lại khuôn (mã HS, độ tin cậy ≥ 0.5) trước khi chạy.
 - Gemini lỗi/quá tải → tự rơi về bộ dò từ khoá như trước, bot không chết; lệnh chắc chắn (menu, "gói 2", hỏi kết quả) và gói khách đã chọn không tốn lượt AI.
-=======
+
+## Não biên tập kết quả (AI)
+
+Kết quả phân loại + thuế (bản dài: nhiều mã ứng viên, lý do từng dòng) được Gemini viết lại thành **bản chốt 4–7 dòng** — mã chính, lý do ngắn, thuế suất, cảnh báo. Gõ **"chi tiết"** để xem lại bản phân tích đầy đủ của lượt gần nhất (giữ trong phiên ~2 giờ).
+
+- An toàn số liệu (Hiến chương III): **code kiểm từng con số** trong bản chốt phải khớp kết quả gốc; không khớp hoặc Gemini lỗi → gửi bản đầy đủ như cũ.
+- Mẫu: `GEMINI_EDITOR_MODEL` (mặc định `gemini-flash-latest`); tắt: `GEMINI_EDITOR=0`. Không biên tập khi đang hỏi dữ kiện bổ sung (câu hỏi của Cổng tới khách nguyên văn).
+- Bot lọc bỏ mệnh đề lẫn ký tự Trung trong lý do do engine Cổng trả về (che tạm, đã báo bên `hs-code-api`).
+
 ## Giao diện trả về (rich text)
 
 Bot dùng `text_styles` của Zalo Bot API (in đậm, màu, cỡ chữ) — nên tin nhắn có **chữ đậm và màu**,
