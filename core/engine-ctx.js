@@ -67,8 +67,9 @@ export function redactedLog(log) {
 }
 
 /** ctx đầy đủ cho handle/onJobResult. */
-export function buildCtx({ store, mcp, tools, vision, brain, now, log, chatId, turnId, sessionKey, ttlMs }) {
+export function buildCtx({ store, mcp, tools, vision, brain, now, log, chatId, turnId, sessionKey, ttlMs, ghiTruot = null }) {
   return {
+    ghiTruot,
     mcp: auditedMcp({ mcp, store, now, chatId, turnId }),
     tools,
     session: sessionApi({ store, key: sessionKey, ttlMs, now }),

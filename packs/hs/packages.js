@@ -3,7 +3,7 @@
 // thêm một mục vào PACKAGES (so, ten, congCu, mau, chay). Gói chỉ hiện khi Cổng có đủ công cụ bắt buộc.
 // Gói có việc nền (1, 4) tách chay thành batDau (gọi Cổng, không chờ) + xong (dựng chữ từ kết quả) để index.js giao việc cho lõi.
 import { parseLabeled, firstHs8, allHs8, soHieuList, countryCode, findCountryInText, norm } from './input.js';
-import { renderResult, renderClassify } from './render.js';
+import { renderResult, renderClassify, nhacPhongVe } from './render.js';
 import { fmtHs } from './format.js';
 import { chayCho } from './jobs.js';
 
@@ -62,6 +62,81 @@ export function lamGonCauHoi(s) {
 
 const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v != null && v !== ''));
 const ask = (msg, mau) => `{b}❓ ${msg}{/b}\n\n{b}Gửi theo mẫu:{/b}\n${mau}`;
+const clipS = (s, n) => { const t = String(s ?? '').replace(/\s+/g, ' ').trim(); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
+/** Ghi lượt "trượt từ vựng" (nếu bot có bật sổ ghi) — không bao giờ làm hỏng câu trả lời. */
+const ghiTruot = (ctx, loai, info) => { try { ctx.ghiTruot?.(loai, info); } catch { /* bỏ qua */ } };
+
+/** Kết quả tra_tien_le không có tiền lệ nào. */
+export function tienLeRong(r) {
+  if (!r || r.ok === false || r.isError) return false;
+  const d = r.data ?? r;
+  if (d?.found === false) return true;
+  const items = d?.items || d?.results || d?.precedents;
+  return Array.isArray(items) ? items.length === 0 : d?.total === 0;
+}
+
+/**
+ * Mã 4/6 số → danh sách mã lá 8 số trong nhánh, dò từng tầng bằng tra_cay_hs (cây lồng nhiều cấp:
+ * 8526 → 85269 → 852691 → 85269190). Giới hạn số lượt gọi để không dội Cổng.
+ */
+export async function maLaTrongNhanh(ctx, hs, { maxGoi = 25, maxLa = 60 } = {}) {
+  const la = []; const hang = [hs]; const daGoi = new Set();
+  let tongTb = null;
+  while (hang.length && daGoi.size < maxGoi && la.length < maxLa) {
+    const lo = hang.splice(0, Math.min(5, maxGoi - daGoi.size)).filter((m) => !daGoi.has(m));
+    lo.forEach((m) => daGoi.add(m));
+    const res = await Promise.all(lo.map((m) => ctx.mcp.callTool('tra_cay_hs', { maHs: m }).catch(() => null)));
+    res.forEach((r, i) => {
+      const d = r?.data ?? r;
+      if (lo[i] === hs && typeof d?.nguon?.tbTchq?.co === 'number') tongTb = d.nguon.tbTchq.co;
+      for (const c of d?.con || []) {
+        const id = String(c?.id || '').replace(/\D/g, '');
+        if (!id.startsWith(lo[i]) || id === lo[i]) continue;
+        if (id.length === 8) la.push(id); else if (id.length < 8) hang.push(id);
+      }
+    });
+  }
+  return { la: [...new Set(la)], tongTb, conSot: hang.length > 0 };
+}
+
+/**
+ * Tiền lệ cho mã 4/6 số. Cổng hiện tra theo khóa 8 số chính xác (mã ngắn bị đệm 0 → luôn "không có",
+ * xem ozvietnam/hs-code-api#538) nên bot tự nở ra các mã lá rồi tra từng mã.
+ */
+async function tienLeNhanh(ctx, hs, { maxTra = 30 } = {}) {
+  const tieuDe = `🗂️ Tiền lệ phân loại — nhánh ${fmtHs(hs)}`;
+  const canhBao = `${tieuDe}\n⚠️ Tiền lệ cần mã đủ 8 số — gõ mã đầy đủ (vd ${hs.slice(0, 4)}.xx.xx) để không bỏ sót.`;
+  if (!has(ctx, 'tra_cay_hs')) return { text: canhBao, rong: false };
+  const { la, tongTb, conSot } = await maLaTrongNhanh(ctx, hs);
+  if (!la.length) return { text: canhBao, rong: false };
+  const tra = la.slice(0, maxTra);
+  const res = [];
+  for (let i = 0; i < tra.length; i += 6) {
+    res.push(...await Promise.all(tra.slice(i, i + 6).map((m) => ctx.mcp.callTool('tra_tien_le', { maHs: m }).catch(() => null))));
+  }
+  const l = [`{b}${tieuDe}{/b} (đã dò ${tra.length}/${la.length}${conSot ? '+' : ''} mã 8 số)`];
+  let tong = 0;
+  res.forEach((r, i) => {
+    if (!r || tienLeRong(r) || r.ok === false || r.isError) return;
+    const d = r.data ?? r;
+    const items = d.items || d.results || d.precedents || [];
+    if (!items.length) return;
+    tong += items.length;
+    l.push(`• {b}${fmtHs(tra[i])}{/b} — ${d.total ?? items.length} tiền lệ`);
+    for (const it of items.slice(0, 3)) {
+      const so = it.tbTchqNumber || it.soThongBao || it.soHieu || '';
+      const nam = it.year ? ` (${it.year})` : '';
+      l.push(`   - ${so}${nam}: ${clipS(it.productName || it.tenHang || it.moTa || '', 160)}`);
+    }
+    if (items.length > 3) l.push(`   … và ${items.length - 3} tiền lệ khác`);
+  });
+  if (!tong) {
+    l.push(`Chưa thấy tiền lệ ở ${tra.length} mã đã dò.`);
+    if (tongTb && hs.length === 4) l.push(`ℹ️ Cổng ghi nhận ${tongTb} thông báo phân loại trong nhóm ${fmtHs(hs)} — gõ mã 8 số cụ thể để tra đúng dòng.`);
+  }
+  if (la.length > tra.length || conSot) l.push(`{b}👉 Còn mã 8 số chưa dò{/b} — gõ mã 8 số cụ thể để tra đủ.`);
+  return { text: l.join('\n'), rong: !tong };
+}
 
 export const PACKAGES = [
   {
@@ -78,7 +153,7 @@ export const PACKAGES = [
       if (cho && has(ctx, 'bo_sung_du_kien') && !cauHoiMoi && !/^(moi|hang moi|hang khac|bo qua)\b/.test(norm(text))) {
         ctx.session.choBoSung = null;
         const r = await ctx.mcp.callTool('bo_sung_du_kien', { maLuot: cho.maLuot, boSung: text.slice(0, 1000) });
-        const context = { tenHang: cho.tenHang };
+        const context = { tenHang: cho.tenHang, boSung: true };
         if (r?.ok === false) return { r, resultTool: null, context };
         return { r: { ...r, maLuot: r?.maLuot || cho.maLuot, trangThai: r?.trangThai || r?.data?.trangThai || 'DANG_XU_LY' },
           resultTool: 'ket_qua_phan_loai', label: 'Đã nhận dữ kiện bổ sung, đang phân loại lại', context };
@@ -93,15 +168,25 @@ export const PACKAGES = [
       if (v.model) ts.Model = v.model;
       const args = clean({ tenHang, chatLieu: v.chatLieu?.slice(0, 200), congDung: v.congDung?.slice(0, 300),
         thongSo: Object.keys(ts).length ? ts : null, nguonThongSo: ctx.nguonThongSo || 'CHU' });
+      // Khách gõ lại / sửa mô tả ngay sau lượt trước (≤10 phút) → tín hiệu từ vựng trượt.
+      const truoc = ctx.session.cauPhanLoai;
+      const hangMoi = bo !== text;   // khách tự báo "hàng mới/hàng khác" → không phải gõ lại
+      if (truoc && !hangMoi && Date.now() - truoc.at < 10 * 60_000 && norm(truoc.cau) !== norm(bo)) {
+        ghiTruot(ctx, 'GO_LAI', { goi: 1, cau: bo.slice(0, 1000), cauTruoc: truoc.cau.slice(0, 1000), maHsTruoc: truoc.maHs || null });
+      }
       const r = await ctx.mcp.callTool('phan_loai_hs', args);
-      return { r, resultTool: 'ket_qua_phan_loai', label: 'Đang phân loại mã HS', context: { tenHang } };
+      return { r, resultTool: 'ket_qua_phan_loai', label: 'Đang phân loại mã HS', context: { tenHang, boSung: false, cauMoi: text } };
     },
     /** Kết quả cuối (đã xong, hoặc lỗi/hết hạn) → chữ trả lời; ghi phiên last/choBoSung. */
-    xong(r, { tenHang }, ctx) {
+    xong(r, { tenHang, boSung = false, cauMoi }, ctx) {
       const maHs = pickHs(r);
       const maLuot = r?.maLuot || r?.chiPhi?.maLuot || r?.data?.maLuot;
       ctx.session.last = { tenHang, maHs, maLuotPhanLoai: UUID.test(maLuot || '') ? maLuot : null };
+      ctx.session.cauPhanLoai = boSung
+        ? { ...(ctx.session.cauPhanLoai || { cau: tenHang }), maHs, at: Date.now() }
+        : { cau: cauMoi ?? tenHang, maHs, at: Date.now() };
       const st = r?.trangThai || r?.data?.trangThai;
+      if (st === 'CAN_DU_KIEN') ghiTruot(ctx, 'CAN_DU_KIEN', { goi: 1, cau: String(cauMoi ?? tenHang).slice(0, 1000), tenHang, maLuot: maLuot || null });
       // Cắt tên hàng ở ranh giới từ (không cắt cụt giữa chữ) và có dấu "…" khi bị rút gọn.
       const tenNgan = String(tenHang || '');
       const tenHien = tenNgan.length > 120 ? `${tenNgan.slice(0, 120).replace(/\s+\S*$/, '')}…` : tenNgan;
@@ -141,6 +226,8 @@ export const PACKAGES = [
       ]);
       const parts = [renderResult(thue, { title: `💰 Thuế — ${fmtHs(maHs)} (xuất xứ ${xuatXu})`, renderer: 'tax' })];
       if (thuTuc) parts.push(renderResult(thuTuc, { title: '📋 Thủ tục / chính sách quản lý' }));
+      const pv = nhacPhongVe(thue, thuTuc);
+      if (pv) parts.push(pv);
       ctx.session.last = { ...(ctx.session.last || {}), maHs: maHs.length === 8 ? maHs : ctx.session.last?.maHs };
       return parts.join('\n\n');
     },
@@ -203,7 +290,7 @@ export const PACKAGES = [
     moTa: 'Hiệu lực văn bản, chú giải chương/nhóm, tiền lệ phân loại (TB-TCHQ).',
     congCu: [],
     canMotTrong: ['tra_hieu_luc_van_ban', 'tra_chu_giai', 'tra_tien_le'],
-    mau: 'Số hiệu văn bản: 57/2022/NĐ-CP, 38/2015/TT-BTC → kiểm hiệu lực\nMã HS: 8413 → chú giải + tiền lệ\nHoặc mô tả hàng → tìm tiền lệ phân loại',
+    mau: 'Số hiệu văn bản: 57/2022/NĐ-CP, 38/2015/TT-BTC → kiểm hiệu lực\nMã HS: 84137090 → chú giải + tiền lệ (mã 4/6 số: bot dò các mã 8 số trong nhánh)\nHoặc mô tả hàng → tìm tiền lệ phân loại',
     async chay(text, ctx) {
       const so = soHieuList(text);
       const conLai = so.reduce((t, s) => t.split(s).join(' '), text).replace(/\s+/g, ' ').trim();
@@ -211,15 +298,24 @@ export const PACKAGES = [
       const hs = (conLai.match(/(?<![\d/])\d{4}(?:[.\s]?\d{2}){0,2}(?![\d/])/) || [])[0]?.replace(/\D/g, '');
       const jobs = [];
       if (so.length && has(ctx, 'tra_hieu_luc_van_ban')) jobs.push(['📜 Hiệu lực văn bản', ctx.mcp.callTool('tra_hieu_luc_van_ban', { soHieu: so.slice(0, 50) })]);
+      // [tiêu đề, promise, tienLe?] — tienLe: 'ma' | 'moTa' | 'nhanh' (nhánh 4/6 số, promise trả {text, rong})
       if (hs) {
         if (has(ctx, 'tra_chu_giai')) jobs.push([`📖 Chú giải — ${fmtHs(hs)}`, ctx.mcp.callTool('tra_chu_giai', { maHs: hs })]);
-        if (has(ctx, 'tra_tien_le')) jobs.push([`🗂️ Tiền lệ phân loại — ${fmtHs(hs)}`, ctx.mcp.callTool('tra_tien_le', { maHs: hs })]);
+        if (has(ctx, 'tra_tien_le')) {
+          if (hs.length === 8) jobs.push([`🗂️ Tiền lệ phân loại — ${fmtHs(hs)}`, ctx.mcp.callTool('tra_tien_le', { maHs: hs }), 'ma']);
+          else jobs.push([null, tienLeNhanh(ctx, hs), 'nhanh']);
+        }
       } else if (!so.length && conLai.length >= 3 && has(ctx, 'tra_tien_le')) {
-        jobs.push(['🗂️ Tiền lệ phân loại', ctx.mcp.callTool('tra_tien_le', { moTa: conLai.slice(0, 300) })]);
+        jobs.push(['🗂️ Tiền lệ phân loại', ctx.mcp.callTool('tra_tien_le', { moTa: conLai.slice(0, 300) }), 'moTa']);
       }
       if (!jobs.length) return ask('Chưa thấy số hiệu văn bản, mã HS hay mô tả hàng.', this.mau);
       const res = await Promise.all(jobs.map(([, p]) => p.catch(() => ({ ok: false, loi: 'CONG_KHONG_TRA_LOI', transport: true }))));   // lỗi gốc đã vào audit 'tool' của lõi
-      return jobs.map(([t], i) => renderResult(res[i], { title: t })).join('\n\n');
+      return jobs.map(([t, , tienLe], i) => {
+        const r = res[i];
+        if (tienLe && (tienLe === 'nhanh' ? r?.rong : tienLeRong(r))) ghiTruot(ctx, 'TIEN_LE_RONG', { goi: 5, cau: text, maHs: hs || null, moTa: tienLe === 'moTa' ? conLai.slice(0, 300) : null });
+        if (tienLe === 'nhanh' && typeof r?.text === 'string') return r.text;
+        return renderResult(r, { title: t || '🗂️ Tiền lệ phân loại' });
+      }).join('\n\n');
     },
   },
   {
@@ -233,7 +329,9 @@ export const PACKAGES = [
       const maHs = firstHs8(v.maHs || '') || (conLai.match(/(?<!\d)\d{4}(?:\d{2}){0,2}(?!\d)/) || [])[0] || null;
       const tenNhan = (v.tenNhan || conLai.replace(/(?<!\d)\d{4,8}(?!\d)/g, '').replace(/\b[A-Z]{2}\b\s*$/, '').trim()).slice(0, 200);
       if (!tenNhan) return ask('Cần tên nhãn hiệu.', this.mau);
-      const xuatXu = (v.xuatXu && countryCode(v.xuatXu)) || 'CN';
+      // Chỉ gửi xuất xứ khi khách thực sự đưa (dòng "Xuất xứ:" hoặc mã nước cuối tin "Nike 64041190 CN") — không đoán.
+      const cuoi = (conLai.match(/\b([A-Z]{2})\s*$/) || [])[1];
+      const xuatXu = (v.xuatXu && countryCode(v.xuatXu)) || (cuoi && countryCode(cuoi)) || null;
       const r = await ctx.mcp.callTool('kiem_tra_shtt', clean({ tenNhan, maHs, xuatXu, tenNguoiNhap: v.tenNguoiNhap }));
       return renderResult(r, { title: `®️ Rủi ro nhãn hiệu "${tenNhan}"${maHs ? ` — ${fmtHs(maHs)}` : ''}` });
     },

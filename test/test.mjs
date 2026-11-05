@@ -201,9 +201,14 @@ await t('bot: gói 5 văn bản + chú giải/tiền lệ; gói 6 SHTT; gói 7 g
   await bot.handleUpdate(dm('57/2022/NĐ-CP còn hiệu lực không', 'f1'));
   assert.deepEqual(mcp.calls[0], ['tra_hieu_luc_van_ban', { soHieu: ['57/2022/NĐ-CP'] }]);
   await bot.handleUpdate(dm('gói 5 8413', 'f2'));
-  assert.deepEqual(mcp.calls.slice(1).map((c) => c[0]), ['tra_chu_giai', 'tra_tien_le']);
+  // Cổng chưa có tra_cay_hs → KHÔNG gọi tra_tien_le với mã 4 số (bẫy #538), chỉ nhắc gõ đủ 8 số
+  assert.deepEqual(mcp.calls.slice(1).map((c) => c[0]), ['tra_chu_giai']);
+  assert.match(zalo.sent.at(-1)[1], /Tiền lệ cần mã đủ 8 số/);
   await bot.handleUpdate(dm('gói 6 Nhãn hiệu: Nike\nMã HS: 64041190', 'f3'));
-  assert.deepEqual(mcp.calls.at(-1), ['kiem_tra_shtt', { tenNhan: 'Nike', maHs: '64041190', xuatXu: 'CN' }]);
+  // Khách không nói xuất xứ → không đoán CN
+  assert.deepEqual(mcp.calls.at(-1), ['kiem_tra_shtt', { tenNhan: 'Nike', maHs: '64041190' }]);
+  await bot.handleUpdate(dm('Nhãn hiệu: Nike\nMã HS: 64041190\nXuất xứ: Trung Quốc', 'f3b'));
+  assert.equal(mcp.calls.at(-1)[1].xuatXu, 'CN');
   await bot.handleUpdate(dm('gói 7 Mã khai: 84137090\nMã hải quan áp: 84138190\nMô tả hàng: Máy bơm ly tâm\nTài liệu có: catalogue, hợp đồng', 'f4'));
   const gt = mcp.calls.at(-1);
   assert.equal(gt[0], 'soan_ho_so_giai_trinh');
@@ -379,6 +384,90 @@ await t('não: Gemini lỗi → rơi về autoPick như cũ; đã chọn gói th
   await bot.handleUpdate(dm('cái này thuế bao nhiêu', 'n5'));
   assert.equal(goiNao, 1);                          // session.goi=2 → não không được hỏi
   assert.equal(mcp.calls.at(-1)[0], 'tim_ma_hs');   // gói 2 giữ nguyên hành vi cũ với câu tự do
+});
+
+// ===== Port từ main: tiền lệ nhánh 4/6 số (#538) + sổ trượt từ vựng =====
+const TREE = {
+  8526: { con: [{ id: '852610' }, { id: '85269' }], nguon: { tbTchq: { co: 6 } } },
+  852610: { con: [{ id: '85261010' }, { id: '85261090' }] },
+  85269: { con: [{ id: '852691' }, { id: '85269200' }] },
+  852691: { con: [{ id: '85269110' }, { id: '85269190' }] },
+};
+const PREC = {
+  85269190: { found: true, hsCode: '85269190', total: 2, items: [
+    { tbTchqNumber: '3516/TB-TCHQ', year: 2023, productName: 'Thiết bị định vị GPS thông minh', outcome: '85269190' },
+    { tbTchqNumber: '17608/TB-CHQ', year: 2025, productName: 'GPS Tracker', outcome: '85269190' }] },
+  85269200: { found: true, hsCode: '85269200', total: 1, items: [{ tbTchqNumber: '2978/TB-TCHQ', year: 2018, productName: 'Bộ điều khiển từ xa', outcome: '85269200' }] },
+};
+const treeMcp = (prec = PREC) => fakeMcp({
+  tra_cay_hs: ({ maHs }) => ({ ok: true, data: TREE[maHs] || { con: [] } }),
+  tra_tien_le: ({ maHs, moTa }) => ({ ok: true, data: moTa ? { found: false } : prec[maHs] || { found: false, hsCode: maHs, message: `No precedents for ${maHs}` } }),
+}, new Set([...ALL_TOOLS, 'tra_cay_hs']));
+
+await t('gói 5: mã 4 số → nở ra mã lá 8 số qua tra_cay_hs, KHÔNG gửi 8526 cho tra_tien_le (#538)', async () => {
+  const zalo = fakeZalo(); const mcp = treeMcp(); const bot = createBot({ zalo, mcp, log: {} });
+  await bot.handleUpdate(dm('gói 5 8526', 'tl1'));
+  const tl = mcp.calls.filter((c) => c[0] === 'tra_tien_le').map((c) => c[1].maHs);
+  assert.deepEqual(tl.sort(), ['85261010', '85261090', '85269110', '85269190', '85269200']);
+  const out = zalo.sent.at(-1)[1];
+  assert.match(out, /nhánh 8526 \(đã dò 5\/5 mã 8 số\)/);
+  assert.match(out, /8526\.91\.90 — 2 tiền lệ/); assert.match(out, /3516\/TB-TCHQ \(2023\)/);
+  assert.match(out, /8526\.92\.00 — 1 tiền lệ/);
+  assert.doesNotMatch(out, /không có tiền lệ/i);
+});
+
+await t('gói 5: nhánh không có tiền lệ → báo rõ đã dò bao nhiêu mã + ghi sổ trượt', async () => {
+  const zalo = fakeZalo(); const mcp = treeMcp({}); const truot = [];
+  const bot = createBot({ zalo, mcp, log: {}, missLog: { ghi: (loai, info) => truot.push([loai, info]) } });
+  await bot.handleUpdate(dm('gói 5 8526', 'tl2'));
+  const out = zalo.sent.at(-1)[1];
+  assert.match(out, /Chưa thấy tiền lệ ở 5 mã đã dò/);
+  assert.match(out, /Cổng ghi nhận 6 thông báo phân loại trong nhóm 8526/);
+  assert.deepEqual(truot.map((x) => x[0]), ['TIEN_LE_RONG']);
+  assert.equal(truot[0][1].maHs, '8526');
+  await bot.handleUpdate(dm('máy radar xuyên đất', 'tl3'));
+  assert.equal(truot.at(-1)[0], 'TIEN_LE_RONG'); assert.equal(truot.at(-1)[1].moTa, 'máy radar xuyên đất');
+});
+
+await t('gói 1: CAN_DU_KIEN và khách gõ lại mô tả → ghi sổ trượt; "hàng mới" thì không tính gõ lại', async () => {
+  const zalo = fakeZalo(); const truot = [];
+  const mcp = fakeMcp({ phan_loai_hs: { ok: true, trangThai: 'CAN_DU_KIEN', data: { trangThai: 'CAN_DU_KIEN' } } }, new Set([...ALL_TOOLS].filter((x) => x !== 'bo_sung_du_kien')));
+  const bot = createBot({ zalo, mcp, log: {}, missLog: { ghi: (loai, info) => truot.push([loai, info]) } });
+  await bot.handleUpdate(dm('1', 'm0'));
+  await bot.handleUpdate(dm('máy radar', 'm1'));
+  await bot.handleUpdate(dm('máy ra đa xuyên đất GPR', 'm2'));
+  await bot.handleUpdate(dm('hàng mới: bơm nước', 'm3'));
+  assert.deepEqual(truot.map((x) => x[0]), ['CAN_DU_KIEN', 'GO_LAI', 'CAN_DU_KIEN', 'CAN_DU_KIEN']);
+  assert.equal(truot[1][1].cauTruoc, 'máy radar'); assert.equal(truot[1][1].cau, 'máy ra đa xuyên đất GPR');
+});
+
+await t('render: điều kiện đi cùng dòng BLOCKING; nhắc phạm vi CBPG theo mô tả', async () => {
+  const thuTuc = { ok: true, data: { maHs: '84433940', chinhSach: { policyLines: [{ text: 'Hàng hóa lĩnh vực in khi NK phải có giấy phép (22/2018/TT-BTTTT PL1)', level: 'BLOCKING',
+    dieu_kien: 'chỉ cấp cho máy in phun màu kỹ thuật số tốc độ >60 tờ/phút khổ A4 hoặc khổ in >A3' }] } } };
+  const out = renderResult(thuTuc, { title: 'x' });
+  assert.match(out, /phải có giấy phép \(22\/2018\/TT-BTTTT PL1\) \(BLOCKING\) — điều kiện: chỉ cấp cho máy in phun màu/);
+  const zalo = fakeZalo();
+  const mcp = fakeMcp({ tra_thue: TAX, tra_thu_tuc_nhap_khau: { ok: true, data: { chinhSach: { policyLines: [{ text: 'Thuế chống bán phá giá thép cán nóng (QĐ 460/QĐ-BCT)', level: 'NOTICE' }] } } } });
+  const bot = createBot({ zalo, mcp, log: {} });
+  await bot.handleUpdate(dm('gói 2 72083990', 'pv1'));
+  assert.match(zalo.sent.at(-1)[1], /Phạm vi CBPG\/tự vệ tính theo MÔ TẢ/);
+  const mcp2 = fakeMcp({ tra_thue: TAX, tra_thu_tuc_nhap_khau: { ok: true, data: { chinhSach: { policyLines: [] } } } });
+  const zalo2 = fakeZalo(); const bot2 = createBot({ zalo: zalo2, mcp: mcp2, log: {} });
+  await bot2.handleUpdate(dm('gói 2 84137090', 'pv2'));
+  assert.doesNotMatch(zalo2.sent.at(-1)[1], /Phạm vi CBPG/);
+});
+
+await t('sổ trượt: ghi JSONL theo ngày giờ VN, đếm theo loại', async () => {
+  const { createMissLog } = await import('../lib/truot.js');
+  const fs = await import('node:fs/promises'); const os = await import('node:os'); const path = await import('node:path');
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'truot-'));
+  const sl = createMissLog({ thuMuc: dir, log: {}, now: () => new Date('2026-11-04T18:30:00Z') });   // 01:30 ngày 05/11 giờ VN
+  sl.ghi('TIEN_LE_RONG', { goi: 5, cau: 'máy radar' }); sl.ghi('GO_LAI', { goi: 1, cau: 'b', cauTruoc: 'a' });
+  await sl.xong();
+  const lines = (await fs.readFile(path.join(dir, 'truot-2026-11-05.jsonl'), 'utf8')).trim().split('\n').map((x) => JSON.parse(x));
+  assert.deepEqual(lines.map((x) => x.loai), ['TIEN_LE_RONG', 'GO_LAI']); assert.equal(lines[0].cau, 'máy radar');
+  assert.deepEqual(sl.thongKe(), { TIEN_LE_RONG: 1, GO_LAI: 1 });
+  await fs.rm(dir, { recursive: true, force: true });
 });
 
 console.log(`\n${pass} test đạt`);

@@ -8,6 +8,7 @@ import { createBot } from './lib/bot.js';
 import { availablePackages } from './lib/packages.js';
 import { createVision } from './lib/vision.js';
 import { createBrain } from './lib/brain.js';
+import { createMissLog } from './lib/truot.js';
 import { createHealthPayload } from './core/health.js';
 
 const env = process.env;
@@ -34,6 +35,8 @@ const brain = createBrain({ apiKey: env.GEMINI_API_KEY || '', model: env.GEMINI_
   off: /^(0|false|no|off)$/i.test(env.GEMINI_BRAIN || '') });
 const bot = createBot({
   zalo, mcp, botNames, brain,
+  // Sổ ghi lượt "trượt từ vựng" (gói 1 cần hỏi thêm, tiền lệ 0 kết quả, khách gõ lại) — TRUOT_DIR=off để tắt.
+  missLog: /^(off|0|false)$/i.test(env.TRUOT_DIR || '') ? null : createMissLog({ thuMuc: env.TRUOT_DIR || 'du-lieu-truot' }),
   // Đọc thông số từ ảnh (Gemini, Google AI Studio). Để trống GEMINI_API_KEY = tắt.
   vision: createVision({ apiKey: env.GEMINI_API_KEY || '', model: env.GEMINI_MODEL || undefined }),
   rateLimitPerMin: Number(env.RATE_LIMIT_PER_MIN) || 10,

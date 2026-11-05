@@ -32,6 +32,8 @@ const LABELS = {
   dongHang: 'Dòng hàng', ketQua: 'Kết quả', ghiChu: 'Ghi chú', noteVi: 'Ghi chú', thuTuc: 'Thủ tục',
   kiemTraChuyenNganh: 'Kiểm tra chuyên ngành', giayPhep: 'Giấy phép', boQuanLy: 'Bộ quản lý', ministries: 'Bộ quản lý',
   content: 'Nội dung', noiDung: 'Nội dung', chapter: 'Chương', heading: 'Nhóm', chain: 'Cấp chú giải', source: 'Nguồn',
+  dieu_kien: 'Điều kiện', dieuKien: 'Điều kiện', chinhSach: 'Chính sách', policyLines: 'Chính sách theo mã',
+  policyLevel: 'Mức chính sách', vanBanQuanLy: 'Văn bản quản lý',
   sourceDocument: 'Nguồn', results: 'Kết quả', total: 'Tổng số', precedents: 'Tiền lệ', soThongBao: 'Số thông báo',
   ngayBanHanh: 'Ngày ban hành', coQuan: 'Cơ quan', tinhTrang: 'Tình trạng', thayThe: 'Thay thế bởi', suaDoi: 'Sửa đổi bởi',
   requiredDocuments: 'Chứng từ cần có', chungTu: 'Chứng từ', inspectionTypes: 'Loại kiểm tra', severity: 'Mức độ',
@@ -41,6 +43,9 @@ const SKIP = new Set(['nguon', 'chiPhi', 'nameZh', 'nameEn', 'levels', 'raw', 'i
   'relatedIds', 'origin', 'matchedBy', 'matchedAlias', 'verified', 'banQuyen', 'ghiCong', 'giayPhepNguon', 'embedding',
   'debug', 'timing', 'ms', 'version', 'phienBan', 'hoSoId', 'rankingSignals', 'found', 'coverage', 'parentCode',
   'noteType', 'level', 'noteEn', 'sourcePage', 'sen', 'nameZh', 'tenZh', 'cachDoc', 'treePath', 'siblingHsCodes', 'siblingGroupCodes']);
+
+/** Điều kiện áp dụng của một dòng chính sách/giấy phép (Cổng có thể đặt tên dieu_kien hoặc dieuKien). */
+const dieuKienOf = (o) => (o && typeof o === 'object' ? o.dieu_kien ?? o.dieuKien ?? null : null);
 
 const label = (k) => LABELS[k] || String(k).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
 const isHsKey = (k) => /^(hsCode|maHs|maDeXuat|maKhai|maHaiQuan|correctHs|candidateHs)$/.test(k);
@@ -61,9 +66,13 @@ function itemLine(o) {
   if (o.confidence != null || o.doTinCay != null) extra.push(scalar('confidence', o.confidence ?? o.doTinCay));
   if (o.trangThai) extra.push(String(o.trangThai));
   if (o.mucDo || o.severity) extra.push(String(o.mucDo || o.severity));
+  else if (/^(BLOCKING|NOTICE|WARNING|INFO)$/i.test(String(o.level || ''))) extra.push(String(o.level).toUpperCase());
+  // Điều kiện phải đi CÙNG dòng: nghĩa vụ (vd giấy phép in) có thể chỉ áp cho một phần hàng thuộc mã.
+  const dk = dieuKienOf(o);
+  const dkText = dk != null && dk !== '' ? ` — điều kiện: ${clip(typeof dk === 'object' ? JSON.stringify(dk) : dk, 300)}` : '';
   const note = o.noteVi && o.noteVi !== name ? `: ${clip(o.noteVi, 300)}` : '';
   const head = [code && (/^\d{6,8}$/.test(String(code)) ? fmtHs(code) : code), name && clip(String(name).replace(/^[\s\-–]+/, ''), 260)].filter(Boolean).join(' — ');
-  if (head) return `${extra.length ? `${head} (${extra.join(', ')})` : head}${note}`;
+  if (head) return `${extra.length ? `${head} (${extra.join(', ')})` : head}${dkText}${note}`;
   return Object.entries(o).filter(([k, v]) => !SKIP.has(k) && v != null && typeof v !== 'object').slice(0, 3)
     .map(([k, v]) => `${label(k)}: ${scalar(k, v)}`).join('; ');
 }
@@ -136,7 +145,9 @@ export function renderTax(d, origin = 'CN') {
   }
   if (x.taxVat) l.push(`• VAT: ${pct(x.taxVat)}${x.vatReduction?.noteVi ? ` (${clip(x.vatReduction.noteVi, 160)})` : ''}`);
   const w = x.warnings;
-  if (w?.summary) l.push(`${w.severity === 'HIGH' ? '{red}🔴{/red}' : '{orange}🟡{/orange}'} Chính sách: ${clip(w.summary, 300)}`);
+  const dkW = dieuKienOf(w) ?? dieuKienOf(x);
+  const dkTextW = dkW != null && dkW !== '' ? ` — điều kiện: ${clip(typeof dkW === 'object' ? JSON.stringify(dkW) : dkW, 300)}` : '';
+  if (w?.summary) l.push(`${w.severity === 'HIGH' ? '{red}🔴{/red}' : '{orange}🟡{/orange}'} Chính sách: ${clip(w.summary, 300)}${dkTextW}`);
   else if (x.policyByHs) l.push(`{orange}🟡 Chính sách: ${clip(x.policyByHs, 300)}{/orange}`);
   else if (x.hasPolicyWarning === false) l.push('Chính sách: chưa có dữ liệu cảnh báo (không có nghĩa là không cần thủ tục).');
   return l.join('\n');
@@ -241,4 +252,13 @@ export function clipReply(s) {
   if (t.length <= MAX_REPLY) return t;
   const cut = balanceTags(t.slice(0, MAX_REPLY - 40));
   return `${cut}\n… (đã rút gọn, xem đầy đủ trên Cổng OZ)`;
+}
+
+// Dòng phòng vệ thương mại (CBPG, chống trợ cấp, tự vệ, chống lẩn tránh) trong kết quả thuế/thủ tục.
+const PVTM = /chống bán phá giá|bán phá giá|\bCBPG\b|chống trợ cấp|biện pháp tự vệ|thuế tự vệ|chống lẩn tránh|phòng vệ thương mại|anti-?dumping|countervailing|safeguard|anti-?circumvention/i;
+export const NHAC_PVTM = '⚖️ Phạm vi CBPG/tự vệ tính theo MÔ TẢ sản phẩm trong quyết định của Bộ Công Thương (dải độ dày, khổ, thành phần…), không chỉ theo mã HS — hàng gần ranh giới thì xin Cục Phòng vệ thương mại xác định bằng văn bản.';
+
+/** Có dòng phòng vệ thương mại trong một trong các kết quả → trả câu nhắc phạm vi theo mô tả; không thì ''. */
+export function nhacPhongVe(...results) {
+  return results.some((r) => r && r.ok !== false && !r.isError && PVTM.test(JSON.stringify(r.data ?? r))) ? NHAC_PVTM : '';
 }
