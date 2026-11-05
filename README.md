@@ -26,6 +26,16 @@ Cuối mỗi tin trả lời luôn có dòng menu gói; gõ số để chuyển 
 - Thêm gói mới: thêm một mục vào `PACKAGES` trong `lib/packages.js`. Công cụ mới chưa có mẫu hiển thị riêng vẫn hiện
   được nhờ bộ dựng chung trong `lib/render.js`.
 
+## Não hiểu câu hỏi (AI)
+
+Ở chế độ **Tự động**, câu tự do của khách được Gemini (AI Studio, function calling) hiểu trước khi tra:
+chọn gói và chép dữ kiện (tên hàng, mã HS, xuất xứ…) thành văn bản theo mẫu — gói chạy như thể khách gõ đúng khuôn.
+Chưa rõ ý hoặc thiếu dữ kiện → bot **hỏi lại một câu** thay vì đoán mò; chào hỏi/xã giao → trả lời ngắn, dẫn về menu.
+
+- Dùng chung `GEMINI_API_KEY` với đọc ảnh; đổi mẫu bằng `GEMINI_BRAIN_MODEL` (mặc định `gemini-flash-lite-latest`); tắt bằng `GEMINI_BRAIN=0`.
+- AI chỉ được chọn trong các gói khả dụng và điền dữ kiện khách đã nêu; code kiểm lại khuôn (mã HS, độ tin cậy ≥ 0.5) trước khi chạy.
+- Gemini lỗi/quá tải → tự rơi về bộ dò từ khoá như trước, bot không chết; lệnh chắc chắn (menu, "gói 2", hỏi kết quả) và gói khách đã chọn không tốn lượt AI.
+
 ## 1. Tạo bot Zalo
 
 1. Vào `bot.zapps.me` (Zalo Bot Creator) → **Tạo bot** → nhận **Bot Token**. Giữ bí mật.

@@ -67,7 +67,7 @@ export function redactedLog(log) {
 }
 
 /** ctx đầy đủ cho handle/onJobResult. */
-export function buildCtx({ store, mcp, tools, vision, now, log, chatId, turnId, sessionKey, ttlMs }) {
+export function buildCtx({ store, mcp, tools, vision, brain, now, log, chatId, turnId, sessionKey, ttlMs }) {
   return {
     mcp: auditedMcp({ mcp, store, now, chatId, turnId }),
     tools,
@@ -75,6 +75,7 @@ export function buildCtx({ store, mcp, tools, vision, now, log, chatId, turnId, 
     history: (n = 20) => store.messages.recent(chatId, n).map((m) => ({ speaker: m.speaker, text: m.text, at: m.at })),
     customer: store.customers.get(chatId) ?? null,
     vision: vision ?? null,
+    brain: brain ?? null,
     now,
     log: redactedLog(log),
   };

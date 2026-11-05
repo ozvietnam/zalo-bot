@@ -7,6 +7,7 @@ import { createMcpClient } from './lib/mcp.js';
 import { createBot } from './lib/bot.js';
 import { availablePackages } from './lib/packages.js';
 import { createVision } from './lib/vision.js';
+import { createBrain } from './lib/brain.js';
 import { createHealthPayload } from './core/health.js';
 
 const env = process.env;
@@ -28,8 +29,11 @@ const mcp = createMcpClient({
 });
 // Tên bot để bỏ "@Tên bot" khi được nhắc trong nhóm: lấy từ getMe, thêm tay qua BOT_NAMES nếu cần.
 const botNames = (env.BOT_NAMES || '').split(',').map((s) => s.trim()).filter(Boolean);
+// Não hiểu câu hỏi (Gemini function calling) cho chế độ Tự động: dùng chung khoá đọc ảnh; GEMINI_BRAIN=0 để tắt.
+const brain = createBrain({ apiKey: env.GEMINI_API_KEY || '', model: env.GEMINI_BRAIN_MODEL || undefined,
+  off: /^(0|false|no|off)$/i.test(env.GEMINI_BRAIN || '') });
 const bot = createBot({
-  zalo, mcp, botNames,
+  zalo, mcp, botNames, brain,
   // Đọc thông số từ ảnh (Gemini, Google AI Studio). Để trống GEMINI_API_KEY = tắt.
   vision: createVision({ apiKey: env.GEMINI_API_KEY || '', model: env.GEMINI_MODEL || undefined }),
   rateLimitPerMin: Number(env.RATE_LIMIT_PER_MIN) || 10,
@@ -101,6 +105,7 @@ server.listen(PORT, '0.0.0.0', async () => {
     if (t) {
       console.log(`[mcp] Cổng OZ có ${t.size} công cụ; gói khả dụng: ${availablePackages(t).map((p) => p.so).join(', ')}`);
       console.log(`[bot] đọc ảnh: ${env.GEMINI_API_KEY ? 'BẬT (Gemini)' : 'tắt (chưa có GEMINI_API_KEY)'}`);
+      console.log(`[bot] não hiểu câu hỏi (chế độ Tự động): ${brain ? `BẬT (${env.GEMINI_BRAIN_MODEL || 'gemini-flash-lite-latest'})` : 'tắt'}`);
     } else {
       console.error('[mcp] chưa kết nối được Cổng OZ — kiểm tra OZ_MCP_URL / OZ_MCP_TOKEN (bot vẫn chạy, sẽ thử lại khi có tin)');
     }
