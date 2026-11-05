@@ -17,7 +17,7 @@ const SECRET = env.ZALO_WEBHOOK_SECRET || '';
 const DEBUG = /^(1|true|yes)$/i.test(env.DEBUG || '');
 // Thời điểm khởi động container + version: để xác minh production đã build lại với code mới.
 const STARTED_AT = new Date();
-const VERSION = env.APP_VERSION || '';
+const VERSION = env.APP_VERSION || env.SOURCE_COMMIT || '';
 
 const zalo = createZaloClient({ token: env.ZALO_BOT_TOKEN, baseUrl: env.ZALO_API_BASE || undefined });
 // Nguồn dữ liệu: Cổng OZ (MCP). Bot tự đọc danh sách công cụ, công cụ mới trên Cổng không cần sửa bot.
