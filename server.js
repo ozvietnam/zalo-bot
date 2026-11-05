@@ -7,6 +7,7 @@ import { createMcpClient } from './lib/mcp.js';
 import { createBot } from './lib/bot.js';
 import { availablePackages } from './lib/packages.js';
 import { createVision } from './lib/vision.js';
+import { createMissLog } from './lib/truot.js';
 
 const env = process.env;
 const MODE = (env.ZALO_MODE || 'webhook').toLowerCase();
@@ -31,6 +32,8 @@ const bot = createBot({
     models: (env.GEMINI_MODELS || '').split(',').map((s) => s.trim()).filter(Boolean) }),
   rateLimitPerMin: Number(env.RATE_LIMIT_PER_MIN) || 10,
   allowUsers: (env.ALLOW_USERS || '').split(',').map((s) => s.trim()),
+  // Sổ ghi lượt trượt từ vựng (JSONL theo ngày) cho ca đêm nạp từ điển. TRUOT_DIR=off để tắt.
+  missLog: /^(off|0|false)$/i.test(env.TRUOT_DIR || '') ? null : createMissLog({ thuMuc: env.TRUOT_DIR || 'du-lieu-truot' }),
 });
 
 const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
