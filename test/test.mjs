@@ -1,14 +1,15 @@
 // node test/test.mjs — kiểm thử không cần mạng (Zalo + Cổng OZ MCP giả lập).
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { splitText, parseUpdate, safeEqual, createZaloClient } from '../lib/zalo.js';
-import { rich, plain, splitRich } from '../lib/style.js';
+import { splitText, parseUpdate, safeEqual } from '../channels/zalo-bot.js';
 import { createMcpClient, parseSse, unwrapToolResult } from '../lib/mcp.js';
 import { route, autoPick } from '../lib/router.js';
-import { PACKAGES, availablePackages, menuText, pickHs, waitJob, WAIT_JOB_MAX_MS } from '../lib/packages.js';
+import { PACKAGES, availablePackages, menuText, pickHs } from '../lib/packages.js';
 import { parseLabeled, firstHs8, soHieuList, countryCode } from '../lib/input.js';
-import { renderResult, renderGeneric, clipReply } from '../lib/render.js';
-import { createBot, stripMention, isGroup } from '../lib/bot.js';
+import { renderResult, renderGeneric } from '../lib/render.js';
+import { plain } from '../lib/style.js';
+import { createBot } from './helpers/legacy-bot.mjs';
+import { stripMention, isGroup } from '../core/mention.js';
 
 let pass = 0;
 const t = async (name, fn) => { await fn(); pass++; console.log('✓', name); };
@@ -57,110 +58,6 @@ await t('zalo: chia đoạn ≤2000, parseUpdate, safeEqual', () => {
   assert.ok(splitText(long).every((p) => p.length <= 2000));
   assert.equal(parseUpdate(dm('hi', 'm')).chatId, 'u1');
   assert.ok(safeEqual('abcdefgh', 'abcdefgh') && !safeEqual('a', 'b'));
-});
-
-// ---------- giao diện rich text (text_styles của Zalo) ----------
-await t('style: thẻ mở/đóng → text + text_styles; thẻ lạ hoặc không khớp giữ nguyên chữ', () => {
-  const r1 = rich('a {b}đậm{/b} b');
-  assert.equal(r1.text, 'a đậm b');
-  assert.deepEqual(r1.text_styles, [{ start: 2, len: 3, st: ['b'] }]);
-  const r2 = rich('{red}đỏ{/red}');
-  assert.deepEqual(r2.text_styles, [{ start: 0, len: 2, st: ['c_db342e'] }]);
-  const r3 = rich('{b}{green}g{/green}{/b}');                       // lồng nhau → gộp mã định dạng
-  assert.equal(r3.text, 'g');
-  assert.deepEqual(r3.text_styles[0].st.sort(), ['b', 'c_15a85f']);
-  assert.equal(rich('{b}abc').text, '{b}abc');                     // không có thẻ đóng → giữ nguyên
-  assert.equal(rich('a{/b}').text, 'a{/b}');                       // thẻ đóng lạ → giữ nguyên
-  assert.equal(rich('{xyz}a{/xyz}').text, '{xyz}a{/xyz}');         // thẻ không hỗ trợ → giữ nguyên
-  assert.equal(rich('thường').text_styles.length, 0);
-});
-
-await t('style: chia tin giàu định dạng, mỗi đoạn ≤2000 và giữ đúng style', () => {
-  const src = `{b}tiêu đề{/b}\n${'x'.repeat(2500)}`;
-  const parts = splitRich(rich(src), 2000);
-  assert.ok(parts.length >= 2);
-  assert.ok(parts.every((p) => p.text.length <= 2000));
-  assert.ok(parts.every((p) => p.text_styles.every((s) => s.start >= 0 && s.start + s.len <= p.text.length)));
-  assert.match(parts[0].text, /^tiêu đề/);
-  assert.ok(parts[0].text_styles.some((s) => s.st.includes('b')));
-});
-
-await t('style: offset tính theo UTF-16 (emoji chiếm 2 đơn vị) như Zalo yêu cầu', () => {
-  // "📦 " = 1 emoji (2 code unit) + 1 space → mã HS bắt đầu tại index 3.
-  const r = rich('📦 {b}8413.70.90{/b}');
-  assert.equal(r.text, '📦 8413.70.90');
-  assert.deepEqual(r.text_styles, [{ start: 3, len: 10, st: ['b'] }]);
-  assert.equal(r.text.slice(3, 13), '8413.70.90');
-});
-
-await t('style: hai cặp thẻ giống nhau → hai run riêng', () => {
-  const r = rich('{b}a{/b}x{b}b{/b}');
-  assert.equal(r.text, 'axb');
-  assert.deepEqual(r.text_styles, [{ start: 0, len: 1, st: ['b'] }, { start: 2, len: 1, st: ['b'] }]);
-});
-
-await t('style: dấu ngoặc trong nội dung không phá thẻ', () => {
-  const r = rich('{b}công thức {x} và {y}{/b}');
-  assert.equal(r.text, 'công thức {x} và {y}');
-  assert.deepEqual(r.text_styles, [{ start: 0, len: 20, st: ['b'] }]);
-});
-
-await t('clipReply: cắt giữa thẻ không để lộ thẻ thô cho người dùng', () => {
-  const dai = `{b}${('x'.repeat(9000))}`;                  // mở thẻ rồi bị cắt
-  const n = clipReply(dai);
-  assert.doesNotMatch(n, /\{b\}(?!.*\{\/b\})/s, 'thẻ mở phải được đóng lại');
-  assert.doesNotMatch(plain(n), /\{[a-z]+\}/i, 'bản hiển thị không được có thẻ thô');
-  assert.match(plain(n), /x{100}/);                       // nội dung vẫn còn
-  const n2 = clipReply(`{b}tiêu đề{/b} ${'y'.repeat(9000)}`);  // cắt giữa nội dung đậm
-  assert.doesNotMatch(plain(n2), /\{[a-z]+\}/i);
-});
-
-await t('style: định dạng ở đoạn sau không lệch khi đoạn bị cắt và trim', () => {
-  // Đoạn 2 có định dạng riêng; đoạn 1 kết thúc bằng khoảng trắng bị trim.
-  const src = `${'A'.repeat(1990)} {b}${'B'.repeat(100)}{/b}`;
-  const parts = splitRich(rich(src), 2000);
-  assert.ok(parts.length >= 2, 'phải chia thành ≥2 đoạn');
-  const p2 = parts[parts.length - 1];
-  assert.ok(p2.text.startsWith('B'), `đoạn 2 phải bắt đầu bằng B: ${p2.text.slice(0, 10)}`);
-  assert.equal(p2.text_styles.length, 1);
-  assert.equal(p2.text_styles[0].start, 0, 'định dạng phải bắt đầu đúng đầu đoạn');
-  assert.equal(p2.text_styles[0].len, 100);
-  assert.deepEqual(p2.text_styles[0].st, ['b']);
-});
-
-await t('zalo: gửi tin kèm text_styles, thẻ định dạng bị gỡ khỏi text gửi đi', async () => {
-  const bodies = [];
-  const z = createZaloClient({ token: 'T', fetchImpl: async (url, init) => {
-    bodies.push([url, JSON.parse(init.body)]);
-    return new Response(JSON.stringify({ ok: true, result: { message_id: 'm1' } }), { status: 200, headers: { 'content-type': 'application/json' } });
-  } });
-  await z.sendText('u1', '{b}Tiêu đề{/b}\n{green}8413.70.90{/green}');
-  assert.equal(bodies.length, 1);
-  const body = bodies[0][1];
-  assert.equal(body.chat_id, 'u1');
-  assert.equal(body.text, 'Tiêu đề\n8413.70.90');
-  assert.ok(body.text_styles.some((s) => s.st.includes('b')));
-  assert.ok(body.text_styles.some((s) => s.st.includes('c_15a85f')));
-});
-
-await t('giao diện: menu + footer có tiêu đề in đậm, màu, gợi ý bước sau', () => {
-  const ps = availablePackages(new Set(['tra_thue', 'phan_loai_hs']));
-  const full = menuText(ps, { full: true });
-  assert.match(plain(full), /CHỌN GÓI TRA CỨU/);
-  assert.match(plain(full), /1\. 🔎 Phân loại mã HS/);
-  assert.match(plain(full), /0\. Tự động/);
-  assert.match(full, /\{b\}📦 CHỌN GÓI TRA CỨU\{\/b\}/);          // tiêu đề đậm
-  const foot = menuText(ps);
-  assert.match(plain(foot), /1 Phân loại · 2 Thuế · 0 Tự động/);    // chữ người dùng thấy
-  assert.match(plain(foot), /menu/);
-});
-
-await t('giao diện: mã HS trong kết quả được làm nổi bật, dữ liệu gốc không đổi', () => {
-  const out = renderResult(TAX, { title: '💰 Thuế — 8413.70.90', renderer: 'tax' });
-  assert.match(out, /\{b\}8413\.70\.90\{\/b\}/);                     // mã HS in đậm
-  assert.match(plain(out), /8413\.70\.90/);                         // người dùng vẫn thấy mã
-  assert.match(plain(out), /MFN/);                                  // nội dung giữ nguyên
-  assert.doesNotMatch(plain(out), /\{[a-z]+\}/i);                   // không sót thẻ
 });
 
 // ---------- MCP client ----------
@@ -222,7 +119,7 @@ await t('định tuyến: menu / chọn số / "gói 2 <nội dung>" / tự đ�
 
 await t('render: lỗi backend thân thiện, chung cho công cụ mới, rút gọn', () => {
   const e = renderResult(ERR, { title: 'X' });
-  assert.match(e, /Hệ thống tra cứu HS gặp lỗi/); assert.doesNotMatch(e, /EN:/); assert.match(e, /hoàn/);
+  assert.match(e, /Cổng tra cứu gặp lỗi/); assert.doesNotMatch(e, /EN:|HTTP 404/); assert.match(e, /hoàn/);
   const g = renderGeneric({ maDeXuat: '84137090', confidence: 0.82, maThayThe: [{ hsCode: '84138190', nameVi: 'Loại khác' }], nguon: [1] }).join('\n');
   assert.match(g, /Mã đề xuất: 8413\.70\.90/); assert.match(g, /82%/); assert.match(g, /8413\.81\.90 — Loại khác/); assert.doesNotMatch(g, /Nguon/i);
   assert.match(renderResult({ ok: true, text: 'chữ thường từ công cụ mới' }), /chữ thường/);
@@ -252,7 +149,7 @@ await t('bot: gói 2 — thuế (bộ dựng thuế) + thủ tục lỗi backend
   assert.match(s, /Tự động chọn gói 2/);
   assert.match(s, /KHÔNG được hưởng → áp MFN/);
   assert.match(s, /Thủ tục[\s\S]*gặp lỗi/);
-  assert.match(plain(s), /📦 1 Phân loại · 2 Thuế · 3 Mô tả/);
+  assert.match(s, /📦 1 Phân loại · 2 Thuế · 3 Mô tả/);
 });
 
 await t('bot: gói 2 gõ tên hàng → tim_ma_hs', async () => {
@@ -277,6 +174,7 @@ await t('bot: gói 1 chạy nền → báo đang xử lý → hỏi kết quả 
   const bot = createBot({ zalo, mcp, log: {}, pollMs: 1 });
   await bot.handleUpdate(dm('1', 'd0'));
   await bot.handleUpdate(dm('Tên hàng: máy bơm nước ly tâm\nChất liệu: gang\nThông số: công suất 1.5HP, điện áp 220V', 'd1'));
+  await bot.drain();
   assert.deepEqual(mcp.calls[0], ['phan_loai_hs', { tenHang: 'máy bơm nước ly tâm', chatLieu: 'gang', thongSo: { 'công suất': '1.5HP', 'điện áp': '220V' }, nguonThongSo: 'CHU' }]);
   assert.match(zalo.sent[1][1], /⏳ Đang phân loại/);
   assert.match(zalo.sent[2][1], /Mã đề xuất: 8413\.70\.90/);
@@ -318,7 +216,144 @@ await t('bot: gói 5 văn bản + chú giải/tiền lệ; gói 6 SHTT; gói 7 g
   assert.match(zalo.sent.at(-1)[1], /BẢN NHÁP/);
 });
 
-// Cây thật của Cổng (tra_cay_hs 04/11/2026): 8526 → 852610, 85269 → 852691, 85269200 → 85269110, 85269190
+await t('bot: thiếu thông tin → hỏi lại theo mẫu, không gọi Cổng', async () => {
+  const zalo = fakeZalo(); const mcp = fakeMcp(); const bot = createBot({ zalo, mcp, log: {} });
+  await bot.handleUpdate(dm('gói 7 hàng bị áp mã', 'g1'));
+  assert.equal(mcp.calls.length, 0);
+  assert.match(zalo.sent[0][1], /Cần mã đã khai/);
+});
+
+await t('bot: Cổng mất kết nối → câu báo lỗi + menu; nhóm: @tên bot, ghi tên người hỏi, phiên riêng từng người', async () => {
+  const zalo = fakeZalo();
+  const mcp = { listTools: async () => { throw new Error('ECONNREFUSED'); }, callTool: async () => { throw new Error('MCP lỗi HTTP 502'); } };
+  const bot = createBot({ zalo, mcp, log: {}, botNames: ['OZ Tra cứu HS'] });
+  const g = (text, id, uid) => ({ result: { event_name: 'message.text.received', message: { message_id: id, text, chat: { id: 'G', chat_type: 'GROUP' }, from: { id: uid, display_name: uid } } } });
+  await bot.handleUpdate(g('@OZ Tra cứu HS 6', 'h1', 'An'));
+  await bot.handleUpdate(g('@OZ Tra cứu HS 84137090', 'h2', 'Binh'));
+  assert.match(zalo.sent[0][1], /^@An\n®️ Gói 6/);
+  assert.match(zalo.sent[1][1], /^@Binh\n/);
+  assert.match(zalo.sent[1][1], /lỗi tạm thời/);
+  assert.doesNotMatch(zalo.sent[1][1], /MCP lỗi HTTP 502/);
+  assert.equal(stripMention('@OZ Tra cứu HS, máy bơm', ['OZ Tra cứu HS']), 'máy bơm');
+  assert.ok(isGroup({ chatType: 'GROUP' }));
+});
+
+// ---------- ảnh + bổ sung dữ kiện ----------
+// Đúng dạng tin ảnh Zalo thật (log máy anh Tuấn, 03/11/2026 17:43)
+const photo = (id, caption = '') => ({ message: { chat: { id: 'u1', chat_type: 'PRIVATE' }, message_id: id, message_type: 'CHAT_PHOTO',
+  from: { id: 'u1', display_name: 'Tuấn' }, photo_url: 'https://photo-stal-14.zdn.vn/no/jpg/abc.jpg', caption }, event_name: 'message.image.received' });
+
+await t('ảnh: chưa bật Gemini → hướng dẫn gõ chữ / gói 6', async () => {
+  const zalo = fakeZalo(); const bot = createBot({ zalo, mcp: fakeMcp(), log: {} });
+  await bot.handleUpdate(photo('p0'));
+  assert.match(zalo.sent[0][1], /chưa bật đọc thông số từ ảnh/); assert.match(zalo.sent[0][1], /gõ "6"/);
+});
+
+await t('ảnh: lỗi Gemini 503 không lộ tiếng Anh cho khách (đường lib/bot.js)', async () => {
+  const zalo = fakeZalo();
+  const vision = { readSpecs: async () => { throw Object.assign(
+    new Error('Gemini lỗi 503: This model is currently experiencing high demand. Please try again later.'), { tamThoi: true }); } };
+  const bot = createBot({ zalo, mcp: fakeMcp(), vision, log: {} });
+  await bot.handleUpdate(photo('pE'));
+  const s = zalo.sent[0][1];
+  assert.doesNotMatch(s, /high demand|Please try again|Gemini lỗi 503/i, s);
+  assert.match(s, /quá tải/i, s);
+  assert.match(s, /gõ tên hàng/, s);
+});
+
+await t('ảnh: lỗi Gemini không tạm → câu chung, không lộ chi tiết lỗi', async () => {
+  const zalo = fakeZalo();
+  const vision = { readSpecs: async () => { throw new Error('ECONNREFUSED 10.0.0.7:3000 fetch failed'); } };
+  const bot = createBot({ zalo, mcp: fakeMcp(), vision, log: {} });
+  await bot.handleUpdate(photo('pE2'));
+  const s = zalo.sent[0][1];
+  assert.doesNotMatch(s, /ECONNREFUSED|10\.0\.0\.7|fetch failed/i, s);
+  assert.match(s, /chưa đọc được ảnh này/i, s);
+});
+
+await t('ảnh: Gemini đọc thông số → người dùng "ok" → phan_loai_hs với nguồn ẢNH', async () => {
+  const zalo = fakeZalo(); const mcp = fakeMcp({ phan_loai_hs: { ok: true, data: { maDeXuat: '85365099' } } });
+  const vision = { readSpecs: async (url, cap) => { assert.match(url, /zdn\.vn/); assert.equal(cap, 'cảm biến'); return {
+    tenHang: 'Cảm biến tiệm cận', model: 'F3C-05KS01', thuongHieu: null, thongSo: { 'Khoảng cách': '1 mm', 'Điện áp': '12-24VDC' },
+    chuTrongAnh: 'PROXIMITY SENSOR F3C-05KS01', khongChac: ['chất liệu vỏ'] }; } };
+  const bot = createBot({ zalo, mcp, vision, log: {} });
+  await bot.handleUpdate(photo('p1', 'cảm biến'));
+  const s = zalo.sent[0][1];
+  assert.match(s, /Tên hàng: Cảm biến tiệm cận\nModel: F3C-05KS01\nThông số: Khoảng cách: 1 mm, Điện áp: 12-24VDC/);
+  assert.match(s, /gõ "ok"/); assert.match(s, /Chưa chắc: chất liệu vỏ/);
+  assert.equal(mcp.calls.length, 0);                               // chưa gọi Cổng khi chưa xác nhận
+  await bot.handleUpdate(dm('ok', 'p2'));
+  assert.deepEqual(mcp.calls[0], ['phan_loai_hs', { tenHang: 'Cảm biến tiệm cận',
+    thongSo: { 'Khoảng cách': '1 mm', 'Điện áp': '12-24VDC', Model: 'F3C-05KS01' }, nguonThongSo: 'ANH' }]);
+  assert.match(zalo.sent[1][1], /8536\.50\.99/);
+});
+
+await t('ảnh: gói 6 → kiem_tra_shtt_anh với link ảnh Zalo', async () => {
+  const zalo = fakeZalo(); const mcp = fakeMcp({ kiem_tra_shtt_anh: { ok: true, data: { ketQua: [{ ten: 'NIKE', diem: 0.91 }] } } });
+  const bot = createBot({ zalo, mcp, log: {} });
+  await bot.handleUpdate(dm('6', 'q1'));
+  await bot.handleUpdate(photo('q2'));
+  assert.deepEqual(mcp.calls[0], ['kiem_tra_shtt_anh', { urlAnh: 'https://photo-stal-14.zdn.vn/no/jpg/abc.jpg' }]);
+  assert.match(zalo.sent[1][1], /So logo/);
+});
+
+await t('CAN_DU_KIEN → người dùng trả lời → bo_sung_du_kien đúng mã lượt (không gọi phan_loai_hs lần 2)', async () => {
+  const zalo = fakeZalo();
+  const ML = '99999999-2222-4333-8444-555555555555';
+  let k = 0;
+  const mcp = fakeMcp({
+    // Đúng dạng Cổng trả (ket-qua-phan-loai.ts: ketQua = data hs-code-api, hoi = nextAction.questions)
+    phan_loai_hs: { ok: true, data: { maLuot: ML, trangThai: 'CAN_DU_KIEN', hoi: [{ questionVi: 'Bơm ly tâm hay bơm piston?', whereToFind: 'Catalogue' }],
+      ketQua: { status: 'NEED_FACTS', results: [{ hs: '84137090', reason: 'Nếu là bơm ly tâm.; Nguồn: engine-loop' }, { hs: '84135090', reason: 'Nếu là bơm piston.' }],
+        engine: { name: 'loop', rounds: 2 }, dossier: { decision: 'HOI' }, canCuPhapLy: { vanBan: { soHieu: '85/2026/TT-BTC' } } } } },
+    bo_sung_du_kien: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' },
+    ket_qua_phan_loai: () => (++k < 2 ? { ok: true, trangThai: 'DANG_XU_LY' } : { ok: true, trangThai: 'XONG', data: { maDeXuat: '84137090' } }),
+  });
+  const bot = createBot({ zalo, mcp, log: {}, pollMs: 1 });
+  await bot.handleUpdate(dm('máy bơm nước', 'r1'));
+  assert.match(zalo.sent[0][1], /Bơm ly tâm hay bơm piston/); assert.match(zalo.sent[0][1], /không trừ điểm thêm/);
+  await bot.handleUpdate(dm('bơm ly tâm, cánh gang', 'r2'));
+  await bot.drain();
+  assert.deepEqual(mcp.calls.filter((c) => c[0] === 'phan_loai_hs').length, 1);
+  assert.deepEqual(mcp.calls.find((c) => c[0] === 'bo_sung_du_kien'), ['bo_sung_du_kien', { maLuot: ML, boSung: 'bơm ly tâm, cánh gang' }]);
+  assert.match(zalo.sent.at(-1)[1], /Mã đề xuất: 8413\.70\.90/);
+});
+
+await t('nhóm: "chọn gói 7" là CHỌN gói; câu hỏi mới khi đang chờ bổ sung KHÔNG ghép vào lượt cũ; trả lời gọn', async () => {
+  const zalo = fakeZalo();
+  const ML = 'aaaaaaaa-2222-4333-8444-555555555555';
+  const kqDai = { maLuot: ML, trangThai: 'CAN_DU_KIEN',
+    hoi: [1, 2, 3, 4, 5, 6].map((i) => ({ questionVi: `Câu hỏi số ${i}?`, whereToFind: 'Tem/nhãn, catalogue kỹ thuật' })),
+    ketQua: { status: 'NEED_FACTS', attrs: { x: 1 }, soTay: { mode: 'full' }, engine: { name: 'loop', provider: 'minimax' }, review: { needed: false },
+      dossier: { mic: { query: 'Proximity sensor' }, decision: 'HOI' }, missing: ['a', 'b'],
+      results: [{ hs: '85365099', reason: 'Hồ sơ chỉ nêu cảm biến tiếp cận; chưa rõ cơ chế.; Nguồn: engine-loop' }, { hs: '90318090', reason: 'Nếu là thiết bị đo không quang học.; Nguồn: engine-loop:alt' }],
+      resolver: { status: 'SKIP' }, candidates: { headings: [1, 2] }, nextAction: { type: 'ASK_USER', howToAnswerVi: 'gọi lại /api/classify' },
+      canCuPhapLy: { vanBan: { soHieu: '85/2026/TT-BTC' }, trangThai: 'THIEU_DU_KIEN', disclaimer: 'dài…' }, girDisclaimer: 'dài…',
+      missingStructured: [{ key: 'voltage' }], queryUnderstanding: { applied: true }, antiPatternWarnings: [{ description: 'x' }] } };
+  const mcp = fakeMcp({ phan_loai_hs: { ok: true, data: kqDai } });
+  const bot = createBot({ zalo, mcp, log: {}, botNames: ['Bot - Tuấn'] });
+  const g = (text, id) => ({ result: { event_name: 'message.text.received', message: { message_id: id, text, chat: { id: 'G', chat_type: 'GROUP' }, from: { id: 'thang', display_name: 'Lại Minh Thắng' } } } });
+  await bot.handleUpdate(g('@Bot - Tuấn chọn gói 7', 'k1'));
+  assert.equal(mcp.calls.length, 0);
+  assert.match(zalo.sent[0][1], /Gói 7: Hồ sơ giải trình/);
+  await bot.handleUpdate(g('@Bot - Tuấn 1', 'k2'));                                 // chuyển gói 1
+  await bot.handleUpdate(g('@Bot - Tuấn cảm biến tiệp cận hs code bao nhiêu em.', 'k3'));
+  assert.deepEqual(mcp.calls[0], ['phan_loai_hs', { tenHang: 'cảm biến tiệp cận', nguonThongSo: 'CHU' }]);
+  const s = zalo.sent.at(-1)[1];
+  assert.match(s, /1\. 8536\.50\.99\n   Hồ sơ chỉ nêu cảm biến tiếp cận; chưa rõ cơ chế\.\n2\. 9031\.80\.90/);
+  assert.match(s, /Cần bạn cho biết thêm:\n1\. Câu hỏi số 1\?/);
+  assert.match(s, /5\. Câu hỏi số 5\?/); assert.doesNotMatch(s, /Câu hỏi số 6/);
+  assert.match(s, /Căn cứ phân loại: 85\/2026\/TT-BTC/);
+  assert.doesNotMatch(s, /Engine|Dossier|Resolver|Attrs|So Tay|Anti Pattern|Missing|engine-loop|Where To Find/i);
+  assert.ok(s.length < 1200, `quá dài: ${s.length}`);
+  // đang chờ bổ sung mà hỏi hàng khác → phân loại mới, không ghép
+  await bot.handleUpdate(g('@Bot - Tuấn bút bi hs code là gì', 'k4'));
+  assert.equal(mcp.calls.filter((c) => c[0] === 'bo_sung_du_kien').length, 0);
+  assert.deepEqual(mcp.calls.at(-1), ['phan_loai_hs', { tenHang: 'bút bi', nguonThongSo: 'CHU' }]);
+});
+
+
+// ===== Port từ main: tiền lệ nhánh 4/6 số (#538) + sổ trượt từ vựng =====
 const TREE = {
   8526: { con: [{ id: '852610' }, { id: '85269' }], nguon: { tbTchq: { co: 6 } } },
   852610: { con: [{ id: '85261010' }, { id: '85261090' }] },
@@ -400,194 +435,6 @@ await t('sổ trượt: ghi JSONL theo ngày giờ VN, đếm theo loại', asyn
   assert.deepEqual(lines.map((x) => x.loai), ['TIEN_LE_RONG', 'GO_LAI']); assert.equal(lines[0].cau, 'máy radar');
   assert.deepEqual(sl.thongKe(), { TIEN_LE_RONG: 1, GO_LAI: 1 });
   await fs.rm(dir, { recursive: true, force: true });
-});
-
-await t('bot: thiếu thông tin → hỏi lại theo mẫu, không gọi Cổng', async () => {
-  const zalo = fakeZalo(); const mcp = fakeMcp(); const bot = createBot({ zalo, mcp, log: {} });
-  await bot.handleUpdate(dm('gói 7 hàng bị áp mã', 'g1'));
-  assert.equal(mcp.calls.length, 0);
-  assert.match(zalo.sent[0][1], /Cần mã đã khai/);
-});
-
-await t('bot: Cổng mất kết nối → câu báo lỗi + menu; nhóm: @tên bot, ghi tên người hỏi, phiên riêng từng người', async () => {
-  const zalo = fakeZalo();
-  const mcp = { listTools: async () => { throw new Error('ECONNREFUSED'); }, callTool: async () => { throw new Error('MCP lỗi HTTP 502'); } };
-  const bot = createBot({ zalo, mcp, log: {}, botNames: ['OZ Tra cứu HS'] });
-  const g = (text, id, uid) => ({ result: { event_name: 'message.text.received', message: { message_id: id, text, chat: { id: 'G', chat_type: 'GROUP' }, from: { id: uid, display_name: uid } } } });
-  await bot.handleUpdate(g('@OZ Tra cứu HS 6', 'h1', 'An'));
-  await bot.handleUpdate(g('@OZ Tra cứu HS 84137090', 'h2', 'Binh'));
-  assert.match(zalo.sent[0][1], /^@An\n®️ Gói 6/);
-  assert.match(zalo.sent[1][1], /^@Binh\n/);
-  assert.match(zalo.sent[1][1], /lỗi tạm thời/);
-  assert.equal(stripMention('@OZ Tra cứu HS, máy bơm', ['OZ Tra cứu HS']), 'máy bơm');
-  assert.ok(isGroup({ chatType: 'GROUP' }));
-});
-
-// ---------- ảnh + bổ sung dữ kiện ----------
-// Đúng dạng tin ảnh Zalo thật (log máy anh Tuấn, 03/11/2026 17:43)
-const photo = (id, caption = '') => ({ message: { chat: { id: 'u1', chat_type: 'PRIVATE' }, message_id: id, message_type: 'CHAT_PHOTO',
-  from: { id: 'u1', display_name: 'Tuấn' }, photo_url: 'https://photo-stal-14.zdn.vn/no/jpg/abc.jpg', caption }, event_name: 'message.image.received' });
-
-await t('ảnh: chưa bật Gemini → hướng dẫn gõ chữ / gói 6', async () => {
-  const zalo = fakeZalo(); const bot = createBot({ zalo, mcp: fakeMcp(), log: {} });
-  await bot.handleUpdate(photo('p0'));
-  assert.match(zalo.sent[0][1], /chưa bật đọc thông số từ ảnh/); assert.match(zalo.sent[0][1], /gõ "6"/);
-});
-
-await t('ảnh: Gemini đọc thông số → người dùng "ok" → phan_loai_hs với nguồn ẢNH', async () => {
-  const zalo = fakeZalo(); const mcp = fakeMcp({ phan_loai_hs: { ok: true, data: { maDeXuat: '85365099' } } });
-  const vision = { readSpecs: async (url, cap) => { assert.match(url, /zdn\.vn/); assert.equal(cap, 'cảm biến'); return {
-    tenHang: 'Cảm biến tiệm cận', model: 'F3C-05KS01', thuongHieu: null, thongSo: { 'Khoảng cách': '1 mm', 'Điện áp': '12-24VDC' },
-    chuTrongAnh: 'PROXIMITY SENSOR F3C-05KS01', khongChac: ['chất liệu vỏ'] }; } };
-  const bot = createBot({ zalo, mcp, vision, log: {} });
-  await bot.handleUpdate(photo('p1', 'cảm biến'));
-  const s = zalo.sent[0][1];
-  assert.match(s, /Tên hàng: Cảm biến tiệm cận\nModel: F3C-05KS01\nThông số: Khoảng cách: 1 mm, Điện áp: 12-24VDC/);
-  assert.match(s, /gõ "ok"/); assert.match(s, /Chưa chắc: chất liệu vỏ/);
-  assert.equal(mcp.calls.length, 0);                               // chưa gọi Cổng khi chưa xác nhận
-  await bot.handleUpdate(dm('ok', 'p2'));
-  assert.deepEqual(mcp.calls[0], ['phan_loai_hs', { tenHang: 'Cảm biến tiệm cận',
-    thongSo: { 'Khoảng cách': '1 mm', 'Điện áp': '12-24VDC', Model: 'F3C-05KS01' }, nguonThongSo: 'ANH' }]);
-  assert.match(zalo.sent[1][1], /8536\.50\.99/);
-});
-
-await t('ảnh: gói 6 → kiem_tra_shtt_anh với link ảnh Zalo', async () => {
-  const zalo = fakeZalo(); const mcp = fakeMcp({ kiem_tra_shtt_anh: { ok: true, data: { ketQua: [{ ten: 'NIKE', diem: 0.91 }] } } });
-  const bot = createBot({ zalo, mcp, log: {} });
-  await bot.handleUpdate(dm('6', 'q1'));
-  await bot.handleUpdate(photo('q2'));
-  assert.deepEqual(mcp.calls[0], ['kiem_tra_shtt_anh', { urlAnh: 'https://photo-stal-14.zdn.vn/no/jpg/abc.jpg' }]);
-  assert.match(zalo.sent[1][1], /So logo/);
-});
-
-await t('CAN_DU_KIEN → người dùng trả lời → bo_sung_du_kien đúng mã lượt (không gọi phan_loai_hs lần 2)', async () => {
-  const zalo = fakeZalo();
-  const ML = '99999999-2222-4333-8444-555555555555';
-  let k = 0;
-  const mcp = fakeMcp({
-    // Đúng dạng Cổng trả (ket-qua-phan-loai.ts: ketQua = data hs-code-api, hoi = nextAction.questions)
-    phan_loai_hs: { ok: true, data: { maLuot: ML, trangThai: 'CAN_DU_KIEN', hoi: [{ questionVi: 'Bơm ly tâm hay bơm piston?', whereToFind: 'Catalogue' }],
-      ketQua: { status: 'NEED_FACTS', results: [{ hs: '84137090', reason: 'Nếu là bơm ly tâm.; Nguồn: engine-loop' }, { hs: '84135090', reason: 'Nếu là bơm piston.' }],
-        engine: { name: 'loop', rounds: 2 }, dossier: { decision: 'HOI' }, canCuPhapLy: { vanBan: { soHieu: '85/2026/TT-BTC' } } } } },
-    bo_sung_du_kien: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' },
-    ket_qua_phan_loai: () => (++k < 2 ? { ok: true, trangThai: 'DANG_XU_LY' } : { ok: true, trangThai: 'XONG', data: { maDeXuat: '84137090' } }),
-  });
-  const bot = createBot({ zalo, mcp, log: {}, pollMs: 1 });
-  await bot.handleUpdate(dm('máy bơm nước', 'r1'));
-  assert.match(zalo.sent[0][1], /Bơm ly tâm hay bơm piston/); assert.match(zalo.sent[0][1], /không trừ điểm thêm/);
-  await bot.handleUpdate(dm('bơm ly tâm, cánh gang', 'r2'));
-  assert.deepEqual(mcp.calls.filter((c) => c[0] === 'phan_loai_hs').length, 1);
-  assert.deepEqual(mcp.calls.find((c) => c[0] === 'bo_sung_du_kien'), ['bo_sung_du_kien', { maLuot: ML, boSung: 'bơm ly tâm, cánh gang' }]);
-  assert.match(zalo.sent.at(-1)[1], /Mã đề xuất: 8413\.70\.90/);
-});
-
-await t('nhóm: "chọn gói 7" là CHỌN gói; câu hỏi mới khi đang chờ bổ sung KHÔNG ghép vào lượt cũ; trả lời gọn', async () => {
-  const zalo = fakeZalo();
-  const ML = 'aaaaaaaa-2222-4333-8444-555555555555';
-  const kqDai = { maLuot: ML, trangThai: 'CAN_DU_KIEN',
-    hoi: [1, 2, 3, 4, 5, 6].map((i) => ({ questionVi: `Câu hỏi số ${i}?`, whereToFind: 'Tem/nhãn, catalogue kỹ thuật' })),
-    ketQua: { status: 'NEED_FACTS', attrs: { x: 1 }, soTay: { mode: 'full' }, engine: { name: 'loop', provider: 'minimax' }, review: { needed: false },
-      dossier: { mic: { query: 'Proximity sensor' }, decision: 'HOI' }, missing: ['a', 'b'],
-      results: [{ hs: '85365099', reason: 'Hồ sơ chỉ nêu cảm biến tiếp cận; chưa rõ cơ chế.; Nguồn: engine-loop' }, { hs: '90318090', reason: 'Nếu là thiết bị đo không quang học.; Nguồn: engine-loop:alt' }],
-      resolver: { status: 'SKIP' }, candidates: { headings: [1, 2] }, nextAction: { type: 'ASK_USER', howToAnswerVi: 'gọi lại /api/classify' },
-      canCuPhapLy: { vanBan: { soHieu: '85/2026/TT-BTC' }, trangThai: 'THIEU_DU_KIEN', disclaimer: 'dài…' }, girDisclaimer: 'dài…',
-      missingStructured: [{ key: 'voltage' }], queryUnderstanding: { applied: true }, antiPatternWarnings: [{ description: 'x' }] } };
-  const mcp = fakeMcp({ phan_loai_hs: { ok: true, data: kqDai } });
-  const bot = createBot({ zalo, mcp, log: {}, botNames: ['Bot - Tuấn'] });
-  const g = (text, id) => ({ result: { event_name: 'message.text.received', message: { message_id: id, text, chat: { id: 'G', chat_type: 'GROUP' }, from: { id: 'thang', display_name: 'Lại Minh Thắng' } } } });
-  await bot.handleUpdate(g('@Bot - Tuấn chọn gói 7', 'k1'));
-  assert.equal(mcp.calls.length, 0);
-  assert.match(zalo.sent[0][1], /Gói 7: Hồ sơ giải trình/);
-  await bot.handleUpdate(g('@Bot - Tuấn 1', 'k2'));                                 // chuyển gói 1
-  await bot.handleUpdate(g('@Bot - Tuấn cảm biến tiệp cận hs code bao nhiêu em.', 'k3'));
-  assert.deepEqual(mcp.calls[0], ['phan_loai_hs', { tenHang: 'cảm biến tiệp cận', nguonThongSo: 'CHU' }]);
-  const s = zalo.sent.at(-1)[1];
-  assert.match(s, /1\. 8536\.50\.99\n   Hồ sơ chỉ nêu cảm biến tiếp cận; chưa rõ cơ chế\.\n2\. 9031\.80\.90/);
-  assert.match(s, /Cần bạn cho biết thêm:\n1\. Câu hỏi số 1\?/);
-  assert.match(s, /5\. Câu hỏi số 5\?/); assert.doesNotMatch(s, /Câu hỏi số 6/);
-  assert.match(s, /Căn cứ phân loại: 85\/2026\/TT-BTC/);
-  assert.doesNotMatch(s, /Engine|Dossier|Resolver|Attrs|So Tay|Anti Pattern|Missing|engine-loop|Where To Find/i);
-  assert.ok(s.length < 1200, `quá dài: ${s.length}`);
-  // đang chờ bổ sung mà hỏi hàng khác → phân loại mới, không ghép
-  await bot.handleUpdate(g('@Bot - Tuấn bút bi hs code là gì', 'k4'));
-  assert.equal(mcp.calls.filter((c) => c[0] === 'bo_sung_du_kien').length, 0);
-  assert.deepEqual(mcp.calls.at(-1), ['phan_loai_hs', { tenHang: 'bút bi', nguonThongSo: 'CHU' }]);
-});
-
-const { createVision } = await import('../lib/vision.js');
-await t('đọc ảnh: Gemini 503 → thử lại → sang mẫu dự phòng; lỗi khoá thì dừng ngay', async () => {
-  const goi = [];
-  const ok = JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"tenHang":"Bút bi"}' }] } }] });
-  const f = (kichBan) => async (url) => {
-    if (url.includes('zdn.vn')) return new Response(new Uint8Array([1, 2]), { headers: { 'content-type': 'image/jpeg' } });
-    const m = url.match(/models\/([^:]+):/)[1]; goi.push(m);
-    const st = kichBan(m, goi.length);
-    return st === 200 ? new Response(ok) : new Response(JSON.stringify({ error: { message: 'busy' } }), { status: st });
-  };
-  const v = createVision({ apiKey: 'K', fetchImpl: f((m) => (m === 'gemini-flash-latest' ? 503 : 200)), retryDelaysMs: [1, 1] });
-  assert.equal((await v.readSpecs('https://x.zdn.vn/a.jpg')).tenHang, 'Bút bi');
-  assert.deepEqual(goi, ['gemini-flash-latest', 'gemini-flash-latest', 'gemini-flash-latest', 'gemini-flash-lite-latest']);
-  goi.length = 0;
-  const v2 = createVision({ apiKey: 'K', fetchImpl: f((m, n) => (n === 1 ? 503 : 200)), retryDelaysMs: [1, 1] });
-  await v2.readSpecs('https://x.zdn.vn/a.jpg');
-  assert.deepEqual(goi, ['gemini-flash-latest', 'gemini-flash-latest']);
-  goi.length = 0;
-  const v3 = createVision({ apiKey: 'K', fetchImpl: f(() => 403), retryDelaysMs: [1, 1] });
-  await assert.rejects(v3.readSpecs('https://x.zdn.vn/a.jpg'), (e) => e.status === 403 && !e.tamThoi);
-  assert.equal(goi.length, 1);
-  goi.length = 0;
-  const v4 = createVision({ apiKey: 'K', fetchImpl: f(() => 503), retryDelaysMs: [1, 1] });
-  await assert.rejects(v4.readSpecs('https://x.zdn.vn/a.jpg'), (e) => e.tamThoi === true);
-  assert.equal(goi.length, 6);
-});
-
-await t('ảnh: Gemini quá tải → câu báo tiếng Việt, không lộ lỗi tiếng Anh', async () => {
-  const zalo = fakeZalo();
-  const vision = { readSpecs: async () => { throw Object.assign(new Error('Gemini lỗi 503: This model is currently experiencing high demand'), { tamThoi: true }); } };
-  const bot = createBot({ zalo, mcp: fakeMcp(), vision, log: {} });
-  await bot.handleUpdate(photo('z1'));
-  assert.match(zalo.sent[0][1], /đang quá tải, bạn gửi lại ảnh sau ít phút/);
-  assert.doesNotMatch(zalo.sent[0][1], /high demand|503/);
-});
-
-// LỖI THẬT (ảnh chụp 05/11/2026): lỗi Gemini đến từ packs/hs/vision.js KHÔNG có cờ tamThoi
-// → logic cũ chỉ kiểm e.tamThoi nên lộ nguyên văn tiếng Anh cho khách.
-await t('ảnh: lỗi Gemini 503 KHÔNG có cờ tamThoi vẫn không lộ tiếng Anh', async () => {
-  const zalo = fakeZalo();
-  const vision = { readSpecs: async () => { throw new Error('Gemini lỗi 503: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.'); } };
-  const bot = createBot({ zalo, mcp: fakeMcp(), vision, log: {} });
-  await bot.handleUpdate(photo('z2'));
-  const s = zalo.sent[0][1];
-  assert.doesNotMatch(s, /high demand|temporarily|Please try again|Gemini lỗi 503/i, s);
-  assert.match(s, /quá tải/i, s);
-  assert.match(s, /gõ tên hàng/, s);
-});
-
-await t('ảnh: lỗi không phải quá tải → câu chung, không lộ chi tiết lỗi', async () => {
-  const zalo = fakeZalo();
-  const vision = { readSpecs: async () => { throw new Error('ECONNREFUSED 10.0.0.7:3000 fetch failed'); } };
-  const bot = createBot({ zalo, mcp: fakeMcp(), vision, log: {} });
-  await bot.handleUpdate(photo('z3'));
-  const s = zalo.sent[0][1];
-  assert.doesNotMatch(s, /ECONNREFUSED|10\.0\.0\.7|fetch failed/i, s);
-  assert.match(s, /chưa đọc được ảnh này/i, s);
-});
-
-await t('waitJob: ngưỡng chờ ≥10 phút (đo thật Cổng: 45s/150s/1s) và MCP lỗi không hủy lượt', async () => {
-  assert.ok(WAIT_JOB_MAX_MS >= 10 * 60_000, `ngưỡng phải ≥10 phút, hiện ${WAIT_JOB_MAX_MS / 60000}`);
-  let n = 0;
-  const ctx = {
-    pollMs: 1, notify: async () => {},
-    mcp: { callTool: async () => {
-      n++;
-      if (n <= 2) throw new Error('MCP lỗi HTTP 502');
-      return { ok: true, trangThai: 'XONG', data: { maDeXuat: '84145949' } };
-    } },
-  };
-  const r = await waitJob(ctx, { ok: true, maLuot: 'ML', trangThai: 'DANG_XU_LY' }, 'ket_qua_phan_loai');
-  assert.equal(r.trangThai, 'XONG', 'lỗi MCP tạm không được làm hỏng lượt');
-  assert.equal(r.data.maDeXuat, '84145949');
-  assert.ok(n >= 3, `phải thử lại sau lỗi (số lần gọi: ${n})`);
 });
 
 console.log(`\n${pass} test đạt`);

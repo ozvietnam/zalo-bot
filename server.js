@@ -8,6 +8,7 @@ import { createBot } from './lib/bot.js';
 import { availablePackages } from './lib/packages.js';
 import { createVision } from './lib/vision.js';
 import { createMissLog } from './lib/truot.js';
+import { createHealthPayload } from './core/health.js';
 
 const env = process.env;
 const MODE = (env.ZALO_MODE || 'webhook').toLowerCase();
@@ -15,6 +16,9 @@ const PORT = Number(env.PORT) || 3000;
 const PATH = env.ZALO_WEBHOOK_PATH || '/webhook/zalo';
 const SECRET = env.ZALO_WEBHOOK_SECRET || '';
 const DEBUG = /^(1|true|yes)$/i.test(env.DEBUG || '');
+// Thời điểm khởi động container + version: để xác minh production đã build lại với code mới.
+const STARTED_AT = new Date();
+const VERSION = env.APP_VERSION || env.SOURCE_COMMIT || '';
 
 const zalo = createZaloClient({ token: env.ZALO_BOT_TOKEN, baseUrl: env.ZALO_API_BASE || undefined });
 // Nguồn dữ liệu: Cổng OZ (MCP). Bot tự đọc danh sách công cụ, công cụ mới trên Cổng không cần sửa bot.
@@ -27,25 +31,19 @@ const mcp = createMcpClient({
 const botNames = (env.BOT_NAMES || '').split(',').map((s) => s.trim()).filter(Boolean);
 const bot = createBot({
   zalo, mcp, botNames,
+  // Sổ ghi lượt "trượt từ vựng" (gói 1 cần hỏi thêm, tiền lệ 0 kết quả, khách gõ lại) — TRUOT_DIR=off để tắt.
+  missLog: /^(off|0|false)$/i.test(env.TRUOT_DIR || '') ? null : createMissLog({ thuMuc: env.TRUOT_DIR || 'du-lieu-truot' }),
   // Đọc thông số từ ảnh (Gemini, Google AI Studio). Để trống GEMINI_API_KEY = tắt.
-  vision: createVision({ apiKey: env.GEMINI_API_KEY || '', model: env.GEMINI_MODEL || undefined,
-    models: (env.GEMINI_MODELS || '').split(',').map((s) => s.trim()).filter(Boolean) }),
+  vision: createVision({ apiKey: env.GEMINI_API_KEY || '', model: env.GEMINI_MODEL || undefined }),
   rateLimitPerMin: Number(env.RATE_LIMIT_PER_MIN) || 10,
   allowUsers: (env.ALLOW_USERS || '').split(',').map((s) => s.trim()),
-  // Sổ ghi lượt trượt từ vựng (JSONL theo ngày) cho ca đêm nạp từ điển. TRUOT_DIR=off để tắt.
-  missLog: /^(off|0|false)$/i.test(env.TRUOT_DIR || '') ? null : createMissLog({ thuMuc: env.TRUOT_DIR || 'du-lieu-truot' }),
 });
 
 const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
 
-// Thời điểm khởi động + version: để xác minh production đã build lại với code mới (không cần log).
-// Coolify đặt env runtime tên SOURCE_COMMIT (mặc định chỉ có lúc runtime, không có lúc build).
-const STARTED_AT = new Date();
-const VERSION = env.APP_VERSION || env.SOURCE_COMMIT || '';
-
 const server = http.createServer((req, res) => {
   if (req.method === 'GET' && (req.url === '/health' || req.url === '/')) {
-    return json(res, 200, { ok: true, mode: MODE, startedAt: STARTED_AT.toISOString(), ...(VERSION ? { version: VERSION } : {}) });
+    return json(res, 200, createHealthPayload({ mode: MODE, startedAt: STARTED_AT, version: VERSION }));
   }
   if (MODE !== 'webhook' || req.method !== 'POST' || req.url.split('?')[0] !== PATH) return json(res, 404, { ok: false });
   if (!SECRET || !safeEqual(req.headers['x-bot-api-secret-token'], SECRET)) return json(res, 403, { ok: false });
