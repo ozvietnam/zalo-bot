@@ -23,7 +23,7 @@ export const sessionKeyOf = (u, group) => (group ? `${u.chatId}:${u.userId}` : u
  * @param {object} o
  * @param {(ms:number)=>void} [o.advance]  chỉ đồng hồ ảo (createBot cũ): drain() nhảy tới mốc việc nền kế tiếp thay vì ngủ.
  */
-export function createEngine({ config = {}, store, channel, mcp, vision = null, registry, gate, now = () => new Date(), log = console, advance, missLog = null } = {}) {
+export function createEngine({ config = {}, store, channel, mcp, vision = null, brain = null, registry, gate, now = () => new Date(), log = console, advance, missLog = null } = {}) {
   // Sổ ghi lượt "trượt từ vựng" (gói 1 cần hỏi thêm, tiền lệ 0 kết quả, khách gõ lại) — null = tắt.
   const ghiTruot = missLog ? (loai, info) => missLog.ghi(loai, info) : null;
   const ttlMs = config.sessionTtlMs ?? 7_200_000;
@@ -106,7 +106,7 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
         return done({ skipped: 'closer' });
       }
 
-      ctx = buildCtx({ store, mcp, tools: await tools(), vision, now, log, chatId: turn.chatId, turnId: key, sessionKey, ttlMs, ghiTruot });
+      ctx = buildCtx({ store, mcp, tools: await tools(), vision, brain, now, log, chatId: turn.chatId, turnId: key, sessionKey, ttlMs, ghiTruot });
       pack = registry.pick(turn, ctx);
       audit('route', turn.chatId, key, { pack: pack?.id ?? null });
       if (!pack) return done({ skipped: 'no-pack' });

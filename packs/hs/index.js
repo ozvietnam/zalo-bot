@@ -1,7 +1,7 @@
 // packs/hs/index.js — gói "Tra cứu hải quan" (7 gói con) theo specs/001-nen-tang-chung/contracts/pack.md.
 // Cùng hành vi với lib/bot.js cũ, trừ ba thứ của lõi: chống trùng/giới hạn/ALLOW_USERS, bỏ "@Tên bot", thêm "@tên" trong nhóm.
 // Không gửi tin, không chờ việc nền: gặp DANG_XU_LY thì trả jobs + câu "⏳", lõi hỏi kết quả rồi gọi onJobResult.
-import { route } from './router.js';
+import { routeThongMinh } from './brain.js';
 import { PACKAGES, availablePackages, menuText, toJob, notice, hetHan } from './packages.js';
 import { renderResult, clipReply } from './render.js';
 import { norm } from './input.js';
@@ -43,7 +43,8 @@ async function textFlow(turn, ctx, st) {
     if (phanLoai && ANH_RE.test(norm(text))) return runPkg(st, phanLoai, text, { nguonThongSo: 'ANH' });
   }
   if (s.choBoSung && !s.goi) s.goi = 1;   // đang trả lời câu hỏi bổ sung của gói 1
-  const r = route(text, { session: s, pkgs: st.pkgs });
+  // Não hiểu câu hỏi (ctx.brain) chỉ hỏi ở chế độ TỰ ĐỘNG; lỗi/không chắc → routeThongMinh tự về regex.
+  const r = await routeThongMinh(text, { session: s, pkgs: st.pkgs, brain: ctx.brain ?? null });
   const one = (t) => result(st, [t]);
 
   try {
@@ -70,6 +71,10 @@ async function textFlow(turn, ctx, st) {
         ctx.log?.info?.(`[hs] gói ${r.pkg.so} chat=${String(turn.chatId ?? '').slice(-4)}`);
         return out;
       }
+      case 'hoi-lai':   // não hỏi lại một câu thay vì đoán mò chạy gói
+        return one(`❓ ${r.cauHoi}\n\n${st.footer}`);
+      case 'khac':      // chào hỏi/xã giao: não trả lời ngắn, dẫn về menu
+        return one(`${r.cauDan}\n\n${st.footer}`);
       default:   // 'ignore' (tin rỗng) và loại lạ: không trả lời
         return result(st, []);
     }

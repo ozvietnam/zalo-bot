@@ -26,6 +26,17 @@ Cuối mỗi tin trả lời luôn có dòng menu gói; gõ số để chuyển 
 - Thêm gói mới: thêm một mục vào `PACKAGES` trong `lib/packages.js`. Công cụ mới chưa có mẫu hiển thị riêng vẫn hiện
   được nhờ bộ dựng chung trong `lib/render.js`.
 
+<<<<<<< HEAD
+## Não hiểu câu hỏi (AI)
+
+Ở chế độ **Tự động**, câu tự do của khách được Gemini (AI Studio, function calling) hiểu trước khi tra:
+chọn gói và chép dữ kiện (tên hàng, mã HS, xuất xứ…) thành văn bản theo mẫu — gói chạy như thể khách gõ đúng khuôn.
+Chưa rõ ý hoặc thiếu dữ kiện → bot **hỏi lại một câu** thay vì đoán mò; chào hỏi/xã giao → trả lời ngắn, dẫn về menu.
+
+- Dùng chung `GEMINI_API_KEY` với đọc ảnh; đổi mẫu bằng `GEMINI_BRAIN_MODEL` (mặc định `gemini-flash-lite-latest`); tắt bằng `GEMINI_BRAIN=0`.
+- AI chỉ được chọn trong các gói khả dụng và điền dữ kiện khách đã nêu; code kiểm lại khuôn (mã HS, độ tin cậy ≥ 0.5) trước khi chạy.
+- Gemini lỗi/quá tải → tự rơi về bộ dò từ khoá như trước, bot không chết; lệnh chắc chắn (menu, "gói 2", hỏi kết quả) và gói khách đã chọn không tốn lượt AI.
+=======
 ## Giao diện trả về (rich text)
 
 Bot dùng `text_styles` của Zalo Bot API (in đậm, màu, cỡ chữ) — nên tin nhắn có **chữ đậm và màu**,
@@ -36,6 +47,7 @@ không phải text thuần.
 - Thẻ lạ / thẻ không khớp / dữ liệu MCP chứa `{` `}` → **giữ nguyên chữ**, không mất dữ liệu.
 - Tin >2000 ký tự được chia đoạn, mỗi đoạn giữ đúng định dạng; thẻ bị cắt dở được cân bằng trước khi gửi.
 - Thêm màu mới: mở `CODES` trong `lib/style.js` (mã màu Zalo: `c_db342e` đỏ, `c_f27806` cam, `c_f7b503` vàng, `c_15a85f` xanh).
+>>>>>>> origin/001-nen-tang-chung
 
 ## 1. Tạo bot Zalo
 

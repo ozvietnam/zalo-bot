@@ -24,7 +24,7 @@ function legacyChannel(zalo) {
 }
 
 // pollMs giữ trong chữ ký cho tương thích; đồng hồ ảo thay cho nó.
-export function createBot({ zalo, mcp, vision = null, log = console, rateLimitPerMin = 10, allowUsers = [], botNames = [], sessionTtlMs = 2 * 3600_000, pollMs, missLog = null } = {}) {
+export function createBot({ zalo, mcp, vision = null, brain = null, log = console, rateLimitPerMin = 10, allowUsers = [], botNames = [], sessionTtlMs = 2 * 3600_000, pollMs, missLog = null } = {}) {
   let offset = 0;
   const now = () => new Date(Date.now() + offset);
   const advance = (ms) => { const d = ms - now().getTime(); if (d > 0) offset += d; };
@@ -33,6 +33,6 @@ export function createBot({ zalo, mcp, vision = null, log = console, rateLimitPe
   const registry = createRegistry([hsPack]);
   const gate = createGate({ store, channel, rules: LEGACY_RULES, now, log: (...a) => log.error?.(a.join(' ')) });
   const config = { rateLimitPerMin, allowUsers, botNames: Array.isArray(botNames) ? botNames : [], sessionTtlMs };
-  const engine = createEngine({ config, store, channel, mcp, vision, registry, gate, now, log, advance, missLog });
+  const engine = createEngine({ config, store, channel, mcp, vision, brain, registry, gate, now, log, advance, missLog });
   return { handleUpdate: (raw) => engine.process(raw), tools: engine.tools, drain: engine.drain, PACKAGES, engine, store };
 }

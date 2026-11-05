@@ -352,6 +352,39 @@ await t('nhóm: "chọn gói 7" là CHỌN gói; câu hỏi mới khi đang ch�
   assert.deepEqual(mcp.calls.at(-1), ['phan_loai_hs', { tenHang: 'bút bi', nguonThongSo: 'CHU' }]);
 });
 
+// ---------- não hiểu câu hỏi (Gemini function calling, giả lập) ----------
+await t('não: câu mơ hồ → hỏi lại MỘT câu, không gọi Cổng', async () => {
+  const zalo = fakeZalo(); const mcp = fakeMcp();
+  const brain = { hieu: async () => ({ kind: 'hoi-lai', cauHoi: 'Bạn muốn tra thuế cho mã HS nào, hay phân loại từ mô tả hàng?' }) };
+  const bot = createBot({ zalo, mcp, brain, log: {} });
+  await bot.handleUpdate(dm('ơi cho tôi hỏi cái này với', 'n1'));
+  assert.match(zalo.sent[0][1], /❓ Bạn muốn tra thuế/);
+  assert.equal(mcp.calls.length, 0);
+});
+
+await t('não: chọn gói + dữ kiện → chạy gói đó với dữ kiện đã chép', async () => {
+  const zalo = fakeZalo();
+  const mcp = fakeMcp({ tra_thue: TAX });
+  const brain = { hieu: async () => ({ kind: 'chay', goi: 2, text: '84137090 JP' }) };
+  const bot = createBot({ zalo, mcp, brain, log: {} });
+  await bot.handleUpdate(dm('thuế cái máy bơm vừa rồi với hàng Nhật là bao nhiêu', 'n2'));
+  assert.deepEqual(mcp.calls.find((c) => c[0] === 'tra_thue')[1], { maHs: '84137090', xuatXu: 'JP' });
+  assert.match(zalo.sent[0][1], /Tự động chọn gói 2/);
+});
+
+await t('não: Gemini lỗi → rơi về autoPick như cũ; đã chọn gói thì não không can thiệp', async () => {
+  const zalo = fakeZalo(); const mcp = fakeMcp({ phan_loai_hs: { ok: true, data: { maDeXuat: '84137090' } } });
+  let goiNao = 0;
+  const brain = { hieu: async () => { goiNao++; return null; } };
+  const bot = createBot({ zalo, mcp, brain, log: {} });
+  await bot.handleUpdate(dm('máy bơm nước ly tâm', 'n3'));
+  assert.equal(goiNao, 1);
+  assert.equal(mcp.calls[0][0], 'phan_loai_hs');   // regex cũ vẫn chọn gói 1 khi não không trả được
+  await bot.handleUpdate(dm('2', 'n4'));           // khách chọn gói 2
+  await bot.handleUpdate(dm('cái này thuế bao nhiêu', 'n5'));
+  assert.equal(goiNao, 1);                          // session.goi=2 → não không được hỏi
+  assert.equal(mcp.calls.at(-1)[0], 'tim_ma_hs');   // gói 2 giữ nguyên hành vi cũ với câu tự do
+});
 
 // ===== Port từ main: tiền lệ nhánh 4/6 số (#538) + sổ trượt từ vựng =====
 const TREE = {
