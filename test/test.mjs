@@ -1,12 +1,13 @@
 // node test/test.mjs — kiểm thử không cần mạng (Zalo + Cổng OZ MCP giả lập).
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { splitText, parseUpdate, safeEqual } from '../lib/zalo.js';
+import { splitText, parseUpdate, safeEqual, createZaloClient } from '../lib/zalo.js';
+import { rich, plain, splitRich } from '../lib/style.js';
 import { createMcpClient, parseSse, unwrapToolResult } from '../lib/mcp.js';
 import { route, autoPick } from '../lib/router.js';
 import { PACKAGES, availablePackages, menuText, pickHs } from '../lib/packages.js';
 import { parseLabeled, firstHs8, soHieuList, countryCode } from '../lib/input.js';
-import { renderResult, renderGeneric } from '../lib/render.js';
+import { renderResult, renderGeneric, clipReply } from '../lib/render.js';
 import { createBot, stripMention, isGroup } from '../lib/bot.js';
 
 let pass = 0;
@@ -34,8 +35,10 @@ function fakeMcp(handlers = {}, tools = ALL_TOOLS) {
   };
 }
 function fakeZalo() {
+  // sent: tin nhắn như NGƯỜI DÙNG THẤY (thẻ định dạng đã bỏ); raw: bản gốc có thẻ.
   const sent = [];
-  return { sent, sendText: async (c, x) => { sent.push([c, x]); }, sendChatAction: () => {} };
+  const raw = [];
+  return { sent, raw, sendText: async (c, x) => { raw.push([c, x]); sent.push([c, plain(x)]); }, sendChatAction: () => {} };
 }
 const dm = (text, id) => ({ ok: true, result: { event_name: 'message.text.received',
   message: { message_id: id, text, chat: { id: 'u1', chat_type: 'PRIVATE' }, from: { id: 'u1', display_name: 'Tuấn' } } } });
@@ -54,6 +57,110 @@ await t('zalo: chia đoạn ≤2000, parseUpdate, safeEqual', () => {
   assert.ok(splitText(long).every((p) => p.length <= 2000));
   assert.equal(parseUpdate(dm('hi', 'm')).chatId, 'u1');
   assert.ok(safeEqual('abcdefgh', 'abcdefgh') && !safeEqual('a', 'b'));
+});
+
+// ---------- giao diện rich text (text_styles của Zalo) ----------
+await t('style: thẻ mở/đóng → text + text_styles; thẻ lạ hoặc không khớp giữ nguyên chữ', () => {
+  const r1 = rich('a {b}đậm{/b} b');
+  assert.equal(r1.text, 'a đậm b');
+  assert.deepEqual(r1.text_styles, [{ start: 2, len: 3, st: ['b'] }]);
+  const r2 = rich('{red}đỏ{/red}');
+  assert.deepEqual(r2.text_styles, [{ start: 0, len: 2, st: ['c_db342e'] }]);
+  const r3 = rich('{b}{green}g{/green}{/b}');                       // lồng nhau → gộp mã định dạng
+  assert.equal(r3.text, 'g');
+  assert.deepEqual(r3.text_styles[0].st.sort(), ['b', 'c_15a85f']);
+  assert.equal(rich('{b}abc').text, '{b}abc');                     // không có thẻ đóng → giữ nguyên
+  assert.equal(rich('a{/b}').text, 'a{/b}');                       // thẻ đóng lạ → giữ nguyên
+  assert.equal(rich('{xyz}a{/xyz}').text, '{xyz}a{/xyz}');         // thẻ không hỗ trợ → giữ nguyên
+  assert.equal(rich('thường').text_styles.length, 0);
+});
+
+await t('style: chia tin giàu định dạng, mỗi đoạn ≤2000 và giữ đúng style', () => {
+  const src = `{b}tiêu đề{/b}\n${'x'.repeat(2500)}`;
+  const parts = splitRich(rich(src), 2000);
+  assert.ok(parts.length >= 2);
+  assert.ok(parts.every((p) => p.text.length <= 2000));
+  assert.ok(parts.every((p) => p.text_styles.every((s) => s.start >= 0 && s.start + s.len <= p.text.length)));
+  assert.match(parts[0].text, /^tiêu đề/);
+  assert.ok(parts[0].text_styles.some((s) => s.st.includes('b')));
+});
+
+await t('style: offset tính theo UTF-16 (emoji chiếm 2 đơn vị) như Zalo yêu cầu', () => {
+  // "📦 " = 1 emoji (2 code unit) + 1 space → mã HS bắt đầu tại index 3.
+  const r = rich('📦 {b}8413.70.90{/b}');
+  assert.equal(r.text, '📦 8413.70.90');
+  assert.deepEqual(r.text_styles, [{ start: 3, len: 10, st: ['b'] }]);
+  assert.equal(r.text.slice(3, 13), '8413.70.90');
+});
+
+await t('style: hai cặp thẻ giống nhau → hai run riêng', () => {
+  const r = rich('{b}a{/b}x{b}b{/b}');
+  assert.equal(r.text, 'axb');
+  assert.deepEqual(r.text_styles, [{ start: 0, len: 1, st: ['b'] }, { start: 2, len: 1, st: ['b'] }]);
+});
+
+await t('style: dấu ngoặc trong nội dung không phá thẻ', () => {
+  const r = rich('{b}công thức {x} và {y}{/b}');
+  assert.equal(r.text, 'công thức {x} và {y}');
+  assert.deepEqual(r.text_styles, [{ start: 0, len: 20, st: ['b'] }]);
+});
+
+await t('clipReply: cắt giữa thẻ không để lộ thẻ thô cho người dùng', () => {
+  const dai = `{b}${('x'.repeat(9000))}`;                  // mở thẻ rồi bị cắt
+  const n = clipReply(dai);
+  assert.doesNotMatch(n, /\{b\}(?!.*\{\/b\})/s, 'thẻ mở phải được đóng lại');
+  assert.doesNotMatch(plain(n), /\{[a-z]+\}/i, 'bản hiển thị không được có thẻ thô');
+  assert.match(plain(n), /x{100}/);                       // nội dung vẫn còn
+  const n2 = clipReply(`{b}tiêu đề{/b} ${'y'.repeat(9000)}`);  // cắt giữa nội dung đậm
+  assert.doesNotMatch(plain(n2), /\{[a-z]+\}/i);
+});
+
+await t('style: định dạng ở đoạn sau không lệch khi đoạn bị cắt và trim', () => {
+  // Đoạn 2 có định dạng riêng; đoạn 1 kết thúc bằng khoảng trắng bị trim.
+  const src = `${'A'.repeat(1990)} {b}${'B'.repeat(100)}{/b}`;
+  const parts = splitRich(rich(src), 2000);
+  assert.ok(parts.length >= 2, 'phải chia thành ≥2 đoạn');
+  const p2 = parts[parts.length - 1];
+  assert.ok(p2.text.startsWith('B'), `đoạn 2 phải bắt đầu bằng B: ${p2.text.slice(0, 10)}`);
+  assert.equal(p2.text_styles.length, 1);
+  assert.equal(p2.text_styles[0].start, 0, 'định dạng phải bắt đầu đúng đầu đoạn');
+  assert.equal(p2.text_styles[0].len, 100);
+  assert.deepEqual(p2.text_styles[0].st, ['b']);
+});
+
+await t('zalo: gửi tin kèm text_styles, thẻ định dạng bị gỡ khỏi text gửi đi', async () => {
+  const bodies = [];
+  const z = createZaloClient({ token: 'T', fetchImpl: async (url, init) => {
+    bodies.push([url, JSON.parse(init.body)]);
+    return new Response(JSON.stringify({ ok: true, result: { message_id: 'm1' } }), { status: 200, headers: { 'content-type': 'application/json' } });
+  } });
+  await z.sendText('u1', '{b}Tiêu đề{/b}\n{green}8413.70.90{/green}');
+  assert.equal(bodies.length, 1);
+  const body = bodies[0][1];
+  assert.equal(body.chat_id, 'u1');
+  assert.equal(body.text, 'Tiêu đề\n8413.70.90');
+  assert.ok(body.text_styles.some((s) => s.st.includes('b')));
+  assert.ok(body.text_styles.some((s) => s.st.includes('c_15a85f')));
+});
+
+await t('giao diện: menu + footer có tiêu đề in đậm, màu, gợi ý bước sau', () => {
+  const ps = availablePackages(new Set(['tra_thue', 'phan_loai_hs']));
+  const full = menuText(ps, { full: true });
+  assert.match(plain(full), /CHỌN GÓI TRA CỨU/);
+  assert.match(plain(full), /1\. 🔎 Phân loại mã HS/);
+  assert.match(plain(full), /0\. Tự động/);
+  assert.match(full, /\{b\}📦 CHỌN GÓI TRA CỨU\{\/b\}/);          // tiêu đề đậm
+  const foot = menuText(ps);
+  assert.match(plain(foot), /1 Phân loại · 2 Thuế · 0 Tự động/);    // chữ người dùng thấy
+  assert.match(plain(foot), /menu/);
+});
+
+await t('giao diện: mã HS trong kết quả được làm nổi bật, dữ liệu gốc không đổi', () => {
+  const out = renderResult(TAX, { title: '💰 Thuế — 8413.70.90', renderer: 'tax' });
+  assert.match(out, /\{b\}8413\.70\.90\{\/b\}/);                     // mã HS in đậm
+  assert.match(plain(out), /8413\.70\.90/);                         // người dùng vẫn thấy mã
+  assert.match(plain(out), /MFN/);                                  // nội dung giữ nguyên
+  assert.doesNotMatch(plain(out), /\{[a-z]+\}/i);                   // không sót thẻ
 });
 
 // ---------- MCP client ----------
@@ -93,7 +200,7 @@ await t('gói: chỉ hiện gói có công cụ trên Cổng; menu cuối tin li
   assert.equal(availablePackages(ALL_TOOLS).length, 7);
   const ps = availablePackages(new Set(['tra_thue', 'phan_loai_hs']));
   assert.deepEqual(ps.map((p) => p.so), [1, 2]);
-  assert.match(menuText(ps), /1 Phân loại · 2 Thuế · 0 Tự động/);
+  assert.match(plain(menuText(ps)), /1 Phân loại · 2 Thuế · 0 Tự động/);
 });
 
 await t('định tuyến: menu / chọn số / "gói 2 <nội dung>" / tự động', () => {
@@ -145,7 +252,7 @@ await t('bot: gói 2 — thuế (bộ dựng thuế) + thủ tục lỗi backend
   assert.match(s, /Tự động chọn gói 2/);
   assert.match(s, /KHÔNG được hưởng → áp MFN/);
   assert.match(s, /Thủ tục[\s\S]*gặp lỗi/);
-  assert.match(s, /📦 1 Phân loại · 2 Thuế · 3 Mô tả/);
+  assert.match(plain(s), /📦 1 Phân loại · 2 Thuế · 3 Mô tả/);
 });
 
 await t('bot: gói 2 gõ tên hàng → tim_ma_hs', async () => {
