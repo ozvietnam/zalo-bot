@@ -5,7 +5,7 @@ import { splitText, parseUpdate, safeEqual, createZaloClient } from '../lib/zalo
 import { rich, plain, splitRich } from '../lib/style.js';
 import { createMcpClient, parseSse, unwrapToolResult } from '../lib/mcp.js';
 import { route, autoPick } from '../lib/router.js';
-import { PACKAGES, availablePackages, menuText, pickHs } from '../lib/packages.js';
+import { PACKAGES, availablePackages, menuText, pickHs, waitJob, WAIT_JOB_MAX_MS } from '../lib/packages.js';
 import { parseLabeled, firstHs8, soHieuList, countryCode } from '../lib/input.js';
 import { renderResult, renderGeneric, clipReply } from '../lib/render.js';
 import { createBot, stripMention, isGroup } from '../lib/bot.js';
@@ -548,6 +548,46 @@ await t('ảnh: Gemini quá tải → câu báo tiếng Việt, không lộ lỗ
   await bot.handleUpdate(photo('z1'));
   assert.match(zalo.sent[0][1], /đang quá tải, bạn gửi lại ảnh sau ít phút/);
   assert.doesNotMatch(zalo.sent[0][1], /high demand|503/);
+});
+
+// LỖI THẬT (ảnh chụp 05/11/2026): lỗi Gemini đến từ packs/hs/vision.js KHÔNG có cờ tamThoi
+// → logic cũ chỉ kiểm e.tamThoi nên lộ nguyên văn tiếng Anh cho khách.
+await t('ảnh: lỗi Gemini 503 KHÔNG có cờ tamThoi vẫn không lộ tiếng Anh', async () => {
+  const zalo = fakeZalo();
+  const vision = { readSpecs: async () => { throw new Error('Gemini lỗi 503: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.'); } };
+  const bot = createBot({ zalo, mcp: fakeMcp(), vision, log: {} });
+  await bot.handleUpdate(photo('z2'));
+  const s = zalo.sent[0][1];
+  assert.doesNotMatch(s, /high demand|temporarily|Please try again|Gemini lỗi 503/i, s);
+  assert.match(s, /quá tải/i, s);
+  assert.match(s, /gõ tên hàng/, s);
+});
+
+await t('ảnh: lỗi không phải quá tải → câu chung, không lộ chi tiết lỗi', async () => {
+  const zalo = fakeZalo();
+  const vision = { readSpecs: async () => { throw new Error('ECONNREFUSED 10.0.0.7:3000 fetch failed'); } };
+  const bot = createBot({ zalo, mcp: fakeMcp(), vision, log: {} });
+  await bot.handleUpdate(photo('z3'));
+  const s = zalo.sent[0][1];
+  assert.doesNotMatch(s, /ECONNREFUSED|10\.0\.0\.7|fetch failed/i, s);
+  assert.match(s, /chưa đọc được ảnh này/i, s);
+});
+
+await t('waitJob: ngưỡng chờ ≥10 phút (đo thật Cổng: 45s/150s/1s) và MCP lỗi không hủy lượt', async () => {
+  assert.ok(WAIT_JOB_MAX_MS >= 10 * 60_000, `ngưỡng phải ≥10 phút, hiện ${WAIT_JOB_MAX_MS / 60000}`);
+  let n = 0;
+  const ctx = {
+    pollMs: 1, notify: async () => {},
+    mcp: { callTool: async () => {
+      n++;
+      if (n <= 2) throw new Error('MCP lỗi HTTP 502');
+      return { ok: true, trangThai: 'XONG', data: { maDeXuat: '84145949' } };
+    } },
+  };
+  const r = await waitJob(ctx, { ok: true, maLuot: 'ML', trangThai: 'DANG_XU_LY' }, 'ket_qua_phan_loai');
+  assert.equal(r.trangThai, 'XONG', 'lỗi MCP tạm không được làm hỏng lượt');
+  assert.equal(r.data.maDeXuat, '84145949');
+  assert.ok(n >= 3, `phải thử lại sau lỗi (số lần gọi: ${n})`);
 });
 
 console.log(`\n${pass} test đạt`);

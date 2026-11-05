@@ -38,8 +38,14 @@ const bot = createBot({
 
 const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
 
+// Thời điểm khởi động + version: để xác minh production đã build lại với code mới (không cần log).
+const STARTED_AT = new Date();
+const VERSION = env.APP_VERSION || '';
+
 const server = http.createServer((req, res) => {
-  if (req.method === 'GET' && (req.url === '/health' || req.url === '/')) return json(res, 200, { ok: true, mode: MODE });
+  if (req.method === 'GET' && (req.url === '/health' || req.url === '/')) {
+    return json(res, 200, { ok: true, mode: MODE, startedAt: STARTED_AT.toISOString(), ...(VERSION ? { version: VERSION } : {}) });
+  }
   if (MODE !== 'webhook' || req.method !== 'POST' || req.url.split('?')[0] !== PATH) return json(res, 404, { ok: false });
   if (!SECRET || !safeEqual(req.headers['x-bot-api-secret-token'], SECRET)) return json(res, 403, { ok: false });
 
