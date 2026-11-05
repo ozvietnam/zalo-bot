@@ -26,6 +26,17 @@ Cuối mỗi tin trả lời luôn có dòng menu gói; gõ số để chuyển 
 - Thêm gói mới: thêm một mục vào `PACKAGES` trong `lib/packages.js`. Công cụ mới chưa có mẫu hiển thị riêng vẫn hiện
   được nhờ bộ dựng chung trong `lib/render.js`.
 
+## Giao diện trả về (rich text)
+
+Bot dùng `text_styles` của Zalo Bot API (in đậm, màu, cỡ chữ) — nên tin nhắn có **chữ đậm và màu**,
+không phải text thuần.
+
+- Mọi nội dung giao diện viết bằng thẻ: `{b}đậm{/b}`, `{red}…{/red}`, `{orange}…{/orange}`, `{green}…{/green}`, `{yellow}…{/yellow}`.
+- `lib/style.js` bỏ thẻ và dịch sang `text_styles` (offset tính theo **UTF-16 code unit** như Zalo yêu cầu — emoji tính 2 đơn vị).
+- Thẻ lạ / thẻ không khớp / dữ liệu MCP chứa `{` `}` → **giữ nguyên chữ**, không mất dữ liệu.
+- Tin >2000 ký tự được chia đoạn, mỗi đoạn giữ đúng định dạng; thẻ bị cắt dở được cân bằng trước khi gửi.
+- Thêm màu mới: mở `CODES` trong `lib/style.js` (mã màu Zalo: `c_db342e` đỏ, `c_f27806` cam, `c_f7b503` vàng, `c_15a85f` xanh).
+
 ## 1. Tạo bot Zalo
 
 1. Vào `bot.zapps.me` (Zalo Bot Creator) → **Tạo bot** → nhận **Bot Token**. Giữ bí mật.
