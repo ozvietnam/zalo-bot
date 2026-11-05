@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import { fakeMcp } from '../../../test/helpers/fakes.mjs';
 import { loadPacks } from '../../../core/registry.js';
 import hs from '../index.js';
-import { availablePackages, menuText, toJob } from '../packages.js';
+import { availablePackages, menuText, toJob, waitJob } from '../packages.js';
+import { createVision } from '../vision.js';
 
 const ALL = ['phan_loai_hs', 'ket_qua_phan_loai', 'tra_thue', 'tra_thu_tuc_nhap_khau', 'tim_ma_hs', 'sinh_mo_ta_khai_bao',
   'soat_to_khai', 'kiem_ma_to_khai', 'ket_qua_soat', 'tra_hieu_luc_van_ban', 'tra_chu_giai', 'tra_tien_le', 'kiem_tra_shtt',
@@ -181,13 +182,81 @@ const RAW = 'ECONNREFUSED 10.0.0.7:3000 fetch failed';
 test('lỗi gốc không lọt ra khách: ảnh lỗi, thủ tục lỗi (gói 2), gói 5 lỗi, kết quả Cổng ok:false', async () => {
   const vision = { readSpecs: async () => { throw new Error(RAW); } };
   const a = await hs.handle(photo(), fakeCtx({}, { vision }).ctx);
-  assert.match(a.replies[0].text, /^⚠️ Chưa đọc được ảnh\. Bạn gõ tên hàng/);
+  assert.match(a.replies[0].text, /^⚠️ Bot chưa đọc được ảnh này, hoặc gõ tên hàng/);
   const b = await hs.handle(turn('84137090'), fakeCtx({ tra_thue: TAX, tra_thu_tuc_nhap_khau: () => { throw new Error(RAW); } }).ctx);
   const c = await hs.handle(turn('gói 5 8413'), fakeCtx({ tra_chu_giai: () => { throw new Error(RAW); } }).ctx);
   const d = await hs.handle(turn('84137090'), fakeCtx({ tra_thue: TAX, tra_thu_tuc_nhap_khau: ERR }).ctx);
   for (const r of [a, b, c, d]) assert.doesNotMatch(r.replies[0].text, /ECONNREFUSED|10\.0\.0\.7|fetch failed|HTTP 404/, r.replies[0].text);
   assert.match(b.replies[0].text, /Thủ tục[\s\S]*gặp lỗi/);
   assert.match(d.replies[0].text, /Điểm đã được hoàn/);
+});
+
+// --- LỖI 1: lỗi Gemini (503 "high demand") KHÔNG được lộ tiếng Anh cho khách ---
+test('lỗi Gemini 503 không lộ tiếng Anh; câu tiếng Việt có nêu quá tải', async () => {
+  const vision = { readSpecs: async () => { throw Object.assign(new Error('Gemini lỗi 503: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.'), { tamThoi: true }); } };
+  const r = await hs.handle(photo(), fakeCtx({}, { vision }).ctx);
+  const t = r.replies[0].text;
+  assert.doesNotMatch(t, /high demand|temporarily|Please try again|Gemini lỗi 503/i, t);
+  assert.match(t, /quá tải/i, t);
+  assert.match(t, /gõ tên hàng/, t);
+});
+
+// --- LỖI 2: packs/hs/vision.js phải retry + đổi mẫu dự phòng khi Gemini quá tải ---
+test('vision: Gemini 503 → thử lại, sang mẫu dự phòng; lỗi khoá thì dừng ngay', async () => {
+  const goi = [];
+  const ok = JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"tenHang":"Bút bi"}' }] } }] });
+  const f = (kichBan) => async (url) => {
+    if (url.includes('zdn.vn')) return new Response(new Uint8Array([1, 2]), { headers: { 'content-type': 'image/jpeg' } });
+    const m = url.match(/models\/([^:]+):/)[1]; goi.push(m);
+    const st = kichBan(m, goi.length);
+    return st === 200 ? new Response(ok, { status: 200 }) : new Response(JSON.stringify({ error: { message: 'busy' } }), { status: st });
+  };
+  const v = createVision({ apiKey: 'K', fetchImpl: f((m) => (m === 'gemini-flash-latest' ? 503 : 200)), retryDelaysMs: [1, 1] });
+  assert.equal((await v.readSpecs('https://x.zdn.vn/a.jpg')).tenHang, 'Bút bi');
+  assert.deepEqual(goi, ['gemini-flash-latest', 'gemini-flash-latest', 'gemini-flash-latest', 'gemini-flash-lite-latest']);
+  goi.length = 0;
+  const v2 = createVision({ apiKey: 'K', fetchImpl: f((m, n) => (n === 1 ? 503 : 200)), retryDelaysMs: [1, 1] });
+  await v2.readSpecs('https://x.zdn.vn/a.jpg');
+  assert.deepEqual(goi, ['gemini-flash-latest', 'gemini-flash-latest']);
+  goi.length = 0;
+  const v3 = createVision({ apiKey: 'K', fetchImpl: f(() => 403), retryDelaysMs: [1, 1] });
+  await assert.rejects(v3.readSpecs('https://x.zdn.vn/a.jpg'), (e) => e.status === 403 && !e.tamThoi);
+  assert.equal(goi.length, 1, 'lỗi khoá không được thử lại');
+});
+
+// --- LỖI 4: timeout 4 phút khi Cổng xong sau 45s → bot phải trả kết quả, không báo hết hạn ---
+test('waitJob: Cổng xong sau vài chặng poll → trả kết quả, KHÔNG báo "hết hạn 4 phút"', async () => {
+  let n = 0;
+  const ctx = {
+    pollMs: 1,
+    notify: async () => {},
+    mcp: { callTool: async () => ({ ok: true, trangThai: ++n < 3 ? 'DANG_XU_LY' : 'XONG', data: { maDeXuat: '84145949' } }) },
+  };
+  const r = await waitJob(ctx, { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' }, 'ket_qua_phan_loai');
+  assert.equal(r.trangThai, 'XONG', 'phải trả kết quả thật');
+  assert.equal(r.data.maDeXuat, '84145949');
+  assert.doesNotMatch(JSON.stringify(r), /Chưa có kết quả sau|4 phút/);
+});
+
+test('waitJob: quá hạn → câu hỏi lại có MÃ LƯỢT và số phút đúng', async () => {
+  const ctx = {
+    pollMs: 1, notify: async () => {},
+    mcp: { callTool: async () => ({ ok: true, trangThai: 'DANG_XU_LY' }) },
+  };
+  const r = await waitJob(ctx, { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' }, 'ket_qua_phan_loai', { maxMs: 20 });
+  assert.match(r.thongBao, new RegExp(`kết quả ${ML}`), 'phải nêu cách hỏi lại');
+  assert.match(r.thongBao, /Chưa có kết quả sau/);
+});
+
+// --- LỖI 3: tiêu đề phân loại KHÔNG được cắt cụt giữa chữ ---
+test('tiêu đề phân loại không bị cắt cụt giữa chừng', async () => {
+  const ten = 'Quạt tản nhiệt AF12038B22HR công suất 10W điện áp 100-240VAC lưu lượng gió 127CFM 3.6m3/h kích thước 120 x 120 x 38 mm chất liệu nhựa dùng cho tủ điện mới 100%';
+  const { ctx } = fakeCtx({ phan_loai_hs: { ok: true, data: { maDeXuat: '84145949' } } });
+  const r = await hs.handle(turn(`gói 1 Tên hàng: ${ten}`), ctx);
+  const t = r.replies[0].text;
+  // Cắt cụt ở 120 ký tự sẽ cho ra "...120 x 120 x 38 mm c" (dấu phẩy + chữ đơn)
+  assert.doesNotMatch(t, /mm c["”]?\s*$/m, 'tiêu đề bị cắt giữa chừng');
+  assert.match(t, /8414\.59\.49/);
 });
 
 test('việc nền hết hạn: câu "30 phút" + cách hỏi lại "kết quả <mã lượt>" vẫn hiện', async () => {

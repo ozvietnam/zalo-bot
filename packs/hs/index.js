@@ -6,6 +6,7 @@ import { PACKAGES, availablePackages, menuText, toJob, notice, hetHan } from './
 import { renderResult, clipReply } from './render.js';
 import { norm } from './input.js';
 import { photoFlow } from './flow-photo.js';
+import { loiAnhChoKhach } from './vision.js';
 import { openTurn, result } from './flow-turn.js';
 
 const JOB_TTL_MS = 30 * 60_000;   // lõi bỏ chờ việc nền sau 30 phút (core/engine-jobs.js); câu hết hạn ghi đúng số phút
@@ -100,7 +101,8 @@ export default {
       if (turn.photoUrl) {
         try { return await photoFlow(turn, ctx, st); } catch (e) {
           ctx.log?.error?.(`[hs] lỗi ảnh: ${e.message}`);
-          return result(st, [`⚠️ Chưa đọc được ảnh. Bạn gõ tên hàng + thông số bằng chữ giúp bot nhé.\n\n${st.footer}`]);
+          // KHÔNG lộ lỗi gốc (tiếng Anh của Gemini, stack, địa chỉ nội bộ) cho khách.
+          return result(st, [`⚠️ ${loiAnhChoKhach(e)}, hoặc gõ tên hàng + thông số bằng chữ giúp bot nhé.\n\n${st.footer}`]);
         }
       }
       return await textFlow(turn, ctx, st);
