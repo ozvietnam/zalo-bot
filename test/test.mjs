@@ -241,6 +241,28 @@ await t('ảnh: chưa bật Gemini → hướng dẫn gõ chữ / gói 6', async
   assert.match(zalo.sent[0][1], /chưa bật đọc thông số từ ảnh/); assert.match(zalo.sent[0][1], /gõ "6"/);
 });
 
+await t('ảnh: lỗi Gemini 503 không lộ tiếng Anh cho khách (đường lib/bot.js)', async () => {
+  const zalo = fakeZalo();
+  const vision = { readSpecs: async () => { throw Object.assign(
+    new Error('Gemini lỗi 503: This model is currently experiencing high demand. Please try again later.'), { tamThoi: true }); } };
+  const bot = createBot({ zalo, mcp: fakeMcp(), vision, log: {} });
+  await bot.handleUpdate(photo('pE'));
+  const s = zalo.sent[0][1];
+  assert.doesNotMatch(s, /high demand|Please try again|Gemini lỗi 503/i, s);
+  assert.match(s, /quá tải/i, s);
+  assert.match(s, /gõ tên hàng/, s);
+});
+
+await t('ảnh: lỗi Gemini không tạm → câu chung, không lộ chi tiết lỗi', async () => {
+  const zalo = fakeZalo();
+  const vision = { readSpecs: async () => { throw new Error('ECONNREFUSED 10.0.0.7:3000 fetch failed'); } };
+  const bot = createBot({ zalo, mcp: fakeMcp(), vision, log: {} });
+  await bot.handleUpdate(photo('pE2'));
+  const s = zalo.sent[0][1];
+  assert.doesNotMatch(s, /ECONNREFUSED|10\.0\.0\.7|fetch failed/i, s);
+  assert.match(s, /chưa đọc được ảnh này/i, s);
+});
+
 await t('ảnh: Gemini đọc thông số → người dùng "ok" → phan_loai_hs với nguồn ẢNH', async () => {
   const zalo = fakeZalo(); const mcp = fakeMcp({ phan_loai_hs: { ok: true, data: { maDeXuat: '85365099' } } });
   const vision = { readSpecs: async (url, cap) => { assert.match(url, /zdn\.vn/); assert.equal(cap, 'cảm biến'); return {

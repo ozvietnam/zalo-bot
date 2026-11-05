@@ -7,7 +7,7 @@ import { renderResult, renderClassify } from './render.js';
 import { fmtHs } from './format.js';
 import { chayCho } from './jobs.js';
 
-export { notice, hetHan, toJob, waitJob } from './jobs.js';
+export { notice, hetHan, toJob, waitJob, WAIT_JOB_MAX_MS } from './jobs.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const has = (ctx, name) => !ctx.tools || ctx.tools.has(name);
@@ -102,7 +102,10 @@ export const PACKAGES = [
       const maLuot = r?.maLuot || r?.chiPhi?.maLuot || r?.data?.maLuot;
       ctx.session.last = { tenHang, maHs, maLuotPhanLoai: UUID.test(maLuot || '') ? maLuot : null };
       const st = r?.trangThai || r?.data?.trangThai;
-      let out = renderClassify(r, { title: `🔎 Phân loại: "${String(tenHang).slice(0, 120)}"` });
+      // Cắt tên hàng ở ranh giới từ (không cắt cụt giữa chữ) và có dấu "…" khi bị rút gọn.
+      const tenNgan = String(tenHang || '');
+      const tenHien = tenNgan.length > 120 ? `${tenNgan.slice(0, 120).replace(/\s+\S*$/, '')}…` : tenNgan;
+      let out = renderClassify(r, { title: `🔎 Phân loại: "${tenHien}"` });
       if (st === 'CAN_DU_KIEN') {
         if (maLuot && has(ctx, 'bo_sung_du_kien')) {
           ctx.session.choBoSung = { maLuot, tenHang };
