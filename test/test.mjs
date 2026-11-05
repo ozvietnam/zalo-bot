@@ -318,4 +318,40 @@ await t('nhóm: "chọn gói 7" là CHỌN gói; câu hỏi mới khi đang ch�
   assert.deepEqual(mcp.calls.at(-1), ['phan_loai_hs', { tenHang: 'bút bi', nguonThongSo: 'CHU' }]);
 });
 
+const { createVision } = await import('../lib/vision.js');
+await t('đọc ảnh: Gemini 503 → thử lại → sang mẫu dự phòng; lỗi khoá thì dừng ngay', async () => {
+  const goi = [];
+  const ok = JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"tenHang":"Bút bi"}' }] } }] });
+  const f = (kichBan) => async (url) => {
+    if (url.includes('zdn.vn')) return new Response(new Uint8Array([1, 2]), { headers: { 'content-type': 'image/jpeg' } });
+    const m = url.match(/models\/([^:]+):/)[1]; goi.push(m);
+    const st = kichBan(m, goi.length);
+    return st === 200 ? new Response(ok) : new Response(JSON.stringify({ error: { message: 'busy' } }), { status: st });
+  };
+  const v = createVision({ apiKey: 'K', fetchImpl: f((m) => (m === 'gemini-flash-latest' ? 503 : 200)), retryDelaysMs: [1, 1] });
+  assert.equal((await v.readSpecs('https://x.zdn.vn/a.jpg')).tenHang, 'Bút bi');
+  assert.deepEqual(goi, ['gemini-flash-latest', 'gemini-flash-latest', 'gemini-flash-latest', 'gemini-flash-lite-latest']);
+  goi.length = 0;
+  const v2 = createVision({ apiKey: 'K', fetchImpl: f((m, n) => (n === 1 ? 503 : 200)), retryDelaysMs: [1, 1] });
+  await v2.readSpecs('https://x.zdn.vn/a.jpg');
+  assert.deepEqual(goi, ['gemini-flash-latest', 'gemini-flash-latest']);
+  goi.length = 0;
+  const v3 = createVision({ apiKey: 'K', fetchImpl: f(() => 403), retryDelaysMs: [1, 1] });
+  await assert.rejects(v3.readSpecs('https://x.zdn.vn/a.jpg'), (e) => e.status === 403 && !e.tamThoi);
+  assert.equal(goi.length, 1);
+  goi.length = 0;
+  const v4 = createVision({ apiKey: 'K', fetchImpl: f(() => 503), retryDelaysMs: [1, 1] });
+  await assert.rejects(v4.readSpecs('https://x.zdn.vn/a.jpg'), (e) => e.tamThoi === true);
+  assert.equal(goi.length, 6);
+});
+
+await t('ảnh: Gemini quá tải → câu báo tiếng Việt, không lộ lỗi tiếng Anh', async () => {
+  const zalo = fakeZalo();
+  const vision = { readSpecs: async () => { throw Object.assign(new Error('Gemini lỗi 503: This model is currently experiencing high demand'), { tamThoi: true }); } };
+  const bot = createBot({ zalo, mcp: fakeMcp(), vision, log: {} });
+  await bot.handleUpdate(photo('z1'));
+  assert.match(zalo.sent[0][1], /đang quá tải, bạn gửi lại ảnh sau ít phút/);
+  assert.doesNotMatch(zalo.sent[0][1], /high demand|503/);
+});
+
 console.log(`\n${pass} test đạt`);

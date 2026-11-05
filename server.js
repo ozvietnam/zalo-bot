@@ -27,7 +27,8 @@ const botNames = (env.BOT_NAMES || '').split(',').map((s) => s.trim()).filter(Bo
 const bot = createBot({
   zalo, mcp, botNames,
   // Đọc thông số từ ảnh (Gemini, Google AI Studio). Để trống GEMINI_API_KEY = tắt.
-  vision: createVision({ apiKey: env.GEMINI_API_KEY || '', model: env.GEMINI_MODEL || undefined }),
+  vision: createVision({ apiKey: env.GEMINI_API_KEY || '', model: env.GEMINI_MODEL || undefined,
+    models: (env.GEMINI_MODELS || '').split(',').map((s) => s.trim()).filter(Boolean) }),
   rateLimitPerMin: Number(env.RATE_LIMIT_PER_MIN) || 10,
   allowUsers: (env.ALLOW_USERS || '').split(',').map((s) => s.trim()),
 });
