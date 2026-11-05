@@ -473,4 +473,53 @@ await t('sổ trượt: ghi JSONL theo ngày giờ VN, đếm theo loại', asyn
   await fs.rm(dir, { recursive: true, force: true });
 });
 
+// ---------- não biên tập kết quả (Gemini giả lập) ----------
+await t('biên tập: phân loại xong gửi bản chốt ngắn; "chi tiết" mở lại bản đầy đủ', async () => {
+  const zalo = fakeZalo();
+  const ML = '11111111-2222-4333-8444-555555555555';
+  let n = 0;
+  const mcp = fakeMcp({
+    phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' },
+    ket_qua_phan_loai: () => (++n < 2 ? { ok: true, trangThai: 'DANG_XU_LY' } : { ok: true, trangThai: 'XONG', data: { maDeXuat: '84137090', lyDo: 'Bơm ly tâm' } }),
+    tra_thue: TAX,
+    tra_thu_tuc_nhap_khau: { ok: true, data: { ketQua: 'không yêu cầu giấy phép' } },
+  });
+  const editor = { chot: async () => '✅ Mã: {b}8413.70.90{/b} — bơm nước ly tâm thân gang.\n💰 Thuế MFN 0% · NK thường 15% · VAT 8/10.\n📋 Không yêu cầu giấy phép.' };
+  const bot = createBot({ zalo, mcp, editor, log: {}, pollMs: 1 });
+  await bot.handleUpdate(dm('chi tiết', 'bt0'));
+  assert.match(zalo.sent[0][1], /Chưa có bản chi tiết/);           // chưa có gì trong phiên
+  await bot.handleUpdate(dm('máy bơm nước ly tâm', 'bt1'));
+  await bot.drain();
+  const s = zalo.sent.at(-1)[1];
+  assert.match(s, /✅ Mã: 8413\.70\.90/);
+  assert.match(s, /gõ "chi tiết"/);
+  assert.doesNotMatch(s, /Mã đề xuất/);                             // bản ngắn thay bản dài
+  assert.ok(s.length < 900, `bản chốt quá dài: ${s.length}`);
+  await bot.handleUpdate(dm('chi tiết', 'bt2'));
+  const dayDu = zalo.sent.at(-1)[1];
+  assert.match(dayDu, /Mã đề xuất: 8413\.70\.90/);
+  assert.match(dayDu, /💰 Thuế — 8413\.70\.90/);
+});
+
+await t('biên tập: editor lỗi → giữ bản đầy đủ như cũ; CAN_DU_KIEN không nhờ biên tập', async () => {
+  const zalo = fakeZalo();
+  let lanChot = 0;
+  const mcp = fakeMcp({
+    phan_loai_hs: { ok: true, data: { maLuot: '22222222-2222-4333-8444-555555555555', trangThai: 'CAN_DU_KIEN',
+      hoi: [{ questionVi: 'Bơm ly tâm hay bơm piston?' }], ketQua: { status: 'NEED_FACTS', results: [{ hs: '84137090', reason: 'Nếu là bơm ly tâm' }] } } },
+  });
+  const editor = { chot: async () => { lanChot++; return null; } };
+  const bot = createBot({ zalo, mcp, editor, log: {}, pollMs: 1 });
+  await bot.handleUpdate(dm('máy bơm nước', 'bt3'));
+  assert.equal(lanChot, 0);                                        // đang hỏi dữ kiện: không biên tập
+  assert.match(zalo.sent.at(-1)[1], /Cần bạn cho biết thêm/);
+  const zalo2 = fakeZalo();
+  const bot2 = createBot({ zalo: zalo2, mcp: fakeMcp({ phan_loai_hs: { ok: true, data: { maDeXuat: '84137090' } } }),
+    editor: { chot: async () => { throw new Error('Gemini 503'); } }, log: {} });
+  await bot2.handleUpdate(dm('máy bơm', 'bt4'));
+  const s = zalo2.sent.at(-1)[1];
+  assert.match(s, /Mã đề xuất: 8413\.70\.90/);                      // editor chết → bản đầy đủ như cũ
+  assert.match(s, /💰 Thuế — 8413\.70\.90/);
+});
+
 console.log(`\n${pass} test đạt`);

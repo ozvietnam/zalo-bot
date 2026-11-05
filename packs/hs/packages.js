@@ -4,6 +4,7 @@
 // Gói có việc nền (1, 4) tách chay thành batDau (gọi Cổng, không chờ) + xong (dựng chữ từ kết quả) để index.js giao việc cho lõi.
 import { parseLabeled, firstHs8, allHs8, soHieuList, countryCode, findCountryInText, norm } from './input.js';
 import { renderResult, renderClassify, nhacPhongVe } from './render.js';
+import { plain } from './style.js';
 import { fmtHs } from './format.js';
 import { chayCho } from './jobs.js';
 
@@ -212,6 +213,15 @@ export const PACKAGES = [
         out += `\n\n{b}👉 Tiếp theo:{/b} gõ "3" để viết mô tả khai báo · xuất xứ khác: gõ "2" kèm mã HS và nước.`;
       }
       out += '\n{orange}ℹ️ Mã HS là GỢI Ý tham khảo, không thay thế ý kiến phân loại của Hải quan.{/orange}';
+      // Não biên tập (ctx.editor): bản chốt ngắn thay bản dài, bản đầy lưu cho lệnh "chi tiết".
+      // Không áp khi đang hỏi dữ kiện (câu hỏi của Cổng phải tới khách nguyên văn). Editor lỗi/số không khớp → giữ bản đầy.
+      if (maHs && st !== 'CAN_DU_KIEN' && ctx.editor) {
+        const ngan = await ctx.editor.chot({ text: plain(out), loai: 'phân loại mã HS + thuế' }).catch(() => null);
+        if (ngan) {
+          ctx.session.chiTiet = { text: out, at: Date.now() };
+          return `${ngan}\n\n{b}👉{/b} Xem phân tích đầy đủ: gõ {b}"chi tiết"{/b} · viết mô tả khai báo: gõ {b}"3"{/b}\n{orange}ℹ️ Mã HS là GỢI Ý tham khảo, không thay thế ý kiến phân loại của Hải quan.{/orange}`;
+        }
+      }
       return out;
     },
   },

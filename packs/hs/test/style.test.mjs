@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { rich, plain, splitRich, balanceTags } from '../style.js';
-import { renderResult } from '../render.js';
+import { renderResult, renderClassify } from '../render.js';
 import { menuText, availablePackages } from '../packages.js';
 
 test('style: thẻ mở/đóng → text + text_styles; thẻ lạ hoặc không khớp giữ nguyên chữ', () => {
@@ -90,4 +90,11 @@ test('giao diện: mã HS trong kết quả được làm nổi bật, dữ li�
   assert.match(plain(out), /8413\.70\.90/);                         // người dùng vẫn thấy mã
   assert.match(plain(out), /MFN/);                                  // nội dung giữ nguyên
   assert.doesNotMatch(plain(out), /\{[a-z]+\}/i);                   // không sót thẻ
+});
+
+test('lọc chữ Trung trong lý do Cổng (LLM backend lỗi lẫn 广泛): bỏ mệnh đề dính, giữ mệnh đề sạch', () => {
+  const r = { ok: true, data: { ketQua: { results: [{ hs: '8414.59.49', reason: 'Quạt tản nhiệt cho tủ điện; không dùng广泛 cho tủ điện', confidence: 0.78 }] } } };
+  const out = renderClassify(r, { title: '🔎 Phân loại' });
+  assert.doesNotMatch(out, /[\u3400-\u9fff]/);                       // không còn ký tự Trung/Hán
+  assert.match(out, /Quạt tản nhiệt cho tủ điện/);                   // mệnh đề sạch giữ nguyên
 });

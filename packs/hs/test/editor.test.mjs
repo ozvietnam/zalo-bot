@@ -1,0 +1,83 @@
+// Não biên tập (Gemini viết lại bản dài thành bản chốt): không cần mạng, fetch giả lập.
+// Luật an toàn cần test đủ: mọi con số trong bản chốt phải có trong bản gốc (code kiểm, không tin Gemini);
+// lỗi/kết quả dị → null để nơi gọi giữ bản đầy đủ như cũ.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createEditor, soDungChuan } from '../editor.js';
+
+function fakeGemini(fn) {
+  const requests = [];
+  const fetchImpl = async (url, opts = {}) => {
+    requests.push({ url, body: JSON.parse(opts.body) });
+    const r = fn(requests.length, requests.at(-1));
+    return { ok: r.status === 200, status: r.status, json: async () => r.body ?? {} };
+  };
+  return { requests, fetchImpl };
+}
+const text = (t) => ({ status: 200, body: { candidates: [{ content: { parts: [{ text: t }] } }] } });
+
+const GOC = `🔎 Phân loại: "Quạt tản nhiệt dùng cho tủ điện"
+✅ Mã đề xuất:
+1. 8414.59.49 (78%)
+   Quạt tản nhiệt cho tủ điện, không có lưới bảo vệ
+2. 8414.59.20 — Quạt có lưới bảo vệ
+💰 Thuế — 8414.59.49 (xuất xứ CN)
+Thuế NK thông thường: 22.5%
+NK ưu đãi (MFN): 15%
+ACFTA (hàng TQ): 10%
+VAT: 8/10
+📋 Thủ tục: không yêu cầu giấy phép`;
+
+test('createEditor: không apiKey hoặc GEMINI_EDITOR=0 → null (bot giữ bản đầy đủ)', () => {
+  assert.equal(createEditor({ apiKey: '', log: {} }), null);
+  assert.equal(createEditor({ apiKey: 'k', off: true, log: {} }), null);
+  assert.ok(createEditor({ apiKey: 'k', log: {} }));
+});
+
+test('soDungChuan: mọi dãy số trong bản chốt phải có trong bản gốc (bỏ dấu chấm/khoảng trắng)', () => {
+  assert.ok(soDungChuan('Mã 8414.59.49, MFN 15%, VAT 8/10', GOC));
+  assert.ok(soDungChuan('84145949', '8414.59.49'));            // khác cách viết dấu chấm vẫn khớp
+  assert.ok(!soDungChuan('thuế 12%', GOC));                    // số bịa
+  assert.ok(!soDungChuan('mã 8414.59', GOC));                  // mã cắt lở
+  assert.ok(soDungChuan('không có số nào hết', GOC));          // không số → mặc nhiên đạt
+});
+
+test('chot: Gemini viết bản ngắn → làm đậm mã HS, yêu cầu đúng khuôn', async () => {
+  const g = fakeGemini(() => text('✅ Mã: 8414.59.49 — quạt tản nhiệt cho tủ điện, không lưới bảo vệ.\nThuế MFN 15% · NK thường 22.5% · VAT 8/10.\n📋 Không yêu cầu giấy phép.'));
+  const ed = createEditor({ apiKey: 'k', fetchImpl: g.fetchImpl, log: {} });
+  const r = await ed.chot({ text: GOC });
+  assert.match(r, /\{b\}8414\.59\.49\{\/b\}/);
+  assert.match(r, /MFN 15%/);
+  const b = g.requests[0].body;
+  assert.match(b.systemInstruction.parts[0].text, /CHỈ dùng số/i);
+  assert.match(b.contents[0].parts[0].text, /8414\.59\.49/);
+  assert.equal(b.generationConfig.temperature, 0.1);
+});
+
+test('chot: bản chốt có số không có trong gốc → null (bỏ, không gửi)', async () => {
+  const g = fakeGemini(() => text('Mã 8414.59.49, thuế 12%.'));
+  const ed = createEditor({ apiKey: 'k', fetchImpl: g.fetchImpl, log: {} });
+  assert.equal(await ed.chot({ text: GOC }), null);
+});
+
+test('chot: Gemini 503 cả hai mẫu → null; bản gốc quá ngắn → không tốn lượt gọi', async () => {
+  const g = fakeGemini(() => ({ status: 503, body: { error: { message: 'overloaded' } } }));
+  const ed = createEditor({ apiKey: 'k', fetchImpl: g.fetchImpl, log: {} });
+  assert.equal(await ed.chot({ text: GOC }), null);
+  assert.equal(g.requests.length, 2);
+  const g2 = fakeGemini(() => text('ngắn'));
+  const ed2 = createEditor({ apiKey: 'k', fetchImpl: g2.fetchImpl, log: {} });
+  assert.equal(await ed2.chot({ text: 'Mã 84137090 thuế 0%' }), null);   // < 80 ký tự
+  assert.equal(g2.requests.length, 0);
+});
+
+test('chot: Gemini thả thẻ định dạng hoặc quá dài → lược thẻ / bỏ kết quả', async () => {
+  const g = fakeGemini(() => text('{b}Mã{/b} 8414.59.49 — MFN 15%.'));
+  const ed = createEditor({ apiKey: 'k', fetchImpl: g.fetchImpl, log: {} });
+  const r = await ed.chot({ text: GOC });
+  assert.doesNotMatch(r, /\{b\}Mã/);                                // thẻ Gemini thả ra đã bị lược
+  assert.match(r, /Mã \{b\}8414\.59\.49\{\/b\}/);                   // mã HS do BOT làm đậm
+  const g2 = fakeGemini(() => text('Mã 8414.59.49 MFN 15%. ' + 'dài '.repeat(400)));
+  const ed2 = createEditor({ apiKey: 'k', fetchImpl: g2.fetchImpl, log: {} });
+  assert.equal(await ed2.chot({ text: GOC }), null);                     // > 1200 ký tự
+});

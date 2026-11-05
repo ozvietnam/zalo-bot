@@ -8,6 +8,7 @@ import { createBot } from './lib/bot.js';
 import { availablePackages } from './lib/packages.js';
 import { createVision } from './lib/vision.js';
 import { createBrain } from './lib/brain.js';
+import { createEditor } from './lib/editor.js';
 import { createMissLog } from './lib/truot.js';
 import { createHealthPayload } from './core/health.js';
 
@@ -33,8 +34,11 @@ const botNames = (env.BOT_NAMES || '').split(',').map((s) => s.trim()).filter(Bo
 // Não hiểu câu hỏi (Gemini function calling) cho chế độ Tự động: dùng chung khoá đọc ảnh; GEMINI_BRAIN=0 để tắt.
 const brain = createBrain({ apiKey: env.GEMINI_API_KEY || '', model: env.GEMINI_BRAIN_MODEL || undefined,
   off: /^(0|false|no|off)$/i.test(env.GEMINI_BRAIN || '') });
+// Não biên tập: kết quả phân loại dài → bản chốt ngắn (code kiểm từng con số khớp gốc); GEMINI_EDITOR=0 để tắt.
+const editor = createEditor({ apiKey: env.GEMINI_API_KEY || '', model: env.GEMINI_EDITOR_MODEL || undefined,
+  off: /^(0|false|no|off)$/i.test(env.GEMINI_EDITOR || '') });
 const bot = createBot({
-  zalo, mcp, botNames, brain,
+  zalo, mcp, botNames, brain, editor,
   // Sổ ghi lượt "trượt từ vựng" (gói 1 cần hỏi thêm, tiền lệ 0 kết quả, khách gõ lại) — TRUOT_DIR=off để tắt.
   missLog: /^(off|0|false)$/i.test(env.TRUOT_DIR || '') ? null : createMissLog({ thuMuc: env.TRUOT_DIR || 'du-lieu-truot' }),
   // Đọc thông số từ ảnh (Gemini, Google AI Studio). Để trống GEMINI_API_KEY = tắt.
@@ -109,6 +113,7 @@ server.listen(PORT, '0.0.0.0', async () => {
       console.log(`[mcp] Cổng OZ có ${t.size} công cụ; gói khả dụng: ${availablePackages(t).map((p) => p.so).join(', ')}`);
       console.log(`[bot] đọc ảnh: ${env.GEMINI_API_KEY ? 'BẬT (Gemini)' : 'tắt (chưa có GEMINI_API_KEY)'}`);
       console.log(`[bot] não hiểu câu hỏi (chế độ Tự động): ${brain ? `BẬT (${env.GEMINI_BRAIN_MODEL || 'gemini-flash-lite-latest'})` : 'tắt'}`);
+      console.log(`[bot] não biên tập kết quả: ${editor ? `BẬT (${env.GEMINI_EDITOR_MODEL || 'gemini-flash-latest'})` : 'tắt'}`);
     } else {
       console.error('[mcp] chưa kết nối được Cổng OZ — kiểm tra OZ_MCP_URL / OZ_MCP_TOKEN (bot vẫn chạy, sẽ thử lại khi có tin)');
     }

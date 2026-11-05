@@ -13,7 +13,8 @@ Luật:
 2. Thiếu dữ kiện bắt buộc của gói, hoặc chưa rõ khách muốn gì → gọi hoi_lai với MỘT câu hỏi ngắn.
 3. Chào hỏi, cảm ơn, hỏi dịch vụ/giá/cước ngoài phạm vi tra cứu → gọi khac, câu ngắn thân thiện, dẫn về "menu".
 4. Giữ nguyên cách khách gọi tên hàng; "nó", "cái đó", "mã vừa rồi" thường chỉ dữ kiện trong Ngữ cảnh.
-5. Trả lời bằng function call, không viết chữ thường.`;
+5. Trả lời bằng function call, không viết chữ thường.
+6. tenHang phải chép NGUYÊN VĂN mô tả hàng của khách (tối đa ~300 ký tự, chỉ bỏ lời xã giao) — tuyệt đối không tóm lại thành vài chữ, vì đây là dữ kiện cho việc phân loại.`;
 
 const TAM_THOI = new Set([429, 500, 502, 503, 504]);
 
@@ -30,7 +31,7 @@ const xx = (v) => { const c = countryCode(String(v ?? '')); return c || null; };
 /** Mỗi gói con một hàm Gemini: tên hàm = id gói (gạch chân), kèm cách dựng lại văn bản có nhãn mà gói đọc được. */
 const GOI = [
   { ham: 'phan_loai', so: 1, moTa: 'Phân loại mã HS từ mô tả hàng (tên, chất liệu, công dụng, thông số)',
-    fields: { tenHang: 'Tên hàng tiếng Việt', chatLieu: 'Chất liệu', congDung: 'Công dụng', thongSo: 'Thông số dạng "tên: giá trị, ..." (một chuỗi)', thuongHieu: 'Thương hiệu', model: 'Model/ký hiệu' },
+    fields: { tenHang: 'Tên hàng + mô tả đầy đủ như khách viết: giữ thông số, model, chất liệu, công dụng — KHÔNG rút gọn thành vài chữ', chatLieu: 'Chất liệu', congDung: 'Công dụng', thongSo: 'Thông số dạng "tên: giá trị, ..." (một chuỗi)', thuongHieu: 'Thương hiệu', model: 'Model/ký hiệu' },
     dung: (a) => (str(a.tenHang, 2) ? labeled([['Tên hàng', a.tenHang], ['Chất liệu', a.chatLieu], ['Công dụng', a.congDung], ['Thông số', a.thongSo], ['Thương hiệu', a.thuongHieu], ['Model', a.model]]) : null) },
   { ham: 'thue_thu_tuc', so: 2, moTa: 'Thuế & thủ tục nhập khẩu theo mã HS (cần mã khách đã có)',
     fields: { maHs: 'Mã HS 4–8 số khách đã nêu', xuatXu: 'Nước xuất xứ khách nêu (tên hoặc mã 2 chữ)' },

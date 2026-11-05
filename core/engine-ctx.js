@@ -67,7 +67,7 @@ export function redactedLog(log) {
 }
 
 /** ctx đầy đủ cho handle/onJobResult. */
-export function buildCtx({ store, mcp, tools, vision, brain, now, log, chatId, turnId, sessionKey, ttlMs, ghiTruot = null }) {
+export function buildCtx({ store, mcp, tools, vision, brain, now, log, chatId, turnId, sessionKey, ttlMs, ghiTruot = null, editor = null }) {
   return {
     ghiTruot,
     mcp: auditedMcp({ mcp, store, now, chatId, turnId }),
@@ -77,6 +77,7 @@ export function buildCtx({ store, mcp, tools, vision, brain, now, log, chatId, t
     customer: store.customers.get(chatId) ?? null,
     vision: vision ?? null,
     brain: brain ?? null,
+    editor: editor ?? null,
     now,
     log: redactedLog(log),
   };
