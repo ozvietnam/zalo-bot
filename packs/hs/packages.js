@@ -7,7 +7,7 @@ import { renderResult, renderClassify } from './render.js';
 import { fmtHs } from './format.js';
 import { chayCho } from './jobs.js';
 
-export { notice, hetHan, toJob, waitJob } from './jobs.js';
+export { notice, hetHan, toJob, waitJob, WAIT_JOB_MAX_MS } from './jobs.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const has = (ctx, name) => !ctx.tools || ctx.tools.has(name);

@@ -4,10 +4,18 @@
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const has = (ctx, name) => !ctx.tools || ctx.tools.has(name);
 
+/**
+ * Ngưỡng chờ tối đa cho một việc nền (đường chờ trong lượt, lib/bot.js).
+ * Đo thực tế Cổng OZ (2026-11-05): 45s / 150s / 1s — biến động rất mạnh vì engine
+ * đôi khi phải thử lại khi LLM không trả JSON hợp lệ ("NO_PRIVATE_LLM").
+ * Ngưỡng 4 phút từng báo hết hạn oan khi Cổng chỉ cần 2,5 phút → nâng lên 10 phút.
+ */
+export const WAIT_JOB_MAX_MS = 10 * 60_000;
+
 /** Câu báo việc nền đang chạy (lượt đầu gửi câu này, kết quả gửi sau). */
 export const notice = (label = 'Đang xử lý') => `⏳ ${label}… thường mất 1–3 phút, bot sẽ gửi kết quả ngay khi xong.`;
 /** Kết quả thay thế khi việc nền hết hạn mà chưa xong. */
-export const hetHan = (maLuot, maxMs = 240000) => {
+export const hetHan = (maLuot, maxMs = WAIT_JOB_MAX_MS) => {
   const t = `Chưa có kết quả sau ${Math.round(maxMs / 60000)} phút. Mã lượt: ${maLuot} — hỏi lại sau bằng cách gõ: kết quả ${maLuot}`;
   return { ok: false, thongBao: t, thongBaoKhach: t };   // thongBaoKhach: câu do gói tự soạn, được phép hiện cho khách
 };
@@ -21,18 +29,29 @@ export function toJob(r, resultTool, ctx = {}) {
 }
 
 /** Đường cũ (lib/bot.js, tới T016): chờ trong lượt, hỏi lại tới khi xong. Gói mới dùng toJob. */
-export async function waitJob(ctx, r, resultTool, { everyMs = 6000, maxMs = 240000, label = 'Đang xử lý' } = {}) {
+export async function waitJob(ctx, r, resultTool, { everyMs = 6000, maxMs = WAIT_JOB_MAX_MS, label = 'Đang xử lý' } = {}) {
   const { job } = toJob(r, resultTool, ctx);
   if (!job) return r;
   const { maLuot } = job;
   await ctx.notify?.(notice(label));
   const until = Date.now() + maxMs;
+  let loiLanCuoi = null;
   while (Date.now() < until) {
     await sleep(ctx.pollMs ?? everyMs);
-    const k = await ctx.mcp.callTool(resultTool, { maLuot });
+    let k;
+    try {
+      k = await ctx.mcp.callTool(resultTool, { maLuot });
+      loiLanCuoi = null;
+    } catch (e) {
+      // Cổng chập chờn giữa lúc chờ → thử lại, KHÔNG hủy cả lượt.
+      loiLanCuoi = e;
+      continue;
+    }
     const s = k?.trangThai || k?.data?.trangThai;
     if (s !== 'DANG_XU_LY') return { ...k, maLuot };
   }
+  // Hết hạn: nếu lần hỏi cuối lỗi truyền tải thì báo lỗi tạm thời (không phải "hết hạn").
+  if (loiLanCuoi) return { ok: false, loi: 'CONG_LOI_TAM_THOI', thongBao: 'Cổng tra cứu OZ đang lỗi tạm thời, bạn thử lại sau ít phút nhé.', maLuot };
   return hetHan(maLuot, maxMs);
 }
 

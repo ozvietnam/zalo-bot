@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { fakeMcp } from '../../../test/helpers/fakes.mjs';
 import { loadPacks } from '../../../core/registry.js';
 import hs from '../index.js';
-import { availablePackages, menuText, toJob, waitJob } from '../packages.js';
+import { availablePackages, menuText, toJob, waitJob, hetHan, WAIT_JOB_MAX_MS } from '../packages.js';
 import { createVision } from '../vision.js';
 
 const ALL = ['phan_loai_hs', 'ket_qua_phan_loai', 'tra_thue', 'tra_thu_tuc_nhap_khau', 'tim_ma_hs', 'sinh_mo_ta_khai_bao',
@@ -246,6 +246,33 @@ test('waitJob: quá hạn → câu hỏi lại có MÃ LƯỢT và số phút đ
   const r = await waitJob(ctx, { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' }, 'ket_qua_phan_loai', { maxMs: 20 });
   assert.match(r.thongBao, new RegExp(`kết quả ${ML}`), 'phải nêu cách hỏi lại');
   assert.match(r.thongBao, /Chưa có kết quả sau/);
+});
+
+test('waitJob: MCP lỗi giữa lúc chờ → không hủy lượt, thử lại và vẫn trả kết quả', async () => {
+  let n = 0;
+  const ctx = {
+    pollMs: 1, notify: async () => {},
+    mcp: { callTool: async () => {
+      n++;
+      if (n === 1) throw new Error('MCP lỗi HTTP 502');            // lỗi mạng giữa lúc chờ
+      if (n === 2) throw new Error('MCP lỗi HTTP 502');
+      return { ok: true, trangThai: 'XONG', data: { maDeXuat: '84145949' } };
+    } },
+  };
+  const r = await waitJob(ctx, { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' }, 'ket_qua_phan_loai');
+  assert.equal(r.trangThai, 'XONG', 'lỗi MCP tạm không được làm hỏng lượt');
+  assert.equal(r.data.maDeXuat, '84145949');
+  assert.ok(n >= 3, `phải thử lại sau lỗi (số lần gọi: ${n})`);
+});
+
+test('waitJob: ngưỡng chờ mặc định đủ dài cho Cổng (đo thực tế 150s, có lúc 45s)', async () => {
+  // Đo thực tế Cổng OZ (2026-11-05): 45s / 150s / 1s → ngưỡng mặc định phải ≥10 phút.
+  assert.ok(WAIT_JOB_MAX_MS >= 10 * 60_000, `ngưỡng mặc định phải ≥10 phút, hiện ${WAIT_JOB_MAX_MS / 60000} phút`);
+  // Câu hết hạn phải nói đúng số phút của ngưỡng mặc định (không phải 4).
+  const r = hetHan(ML);
+  const soPhut = Number(r.thongBao.match(/sau (\d+) phút/)?.[1] || 0);
+  assert.equal(soPhut, WAIT_JOB_MAX_MS / 60000, `câu hết hạn phải nói ${WAIT_JOB_MAX_MS / 60000} phút, hiện: "${r.thongBao}"`);
+  assert.match(r.thongBao, new RegExp(`kết quả ${ML}`));
 });
 
 // --- LỖI 3: tiêu đề phân loại KHÔNG được cắt cụt giữa chữ ---
