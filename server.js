@@ -7,6 +7,7 @@ import { createMcpClient } from './lib/mcp.js';
 import { createBot } from './lib/bot.js';
 import { availablePackages } from './lib/packages.js';
 import { createVision } from './lib/vision.js';
+import { createHealthPayload } from './core/health.js';
 
 const env = process.env;
 const MODE = (env.ZALO_MODE || 'webhook').toLowerCase();
@@ -14,6 +15,9 @@ const PORT = Number(env.PORT) || 3000;
 const PATH = env.ZALO_WEBHOOK_PATH || '/webhook/zalo';
 const SECRET = env.ZALO_WEBHOOK_SECRET || '';
 const DEBUG = /^(1|true|yes)$/i.test(env.DEBUG || '');
+// Thời điểm khởi động container + version: để xác minh production đã build lại với code mới.
+const STARTED_AT = new Date();
+const VERSION = env.APP_VERSION || '';
 
 const zalo = createZaloClient({ token: env.ZALO_BOT_TOKEN, baseUrl: env.ZALO_API_BASE || undefined });
 // Nguồn dữ liệu: Cổng OZ (MCP). Bot tự đọc danh sách công cụ, công cụ mới trên Cổng không cần sửa bot.
@@ -35,7 +39,9 @@ const bot = createBot({
 const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
 
 const server = http.createServer((req, res) => {
-  if (req.method === 'GET' && (req.url === '/health' || req.url === '/')) return json(res, 200, { ok: true, mode: MODE });
+  if (req.method === 'GET' && (req.url === '/health' || req.url === '/')) {
+    return json(res, 200, createHealthPayload({ mode: MODE, startedAt: STARTED_AT, version: VERSION }));
+  }
   if (MODE !== 'webhook' || req.method !== 'POST' || req.url.split('?')[0] !== PATH) return json(res, 404, { ok: false });
   if (!SECRET || !safeEqual(req.headers['x-bot-api-secret-token'], SECRET)) return json(res, 403, { ok: false });
 
