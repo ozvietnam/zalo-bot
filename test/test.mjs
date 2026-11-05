@@ -97,7 +97,7 @@ await t('gói: chỉ hiện gói có công cụ trên Cổng; menu cuối tin li
   assert.equal(availablePackages(ALL_TOOLS).length, 7);
   const ps = availablePackages(new Set(['tra_thue', 'phan_loai_hs']));
   assert.deepEqual(ps.map((p) => p.so), [1, 2]);
-  assert.match(plain(menuText(ps)), /1 Phân loại · 2 Thuế · 0 Tự động/);
+  assert.match(plain(menuText(ps)), /Gõ "menu" để xem các gói/);
 });
 
 await t('định tuyến: menu / chọn số / "gói 2 <nội dung>" / tự động', () => {
@@ -149,7 +149,7 @@ await t('bot: gói 2 — thuế (bộ dựng thuế) + thủ tục lỗi backend
   assert.match(s, /Tự động chọn gói 2/);
   assert.match(s, /KHÔNG được hưởng → áp MFN/);
   assert.match(s, /Thủ tục[\s\S]*gặp lỗi/);
-  assert.match(s, /📦 1 Phân loại · 2 Thuế · 3 Mô tả/);
+  assert.match(s, /Gõ "menu" để xem các gói/);
 });
 
 await t('bot: gói 2 gõ tên hàng → tim_ma_hs', async () => {
@@ -178,7 +178,10 @@ await t('bot: gói 1 chạy nền → báo đang xử lý → hỏi kết quả 
   assert.deepEqual(mcp.calls[0], ['phan_loai_hs', { tenHang: 'máy bơm nước ly tâm', chatLieu: 'gang', thongSo: { 'công suất': '1.5HP', 'điện áp': '220V' }, nguonThongSo: 'CHU' }]);
   assert.match(zalo.sent[1][1], /⏳ Đang phân loại/);
   assert.match(zalo.sent[2][1], /Mã đề xuất: 8413\.70\.90/);
-  assert.match(zalo.sent[2][1], /gõ "2" để xem thuế/);
+  // Phân loại xong tự kèm thuế + thủ tục (miễn phí) — không còn bắt gõ "2"
+  assert.match(zalo.sent[2][1], /💰 Thuế — 8413\.70\.90 \(xuất xứ CN\)/);
+  assert.match(zalo.sent[2][1], /gõ "3" để viết mô tả khai báo/);
+  assert.doesNotMatch(zalo.sent[2][1], /gõ "2" để xem thuế/);
   await bot.handleUpdate(dm('3', 'd2'));
   await bot.handleUpdate(dm('Thương hiệu: Pentax\nXuất xứ: Trung Quốc', 'd3'));
   const mt = mcp.calls.find((c) => c[0] === 'sinh_mo_ta_khai_bao')[1];
@@ -346,10 +349,10 @@ await t('nhóm: "chọn gói 7" là CHỌN gói; câu hỏi mới khi đang ch�
   assert.match(s, /Căn cứ phân loại: 85\/2026\/TT-BTC/);
   assert.doesNotMatch(s, /Engine|Dossier|Resolver|Attrs|So Tay|Anti Pattern|Missing|engine-loop|Where To Find/i);
   assert.ok(s.length < 1200, `quá dài: ${s.length}`);
-  // đang chờ bổ sung mà hỏi hàng khác → phân loại mới, không ghép
+  // đang chờ bổ sung mà hỏi hàng khác → phân loại mới, không ghép (sau phan_loai_hs có thể còn tra thuế tự kèm)
   await bot.handleUpdate(g('@Bot - Tuấn bút bi hs code là gì', 'k4'));
   assert.equal(mcp.calls.filter((c) => c[0] === 'bo_sung_du_kien').length, 0);
-  assert.deepEqual(mcp.calls.at(-1), ['phan_loai_hs', { tenHang: 'bút bi', nguonThongSo: 'CHU' }]);
+  assert.deepEqual(mcp.calls.filter((c) => c[0] === 'phan_loai_hs').at(-1), ['phan_loai_hs', { tenHang: 'bút bi', nguonThongSo: 'CHU' }]);
 });
 
 // ---------- não hiểu câu hỏi (Gemini function calling, giả lập) ----------

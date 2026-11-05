@@ -177,8 +177,10 @@ export const PACKAGES = [
       const r = await ctx.mcp.callTool('phan_loai_hs', args);
       return { r, resultTool: 'ket_qua_phan_loai', label: 'Đang phân loại mã HS', context: { tenHang, boSung: false, cauMoi: text } };
     },
-    /** Kết quả cuối (đã xong, hoặc lỗi/hết hạn) → chữ trả lời; ghi phiên last/choBoSung. */
-    xong(r, { tenHang, boSung = false, cauMoi }, ctx) {
+    /** Kết quả cuối (đã xong, hoặc lỗi/hết hạn) → chữ trả lời; ghi phiên last/choBoSung.
+     *  Có mã HS → tự chạy tiếp thuế + thủ tục (tra cứu miễn phí) ngay trong tin: khách "vất hàng vào" là ra hết,
+     *  không phải gõ "2". Gói 3/4 tính điểm nên vẫn để khách chủ động gọi. */
+    async xong(r, { tenHang, boSung = false, cauMoi }, ctx) {
       const maHs = pickHs(r);
       const maLuot = r?.maLuot || r?.chiPhi?.maLuot || r?.data?.maLuot;
       ctx.session.last = { tenHang, maHs, maLuotPhanLoai: UUID.test(maLuot || '') ? maLuot : null };
@@ -199,7 +201,16 @@ export const PACKAGES = [
           out += '\n\n👉 Trả lời các câu hỏi trên bằng cách gửi lại mô tả đầy đủ hơn (vẫn đang ở gói 1).';
         }
       }
-      if (maHs) out += `\n\n{b}👉 Tiếp theo:{/b} gõ "2" để xem thuế & thủ tục của {b}${fmtHs(maHs)}{/b}, hoặc "3" để viết mô tả khai báo.`;
+      if (maHs) {
+        const xx = findCountryInText(String(tenHang || '')) || 'CN';
+        const [thue, thuTuc] = await Promise.all([
+          has(ctx, 'tra_thue') ? ctx.mcp.callTool('tra_thue', { maHs, xuatXu: xx }).catch(() => null) : null,
+          has(ctx, 'tra_thu_tuc_nhap_khau') ? ctx.mcp.callTool('tra_thu_tuc_nhap_khau', { maHs }).catch(() => null) : null,
+        ]);
+        if (thue) out += `\n\n${renderResult(thue, { title: `💰 Thuế — ${fmtHs(maHs)} (xuất xứ ${xx})`, renderer: 'tax' })}`;
+        if (thuTuc) out += `\n\n${renderResult(thuTuc, { title: '📋 Thủ tục / chính sách quản lý' })}`;
+        out += `\n\n{b}👉 Tiếp theo:{/b} gõ "3" để viết mô tả khai báo · xuất xứ khác: gõ "2" kèm mã HS và nước.`;
+      }
       out += '\n{orange}ℹ️ Mã HS là GỢI Ý tham khảo, không thay thế ý kiến phân loại của Hải quan.{/orange}';
       return out;
     },
@@ -371,8 +382,8 @@ export function availablePackages(toolNames) {
 
 /**
  * Menu gói.
- * full = true → menu đầy đủ (gõ "menu"): tiêu đề đậm, tên gói in đậm, mô tả thụt lề.
- * full = false → footer gọn cuối mọi tin: 1 dòng, số gói đậm để dễ nhìn.
+ * full = true → menu đầy đủ (gõ "menu" hoặc lúc chọn gói): tiêu đề đậm, tên gói in đậm, mô tả thụt lề.
+ * full = false → footer gọn cuối mọi tin: KHÔNG liệt kê số gói (khách quen thấy là rác) — chỉ dẫn tới "menu".
  * Dùng thẻ định dạng {b}…{/b} — channels/zalo-bot.js chuyển sang text_styles của Zalo.
  */
 export function menuText(pkgs, { full = false } = {}) {
@@ -386,6 +397,5 @@ export function menuText(pkgs, { full = false } = {}) {
     l.push('{b}0. Tự động{/b} — bot tự chọn gói theo nội dung bạn gõ');
     return l.join('\n');
   }
-  const ds = pkgs.map((p) => `{b}${p.so}{/b} ${p.ngan || p.ten}`).join(' · ');
-  return `———\n📦 ${ds} · {b}0{/b} Tự động · {b}"menu"{/b}`;
+  return `Gõ {b}"menu"{/b} để xem các gói tra cứu`;
 }

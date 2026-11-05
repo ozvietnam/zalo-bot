@@ -15,7 +15,7 @@ const TAX = { ok: true, data: { hsCode: '84137090', nameVi: '- - Loại khác', 
   acfta: { forOrigin: { origin: 'CN', eligible: false, rate: null } }, taxVat: '8/10',
   warnings: { summary: 'Kiểm tra hiệu suất năng lượng.', severity: 'MEDIUM' } }, chiPhi: { diem: 0 } };
 const ERR = { ok: false, loi: 'BACKEND_LOI', thongBao: 'Hệ thống tra cứu HS gặp lỗi (HTTP 404) | EN: The data service returned an error.', diemDaHoan: true };
-const FOOTER = '———\n📦 1 Phân loại · 2 Thuế · 3 Mô tả · 4 Kiểm tra · 5 Luật · 6 Nhãn hiệu · 7 Giải trình · 0 Tự động · "menu"';
+const FOOTER = 'Gõ "menu" để xem các gói tra cứu';
 const ML = '11111111-2222-4333-8444-555555555555';
 
 /** ctx giả: MCP có đủ 16 công cụ (mặc định trả {ok, data}), phiên là object thường, get() trả bản sao để bắt lỗi ghi thẳng. */
@@ -56,9 +56,10 @@ test('menu: đúng chữ menu cũ, không gắn nhãn; footer = menuText(availab
   assert.match(plain(r.replies[0].text), /CHỌN GÓI/); assert.match(plain(r.replies[0].text), /7\. 📄 Hồ sơ giải trình/);
   assert.deepEqual(r.labels, []); assert.deepEqual(r.jobs, []); assert.equal(r.handoff, null);
   assert.equal(plain(hs.footer(ctx)), FOOTER);
-  assert.equal(plain(hs.footer({ ...ctx, tools: new Set(['tra_thue', 'phan_loai_hs']) })), '———\n📦 1 Phân loại · 2 Thuế · 0 Tự động · "menu"');
+  assert.equal(plain(hs.footer({ ...ctx, tools: new Set(['tra_thue', 'phan_loai_hs']) })), FOOTER);   // footer gọn không liệt kê số theo công cụ
   const c = await hs.handle(turn('2'), ctx);
-  assert.match(plain(c.replies[0].text), /^💰 Gói 2: Thuế/); assert.ok(plain(c.replies[0].text).endsWith(FOOTER)); assert.deepEqual(c.labels, []);
+  assert.match(plain(c.replies[0].text), /^💰 Gói 2: Thuế/);
+  assert.ok(plain(c.replies[0].text).endsWith(FOOTER)); assert.deepEqual(c.labels, []);
 });
 
 test('phan_loai_hs trả DANG_XU_LY → handle trả jobs [{maLuot, resultTool:"ket_qua_phan_loai"}] và 1 câu "⏳"', async () => {
@@ -81,7 +82,12 @@ test('onJobResult(job, {trangThai:"XONG", ...}) → reply có mã HS gợi ý (d
   const s = plain(r.replies[0].text);
   assert.equal(r.replies.length, 1);
   assert.match(s, /^🔎 Phân loại: "máy bơm nước ly tâm"/);                 // đã chọn gói 1 → không có dòng "Tự động chọn gói"
-  assert.match(s, /Mã đề xuất: 8413\.70\.90/); assert.match(s, /gõ "2" để xem thuế/); assert.ok(s.endsWith(FOOTER));
+  assert.match(s, /Mã đề xuất: 8413\.70\.90/);
+  // Tự chạy tiếp thuế + thủ tục (miễn phí) ngay trong tin kết quả — khách không phải gõ "2"
+  assert.match(s, /💰 Thuế — 8413\.70\.90 \(xuất xứ CN\)/); assert.match(s, /📋 Thủ tục \/ chính sách quản lý/);
+  assert.match(s, /gõ "3" để viết mô tả khai báo/); assert.doesNotMatch(s, /gõ "2" để xem thuế/);
+  assert.ok(s.endsWith(FOOTER));
+  assert.deepEqual(calls.filter((c) => ['tra_thue', 'tra_thu_tuc_nhap_khau'].includes(c.name)).map((c) => c.name).sort(), ['tra_thu_tuc_nhap_khau', 'tra_thue']);
   assert.deepEqual(r.labels, ['tra-cuu-hs']); assert.deepEqual(r.interests, [{ mon: 'máy bơm nước ly tâm', hs: '84137090' }]);
   assert.deepEqual(store.last, { tenHang: 'máy bơm nước ly tâm', maHs: '84137090', maLuotPhanLoai: ML });
   await hs.handle(turn('3'), ctx);
@@ -107,7 +113,7 @@ test('mã 8 số → gói 2, kết quả có thuế suất từ Cổng (giữ ng
   assert.match(s, /Tự động chọn gói 2/);
   assert.match(s, /KHÔNG được hưởng → áp MFN/);
   assert.match(s, /Thủ tục[\s\S]*gặp lỗi/);
-  assert.match(s, /📦 1 Phân loại · 2 Thuế · 3 Mô tả/);
+  assert.match(s, /Gõ "menu" để xem các gói/);
   assert.deepEqual(r.jobs, []); assert.deepEqual(r.labels, ['tra-cuu-hs']); assert.deepEqual(r.interests, [{ hs: '84137090' }]);
   assert.equal(r.evidence.length, 2);
 });
