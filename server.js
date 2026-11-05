@@ -39,8 +39,9 @@ const bot = createBot({
 const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
 
 // Thời điểm khởi động + version: để xác minh production đã build lại với code mới (không cần log).
+// Coolify đặt env runtime tên SOURCE_COMMIT (mặc định chỉ có lúc runtime, không có lúc build).
 const STARTED_AT = new Date();
-const VERSION = env.APP_VERSION || '';
+const VERSION = env.APP_VERSION || env.SOURCE_COMMIT || '';
 
 const server = http.createServer((req, res) => {
   if (req.method === 'GET' && (req.url === '/health' || req.url === '/')) {
