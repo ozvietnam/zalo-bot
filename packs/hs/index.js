@@ -22,7 +22,7 @@ async function runPkg(st, pkg, text, { head = '', nguonThongSo } = {}) {
   const b = await pkg.batDau(text, pctx);
   if (typeof b === 'string') return reply(b);
   const t = toJob(b.r, b.resultTool, pctx);
-  if (!t.job) return reply(pkg.xong(t.result, b.context, pctx), b.context);
+  if (!t.job) return reply(await pkg.xong(t.result, b.context, pctx), b.context);
   const job = { ...t.job, context: { goi: pkg.so, head, ...b.context } };
   return result(st, [notice(b.label)], { jobs: [job], known: b.context });
 }
@@ -123,7 +123,7 @@ export default {
       const c = job.context || {};
       const r = res == null ? hetHan(job.maLuot, JOB_TTL_MS) : { ...res, maLuot: job.maLuot };
       const pkg = PACKAGES.find((p) => p.so === c.goi);
-      const body = pkg?.xong ? pkg.xong(r, c, st.pctx()) : renderResult(r, { title: `📥 Kết quả lượt ${job.maLuot}` });
+      const body = pkg?.xong ? await pkg.xong(r, c, st.pctx()) : renderResult(r, { title: `📥 Kết quả lượt ${job.maLuot}` });
       const calls = [{ name: job.resultTool, args: {}, result: r }];
       return result(st, [clipReply(`${c.head || ''}${body}\n\n${st.footer}`)], { known: c, calls });
     } finally {

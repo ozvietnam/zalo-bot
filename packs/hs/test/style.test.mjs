@@ -76,8 +76,9 @@ test('giao diện: menu + footer có tiêu đề in đậm, màu, gợi ý bư�
   assert.match(plain(full), /0\. Tự động/);
   assert.match(full, /\{b\}📦 CHỌN GÓI TRA CỨU\{\/b\}/);          // tiêu đề đậm
   const foot = menuText(ps);
-  assert.match(plain(foot), /1 Phân loại · 2 Thuế · 0 Tự động/);    // chữ người dùng thấy
-  assert.match(plain(foot), /menu/);
+  assert.match(plain(foot), /Gõ "menu" để xem các gói tra cứu/);     // footer gọn: không liệt kê số gói
+  assert.doesNotMatch(plain(foot), /1 Phân loại/);
+  assert.match(foot, /\{b\}"menu"\{\/b\}/);                          // "menu" in đậm
 });
 
 test('giao diện: mã HS trong kết quả được làm nổi bật, dữ liệu gốc không đổi', () => {
