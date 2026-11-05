@@ -49,13 +49,13 @@ async function textFlow(turn, ctx, st) {
   try {
     switch (r.kind) {
       case 'menu':
-        return one(`🤖 Bot tra cứu hải quan OZ\n\n${menuText(st.pkgs, { full: true })}\n\nHoặc cứ gõ mã HS / mô tả hàng, bot tự chọn gói.`);
+        return one(`{b}🤖 Bot tra cứu hải quan OZ{/b}\n\n${menuText(st.pkgs, { full: true })}\n\nHoặc cứ gõ mã HS / mô tả hàng, bot tự chọn gói.`);
       case 'tu-dong':
         s.goi = null;
-        return one(`🔄 Đã chuyển sang chế độ TỰ ĐỘNG: bot đoán gói theo nội dung bạn gõ.\n\n${st.footer}`);
+        return one(`{b}🔄 Đã chuyển sang chế độ TỰ ĐỘNG:{/b} bot đoán gói theo nội dung bạn gõ.\n\n${st.footer}`);
       case 'chon':
         s.goi = r.pkg.so;
-        return one(`${r.pkg.icon} Gói ${r.pkg.so}: ${r.pkg.ten}\n${r.pkg.moTa}\n\nGửi thông tin theo mẫu:\n${r.pkg.mau}\n\n${st.footer}`);
+        return one(`{b}${r.pkg.icon} Gói ${r.pkg.so}: ${r.pkg.ten}{/b}\n${r.pkg.moTa}\n\n{b}Gửi thông tin theo mẫu:{/b}\n${r.pkg.mau}\n\n${st.footer}`);
       case 'ket-qua': {
         const tn = ctx.tools;
         const tool = !tn || tn.has('ket_qua_phan_loai') ? 'ket_qua_phan_loai' : 'ket_qua_soat';
@@ -65,7 +65,7 @@ async function textFlow(turn, ctx, st) {
       }
       case 'chay': {
         if (r.chon) s.goi = r.pkg.so;
-        const head = r.tuDong ? `${r.pkg.icon} (Tự động chọn gói ${r.pkg.so}: ${r.pkg.ten})\n\n` : '';
+        const head = r.tuDong ? `{b}${r.pkg.icon} (Tự động chọn gói ${r.pkg.so}: ${r.pkg.ten}){/b}\n\n` : '';
         const out = await runPkg(st, r.pkg, r.text, { head });
         ctx.log?.info?.(`[hs] gói ${r.pkg.so} chat=${String(turn.chatId ?? '').slice(-4)}`);
         return out;

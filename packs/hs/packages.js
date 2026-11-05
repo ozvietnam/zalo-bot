@@ -61,7 +61,7 @@ export function lamGonCauHoi(s) {
 }
 
 const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v != null && v !== ''));
-const ask = (msg, mau) => `❓ ${msg}\n\nGửi theo mẫu:\n${mau}`;
+const ask = (msg, mau) => `{b}❓ ${msg}{/b}\n\n{b}Gửi theo mẫu:{/b}\n${mau}`;
 
 export const PACKAGES = [
   {
@@ -114,8 +114,8 @@ export const PACKAGES = [
           out += '\n\n👉 Trả lời các câu hỏi trên bằng cách gửi lại mô tả đầy đủ hơn (vẫn đang ở gói 1).';
         }
       }
-      if (maHs) out += `\n\n👉 Tiếp theo: gõ "2" để xem thuế & thủ tục của ${fmtHs(maHs)}, hoặc "3" để viết mô tả khai báo.`;
-      out += '\nℹ️ Mã HS là GỢI Ý tham khảo, không thay thế ý kiến phân loại của Hải quan.';
+      if (maHs) out += `\n\n{b}👉 Tiếp theo:{/b} gõ "2" để xem thuế & thủ tục của {b}${fmtHs(maHs)}{/b}, hoặc "3" để viết mô tả khai báo.`;
+      out += '\n{orange}ℹ️ Mã HS là GỢI Ý tham khảo, không thay thế ý kiến phân loại của Hải quan.{/orange}';
       return out;
     },
   },
@@ -166,7 +166,7 @@ export const PACKAGES = [
       });
       const r = await ctx.mcp.callTool('sinh_mo_ta_khai_bao', args);
       let out = renderResult(r, { title: `📝 Mô tả khai báo — ${fmtHs(maHs)}` });
-      if (r?.banNhap || r?.data?.banNhap) out += '\n\n⚠️ Đây là BẢN NHÁP vì hồ sơ chưa đủ căn cứ — trả lời các câu hỏi rồi gửi lại, không dùng bản nháp để khai.';
+      if (r?.banNhap || r?.data?.banNhap) out += '\n\n{orange}⚠️ Đây là BẢN NHÁP{/orange} vì hồ sơ chưa đủ căn cứ — trả lời các câu hỏi rồi gửi lại, không dùng bản nháp để khai.';
       return out;
     },
   },
@@ -260,7 +260,7 @@ export const PACKAGES = [
         loai: 'TRANH_CHAP_MA', maKhai, maHaiQuan, moTaHang, lyDoHaiQuan: v.lyDoHaiQuan?.slice(0, 4000), thongSo: v.thongSo,
         taiLieuCo: v.taiLieuCo ? v.taiLieuCo.split(/[,;]/).map((s) => s.trim()).filter(Boolean).slice(0, 20) : null,
       }));
-      return `${renderResult(r, { title: `📄 Hồ sơ giải trình — khai ${fmtHs(maKhai)}${maHaiQuan ? ` / HQ áp ${fmtHs(maHaiQuan)}` : ''}` })}\n\n⚠️ Đây là BẢN NHÁP, người khai phải tự rà soát trước khi nộp.`;
+      return `${renderResult(r, { title: `📄 Hồ sơ giải trình — khai ${fmtHs(maKhai)}${maHaiQuan ? ` / HQ áp ${fmtHs(maHaiQuan)}` : ''}` })}\n\n{orange}⚠️ Đây là BẢN NHÁP{/orange}, người khai phải tự rà soát trước khi nộp.`;
     },
   },
 ];
@@ -271,12 +271,23 @@ export function availablePackages(toolNames) {
   return PACKAGES.filter((p) => p.congCu.every((t) => toolNames.has(t)) && (!p.canMotTrong || p.canMotTrong.some((t) => toolNames.has(t))));
 }
 
+/**
+ * Menu gói.
+ * full = true → menu đầy đủ (gõ "menu"): tiêu đề đậm, tên gói in đậm, mô tả thụt lề.
+ * full = false → footer gọn cuối mọi tin: 1 dòng, số gói đậm để dễ nhìn.
+ * Dùng thẻ định dạng {b}…{/b} — channels/zalo-bot.js chuyển sang text_styles của Zalo.
+ */
 export function menuText(pkgs, { full = false } = {}) {
   if (full) {
-    const l = ['📦 CHỌN GÓI TRA CỨU — gõ số tương ứng:'];
-    for (const p of pkgs) l.push(`${p.so}. ${p.icon} ${p.ten}\n   ${p.moTa}`);
-    l.push('0. Tự động (bot tự chọn theo nội dung bạn gõ)');
+    const l = [`{b}📦 CHỌN GÓI TRA CỨU{/b} — gõ số tương ứng:`, ''];
+    for (const p of pkgs) {
+      l.push(`{b}${p.so}. ${p.icon} ${p.ten}{/b}`);
+      l.push(`   ${p.moTa}`);
+      l.push('');
+    }
+    l.push('{b}0. Tự động{/b} — bot tự chọn gói theo nội dung bạn gõ');
     return l.join('\n');
   }
-  return `———\n📦 ${pkgs.map((p) => `${p.so} ${p.ngan || p.ten}`).join(' · ')} · 0 Tự động · "menu"`;
+  const ds = pkgs.map((p) => `{b}${p.so}{/b} ${p.ngan || p.ten}`).join(' · ');
+  return `———\n📦 ${ds} · {b}0{/b} Tự động · {b}"menu"{/b}`;
 }

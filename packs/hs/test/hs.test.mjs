@@ -6,6 +6,7 @@ import { loadPacks } from '../../../core/registry.js';
 import hs from '../index.js';
 import { availablePackages, menuText, toJob, waitJob, hetHan, WAIT_JOB_MAX_MS } from '../packages.js';
 import { createVision } from '../vision.js';
+import { plain } from '../style.js';
 
 const ALL = ['phan_loai_hs', 'ket_qua_phan_loai', 'tra_thue', 'tra_thu_tuc_nhap_khau', 'tim_ma_hs', 'sinh_mo_ta_khai_bao',
   'soat_to_khai', 'kiem_ma_to_khai', 'ket_qua_soat', 'tra_hieu_luc_van_ban', 'tra_chu_giai', 'tra_tien_le', 'kiem_tra_shtt',
@@ -51,13 +52,13 @@ test('toJob: DANG_XU_LY → { job }, còn lại → { result }', () => {
 test('menu: đúng chữ menu cũ, không gắn nhãn; footer = menuText(availablePackages(tools))', async () => {
   const { ctx } = fakeCtx();
   const r = await hs.handle(turn('xin chào'), ctx);
-  assert.deepEqual(r.replies, [{ text: `🤖 Bot tra cứu hải quan OZ\n\n${menuText(availablePackages(ctx.tools), { full: true })}\n\nHoặc cứ gõ mã HS / mô tả hàng, bot tự chọn gói.` }]);
-  assert.match(r.replies[0].text, /CHỌN GÓI/); assert.match(r.replies[0].text, /7\. 📄 Hồ sơ giải trình/);
+  assert.deepEqual(r.replies, [{ text: `{b}🤖 Bot tra cứu hải quan OZ{/b}\n\n${menuText(availablePackages(ctx.tools), { full: true })}\n\nHoặc cứ gõ mã HS / mô tả hàng, bot tự chọn gói.` }]);
+  assert.match(plain(r.replies[0].text), /CHỌN GÓI/); assert.match(plain(r.replies[0].text), /7\. 📄 Hồ sơ giải trình/);
   assert.deepEqual(r.labels, []); assert.deepEqual(r.jobs, []); assert.equal(r.handoff, null);
-  assert.equal(hs.footer(ctx), FOOTER);
-  assert.equal(hs.footer({ ...ctx, tools: new Set(['tra_thue', 'phan_loai_hs']) }), '———\n📦 1 Phân loại · 2 Thuế · 0 Tự động · "menu"');
+  assert.equal(plain(hs.footer(ctx)), FOOTER);
+  assert.equal(plain(hs.footer({ ...ctx, tools: new Set(['tra_thue', 'phan_loai_hs']) })), '———\n📦 1 Phân loại · 2 Thuế · 0 Tự động · "menu"');
   const c = await hs.handle(turn('2'), ctx);
-  assert.match(c.replies[0].text, /^💰 Gói 2: Thuế/); assert.ok(c.replies[0].text.endsWith(FOOTER)); assert.deepEqual(c.labels, []);
+  assert.match(plain(c.replies[0].text), /^💰 Gói 2: Thuế/); assert.ok(plain(c.replies[0].text).endsWith(FOOTER)); assert.deepEqual(c.labels, []);
 });
 
 test('phan_loai_hs trả DANG_XU_LY → handle trả jobs [{maLuot, resultTool:"ket_qua_phan_loai"}] và 1 câu "⏳"', async () => {
@@ -77,7 +78,7 @@ test('onJobResult(job, {trangThai:"XONG", ...}) → reply có mã HS gợi ý (d
   await hs.handle(turn('1'), ctx);
   const { jobs: [job] } = await hs.handle(turn('Tên hàng: máy bơm nước ly tâm\nChất liệu: gang'), ctx);
   const r = await hs.onJobResult(job, { ok: true, trangThai: 'XONG', data: { maDeXuat: '84137090', lyDo: 'Bơm ly tâm' } }, ctx);
-  const s = r.replies[0].text;
+  const s = plain(r.replies[0].text);
   assert.equal(r.replies.length, 1);
   assert.match(s, /^🔎 Phân loại: "máy bơm nước ly tâm"/);                 // đã chọn gói 1 → không có dòng "Tự động chọn gói"
   assert.match(s, /Mã đề xuất: 8413\.70\.90/); assert.match(s, /gõ "2" để xem thuế/); assert.ok(s.endsWith(FOOTER));
@@ -94,13 +95,13 @@ test('onJobResult tự động chọn gói giữ dòng đầu "Tự động ch�
   const { ctx } = fakeCtx({ phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' } });
   const { jobs: [job] } = await hs.handle(turn('máy bơm nước ly tâm 1.5HP'), ctx);
   const r = await hs.onJobResult(job, { ok: true, trangThai: 'XONG', data: { maDeXuat: '84137090' } }, ctx);
-  assert.match(r.replies[0].text, /^🔎 \(Tự động chọn gói 1: Phân loại mã HS\)\n\n🔎 Phân loại/);
+  assert.match(plain(r.replies[0].text), /^🔎 \(Tự động chọn gói 1: Phân loại mã HS\)\n\n🔎 Phân loại/);
 });
 
 test('mã 8 số → gói 2, kết quả có thuế suất từ Cổng (giữ nguyên test cũ "gói 2")', async () => {
   const { ctx, calls } = fakeCtx({ tra_thue: TAX, tra_thu_tuc_nhap_khau: ERR });
   const r = await hs.handle(turn('84137090'), ctx);
-  const s = r.replies[0].text;
+  const s = plain(r.replies[0].text);
   assert.deepEqual(calls.map((c) => c.name).sort(), ['tra_thu_tuc_nhap_khau', 'tra_thue']);
   assert.deepEqual(calls.find((c) => c.name === 'tra_thue').args, { maHs: '84137090', xuatXu: 'CN' });
   assert.match(s, /Tự động chọn gói 2/);
@@ -117,7 +118,7 @@ test('ảnh: gói 6 → kiem_tra_shtt_anh với link ảnh Zalo', async () => {
   assert.equal(store.goi, 6);
   const r = await hs.handle(photo(), ctx);
   assert.deepEqual(calls, [{ name: 'kiem_tra_shtt_anh', args: { urlAnh: 'https://photo-stal-14.zdn.vn/no/jpg/abc.jpg' } }]);
-  assert.match(r.replies[0].text, /So logo/); assert.ok(r.replies[0].text.endsWith(FOOTER));
+  assert.match(plain(r.replies[0].text), /So logo/); assert.ok(plain(r.replies[0].text).endsWith(FOOTER));
   assert.deepEqual(r.labels, ['tra-cuu-hs']);
 });
 
@@ -153,7 +154,7 @@ test('CAN_DU_KIEN → người dùng trả lời → bo_sung_du_kien đúng mã 
   assert.equal(b.jobs[0].maLuot, MB); assert.equal(b.jobs[0].resultTool, 'ket_qua_phan_loai');
   assert.equal(store.choBoSung, null);
   const c = await hs.onJobResult(b.jobs[0], { ok: true, trangThai: 'XONG', data: { maDeXuat: '84137090' } }, ctx);
-  assert.match(c.replies[0].text, /Mã đề xuất: 8413\.70\.90/);
+  assert.match(plain(c.replies[0].text), /Mã đề xuất: 8413\.70\.90/);
   assert.deepEqual(c.interests, [{ mon: 'máy bơm nước', hs: '84137090' }]);
 });
 
@@ -162,10 +163,10 @@ test('kiểm sâu gói 4 → job ket_qua_soat; "kết quả <mã lượt>" hỏi
   const r = await hs.handle(turn('gói 4 Mã HS: 84137090\nMô tả: Máy bơm\nKiểm sâu: có'), ctx);
   assert.equal(r.jobs[0].resultTool, 'ket_qua_soat'); assert.match(r.replies[0].text, /^⏳ Đang kiểm mô tả với mã HS…/);
   const d = await hs.onJobResult(r.jobs[0], { ok: true, data: { k2: 'khớp' } }, ctx);
-  assert.match(d.replies[0].text, /^✅ Kiểm sâu — 8413\.70\.90/); assert.ok(d.replies[0].text.endsWith(FOOTER));
+  assert.match(plain(d.replies[0].text), /^✅ Kiểm sâu — 8413\.70\.90/); assert.ok(plain(d.replies[0].text).endsWith(FOOTER));
   const k = await hs.handle(turn(`kết quả ${ML}`), ctx);
   assert.deepEqual(calls.at(-1), { name: 'ket_qua_phan_loai', args: { maLuot: ML } });
-  assert.match(k.replies[0].text, new RegExp(`^📥 Kết quả lượt ${ML}`)); assert.deepEqual(k.labels, ['tra-cuu-hs']);
+  assert.match(plain(k.replies[0].text), new RegExp(`^📥 Kết quả lượt ${ML}`)); assert.deepEqual(k.labels, ['tra-cuu-hs']);
 });
 
 test('Cổng lỗi → câu báo lỗi tạm thời + menu, không ném, không kèm lỗi gốc (Hiến pháp IX)', async () => {
@@ -173,8 +174,9 @@ test('Cổng lỗi → câu báo lỗi tạm thời + menu, không ném, không 
   const { ctx } = fakeCtx({ tra_thue: () => { throw new Error('MCP lỗi HTTP 502'); } });
   ctx.log = { info() {}, error: (m) => logged.push(m) };
   const r = await hs.handle(turn('84137090'), ctx);
-  assert.match(r.replies[0].text, /^⚠️ Cổng tra cứu OZ đang lỗi tạm thời\. Bạn thử lại sau ít phút nhé\./); assert.ok(r.replies[0].text.endsWith(FOOTER));
-  assert.doesNotMatch(r.replies[0].text, /502|MCP lỗi/);
+  const s = plain(r.replies[0].text);
+  assert.match(s, /^⚠️ Cổng tra cứu OZ đang lỗi tạm thời\. Bạn thử lại sau ít phút nhé\./); assert.ok(s.endsWith(FOOTER));
+  assert.doesNotMatch(s, /502|MCP lỗi/);
   assert.ok(logged.some((m) => /MCP lỗi HTTP 502/.test(m)));        // chi tiết chỉ vào log
 });
 

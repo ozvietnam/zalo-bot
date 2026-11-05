@@ -1,7 +1,9 @@
 // channels/zalo-bot.js — kênh Zalo Bot Platform API (bot.zapps.me), theo contracts/channel.md.
 // Mọi phương thức: POST https://bot-api.zaloplatforms.com/bot<TOKEN>/<method>, body JSON.
 // createZaloClient là đường cũ (lib/bot.js dùng) cho tới T016; code mới dùng createChannel.
+// Tin nhắn có thể mang định dạng (in đậm/màu) qua text_styles — xem packs/hs/style.js.
 import { createHash } from 'node:crypto';
+import { rich, plain, balanceTags, splitRich } from '../packs/hs/style.js';
 
 export const ZALO_MAX_TEXT = 2000;
 
@@ -14,7 +16,16 @@ export function createChannel({ token, baseUrl, fetchImpl, secret } = {}) {
     name: 'zalo-bot',
     maxText: ZALO_MAX_TEXT,
     parse,
-    async sendText(chatId, text) { await client.call('sendMessage', { chat_id: chatId, text }); },
+    // Contract (contracts/channel.md): gửi MỘT phần — cửa (core/gate.js) đã chia sẵn.
+    // Vẫn bỏ thẻ định dạng và gửi kèm text_styles để tin nhắn có chữ đậm/màu.
+    // balanceTags: nếu cửa cắt giữa thẻ, đóng lại cho cân bằng (không lộ "{b}" cho khách).
+    async sendText(chatId, text) {
+      const canBang = balanceTags(text);
+      const body = { chat_id: chatId, text: plain(canBang) };
+      const styles = rich(canBang).text_styles;
+      if (styles.length) body.text_styles = styles;
+      await client.call('sendMessage', body);
+    },
     async typing(chatId) { await client.sendChatAction(chatId, 'typing'); },
     getMe: () => client.getMe(),
     verifyWebhook(req) {
@@ -66,8 +77,13 @@ export function createZaloClient({ token, baseUrl = DEFAULT_BASE, fetchImpl = fe
     deleteWebhook: () => call('deleteWebhook'),
     getWebhookInfo: () => call('getWebhookInfo'),
     async sendText(chatId, text) {
-      const parts = splitText(text);
-      for (const part of parts) await call('sendMessage', { chat_id: chatId, text: part });
+      // Tin có thể chứa thẻ định dạng {b}…{/b}: bỏ thẻ, đưa định dạng sang text_styles.
+      const parts = splitRich(rich(text), ZALO_MAX_TEXT);
+      for (const part of parts) {
+        const body = { chat_id: chatId, text: part.text };
+        if (part.text_styles.length) body.text_styles = part.text_styles;
+        await call('sendMessage', body);
+      }
       return parts.length;
     },
   };

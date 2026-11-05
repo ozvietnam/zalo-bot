@@ -1,11 +1,20 @@
 // packs/hs/render.js — đổi kết quả JSON của Cổng OZ (MCP) thành chữ dễ đọc trên Zalo.
 // Không bịa, không suy: chỉ hiển thị trường máy chủ trả về. Công cụ mới chưa có mẫu riêng vẫn hiển thị được
 // nhờ bộ dựng chung (renderGeneric).
+// Giao diện: mã HS in đậm, tiêu đề khối in đậm, cảnh báo màu — xem style.js.
 import { fmtHs } from './format.js';
 // Ngoại lệ có chủ ý với luật "gói chỉ import core/types.js": dùng đúng một bộ dò lộ của cửa gửi (Hiến pháp IX), không chép bản thứ hai.
 import { findLeak } from '../../core/redact.js';
+import { b, balanceTags } from './style.js';
 
 export const MAX_REPLY = 5600;   // ~3 tin Zalo
+
+/** Bọc mã HS để nổi bật (chỉ khi là mã thật 6–8 số). */
+const hs = (code) => {
+  const c = String(code || '').replace(/\D/g, '');
+  if (c.length !== 6 && c.length !== 8) return fmtHs(code);
+  return b(fmtHs(c));
+};
 
 const LABELS = {
   hsCode: 'Mã HS', maHs: 'Mã HS', maDeXuat: 'Mã đề xuất', maKhai: 'Mã khai', maHaiQuan: 'Mã Hải quan áp',
@@ -113,22 +122,22 @@ export function renderTax(d, origin = 'CN') {
   if (!d || typeof d !== 'object') return null;
   const x = Array.isArray(d.results) ? d.results[0] : d;
   if (!x?.hsCode) return null;
-  const l = [`📦 ${fmtHs(x.hsCode)} — ${clip(String(x.nameVi || '').replace(/^[\s\-–]+/, ''), 300)}`];
+  const l = [`📦 ${hs(x.hsCode)} — ${clip(String(x.nameVi || '').replace(/^[\s\-–]+/, ''), 300)}`];
   if (x.unitVi) l.push(`Đơn vị tính: ${x.unitVi}`);
   const pct = (v) => (v == null || v === '' ? '—' : /^\d+(\.\d+)?$/.test(String(v)) ? `${v}%` : String(v));
-  l.push('💰 Thuế suất');
+  l.push('{b}💰 Thuế suất{/b}');
   l.push(`• NK ưu đãi (MFN): ${pct(x.taxNkPreferential)}`);
   if (x.taxNkTt) l.push(`• NK thông thường: ${pct(x.taxNkTt)}`);
   const fo = x.acfta?.forOrigin || x.taxAcftaChina;
   if (fo) {
     if (fo.eligible === true) l.push(`• ACFTA (C/O mẫu E, xuất xứ ${fo.origin || origin}): ${pct(fo.rate)}`);
-    else if (fo.eligible === false) l.push(`• ACFTA xuất xứ ${fo.origin || origin}: KHÔNG được hưởng → áp MFN`);
+    else if (fo.eligible === false) l.push(`• {red}ACFTA xuất xứ ${fo.origin || origin}: KHÔNG được hưởng → áp MFN{/red}`);
     else l.push(`• ACFTA xuất xứ ${fo.origin || origin}: nhiều mức, cần tra dòng chi tiết`);
   }
   if (x.taxVat) l.push(`• VAT: ${pct(x.taxVat)}${x.vatReduction?.noteVi ? ` (${clip(x.vatReduction.noteVi, 160)})` : ''}`);
   const w = x.warnings;
-  if (w?.summary) l.push(`${w.severity === 'HIGH' ? '🔴' : '🟡'} Chính sách: ${clip(w.summary, 300)}`);
-  else if (x.policyByHs) l.push(`🟡 Chính sách: ${clip(x.policyByHs, 300)}`);
+  if (w?.summary) l.push(`${w.severity === 'HIGH' ? '{red}🔴{/red}' : '{orange}🟡{/orange}'} Chính sách: ${clip(w.summary, 300)}`);
+  else if (x.policyByHs) l.push(`{orange}🟡 Chính sách: ${clip(x.policyByHs, 300)}{/orange}`);
   else if (x.hasPolicyWarning === false) l.push('Chính sách: chưa có dữ liệu cảnh báo (không có nghĩa là không cần thủ tục).');
   return l.join('\n');
 }
@@ -137,15 +146,15 @@ export function renderTax(d, origin = 'CN') {
 export function renderSearch(d) {
   const rows = d?.results || [];
   if (!rows.length) return null;
-  const l = ['🔎 Các mã phù hợp:'];
+  const l = ['{b}🔎 Các mã phù hợp:{/b}'];
   for (const r of rows.slice(0, 8)) {
     const fo = r.taxAcftaChina;
     const acfta = fo ? (fo.eligible ? `ACFTA ${fo.rate}%` : 'ACFTA: không áp cho CN') : '';
-    l.push(`• ${fmtHs(r.hsCode)} — ${clip(String(r.nameVi || '').replace(/^[\s\-–]+/, ''), 160)}`);
+    l.push(`• ${hs(r.hsCode)} — ${clip(String(r.nameVi || '').replace(/^[\s\-–]+/, ''), 160)}`);
     l.push(`  MFN ${r.taxNkPreferential ?? '—'}%${acfta ? ` · ${acfta}` : ''}${r.taxVat ? ` · VAT ${r.taxVat}` : ''}`);
   }
   const ca = (d.confusionAlerts || [])[0];
-  if (ca?.warningVi) l.push(`⚠️ ${clip(ca.warningVi, 240)}`);
+  if (ca?.warningVi) l.push(`{orange}⚠️ ${clip(ca.warningVi, 240)}{/orange}`);
   return l.join('\n');
 }
 
@@ -154,17 +163,17 @@ export function renderSearch(d) {
  */
 export function renderResult(r, { title, renderer } = {}) {
   if (!r) return '⚠️ Không có kết quả.';
-  if (r.ok === false || r.isError) return (title ? `${title}\n` : '') + renderError(r);
+  if (r.ok === false || r.isError) return (title ? `{b}${title}{/b}\n` : '') + renderError(r);
   const data = r.data ?? (r.text ? r.text : Object.fromEntries(Object.entries(r).filter(([k]) => !SKIP.has(k) && k !== 'text' && k !== 'data')));
   let body = null;
   if (renderer === 'tax') body = renderTax(data);
   if (renderer === 'search') body = renderSearch(data);
   if (!body) body = typeof data === 'string' ? clip(data, MAX_REPLY) : renderGeneric(data).join('\n');
   const warn = (r.canhBao || []).map((c) => (typeof c === 'string' ? c : c?.thongBao || c?.noteVi || c?.message)).filter(Boolean);
-  const parts = [title, body || '(không có dữ liệu)'];
-  if (warn.length) parts.push(`⚠️ ${clip(warn.join('; '), 400)}`);
+  const parts = [title ? `{b}${title}{/b}` : null, body || '(không có dữ liệu)'];
+  if (warn.length) parts.push(`{orange}⚠️ ${clip(warn.join('; '), 400)}{/orange}`);
   const diem = r.chiPhi?.diem;
-  if (diem) parts.push(`(Trừ ${diem} điểm tài khoản OZ)`);
+  if (diem) parts.push(`({yellow}Trừ ${diem} điểm tài khoản OZ{/yellow})`);
   return parts.filter(Boolean).join('\n');
 }
 
@@ -186,34 +195,34 @@ export function renderClassify(r, { title } = {}) {
   const canChuyenGia = status === 'NEEDS_EXPERT' || kq.nextAction?.type === 'HUMAN_REVIEW';
   const list = (Array.isArray(kq.results) && kq.results) || (Array.isArray(kq.suggestions) && kq.suggestions) || [];
   const l = [];
-  if (title) l.push(title);
+  if (title) l.push(`{b}${title}{/b}`);
 
   if (list.length) {
     const head = canHoi ? 'Mã có thể (chưa chốt, cần thêm thông tin):' : canChuyenGia ? 'Mã có thể (cần chuyên gia xem lại):' : '✅ Mã đề xuất:';
-    l.push(head);
+    l.push(`{b}${head}{/b}`);
     list.slice(0, 3).forEach((x, i) => {
       const code = x.hs || x.hsCode || x.maHs;
       const conf = x.confidence != null ? ` (${scalar('confidence', x.confidence)})` : '';
-      l.push(`${i + 1}. ${fmtHs(code)}${conf}`);
+      l.push(`${i + 1}. {b}${fmtHs(code)}{/b}${conf}`);
       const why = String(x.reason || x.reasoning || x.lyDo || '').replace(/;?\s*Nguồn:.*$/i, '');
       if (why) l.push(`   ${clip(why, 180)}`);
     });
   } else if (pickCode(kq)) {
-    l.push(`✅ Mã đề xuất: ${fmtHs(pickCode(kq))}`);
+    l.push(`✅ Mã đề xuất: {b}${fmtHs(pickCode(kq))}{/b}`);
   }
 
   const qs = (Array.isArray(top.hoi) && top.hoi) || kq.nextAction?.questions || [];
   if (canHoi && qs.length) {
-    l.push('', '❓ Cần bạn cho biết thêm:');
+    l.push('', '{b}❓ Cần bạn cho biết thêm:{/b}');
     qs.slice(0, 5).forEach((q, i) => l.push(`${i + 1}. ${clip(typeof q === 'string' ? q : q.questionVi || q.question || q.cauHoi || '', 160)}`));
   } else if (canChuyenGia && kq.nextAction?.reasonVi) {
-    l.push('', `⚠️ ${clip(kq.nextAction.reasonVi, 220)}`);
+    l.push('', `{orange}⚠️ ${clip(kq.nextAction.reasonVi, 220)}{/orange}`);
   }
   const cw = kq.confusionWarning;
   const cwText = typeof cw === 'string' ? cw : cw?.warningVi || cw?.messageVi || '';
-  if (cwText) l.push('', `⚠️ ${clip(cwText, 200)}`);
+  if (cwText) l.push('', `{orange}⚠️ ${clip(cwText, 200)}{/orange}`);
   const vb = kq.canCuPhapLy?.vanBan?.soHieu;
-  if (vb) l.push('', `Căn cứ phân loại: ${vb}`);
+  if (vb) l.push('', `Căn cứ phân loại: {b}${vb}{/b}`);
   if (l.length <= (title ? 1 : 0)) l.push(clip(businessText(top.thongBao) || 'Chưa có kết quả rõ ràng.', 200));
   return l.join('\n');
 }
@@ -223,7 +232,13 @@ function pickCode(d) {
   return c && /^\d{8}$/.test(String(c).replace(/\D/g, '')) ? String(c).replace(/\D/g, '') : null;
 }
 
+/**
+ * Rút gọn tin trả lời cho Zalo.
+ * Phải cân bằng thẻ định dạng TRƯỚC khi cắt, nếu không người dùng sẽ thấy literal "{b}".
+ */
 export function clipReply(s) {
   const t = String(s || '');
-  return t.length > MAX_REPLY ? `${t.slice(0, MAX_REPLY - 40)}\n… (đã rút gọn, xem đầy đủ trên Cổng OZ)` : t;
+  if (t.length <= MAX_REPLY) return t;
+  const cut = balanceTags(t.slice(0, MAX_REPLY - 40));
+  return `${cut}\n… (đã rút gọn, xem đầy đủ trên Cổng OZ)`;
 }

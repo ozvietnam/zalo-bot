@@ -7,6 +7,7 @@ import { route, autoPick } from '../lib/router.js';
 import { PACKAGES, availablePackages, menuText, pickHs } from '../lib/packages.js';
 import { parseLabeled, firstHs8, soHieuList, countryCode } from '../lib/input.js';
 import { renderResult, renderGeneric } from '../lib/render.js';
+import { plain } from '../lib/style.js';
 import { createBot } from './helpers/legacy-bot.mjs';
 import { stripMention, isGroup } from '../core/mention.js';
 
@@ -35,8 +36,10 @@ function fakeMcp(handlers = {}, tools = ALL_TOOLS) {
   };
 }
 function fakeZalo() {
+  // sent: tin nhắn như NGƯỜI DÙNG THẤY (thẻ định dạng đã bỏ); raw: bản gốc có thẻ.
   const sent = [];
-  return { sent, sendText: async (c, x) => { sent.push([c, x]); }, sendChatAction: () => {} };
+  const raw = [];
+  return { sent, raw, sendText: async (c, x) => { raw.push([c, x]); sent.push([c, plain(x)]); }, sendChatAction: () => {} };
 }
 const dm = (text, id) => ({ ok: true, result: { event_name: 'message.text.received',
   message: { message_id: id, text, chat: { id: 'u1', chat_type: 'PRIVATE' }, from: { id: 'u1', display_name: 'Tuấn' } } } });
@@ -94,7 +97,7 @@ await t('gói: chỉ hiện gói có công cụ trên Cổng; menu cuối tin li
   assert.equal(availablePackages(ALL_TOOLS).length, 7);
   const ps = availablePackages(new Set(['tra_thue', 'phan_loai_hs']));
   assert.deepEqual(ps.map((p) => p.so), [1, 2]);
-  assert.match(menuText(ps), /1 Phân loại · 2 Thuế · 0 Tự động/);
+  assert.match(plain(menuText(ps)), /1 Phân loại · 2 Thuế · 0 Tự động/);
 });
 
 await t('định tuyến: menu / chọn số / "gói 2 <nội dung>" / tự động', () => {
