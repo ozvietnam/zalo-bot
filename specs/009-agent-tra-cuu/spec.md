@@ -198,6 +198,7 @@ Bộ eval chạy cùng một tập câu hỏi thật qua **bot cũ** và **agent
 - Gói `hs` hiện có (`packs/hs/`) là luồng 7 gói giữ lại làm fast-path và đường lui; bộ kiểm số `soDungChuan` (PR #9) và chặn mã bịa `maDaNeu` (PR #11) được dùng lại cho FR-010.
 - Cổng OZ trả `inputSchema` đủ để dựng khai báo hàm, và trả `chiPhi.diem` trong kết quả.
 - **[NEEDS CLARIFICATION: Mô hình cho agent — Gemini Flash (rẻ, đã có khoá, nhưng 06/11 có lúc quá 15 s) hay Claude Haiku/Sonnet (gọi công cụ tốt hơn, cần khoá Anthropic, đắt hơn)? Đề xuất: làm cả hai sau một lớp `callModel` chung, chọn bằng eval SC-001/SC-004/SC-007.]**
+- Đã có trước plan.md (07/11/2026, theo yêu cầu chủ repo): `packs/hs/llm2.js` — khoá dự phòng chuẩn OpenAI (`LLM2_BASE_URL`/`LLM2_API_KEY`/`LLM2_MODEL`) cho não định tuyến + não biên tập khi Gemini lỗi/quá giờ. Đây là bộ chuyển thứ hai mà lớp `callModel` sẽ dùng lại; plan.md cần ghi tệp này vào cấu trúc.
 - **[NEEDS CLARIFICATION: Ngưỡng chi phí mô hình mỗi lượt (SC-007), và ai trả: chi phí công ty, hay tính vào điểm của khách khi có spec 002?]**
 - **[NEEDS CLARIFICATION: Bảng phân loại công cụ miễn phí/tính điểm — Cổng có xuất thông tin giá trong `tools/list` (annotations) không, hay bot giữ bảng tay trong config? Đã thấy `diem: 0` ở `tra_cay_hs`, `tra_tien_le`, `tra_thu_tuc_nhap_khau`; chưa rõ `dinh_danh_hang`, `tra_thong_tin_nhap_khau`, `tra_y_kien_wco`.]**
 

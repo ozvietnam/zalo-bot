@@ -1,7 +1,7 @@
 // packs/hs/editor.js — não biên tập: Gemini viết lại kết quả dài thành bản chốt ngắn cho khách Zalo.
 // Hiến chương III (số tiền/thuế do code tra): mọi dãy số trong bản chốt phải có sẵn trong bản gốc —
 // code kiểm lại TỪNG số (soDungChuan); không khớp → bỏ bản chốt, trả null để nơi gọi giữ bản đầy đủ.
-// Lỗi/quá tải/kết quả dị của Gemini → null. Không bao giờ ném lỗi.
+// Gemini lỗi/quá tải → khoá dự phòng (llm2.js, nếu có cấu hình). Kết quả dị → null. Không bao giờ ném lỗi.
 import { b } from './style.js';
 
 const HE_THONG = `Bạn là biên tập viên của bot tra cứu hải quan OZ trên Zalo.
@@ -32,17 +32,28 @@ const lamDam = (s) => String(s).replace(/(?<!\d)(\d{4}\.\d{2}\.\d{2}|\d{8})(?!\d
  * Bản gốc dưới 80 ký tự là đã ngắn, không tốn lượt Gemini.
  */
 export function createEditor({ apiKey, model = 'gemini-flash-latest', models, fetchImpl = fetch, timeoutMs = 15_000,
-  toiDa = 1200, toiThieuGoc = 80, off = false, log = console } = {}) {
-  if (!apiKey || off) return null;
-  const dsMau = (models && models.length ? models : [model, 'gemini-flash-lite-latest'])
-    .map((m) => String(m).trim()).filter((m, i, a) => m && a.indexOf(m) === i);
+  toiDa = 1200, toiThieuGoc = 80, off = false, duPhong = null, log = console } = {}) {
+  if ((!apiKey && !duPhong) || off) return null;
+  // Có khoá dự phòng (llm2.js) thì chỉ thử 1 mẫu Gemini rồi chuyển.
+  const dsMau = !apiKey ? [] : (models && models.length ? models : [model, 'gemini-flash-lite-latest'])
+    .map((m) => String(m).trim()).filter((m, i, a) => m && a.indexOf(m) === i)
+    .slice(0, duPhong ? 1 : undefined);
+
+  /** Bản chốt thô (Gemini hay dự phòng) → lược thẻ, kiểm độ dài, kiểm TỪNG số khớp gốc, làm đậm mã. */
+  function xuLy(t, goc) {
+    t = String(t ?? '').trim().replace(/\{\/?[a-z0-9]{1,10}\}/gi, '');   // mô hình có thả thẻ định dạng → lược
+    if (!t || t.length > toiDa) return null;
+    if (!soDungChuan(t, goc)) { log.info?.('[bienTap] bỏ bản chốt: có số không khớp bản gốc'); return null; }
+    return lamDam(t);
+  }
 
   async function chot({ text, loai = 'kết quả tra cứu' } = {}) {
     const goc = String(text ?? '').trim();
     if (goc.length < toiThieuGoc) return null;
+    const noiDung = `Loại: ${loai}\nKẾT QUẢ GỐC:\n${goc.slice(0, 6000)}`;
     const body = {
       systemInstruction: { parts: [{ text: HE_THONG }] },
-      contents: [{ role: 'user', parts: [{ text: `Loại: ${loai}\nKẾT QUẢ GỐC:\n${goc.slice(0, 6000)}` }] }],
+      contents: [{ role: 'user', parts: [{ text: noiDung }] }],
       generationConfig: { temperature: 0.1, maxOutputTokens: 400 },
     };
     for (const m of dsMau) {
@@ -57,18 +68,17 @@ export function createEditor({ apiKey, model = 'gemini-flash-latest', models, fe
         if (!res.ok) {
           log.error?.(`[bienTap] Gemini lỗi ${res.status} (${m})`);
           if (TAM_THOI.has(res.status)) continue;   // quá tải → thử mẫu kế
-          return null;                              // lỗi khoá/đầu vào → dừng
+          break;                                    // lỗi khoá/đầu vào → bỏ Gemini (sang dự phòng hoặc giữ bản đầy đủ)
         }
-        let t = (j?.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('').trim();
-        t = t.replace(/\{\/?[a-z0-9]{1,10}\}/gi, '');            // Gemini có thả thẻ định dạng → lược
-        if (!t || t.length > toiDa) return null;
-        if (!soDungChuan(t, goc)) { log.info?.('[bienTap] bỏ bản chốt: có số không khớp bản gốc'); return null; }
-        return lamDam(t);
+        return xuLy((j?.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join(''), goc);
       } catch (e) {
         log.error?.(`[bienTap] ${e.name === 'TimeoutError' ? `quá ${Math.round(timeoutMs / 1000)} giây` : e.message}`);
       }
     }
-    return null;
+    // Gemini không trả lời được → khoá dự phòng, cùng luật kiểm số.
+    if (!duPhong) return null;
+    const r = await duPhong.chat({ system: HE_THONG, user: noiDung, temperature: 0.1, maxTokens: 400 });
+    return r?.text ? xuLy(r.text, goc) : null;
   }
 
   return { chot };
