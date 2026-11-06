@@ -3,7 +3,7 @@
 // thêm một mục vào PACKAGES (so, ten, congCu, mau, chay). Gói chỉ hiện khi Cổng có đủ công cụ bắt buộc.
 // Gói có việc nền (1, 4) tách chay thành batDau (gọi Cổng, không chờ) + xong (dựng chữ từ kết quả) để index.js giao việc cho lõi.
 import { parseLabeled, firstHs8, allHs8, soHieuList, countryCode, findCountryInText, norm } from './input.js';
-import { renderResult, renderClassify, nhacPhongVe } from './render.js';
+import { renderResult, renderClassify, nhacPhongVe, renderPhanLoaiDayDu } from './render.js';
 import { plain } from './style.js';
 import { fmtHs } from './format.js';
 import { chayCho } from './jobs.js';
@@ -193,6 +193,24 @@ export const PACKAGES = [
       // Cắt tên hàng ở ranh giới từ (không cắt cụt giữa chữ) và có dấu "…" khi bị rút gọn.
       const tenNgan = String(tenHang || '');
       const tenHien = tenNgan.length > 120 ? `${tenNgan.slice(0, 120).replace(/\s+\S*$/, '')}…` : tenNgan;
+      const LUU_Y = '{orange}ℹ️ Mã HS là GỢI Ý tham khảo, không thay thế ý kiến phân loại của Hải quan.{/orange}';
+      // Đã chốt mã (không còn hỏi dữ kiện) → form đầy đủ do code dựng (mẫu chủ repo chọn 06/11), không qua AI biên tập:
+      // tự kèm mô tả khai báo (gói 3) + thuế + chính sách; Cổng lỗi mục nào thì bỏ mục đó.
+      if (maHs && st !== 'CAN_DU_KIEN' && r?.ok !== false) {
+        const xx = findCountryInText(String(tenHang || '')) || 'CN';
+        const ml = UUID.test(maLuot || '') ? maLuot : null;
+        const [thue, thuTuc, moTa] = await Promise.all([
+          has(ctx, 'tra_thue') ? ctx.mcp.callTool('tra_thue', { maHs, xuatXu: xx }).catch(() => null) : null,
+          has(ctx, 'tra_thu_tuc_nhap_khau') ? ctx.mcp.callTool('tra_thu_tuc_nhap_khau', { maHs }).catch(() => null) : null,
+          has(ctx, 'sinh_mo_ta_khai_bao') ? ctx.mcp.callTool('sinh_mo_ta_khai_bao', clean({ maHs, tenHang, maLuotPhanLoai: ml, thuongHieu, xuatXu: xx })).catch(() => null) : null,
+        ]);
+        let full = renderPhanLoaiDayDu({ tenHang, maHs, phanLoai: r, thue, thuTuc, moTa, xuatXu: xx });
+        if (thuongHieu && has(ctx, 'kiem_tra_shtt')) {
+          const shtt = await ctx.mcp.callTool('kiem_tra_shtt', { tenNhan: thuongHieu, maHs, xuatXu: xx }).catch(() => null);
+          if (shtt) full += `\n\n${renderResult(shtt, { title: `®️ Rủi ro nhãn hiệu "${thuongHieu}"` })}`;
+        }
+        return `${full}\n\n{b}👉{/b} Thêm thương hiệu/model cho mô tả: gõ {b}"3"{/b} · xuất xứ khác: gõ {b}"2"{/b} kèm nước\n${LUU_Y}`;
+      }
       let out = renderClassify(r, { title: `🔎 Phân loại: "${tenHien}"` });
       if (st === 'CAN_DU_KIEN') {
         if (maLuot && has(ctx, 'bo_sung_du_kien')) {

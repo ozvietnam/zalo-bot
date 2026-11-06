@@ -170,6 +170,7 @@ await t('bot: gói 1 chạy nền → KHÔNG câu chờ → hỏi kết quả �
     phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' },
     ket_qua_phan_loai: () => (++n < 2 ? { ok: true, trangThai: 'DANG_XU_LY' } : { ok: true, trangThai: 'XONG', data: { maDeXuat: '84137090', lyDo: 'Bơm ly tâm' } }),
     sinh_mo_ta_khai_bao: { ok: true, data: { moTaEcus: 'Máy bơm nước ly tâm, mới 100%' } },
+    tra_thue: TAX,
   });
   const bot = createBot({ zalo, mcp, log: {}, pollMs: 1 });
   await bot.handleUpdate(dm('1', 'd0'));
@@ -178,15 +179,16 @@ await t('bot: gói 1 chạy nền → KHÔNG câu chờ → hỏi kết quả �
   assert.deepEqual(mcp.calls[0], ['phan_loai_hs', { tenHang: 'máy bơm nước ly tâm', chatLieu: 'gang', thongSo: { 'công suất': '1.5HP', 'điện áp': '220V' }, nguonThongSo: 'CHU' }]);
   assert.ok(!zalo.sent.some((x) => /⏳/.test(x[1])), 'không gửi câu chờ "⏳ Đang phân loại"');
   assert.equal(zalo.sent.length, 2);   // [0] câu chọn gói 1, [1] kết quả
-  assert.match(zalo.sent[1][1], /Mã đề xuất: 8413\.70\.90/);
+  assert.match(zalo.sent[1][1], /Mã HS đề xuất: 8413\.70\.90/);
   // Phân loại xong tự kèm thuế + chính sách (miễn phí); chú giải + tiền lệ KHÔNG tự kèm (chủ repo bỏ 06/11)
-  assert.match(zalo.sent[1][1], /💰 Thuế — 8413\.70\.90 \(xuất xứ CN\)/);
+  assert.match(zalo.sent[1][1], /💰 Thuế suất[^\n]*\(xuất xứ CN\)/);
+  assert.match(zalo.sent[1][1], /📝 Mô tả khai báo gợi ý/);   // tự kèm mô tả (chủ repo chọn 06/11)
   assert.doesNotMatch(zalo.sent[1][1], /Chú giải|Tiền lệ phân loại/);
-  assert.match(zalo.sent[1][1], /gõ "3" để viết mô tả khai báo/);
+  assert.match(zalo.sent[1][1], /"3"/);
   assert.doesNotMatch(zalo.sent[1][1], /gõ "2" để xem thuế/);
   await bot.handleUpdate(dm('3', 'd2'));
   await bot.handleUpdate(dm('Thương hiệu: Pentax\nXuất xứ: Trung Quốc', 'd3'));
-  const mt = mcp.calls.find((c) => c[0] === 'sinh_mo_ta_khai_bao')[1];
+  const mt = mcp.calls.filter((c) => c[0] === 'sinh_mo_ta_khai_bao').at(-1)[1];
   assert.equal(mt.maHs, '84137090'); assert.equal(mt.tenHang, 'máy bơm nước ly tâm'); assert.equal(mt.maLuotPhanLoai, ML);
   assert.equal(mt.thuongHieu, 'Pentax'); assert.equal(mt.xuatXu, 'CN');
 });
@@ -321,7 +323,7 @@ await t('CAN_DU_KIEN → người dùng trả lời → bo_sung_du_kien đúng m
   await bot.drain();
   assert.deepEqual(mcp.calls.filter((c) => c[0] === 'phan_loai_hs').length, 1);
   assert.deepEqual(mcp.calls.find((c) => c[0] === 'bo_sung_du_kien'), ['bo_sung_du_kien', { maLuot: ML, boSung: 'bơm ly tâm, cánh gang' }]);
-  assert.match(zalo.sent.at(-1)[1], /Mã đề xuất: 8413\.70\.90/);
+  assert.match(zalo.sent.at(-1)[1], /Mã HS đề xuất: 8413\.70\.90/);
 });
 
 await t('nhóm: "chọn gói 7" là CHỌN gói; câu hỏi mới khi đang chờ bổ sung KHÔNG ghép vào lượt cũ; trả lời gọn', async () => {
@@ -476,33 +478,25 @@ await t('sổ trượt: ghi JSONL theo ngày giờ VN, đếm theo loại', asyn
 });
 
 // ---------- não biên tập kết quả (Gemini giả lập) ----------
-await t('biên tập: phân loại xong gửi bản chốt ngắn; "chi tiết" mở lại bản đầy đủ', async () => {
+await t('form đầy đủ: phân loại xong KHÔNG dùng bản chốt AI (editor); "chi tiết" báo chưa có bản riêng', async () => {
   const zalo = fakeZalo();
   const ML = '11111111-2222-4333-8444-555555555555';
-  let n = 0;
+  let n = 0; let chot = 0;
   const mcp = fakeMcp({
     phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' },
     ket_qua_phan_loai: () => (++n < 2 ? { ok: true, trangThai: 'DANG_XU_LY' } : { ok: true, trangThai: 'XONG', data: { maDeXuat: '84137090', lyDo: 'Bơm ly tâm' } }),
     tra_thue: TAX,
-    tra_thu_tuc_nhap_khau: { ok: true, data: { ketQua: 'không yêu cầu giấy phép' } },
+    tra_thu_tuc_nhap_khau: { ok: true, data: { maHs: '84137090', kiemTraChuyenNganh: [], giayPhep: [], vanBanQuanLy: [] } },
   });
-  const editor = { chot: async () => '✅ Mã: {b}8413.70.90{/b} — bơm nước ly tâm thân gang.\n💰 Thuế MFN 0% · NK thường 15% · VAT 8/10.\n📋 Không yêu cầu giấy phép.' };
+  const editor = { chot: async () => { chot++; return 'BẢN CHỐT AI'; } };
   const bot = createBot({ zalo, mcp, editor, log: {}, pollMs: 1 });
-  await bot.handleUpdate(dm('chi tiết', 'bt0'));
-  assert.match(zalo.sent[0][1], /Chưa có bản chi tiết/);           // chưa có gì trong phiên
   await bot.handleUpdate(dm('máy bơm nước ly tâm', 'bt1'));
   await bot.drain();
   const s = zalo.sent.at(-1)[1];
-  assert.match(s, /✅ Mã: 8413\.70\.90/);
-  assert.match(s, /gõ "chi tiết"/);
-  assert.doesNotMatch(s, /Mã đề xuất/);                             // bản ngắn thay bản dài
-  assert.ok(s.length < 900, `bản chốt quá dài: ${s.length}`);
-  await bot.handleUpdate(dm('chi tiết', 'bt2'));
-  const dayDu = zalo.sent.at(-1)[1];
-  assert.match(dayDu, /Mã đề xuất: 8413\.70\.90/);
-  assert.match(dayDu, /💰 Thuế — 8413\.70\.90/);
+  assert.equal(chot, 0);
+  assert.doesNotMatch(s, /BẢN CHỐT AI|"chi tiết"/);
+  assert.match(s, /🔍 Hàng/); assert.match(s, /Mã HS đề xuất: 8413\.70\.90/); assert.match(s, /Chính sách quản lý/);
 });
-
 await t('biên tập: editor lỗi → giữ bản đầy đủ như cũ; CAN_DU_KIEN không nhờ biên tập', async () => {
   const zalo = fakeZalo();
   let lanChot = 0;
@@ -516,12 +510,12 @@ await t('biên tập: editor lỗi → giữ bản đầy đủ như cũ; CAN_DU
   assert.equal(lanChot, 0);                                        // đang hỏi dữ kiện: không biên tập
   assert.match(zalo.sent.at(-1)[1], /Cần bạn cho biết thêm/);
   const zalo2 = fakeZalo();
-  const bot2 = createBot({ zalo: zalo2, mcp: fakeMcp({ phan_loai_hs: { ok: true, data: { maDeXuat: '84137090' } } }),
+  const bot2 = createBot({ zalo: zalo2, mcp: fakeMcp({ phan_loai_hs: { ok: true, data: { maDeXuat: '84137090' } }, tra_thue: TAX }),
     editor: { chot: async () => { throw new Error('Gemini 503'); } }, log: {} });
   await bot2.handleUpdate(dm('máy bơm', 'bt4'));
   const s = zalo2.sent.at(-1)[1];
-  assert.match(s, /Mã đề xuất: 8413\.70\.90/);                      // editor chết → bản đầy đủ như cũ
-  assert.match(s, /💰 Thuế — 8413\.70\.90/);
+  assert.match(s, /Mã HS đề xuất: 8413\.70\.90/);                   // form đầy đủ do code dựng, không phụ thuộc editor
+  assert.match(s, /💰 Thuế suất/);
 });
 
 await t('tự kèm: mô tả có thương hiệu → tự kiểm SHTT sau khi chốt mã; không có thương hiệu thì thôi', async () => {

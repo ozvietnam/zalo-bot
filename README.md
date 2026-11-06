@@ -21,10 +21,12 @@ Cuối mỗi tin trả lời luôn có dòng menu gói; gõ số để chuyển 
 - Gói chỉ hiện khi Cổng có đủ công cụ của gói đó.
 - **Tự động** (chưa chọn gói): mã 8 số → gói 2; số hiệu văn bản → 5; "nhãn hiệu" → 6; "giải trình / áp mã" → 7;
   còn lại → gói 1.
-- Sau khi phân loại ra mã, bot **tự kèm trong cùng tin**: thuế + **chính sách nhập khẩu** (gói 2, miễn phí) — mục chính
-  sách gọn bằng tiếng Việt: hàng CÓ dính chính sách quản lý không, là gì, và văn bản nào dẫn tới (kèm còn/hết hiệu lực).
-  Chú giải + tiền lệ (gói 5) KHÔNG tự kèm nữa — gõ "5" khi cần. Mô tả có **thương hiệu** thì tự kiểm rủi ro nhãn hiệu
-  (gói 6, **tính điểm**). Bản chốt ngắn do AI biên tập; gõ "chi tiết" để xem bản phân tích đầy đủ.
+- Phân loại chốt được mã → một tin theo **form cố định do code dựng** (không qua AI biên tập):
+  🔍 Hàng → ✅ Mã HS đề xuất (tên trong biểu, đơn vị tính, lý do) → 📝 Mô tả khai báo gợi ý (tự gọi gói 3,
+  **có thể tính điểm**) → 💰 Thuế suất → 🔴/✅ Chính sách quản lý (kèm văn bản, còn/hết hiệu lực) → 🔁 Mã khác cần cân nhắc.
+  Mục nào Cổng lỗi thì bỏ mục đó. Chú giải + tiền lệ (gói 5) không tự kèm — gõ "5" khi cần. Mô tả có **thương hiệu**
+  thì tự kiểm rủi ro nhãn hiệu (gói 6, **tính điểm**).
+- Ngay sau khi phân loại, gõ **"2"** hoặc **"3"** là chạy luôn với mã + tên hàng vừa tra (không phải gõ lại theo mẫu).
 - Gói nhớ theo từng người (trong nhóm: từng người một) trong 2 giờ. Gói 1 xong, gói 2/3/4 dùng lại mã vừa phân loại.
 - Công việc chạy nền (phân loại, kiểm sâu): bot **không gửi câu chờ**, xong thì tự gửi kết quả. Lâu quá thì gõ `kết quả <mã lượt>`.
 - Thêm gói mới: thêm một mục vào `PACKAGES` trong `lib/packages.js`. Công cụ mới chưa có mẫu hiển thị riêng vẫn hiện

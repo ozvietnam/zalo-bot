@@ -23,7 +23,8 @@ async function runPkg(st, pkg, text, { head = '', nguonThongSo } = {}) {
   if (typeof b === 'string') return reply(b);
   const t = toJob(b.r, b.resultTool, pctx);
   if (!t.job) return reply(await pkg.xong(t.result, b.context, pctx), b.context);
-  const job = { ...t.job, context: { goi: pkg.so, head, ...b.context } };
+  // Kết quả phân loại (gói 1) theo form "🔍 Hàng: …" — không kèm dòng "(Tự động chọn gói 1)".
+  const job = { ...t.job, context: { goi: pkg.so, head: pkg.so === 1 ? '' : head, ...b.context } };
   // Không gửi câu chờ "⏳ Đang …" (chủ repo bỏ 06/11): lõi chỉ gửi kết quả khi việc nền xong.
   return result(st, [], { jobs: [job], known: b.context });
 }
@@ -57,6 +58,10 @@ async function textFlow(turn, ctx, st) {
         return one(`{b}🔄 Đã chuyển sang chế độ TỰ ĐỘNG:{/b} bot đoán gói theo nội dung bạn gõ.\n\n${st.footer}`);
       case 'chon':
         s.goi = r.pkg.so;
+        // Vừa phân loại xong (phiên có mã + tên hàng) mà gõ "2"/"3" → chạy luôn với mã vừa tra, không bắt gõ lại theo mẫu.
+        if ((r.pkg.so === 2 || r.pkg.so === 3) && s.last?.maHs && (r.pkg.so === 2 || s.last.tenHang)) {
+          return runPkg(st, r.pkg, '', { head: `{b}${r.pkg.icon} Gói ${r.pkg.so}: ${r.pkg.ten} — mã vừa tra{/b}\n\n` });
+        }
         return one(`{b}${r.pkg.icon} Gói ${r.pkg.so}: ${r.pkg.ten}{/b}\n${r.pkg.moTa}\n\n{b}Gửi thông tin theo mẫu:{/b}\n${r.pkg.mau}\n\n${st.footer}`);
       case 'ket-qua': {
         const tn = ctx.tools;
