@@ -1,5 +1,20 @@
 # Tiếp tục: trạng thái cuối phiên 04/11/2026 18:20
 
+> **CẬP NHẬT PHIÊN 05/11/2026 (buổi chiều–tối, agent ZCode)** — đọc phần này trước, phần dưới là của phiên trước.
+>
+> ## Đã ship lên production hôm nay (3 PR squash vào `main`, user deploy Coolify sau mỗi PR — đã kiểm `/health` đúng SHA):
+>
+> | PR | Nội dung | Ghi chú |
+> |---|---|---|
+> | #7 | **Não hiểu câu hỏi** `packs/hs/brain.js`: Gemini function calling cho chế độ Tự động (9 hàm: 7 gói + hoi_lai + khac); code kiểm khuôn (mã HS, gói khả dụng, doChac ≥ 0.5); lỗi/503 → fallback `autoPick` cũ. Env: `GEMINI_BRAIN_MODEL`, tắt `GEMINI_BRAIN=0` | cắm cả hai đường: `lib/bot.js` và engine (`ctx.brain` qua buildCtx) |
+> | #8 | **Bỏ menu số khỏi mọi tin** (footer chỉ còn `Gõ "menu"...`); **phân loại xong tự kèm thuế + thủ tục** (miễn phí) trong cùng tin; `xong` gói 1 thành async | gợi ý tiếp theo chỉ còn "3" (tính điểm, không tự chạy) |
+> | #9 | **Não biên tập** `packs/hs/editor.js`: bản chốt 4–7 dòng thay bản dài, **code kiểm từng con số khớp bản gốc** (`soDungChuan`); lệnh **"chi tiết"** mở lại bản đầy (lưu `session.chiTiet`); **lọc mệnh đề lẫn ký tự Trung** trong lý do (`sachCau` trong render.js); não định tuyến chép tenHang NGUYÊN VĂN. Env: `GEMINI_EDITOR_MODEL`, tắt `GEMINI_EDITOR=0` | editor/brain phải dẫn qua `buildCtx` của `engine-jobs.js` (đường onJobResult) — nhớ chỗ này khi thêm ctx mới |
+>
+> - Test cuối phiên: **181 (node:test) + 33 (test.mjs) xanh**; `npm run eval` vẫn đỏ được chấp nhận tới T030.
+> - Vấn đề gốc: bot từng "trả lời gà" vì không có lớp hiểu ngôn ngữ + trình bày rườm — so sánh với Claude+MCP của user. Ba PR trên là lời giải; benchmark là chính câu "quạt tản nhiệt AF12038B22HR" của user.
+> - **Việc mở**: (1) user test lại bot thật + gom câu trả lời chưa ưng để tinh chỉnh prompt não/biên tập (tôi không đọc được log Coolify — cần user dán dòng `[nao]`/`[bienTap]`); (2) user chuyển issue cho `hs-code-api` (lý do phân loại lẫn tiếng Trung `广泛` — bản issue đã soạn sẵn, bot đã lọc tạm); (3) dọn dấu `=======` sót README đã xong trong PR #9.
+> - Quy tắc nghiệm ra: PR từ 001 → main hay kẹt squash-conflict; phải `git merge origin/main` vào 001 (xung đột lấy phía 001), test, push, rồi merge PR. Deploy Coolify là TAY, kiểm `/health` (`version` = SHA).
+
 Đọc tệp này đầu tiên khi làm tiếp. Nhánh làm việc: `001-nen-tang-chung` (draft PR #3). Đầu tiên chạy `npm test`: lúc dừng có **147 test lõi đạt + "21 test đạt"**.
 
 ## 1. Đã xong (mỗi việc: một agent làm, một agent khác review, có vòng sửa)
