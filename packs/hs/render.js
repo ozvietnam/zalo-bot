@@ -134,16 +134,10 @@ export function renderError(r) {
   return lines.join('\n');
 }
 
-/** Tra thuế: data có dạng /api/tax hoặc /api/search item. */
-export function renderTax(d, origin = 'CN') {
-  if (!d || typeof d !== 'object') return null;
-  const x = Array.isArray(d.results) ? d.results[0] : d;
-  if (!x?.hsCode) return null;
-  const l = [`📦 ${hs(x.hsCode)} — ${clip(String(x.nameVi || '').replace(/^[\s\-–]+/, ''), 300)}`];
-  if (x.unitVi) l.push(`Đơn vị tính: ${x.unitVi}`);
+/** Các dòng "• …" thuế suất của một dòng biểu thuế (dùng chung cho gói 2 và form kết quả phân loại). */
+function dongThueSuat(x, origin = 'CN') {
   const pct = (v) => (v == null || v === '' ? '—' : /^\d+(\.\d+)?$/.test(String(v)) ? `${v}%` : String(v));
-  l.push('{b}💰 Thuế suất{/b}');
-  l.push(`• NK ưu đãi (MFN): ${pct(x.taxNkPreferential)}`);
+  const l = [`• NK ưu đãi (MFN): ${pct(x.taxNkPreferential)}`];
   if (x.taxNkTt) l.push(`• NK thông thường: ${pct(x.taxNkTt)}`);
   const fo = x.acfta?.forOrigin || x.taxAcftaChina;
   if (fo) {
@@ -152,6 +146,16 @@ export function renderTax(d, origin = 'CN') {
     else l.push(`• ACFTA xuất xứ ${fo.origin || origin}: nhiều mức, cần tra dòng chi tiết`);
   }
   if (x.taxVat) l.push(`• VAT: ${pct(x.taxVat)}${x.vatReduction?.noteVi ? ` (${clip(x.vatReduction.noteVi, 160)})` : ''}`);
+  return l;
+}
+
+/** Tra thuế: data có dạng /api/tax hoặc /api/search item. */export function renderTax(d, origin = 'CN') {
+  if (!d || typeof d !== 'object') return null;
+  const x = Array.isArray(d.results) ? d.results[0] : d;
+  if (!x?.hsCode) return null;
+  const l = [`📦 ${hs(x.hsCode)} — ${clip(String(x.nameVi || '').replace(/^[\s\-–]+/, ''), 300)}`];
+  if (x.unitVi) l.push(`Đơn vị tính: ${x.unitVi}`);
+  l.push('{b}💰 Thuế suất{/b}', ...dongThueSuat(x, origin));
   // Tóm tắt chính sách do AI của Cổng tổng hợp, chưa kiểm (nhanAi AI_CHUA_KIEM) không được dùng làm căn cứ → không hiện;
   // chính sách có căn cứ nằm ở mục "📋 Chính sách nhập khẩu" (renderPolicy).
   const w = x.warnings?.nhanAi === 'AI_CHUA_KIEM' ? null : x.warnings;
@@ -170,24 +174,20 @@ const goc = (s) => String(s || '').replace(/-PL\d+$/i, '');
 const ngayVN = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? `${m[3]}/${m[2]}/${m[1]}` : null; };
 
 /**
- * Thủ tục nhập khẩu (tra_thu_tuc_nhap_khau) → bản gọn tiếng Việt cho khách: hàng CÓ dính chính sách quản lý không,
- * là những gì, và văn bản nào dẫn tới. Chỉ dùng trường Cổng trả; bỏ phần AI tổng hợp chưa kiểm (warnings) và dữ liệu kỹ thuật.
- * Không có dữ liệu ≠ không cần thủ tục (luật Cổng OZ mục 3).
+ * Thủ tục nhập khẩu (tra_thu_tuc_nhap_khau) → { muc: [chính sách], vanBan: [{so, ten, tt}], cu } — chỉ dùng trường Cổng trả,
+ * bỏ phần AI tổng hợp chưa kiểm (warnings) và dữ liệu kỹ thuật. null khi dữ liệu không đúng khuôn kết quả thủ tục.
  */
-export function renderPolicy(d) {
+export function phanTichChinhSach(d) {
   if (!d || typeof d !== 'object') return null;
-  // Không đúng khuôn kết quả thủ tục → null (bộ dựng chung lo), tránh kết luận "chưa ghi nhận" trên dữ liệu lạ.
   if (!['kiemTraChuyenNganh', 'giayPhep', 'vanBanQuanLy', 'chinhSach'].some((k) => k in d)) return null;
-  const vbList = Array.isArray(d.vanBanQuanLy) ? d.vanBanQuanLy : [];
-  // Gộp theo văn bản gốc; giữ bản có thông tin hiệu lực.
+  // Gộp theo văn bản gốc (bỏ "-PL2"); giữ bản có thông tin hiệu lực.
   const vb = new Map();
-  for (const v of vbList) {
+  for (const v of Array.isArray(d.vanBanQuanLy) ? d.vanBanQuanLy : []) {
     const so = goc(v?.hieuLuc?.soHieu || v?.soHieu);
     if (!so) continue;
     if (!vb.has(so) || (!vb.get(so).hieuLuc && v.hieuLuc)) vb.set(so, { so, hieuLuc: v.hieuLuc || null });
   }
   const hetHieuLuc = (so) => vb.get(goc(so))?.hieuLuc?.tinhTrang === 'HET_HIEU_LUC';
-
   const muc = [];
   for (const p of d.chinhSach?.policyLines || []) {
     const raw = String(p?.text || '').trim();
@@ -202,32 +202,100 @@ export function renderPolicy(d) {
     const ten = typeof g === 'string' ? g : g?.ten || g?.label || g?.tenVi || g?.name;
     if (ten) muc.push(`Giấy phép: ${clip(ten, 200)}`);
   }
-
-  const l = [`{b}📋 Chính sách nhập khẩu${d.maHs ? ` — ${fmtHs(d.maHs)}` : ''}{/b}`];
-  if (!muc.length) {
-    l.push('✅ Cổng OZ chưa ghi nhận chính sách quản lý chuyên ngành cho mã này (không có nghĩa là chắc chắn miễn thủ tục).');
-    return l.join('\n');
-  }
-  l.push('{red}⚠️ CÓ chính sách quản lý chuyên ngành:{/red}');
-  for (const m of [...new Set(muc)]) l.push(`• ${m}`);
-  if (vb.size) {
-    l.push('{b}Văn bản dẫn tới chính sách:{/b}');
-    for (const { so, hieuLuc: h } of vb.values()) {
-      let tt = '';
-      if (h?.tinhTrang === 'CON_HIEU_LUC') tt = ' (còn hiệu lực)';
-      else if (h?.tinhTrang === 'HET_HIEU_LUC') {
-        const thay = (h.biThayTheBoi || []).filter(Boolean);
-        tt = ` (hết hiệu lực${ngayVN(h.hetHieuLucTu) ? ` từ ${ngayVN(h.hetHieuLucTu)}` : ''}${thay.length ? `, thay bởi ${thay.join(', ')}` : ''})`;
-      }
-      l.push(`• ${b(so)}${h?.ten ? ` — ${clip(h.ten, 160)}` : ''}${tt}`);
+  const vanBan = [...vb.values()].map(({ so, hieuLuc: h }) => {
+    let tt = '';
+    if (h?.tinhTrang === 'CON_HIEU_LUC') tt = 'còn hiệu lực';
+    else if (h?.tinhTrang === 'HET_HIEU_LUC') {
+      const thay = (h.biThayTheBoi || []).filter(Boolean);
+      tt = `hết hiệu lực${ngayVN(h.hetHieuLucTu) ? ` từ ${ngayVN(h.hetHieuLucTu)}` : ''}${thay.length ? `, thay bởi ${thay.join(', ')}` : ''}`;
     }
+    return { so, ten: h?.ten ? clip(h.ten, 160) : null, tt };
+  });
+  return { muc: [...new Set(muc)], vanBan, cu: d.chinhSach?.policyBasisReview?.status === 'OUTDATED_BASIS' };
+}
+
+const CHUA_GHI_NHAN = 'Cổng OZ chưa ghi nhận chính sách quản lý chuyên ngành cho mã này (không có nghĩa là chắc chắn miễn thủ tục).';
+const CANH_BAO_CU = '{orange}⚠️ Dữ liệu chính sách của mã này còn dẫn văn bản cũ — đối chiếu văn bản mới trước khi khai/đặt hàng.{/orange}';
+
+/** Mục "📋 Chính sách nhập khẩu — <mã>" (gói 2): có dính chính sách không, là gì, văn bản nào dẫn tới. */
+export function renderPolicy(d) {
+  const cs = phanTichChinhSach(d);
+  if (!cs) return null;
+  const l = [`{b}📋 Chính sách nhập khẩu${d.maHs ? ` — ${fmtHs(d.maHs)}` : ''}{/b}`];
+  if (!cs.muc.length) { l.push(`✅ ${CHUA_GHI_NHAN}`); return l.join('\n'); }
+  l.push('{red}⚠️ CÓ chính sách quản lý chuyên ngành:{/red}');
+  for (const m of cs.muc) l.push(`• ${m}`);
+  if (cs.vanBan.length) {
+    l.push('{b}Văn bản dẫn tới chính sách:{/b}');
+    for (const v of cs.vanBan) l.push(`• ${b(v.so)}${v.ten ? ` — ${v.ten}` : ''}${v.tt ? ` (${v.tt})` : ''}`);
   }
-  if (d.chinhSach?.policyBasisReview?.status === 'OUTDATED_BASIS') {
-    l.push('{orange}⚠️ Dữ liệu chính sách của mã này còn dẫn văn bản cũ — đối chiếu văn bản mới trước khi khai/đặt hàng.{/orange}');
-  }
+  if (cs.cu) l.push(CANH_BAO_CU);
   return l.join('\n');
 }
 
+/** Dữ liệu một kết quả công cụ thành công ({ok, data}) — lỗi/không có → null. */
+const duLieu = (r) => (r && r.ok !== false && !r.isError ? (r.data ?? r) : null);
+
+/**
+ * Form kết quả phân loại đầy đủ (mẫu chủ repo chọn 06/11) — code dựng, không qua AI biên tập:
+ * 🔍 Hàng → ✅ Mã HS đề xuất (tên trong biểu, ĐVT, lý do) → 📝 Mô tả khai báo gợi ý → 💰 Thuế suất
+ * → 🔴/✅ Chính sách quản lý (kèm văn bản) → 🔁 Mã khác cần cân nhắc → ⚠️ lưu ý. Mục nào Cổng lỗi/không có thì bỏ.
+ * @param {{tenHang:string, maHs:string, phanLoai:object, thue?:object, thuTuc?:object, moTa?:object, xuatXu?:string}} o
+ */
+export function renderPhanLoaiDayDu({ tenHang, maHs, phanLoai, thue, thuTuc, moTa, xuatXu = 'CN' }) {
+  const top = phanLoai?.data && typeof phanLoai.data === 'object' ? phanLoai.data : phanLoai || {};
+  const kq = top.ketQua && typeof top.ketQua === 'object' ? top.ketQua : top;
+  const list = (Array.isArray(kq.results) && kq.results) || (Array.isArray(kq.suggestions) && kq.suggestions) || [];
+  const maCua = (x) => String(x?.hs || x?.hsCode || x?.maHs || '').replace(/\D/g, '');
+  const lyDo = (x) => String(x?.reason || x?.reasoning || x?.lyDo || '').replace(/;?\s*Nguồn:.*$/i, '').trim();
+  const chinh = list.find((x) => maCua(x) === maHs) || null;
+
+  const ten = String(tenHang || '');
+  const l = [`{b}🔍 Hàng:{/b} "${ten.length > 120 ? `${ten.slice(0, 120).replace(/\s+\S*$/, '')}…` : ten}"`, ''];
+  const conf = chinh?.confidence != null ? ` (${scalar('confidence', chinh.confidence)})` : '';
+  l.push(`{b}✅ Mã HS đề xuất: ${fmtHs(maHs)}{/b}${conf}`);
+  const t = duLieu(thue);
+  const tx0 = t ? (Array.isArray(t.results) ? t.results[0] : t) : null;
+  const tx = tx0?.hsCode ? tx0 : null;   // không đúng khuôn biểu thuế → bỏ mục thuế
+  if (tx?.nameVi) l.push(`Tên trong biểu: ${clip(String(tx.nameVi).replace(/^[\s\-–]+/, ''), 200)}`);
+  if (tx?.unitVi) l.push(`Đơn vị tính: ${tx.unitVi}`);
+  const ly = lyDo(chinh) || lyDo(top) || lyDo(kq);
+  if (ly) l.push(`Lý do: ${clip(ly, 300)}`);
+
+  const mt = duLieu(moTa);
+  const cau = mt && String(mt.customsDescription || mt.moTaEcus || mt.moTa || mt.banNhapText || mt.banNhap || '').trim();
+  if (cau && cau !== 'true') {
+    l.push('', '{b}📝 Mô tả khai báo gợi ý{/b}', clip(cau, 400));
+    if (mt.banNhap === true) l.push('{orange}(Bản nháp — hồ sơ chưa đủ căn cứ, chưa dùng để khai){/orange}');
+    const thieu = [...(mt.descriptionMeta?.thieuTruong || []).map((x) => x?.labelVi).filter(Boolean),
+      ...(Array.isArray(mt.cauHoi) ? mt.cauHoi.map((q) => (typeof q === 'string' ? q : q?.cauHoi || q?.questionVi)).filter(Boolean) : [])];
+    if (thieu.length) l.push(`Cần bổ sung: ${clip([...new Set(thieu)].join('; '), 300)}`);
+  }
+
+  if (tx) l.push('', `{b}💰 Thuế suất{/b}${xuatXu ? ` (xuất xứ ${xuatXu})` : ''}`, ...dongThueSuat(tx, xuatXu));
+
+  const cs = phanTichChinhSach(duLieu(thuTuc));
+  if (cs) {
+    if (cs.muc.length) {
+      l.push('', '{red}🔴{/red} {b}Chính sách quản lý{/b}', ...cs.muc.map((m) => `• ${m}`));
+      if (cs.vanBan.length) l.push(`• Văn bản: ${cs.vanBan.map((v) => `${v.so}${v.tt ? ` (${v.tt})` : ''}`).join(', ')}`);
+      if (cs.cu) l.push(CANH_BAO_CU);
+    } else {
+      l.push('', '{b}✅ Chính sách quản lý{/b}', CHUA_GHI_NHAN);
+    }
+  }
+
+  const khac = list.filter((x) => maCua(x) && maCua(x) !== maHs).slice(0, 3);
+  if (khac.length) {
+    l.push('', '{b}🔁 Mã khác cần cân nhắc{/b}');
+    for (const x of khac) l.push(`• ${b(fmtHs(maCua(x)))}${lyDo(x) ? ` — ${clip(lyDo(x), 140)}` : ''}`);
+    l.push('Gõ mã 8 số để xem thuế + chính sách của mã đó.');
+  }
+  const cw = kq.confusionWarning;
+  const cwText = typeof cw === 'string' ? cw : cw?.warningVi || cw?.messageVi || '';
+  if (cwText) l.push('', `{orange}⚠️ ${clip(cwText, 240)}{/orange}`);
+  return l.join('\n');
+}
 /** Danh sách mã từ tim_ma_hs. */
 export function renderSearch(d) {
   const rows = d?.results || [];

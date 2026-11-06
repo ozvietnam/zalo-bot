@@ -73,7 +73,7 @@ test('phan_loai_hs trả DANG_XU_LY → handle trả jobs [{maLuot, resultTool:"
   assert.deepEqual(r.interests, [{ mon: 'máy bơm nước ly tâm' }]);
 });
 
-test('onJobResult(job, {trangThai:"XONG", ...}) → reply có mã HS gợi ý (dùng renderClassify như cũ); gói 3 dùng lại mã + mã lượt', async () => {
+test('onJobResult(job, {trangThai:"XONG", ...}) → form đầy đủ có mã HS gợi ý; gói 3 dùng lại mã + mã lượt', async () => {
   const { ctx, store, calls } = fakeCtx({ phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' },
     sinh_mo_ta_khai_bao: { ok: true, data: { moTaEcus: 'Máy bơm nước ly tâm, mới 100%' } } });
   await hs.handle(turn('1'), ctx);
@@ -81,27 +81,27 @@ test('onJobResult(job, {trangThai:"XONG", ...}) → reply có mã HS gợi ý (d
   const r = await hs.onJobResult(job, { ok: true, trangThai: 'XONG', data: { maDeXuat: '84137090', lyDo: 'Bơm ly tâm' } }, ctx);
   const s = plain(r.replies[0].text);
   assert.equal(r.replies.length, 1);
-  assert.match(s, /^🔎 Phân loại: "máy bơm nước ly tâm"/);                 // đã chọn gói 1 → không có dòng "Tự động chọn gói"
-  assert.match(s, /Mã đề xuất: 8413\.70\.90/);
+  assert.match(s, /^🔍 Hàng: "máy bơm nước ly tâm"/);
+  assert.match(s, /✅ Mã HS đề xuất: 8413\.70\.90/); assert.match(s, /Lý do: Bơm ly tâm/);
   // Tự chạy tiếp thuế + thủ tục (miễn phí) ngay trong tin kết quả — khách không phải gõ "2"
-  assert.match(s, /💰 Thuế — 8413\.70\.90 \(xuất xứ CN\)/); assert.match(s, /📋 Chính sách nhập khẩu/);
-  assert.match(s, /gõ "3" để viết mô tả khai báo/); assert.doesNotMatch(s, /gõ "2" để xem thuế/);
+  assert.match(s, /📝 Mô tả khai báo gợi ý\nMáy bơm nước ly tâm, mới 100%/);
+  assert.match(s, /gõ "3"/); assert.doesNotMatch(s, /gõ "2" để xem thuế/);
   assert.ok(s.endsWith(FOOTER));
   assert.deepEqual(calls.filter((c) => ['tra_thue', 'tra_thu_tuc_nhap_khau'].includes(c.name)).map((c) => c.name).sort(), ['tra_thu_tuc_nhap_khau', 'tra_thue']);
   assert.deepEqual(r.labels, ['tra-cuu-hs']); assert.deepEqual(r.interests, [{ mon: 'máy bơm nước ly tâm', hs: '84137090' }]);
   assert.deepEqual(store.last, { tenHang: 'máy bơm nước ly tâm', maHs: '84137090', maLuotPhanLoai: ML });
   await hs.handle(turn('3'), ctx);
   await hs.handle(turn('Thương hiệu: Pentax\nXuất xứ: Trung Quốc'), ctx);
-  const mt = calls.find((c) => c.name === 'sinh_mo_ta_khai_bao').args;
+  const mt = calls.filter((c) => c.name === 'sinh_mo_ta_khai_bao').at(-1).args;
   assert.equal(mt.maHs, '84137090'); assert.equal(mt.tenHang, 'máy bơm nước ly tâm'); assert.equal(mt.maLuotPhanLoai, ML);
   assert.equal(mt.thuongHieu, 'Pentax'); assert.equal(mt.xuatXu, 'CN');
 });
 
-test('onJobResult tự động chọn gói giữ dòng đầu "Tự động chọn gói 1" như cũ', async () => {
+test('onJobResult gói 1 (tự động chọn) mở đầu bằng "🔍 Hàng:", không kèm dòng "Tự động chọn gói"', async () => {
   const { ctx } = fakeCtx({ phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' } });
   const { jobs: [job] } = await hs.handle(turn('máy bơm nước ly tâm 1.5HP'), ctx);
   const r = await hs.onJobResult(job, { ok: true, trangThai: 'XONG', data: { maDeXuat: '84137090' } }, ctx);
-  assert.match(plain(r.replies[0].text), /^🔎 \(Tự động chọn gói 1: Phân loại mã HS\)\n\n🔎 Phân loại/);
+  assert.match(plain(r.replies[0].text), /^🔍 Hàng: "máy bơm nước ly tâm 1\.5HP"/);
 });
 
 test('mã 8 số → gói 2, kết quả có thuế suất từ Cổng (giữ nguyên test cũ "gói 2")', async () => {
@@ -160,7 +160,7 @@ test('CAN_DU_KIEN → người dùng trả lời → bo_sung_du_kien đúng mã 
   assert.equal(b.jobs[0].maLuot, MB); assert.equal(b.jobs[0].resultTool, 'ket_qua_phan_loai');
   assert.equal(store.choBoSung, null);
   const c = await hs.onJobResult(b.jobs[0], { ok: true, trangThai: 'XONG', data: { maDeXuat: '84137090' } }, ctx);
-  assert.match(plain(c.replies[0].text), /Mã đề xuất: 8413\.70\.90/);
+  assert.match(plain(c.replies[0].text), /Mã HS đề xuất: 8413\.70\.90/);
   assert.deepEqual(c.interests, [{ mon: 'máy bơm nước', hs: '84137090' }]);
 });
 
@@ -328,5 +328,69 @@ test('gói 1 xong có mã: KHÔNG tự kèm chú giải + tiền lệ (chủ rep
   const s = plain(r.replies[0].text);
   assert.ok(!calls.some((c) => ['tra_chu_giai', 'tra_tien_le'].includes(c.name)), 'không gọi chú giải/tiền lệ');
   assert.doesNotMatch(s, /Chú giải|Tiền lệ phân loại/);
-  assert.match(s, /💰 Thuế/); assert.match(s, /📋 Chính sách nhập khẩu — 8413\.70\.90/);
+  assert.match(s, /💰 Thuế suất/); assert.match(s, /✅ Chính sách quản lý/);
+});
+// Form kết quả phân loại theo mẫu chủ repo chọn (06/11): Hàng → Mã đề xuất (tên trong biểu, ĐVT, lý do) → Mô tả khai báo gợi ý
+// → Thuế suất → Chính sách quản lý (kèm văn bản) → Mã khác cần cân nhắc → lưu ý. Không còn bản chốt AI.
+const KQ_XONG = { ok: true, trangThai: 'XONG', data: { maLuot: ML, trangThai: 'XONG', ketQua: { status: 'OK', results: [
+  { hs: '85044090', confidence: 0.58, reason: 'Mô-đun nguồn 220VAC/12VDC cho máy hút bụi; Nguồn: chú giải 85.04' },
+  { hs: '85049090', confidence: 0.2, reason: 'Nếu chỉ là bộ phận của thiết bị 8504.40' },
+  { hs: '85081990', reason: 'Nếu là máy hút bụi hoàn chỉnh' }] } } };
+const THUE_8504 = { ok: true, data: { hsCode: '85044090', nameVi: '- - Loại khác', unitVi: 'chiếc', taxNkPreferential: '0', taxNkTt: '5',
+  taxAcftaChina: { origin: 'CN', eligible: true, rate: 0 }, taxVat: '8/10', warnings: { summary: 'Sản phẩm hóa chất…', nhanAi: 'AI_CHUA_KIEM' } } };
+const CS_8504 = { ok: true, data: { maHs: '85044090', kiemTraChuyenNganh: [], giayPhep: [],
+  vanBanQuanLy: [{ soHieu: '36/2026/TT-BKHCN', hieuLuc: { soHieu: '36/2026/TT-BKHCN', ten: 'Danh mục rủi ro BKHCN', tinhTrang: 'CON_HIEU_LUC' } }],
+  chinhSach: { policyLines: [{ text: 'Phải công bố hợp quy (rủi ro trung bình) — 36/2026/TT-BKHCN', soHieu: '36/2026/TT-BKHCN' }] } } };
+const MO_TA = { ok: true, data: { customsDescription: 'Mô-đun nguồn 220VAC/12VDC cho máy hút bụi cầm tay; xuất xứ Trung Quốc; Mới 100%',
+  descriptionMeta: { thieuTruong: [{ key: 'modelNumber', labelVi: 'Model' }] }, compliance: { score: 81 } } };
+
+test('form ảnh 3: phân loại XONG → đủ mục theo thứ tự, tự kèm mô tả khai báo, KHÔNG dùng bản chốt AI', async () => {
+  let chot = 0;
+  const { ctx, calls } = fakeCtx({ phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' }, tra_thue: THUE_8504,
+    tra_thu_tuc_nhap_khau: CS_8504, sinh_mo_ta_khai_bao: MO_TA });
+  ctx.editor = { chot: async () => { chot++; return 'BẢN CHỐT AI'; } };
+  const { jobs: [job] } = await hs.handle(turn('máy hút bụi cầm tay nhập từ TQ mã gì'), ctx);
+  const r = await hs.onJobResult(job, KQ_XONG, ctx);
+  const s = plain(r.replies[0].text);
+  assert.equal(chot, 0); assert.doesNotMatch(s, /BẢN CHỐT AI|"chi tiết"/);
+  const thuTu = ['🔍 Hàng: "', '✅ Mã HS đề xuất: 8504.40.90', 'Tên trong biểu: Loại khác', 'Đơn vị tính: chiếc', 'Lý do: Mô-đun nguồn',
+    '📝 Mô tả khai báo gợi ý', 'Mô-đun nguồn 220VAC/12VDC cho máy hút bụi cầm tay; xuất xứ Trung Quốc; Mới 100%', 'Cần bổ sung: Model',
+    '💰 Thuế suất', '• NK ưu đãi (MFN): 0%', '• NK thông thường: 5%', '• ACFTA (C/O mẫu E, xuất xứ CN): 0%', '• VAT: 8/10',
+    '🔴 Chính sách quản lý', '• Phải công bố hợp quy (rủi ro trung bình)', '• Văn bản: 36/2026/TT-BKHCN (còn hiệu lực)',
+    '🔁 Mã khác cần cân nhắc', '• 8504.90.90 — Nếu chỉ là bộ phận', '• 8508.19.90 — Nếu là máy hút bụi hoàn chỉnh',
+    'Gõ mã 8 số để xem thuế + chính sách của mã đó.', 'ℹ️ Mã HS là GỢI Ý'];
+  let at = -1;
+  for (const k of thuTu) { const i = s.indexOf(k, at + 1); assert.ok(i > at, `thiếu hoặc sai thứ tự: "${k}"\n${s}`); at = i; }
+  assert.doesNotMatch(s, /Nguồn: chú giải|hóa chất|Chú giải —|Tiền lệ/);            // bỏ đuôi "Nguồn:", bỏ dòng AI chưa kiểm
+  const mt = calls.find((c) => c.name === 'sinh_mo_ta_khai_bao').args;
+  assert.deepEqual(mt, { maHs: '85044090', tenHang: 'máy hút bụi cầm tay nhập từ TQ', maLuotPhanLoai: ML, xuatXu: 'CN' });   // bỏ đuôi câu hỏi "mã gì"
+});
+
+test('form ảnh 3: không có dữ liệu chính sách → "✅ Chính sách quản lý" + chưa ghi nhận; mô tả lỗi → bỏ mục mô tả, phần còn lại vẫn đủ', async () => {
+  const { ctx } = fakeCtx({ phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' }, tra_thue: THUE_8504,
+    tra_thu_tuc_nhap_khau: { ok: true, data: { maHs: '85044090', kiemTraChuyenNganh: [], giayPhep: [], vanBanQuanLy: [] } },
+    sinh_mo_ta_khai_bao: () => { throw new Error('MCP lỗi HTTP 502'); } });
+  const { jobs: [job] } = await hs.handle(turn('máy hút bụi cầm tay'), ctx);
+  const s = plain((await hs.onJobResult(job, KQ_XONG, ctx)).replies[0].text);
+  assert.match(s, /✅ Chính sách quản lý\nCổng OZ chưa ghi nhận chính sách quản lý chuyên ngành/);
+  assert.doesNotMatch(s, /📝 Mô tả khai báo gợi ý|HTTP 502/);
+  assert.match(s, /✅ Mã HS đề xuất: 8504\.40\.90/); assert.match(s, /💰 Thuế suất/);
+});
+
+test('gõ "2" / "3" ngay sau khi phân loại → chạy luôn với mã + tên hàng vừa tra (không hiện mẫu)', async () => {
+  const { ctx, calls } = fakeCtx({ phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' }, tra_thue: THUE_8504,
+    tra_thu_tuc_nhap_khau: CS_8504, sinh_mo_ta_khai_bao: MO_TA });
+  const { jobs: [job] } = await hs.handle(turn('máy hút bụi cầm tay'), ctx);
+  await hs.onJobResult(job, KQ_XONG, ctx);
+  const n = calls.length;
+  const ba = plain((await hs.handle(turn('3'), ctx)).replies[0].text);
+  assert.doesNotMatch(ba, /Gửi thông tin theo mẫu/);
+  assert.deepEqual(calls.slice(n).map((c) => c.name), ['sinh_mo_ta_khai_bao']);
+  assert.equal(calls.at(-1).args.maHs, '85044090'); assert.equal(calls.at(-1).args.tenHang, 'máy hút bụi cầm tay'); assert.equal(calls.at(-1).args.maLuotPhanLoai, ML);
+  const hai = plain((await hs.handle(turn('2'), ctx)).replies[0].text);
+  assert.doesNotMatch(hai, /Gửi thông tin theo mẫu/);
+  assert.deepEqual(calls.find((c, i) => i > n && c.name === 'tra_thue').args, { maHs: '85044090', xuatXu: 'CN' });
+  // Chưa phân loại gì → "3" vẫn hiện mẫu như cũ
+  const moi = fakeCtx();
+  assert.match(plain((await hs.handle(turn('3'), moi.ctx)).replies[0].text), /Gửi thông tin theo mẫu/);
 });
