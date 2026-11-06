@@ -42,12 +42,13 @@ export function autoPick(text, pkgs) {
   const by = (id) => pkgs.find((p) => p.id === id);
   const n = norm(text);
   const onlyCode = /^[\d.\s]{4,14}(\s+[a-z]{2})?$/i.test(text.trim());
-  if (/(giai trinh|ap ma|tham van|tranh chap)/.test(n) && by('giai-trinh')) return by('giai-trinh');
-  if (/(nhan hieu|thuong hieu|so huu tri tue|shtt|hang gia|brand)/.test(n) && by('shtt')) return by('shtt');
+  // Từ khoá phải đứng thành TỪ (\b): đã bỏ dấu thì "nhập máy" = "nh-ap ma-y" sẽ khớp nhầm "ap ma" (áp mã).
+  if (/\b(giai trinh|ap ma|tham van|tranh chap)\b/.test(n) && by('giai-trinh')) return by('giai-trinh');
+  if (/\b(nhan hieu|thuong hieu|so huu tri tue|shtt|hang gia|brand)\b/.test(n) && by('shtt')) return by('shtt');
   if (soHieuList(text).length && by('phap-luat')) return by('phap-luat');
-  if (/(chu giai|tien le|hieu luc|van ban|thong tu|nghi dinh)/.test(n) && by('phap-luat')) return by('phap-luat');
-  if (/(soat|kiem tra mo ta|to khai)/.test(n) && firstHs8(text) && by('kiem-tra')) return by('kiem-tra');
-  if (/(mo ta khai|viet mo ta|soan mo ta)/.test(n) && by('mo-ta')) return by('mo-ta');
+  if (/\b(chu giai|tien le|hieu luc|van ban|thong tu|nghi dinh)\b/.test(n) && by('phap-luat')) return by('phap-luat');
+  if (/\b(soat|kiem tra mo ta|to khai)\b/.test(n) && firstHs8(text) && by('kiem-tra')) return by('kiem-tra');
+  if (/\b(mo ta khai|viet mo ta|soan mo ta)\b/.test(n) && by('mo-ta')) return by('mo-ta');
   if (onlyCode && by('thue-thu-tuc')) return by('thue-thu-tuc');
   if (/^(thue|thu tuc)\b/.test(n) && by('thue-thu-tuc')) return by('thue-thu-tuc');
   return by('phan-loai') || by('thue-thu-tuc') || pkgs[0];
