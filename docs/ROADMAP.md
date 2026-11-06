@@ -13,6 +13,7 @@ Thứ tự xếp theo: an toàn trước, rồi tới thứ ra tiền, rồi m�
 | **006** | Gói nội bộ | nhân viên | Tra KPI, việc của mình, số liệu kế toán trên Google Sheet chung; `audience: 'staff'` | 001 xong; anh chốt phạm vi trợ lý kế toán |
 | **007** | Agent giám sát & vòng nâng cấp | anh Thắng, đội dev | Script đo lỗi bằng code + Gemini miễn phí gom nhu cầu tuần → tự mở GitHub issue đúng repo (zalo-bot / ozplugin / hs-code-api), đo lại sau khi sửa. Mỗi lỗi bắt sớm là một lần không mất khách | 001 xong · làm **trước 005** |
 | **008** | Cổng AI Studio (addon Chrome + hàng đợi dùng chung) | cả công ty | Chạy Gemini qua giao diện AI Studio thay vì API: soạn nháp CSKH và việc lô gần như 0 đồng; quá hạn thì tự chuyển API. Dùng chung cho hs-code-api, 007, SEO | 001 xong · phải có **trước 003** · sẽ tách repo `ozvietnam/studio-gateway` |
+| **009** | Agent tra cứu hải quan (vòng lặp gọi công cụ Cổng + nhớ 4–6 lượt) | khách tra cứu | Bot hiểu câu hỏi gộp và câu hỏi nối tiếp, trả lời đúng ý thay vì đổ dữ liệu; dùng được cả 25 công cụ Cổng thay vì 7 gói cố định. Công cụ tính điểm chỉ chạy khi khách đồng ý | 001 xong lịch sử hội thoại (T033, T037), jobs (T021), eval (T030); chờ Clarify mô hình + ngưỡng chi phí |
 
 ## Thứ tự anh Thắng chốt (04/11/2026)
 

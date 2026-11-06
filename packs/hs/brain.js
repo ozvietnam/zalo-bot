@@ -2,7 +2,8 @@
 // Việc duy nhất: biến câu tự do của khách thành {gói con + dữ kiện có nhãn}, câu hỏi lại, hoặc câu xã giao;
 // KHÔNG gọi Cổng OZ, KHÔNG soạn câu trả lời nghiệp vụ (Hiến chương I: AI định tuyến, code quyết).
 // An toàn: kết quả phải qua chuanHoa (gói khả dụng, dữ kiện đúng khuôn, doChac ≥ 0.5) mới dùng;
-// Gemini lỗi/quá tải → trả null để nơi gọi rơi về autoPick của router.js — bot vẫn trả lời như trước.
+// Gemini lỗi/quá tải → khoá dự phòng (llm2.js, nếu có cấu hình) → không được nữa thì trả null
+// để nơi gọi rơi về autoPick của router.js — bot vẫn trả lời như trước.
 import { route } from './router.js';
 import { countryCode } from './input.js';
 
@@ -116,10 +117,15 @@ function chuanHoa(name, a, pkgs, doChacToiThieu, { cau = '', last = null, log = 
  * Không bao giờ ném lỗi: mọi lỗi Gemini/mạng đều → null để nơi gọi rơi về autoPick.
  */
 export function createBrain({ apiKey, model = 'gemini-flash-lite-latest', models, fetchImpl = fetch, timeoutMs = 15_000,
-  doChacToiThieu = 0.5, off = false, log = console } = {}) {
-  if (!apiKey || off) return null;
-  const dsMau = (models && models.length ? models : [model, 'gemini-flash-latest'])
-    .map((m) => String(m).trim()).filter((m, i, a) => m && a.indexOf(m) === i);
+  doChacToiThieu = 0.5, off = false, duPhong = null, uuTien = 'gemini', log = console } = {}) {
+  if ((!apiKey && !duPhong) || off) return null;
+  // uuTien 'llm2' (LLM_CHINH=llm2): hỏi khoá llm2 trước, Gemini chỉ cứu khi llm2 lỗi.
+  const llm2Truoc = uuTien === 'llm2' && !!duPhong;
+  const ten = duPhong?.model || 'llm2';
+  // Có khoá dự phòng (llm2.js) thì chỉ thử 1 mẫu Gemini rồi chuyển, khách khỏi chờ thêm một lượt quá giờ.
+  const dsMau = !apiKey ? [] : (models && models.length ? models : [model, 'gemini-flash-latest'])
+    .map((m) => String(m).trim()).filter((m, i, a) => m && a.indexOf(m) === i)
+    .slice(0, duPhong ? 1 : undefined);
 
   async function hieu({ text, last = null, pkgs = [] }) {
     const cau = String(text ?? '').slice(0, 1000).trim();
@@ -127,13 +133,28 @@ export function createBrain({ apiKey, model = 'gemini-flash-lite-latest', models
     const canh = last && (last.tenHang || last.maHs)
       ? `Ngữ cảnh: khách vừa tra ${[last.tenHang ? `tên hàng "${String(last.tenHang).slice(0, 120)}"` : null, last.maHs ? `mã HS ${last.maHs}` : null].filter(Boolean).join(', ')}. "Nó/cái đó" có thể chỉ dữ kiện này.\n`
       : '';
+    const noiDung = `${canh}Câu của khách: "${cau}"`;
     const body = {
       systemInstruction: { parts: [{ text: HE_THONG }] },
-      contents: [{ role: 'user', parts: [{ text: `${canh}Câu của khách: "${cau}"` }] }],
+      contents: [{ role: 'user', parts: [{ text: noiDung }] }],
       tools: [{ functionDeclarations: declarations(pkgs) }],
       toolConfig: { functionCallingConfig: { mode: 'ANY' } },
       generationConfig: { temperature: 0 },
     };
+    /** Hỏi llm2: undefined = lỗi (cho bên kia cứu); còn lại là câu trả lời đã qua chuanHoa (có thể null). */
+    async function quaLlm2() {
+      const r = await duPhong.chat({ system: HE_THONG, user: noiDung, tools: declarations(pkgs), temperature: 0 });
+      if (!r) return undefined;
+      if (!r.call?.name) return null;
+      const kq = chuanHoa(r.call.name, r.call.args, pkgs, doChacToiThieu, { cau, last, log });
+      log.info?.(`[nao] (${ten}) ${kq ? (kq.kind === 'chay' ? `gói ${kq.goi}` : kq.kind) : `bỏ ${r.call.name} (sai khuôn hoặc không chắc)`}`);
+      return kq;
+    }
+    if (llm2Truoc) {
+      const kq = await quaLlm2();
+      if (kq !== undefined) return kq;
+      log.info?.(`[nao] ${ten} lỗi → thử Gemini`);
+    }
     for (const m of dsMau) {
       try {
         const res = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, {
@@ -146,7 +167,7 @@ export function createBrain({ apiKey, model = 'gemini-flash-lite-latest', models
         if (!res.ok) {
           log.error?.(`[nao] Gemini lỗi ${res.status} (${m})`);
           if (TAM_THOI.has(res.status)) continue;   // quá tải → thử mẫu kế
-          return null;                              // lỗi khoá/đầu vào → dừng, rơi về regex
+          break;                                    // lỗi khoá/đầu vào → bỏ Gemini (sang dự phòng hoặc rơi về regex)
         }
         const call = (j?.candidates?.[0]?.content?.parts || []).map((p) => p.functionCall).find(Boolean);
         if (!call?.name) return null;
@@ -158,7 +179,9 @@ export function createBrain({ apiKey, model = 'gemini-flash-lite-latest', models
         // timeout/mạng → thử mẫu kế rồi bỏ
       }
     }
-    return null;
+    // Gemini không trả lời được (lỗi/quá tải/quá giờ/không có khoá) → khoá dự phòng, cùng luật chuanHoa.
+    if (!duPhong || llm2Truoc) return null;
+    return (await quaLlm2()) ?? null;
   }
 
   return { hieu };

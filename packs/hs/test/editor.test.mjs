@@ -81,3 +81,46 @@ test('chot: Gemini thả thẻ định dạng hoặc quá dài → lược thẻ
   const ed2 = createEditor({ apiKey: 'k', fetchImpl: g2.fetchImpl, log: {} });
   assert.equal(await ed2.chot({ text: GOC }), null);                     // > 1200 ký tự
 });
+
+function fakeDuPhong(kq) {
+  const calls = [];
+  return { calls, chat: async (req) => { calls.push(req); return kq; } };
+}
+
+test('dự phòng: Gemini 503 → 1 mẫu Gemini rồi khoá dự phòng; số vẫn bị code kiểm', async () => {
+  const g = fakeGemini(() => ({ status: 503 }));
+  const dp = fakeDuPhong({ text: 'Mã 8414.59.49 — MFN 15%.', call: null });
+  const ed = createEditor({ apiKey: 'k', fetchImpl: g.fetchImpl, duPhong: dp, log: {} });
+  assert.match(await ed.chot({ text: GOC }), /\{b\}8414\.59\.49\{\/b\}/);
+  assert.equal(g.requests.length, 1);
+  assert.match(dp.calls[0].system, /CHỈ dùng số/);
+  assert.match(dp.calls[0].user, /KẾT QUẢ GỐC/);
+  assert.equal(dp.calls[0].maxTokens, 400);
+  const bia = createEditor({ apiKey: 'k', fetchImpl: g.fetchImpl, duPhong: fakeDuPhong({ text: 'Mã 8414.59.49, thuế 12%.', call: null }), log: {} });
+  assert.equal(await bia.chot({ text: GOC }), null);                        // số bịa từ dự phòng → bỏ
+});
+
+test('dự phòng: Gemini trả bản chốt thì không gọi dự phòng; không khoá Gemini → dùng thẳng dự phòng', async () => {
+  const dp = fakeDuPhong({ text: 'Mã 8414.59.49 — MFN 15%.', call: null });
+  const ed = createEditor({ apiKey: 'k', fetchImpl: fakeGemini(() => text('Mã 8414.59.49, VAT 8/10.')).fetchImpl, duPhong: dp, log: {} });
+  assert.match(await ed.chot({ text: GOC }), /VAT 8\/10/);
+  assert.equal(dp.calls.length, 0);
+  const chiDp = createEditor({ apiKey: '', duPhong: dp, log: {} });
+  assert.ok(chiDp);
+  assert.match(await chiDp.chot({ text: GOC }), /MFN 15%/);
+  assert.equal(createEditor({ apiKey: '', duPhong: dp, off: true, log: {} }), null);
+});
+
+test('LLM_CHINH=llm2: biên tập bằng llm2 trước; llm2 lỗi → Gemini; llm2 bịa số → null, không gọi Gemini', async () => {
+  const g = fakeGemini(() => text('Mã 8414.59.49, VAT 8/10.'));
+  const ed = createEditor({ apiKey: 'k', fetchImpl: g.fetchImpl, duPhong: fakeDuPhong({ text: 'Mã 8414.59.49 — MFN 15%.', call: null }), uuTien: 'llm2', log: {} });
+  assert.match(await ed.chot({ text: GOC }), /MFN 15%/);
+  assert.equal(g.requests.length, 0);
+  const ed2 = createEditor({ apiKey: 'k', fetchImpl: g.fetchImpl, duPhong: fakeDuPhong(null), uuTien: 'llm2', log: {} });
+  assert.match(await ed2.chot({ text: GOC }), /VAT 8\/10/);
+  assert.equal(g.requests.length, 1);
+  const g3 = fakeGemini(() => text('Mã 8414.59.49, VAT 8/10.'));
+  const ed3 = createEditor({ apiKey: 'k', fetchImpl: g3.fetchImpl, duPhong: fakeDuPhong({ text: 'Thuế 12%.', call: null }), uuTien: 'llm2', log: {} });
+  assert.equal(await ed3.chot({ text: GOC }), null);
+  assert.equal(g3.requests.length, 0);
+});

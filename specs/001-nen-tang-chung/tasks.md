@@ -520,6 +520,10 @@ c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'au
 Định dạng một dòng fixture:
 `{"step":"in","update":{…}} | {"step":"mcp","tool":"phan_loai_hs","returns":[…]} | {"step":"advance","by":"10m"} | {"step":"restart"} | {"step":"staff","text":"/nhan P1"} | {"step":"expect","sentTo":"c1","count":1,"match":"8413"}`
 
+> Làm một phần ngày 06/11/2026 (nhánh `009-agent-tra-cuu`, theo yêu cầu chủ repo để mở được PR): bộ chạy + 7 kịch bản
+> cho tính năng đã có (`retry-webhook`, `double-tap`, `silent-customer`, `leak`, `restart-mid-job`, `quiet-hours`, `cong-ai-ban`).
+> Còn `human-room`, `is-bot`, `ho-so-khach` chờ T022–T026, T033–T036 — xem `eval/README.md`.
+
 - [ ] **Step 1: Test đỏ**: `node eval/run.mjs` với thư mục rỗng → in `eval: 0/0` và thoát 0; với fixture cố ý sai (`count: 2` cho `retry-webhook`) → thoát 1 và in tên kịch bản.
 - [ ] **Step 2:** FAIL · **Step 3:** `run.mjs` dựng engine thật trên `:memory:` (restart = đóng engine, mở lại cùng tệp tạm) với `fakeChannel`, `fakeMcp`, `fakeClock`; viết 9 fixture: 8 cái ứng với các dòng trong `research.md` §1 (#1, #2, #4, #5, #7, #9, #11, #12) và `ho-so-khach` (US7). · **Step 4:** `npm run eval` → `eval: 9/9` · **Step 5:** `git commit -m "feat(eval): replay runner and incident fixtures"`
 

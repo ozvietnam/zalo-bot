@@ -47,6 +47,16 @@ Kết quả phân loại + thuế (bản dài: nhiều mã ứng viên, lý do t
 - Mẫu: `GEMINI_EDITOR_MODEL` (mặc định `gemini-flash-latest`); tắt: `GEMINI_EDITOR=0`. Không biên tập khi đang hỏi dữ kiện bổ sung (câu hỏi của Cổng tới khách nguyên văn).
 - Bot lọc bỏ mệnh đề lẫn ký tự Trung trong lý do do engine Cổng trả về (che tạm, đã báo bên `hs-code-api`).
 
+## Khoá dự phòng (LLM thứ hai)
+
+Khi Gemini lỗi, quá tải hoặc quá giờ, não định tuyến và não biên tập tự chuyển sang một cổng LLM khác theo chuẩn OpenAI (`/chat/completions`) — `packs/hs/llm2.js`.
+
+- Cấu hình chung, không gắn nhà cung cấp: `LLM2_BASE_URL` (phần trước `/chat/completions`), `LLM2_API_KEY`, `LLM2_MODEL`; tuỳ chọn `LLM2_TIMEOUT_MS` (mặc định 20000). Thiếu 1 trong 3 biến = tắt.
+- Có dự phòng thì chỉ thử 1 mẫu Gemini rồi chuyển. Kết quả dự phòng qua đúng các luật như Gemini: lọc mã HS tự đoán, ngưỡng `doChac`, code kiểm từng con số của bản chốt.
+- Không có `GEMINI_API_KEY` mà có dự phòng → hai não chạy thẳng bằng dự phòng. Đọc ảnh vẫn chỉ dùng Gemini.
+- `LLM_CHINH=llm2` → đảo vai: khoá llm2 chạy chính cho hai não, Gemini chỉ cứu khi llm2 lỗi/quá giờ. Câu trả lời của llm2 bị luật loại thì không hỏi thêm Gemini (không tốn hai lượt).
+- Lưu ý: mọi câu khách gửi tới não sẽ đi qua nhà cung cấp này — chỉ dùng nhà cung cấp công ty đã đồng ý.
+
 ## Giao diện trả về (rich text)
 
 Bot dùng `text_styles` của Zalo Bot API (in đậm, màu, cỡ chữ) — nên tin nhắn có **chữ đậm và màu**,
