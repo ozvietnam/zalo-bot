@@ -2,10 +2,11 @@
 // Agent giám sát — chạy hằng ngày 07:30 (cron / Coolify scheduled task)
 // Đọc SQLite bot → tính 9 tín hiệu → mở/append GitHub issue đúng repo, không trùng, ẩn danh.
 // Usage: node scripts/giam-sat.mjs [--dry-run] [--ngay=2026-11-06]
-import { readFileSync, existsSync } from 'fs';
+import { existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { DatabaseSync } from 'node:sqlite';
 import { tinhHieu } from '../lib/giam-sat/tinh-hieu.js';
+import { openStore } from '../core/store.js';
 import { xuLyIssue } from '../lib/giam-sat/issue.js';
 import { redact } from '../core/redact.js';
 
@@ -24,7 +25,6 @@ if (!existsSync(DB_PATH)) {
 console.log(`[giám sát] Ngày ${ngay} · dryRun=${dryRun}`);
 
 // ═══ 1. Đọc dữ liệu từ SQLite ═══
-import { openStore } from '../core/store.js';
 // Khởi tạo schema nếu chưa có (bot.db tạo khi bot nhận tin đầu tiên)
 const store = openStore(DB_PATH);
 store.close();
@@ -63,7 +63,7 @@ for (const p of phatHien) {
 }
 
 // ═══ 4. Mở/append GitHub issue ═══
-const ketQua = xuLyIssue(phatHien, { dryRun, ngay, redactFn: redact });
+const ketQua = await xuLyIssue(phatHien, { dryRun, ngay, redactFn: redact });
 console.log(`[giám sát] Issue mới: ${ketQua.moi.length} · comment vào cũ: ${ketQua.comment.length} · bỏ vì giới hạn: ${ketQua.boViGioiHan.length}`);
 
 for (const m of ketQua.moi) console.log(`  ↗ MỚI: ${m.repo} — ${m.tieuDe}`);
@@ -80,7 +80,6 @@ const banTin = [
 
 const banTinPath = join(DATA_DIR, `giam-sat-${ngay}.md`);
 if (!dryRun) {
-  const { writeFileSync } = await import('fs');
   writeFileSync(banTinPath, banTin);
   console.log(`[giám sát] Bản tin lưu: ${banTinPath}`);
 }
