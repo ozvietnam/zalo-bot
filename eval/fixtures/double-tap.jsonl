@@ -1,0 +1,7 @@
+// #2 (23/09): khách bấm gửi 2 lần (2 id khác nhau, cùng chữ) → không nhận 2 câu gần giống nhau; phòng khác không bị ảnh hưởng
+{"step":"in","update":{"id":"d1","text":"xin chào"}}
+{"step":"advance","by":"20s"}
+{"step":"in","update":{"id":"d2","text":"xin chào"}}
+{"step":"expect","sentTo":"c1","count":1}
+{"step":"in","update":{"id":"d3","chatId":"c2","userId":"u2","text":"xin chào"}}
+{"step":"expect","sentTo":"c2","count":1}
