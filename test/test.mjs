@@ -180,6 +180,8 @@ await t('bot: gói 1 chạy nền → báo đang xử lý → hỏi kết quả 
   assert.match(zalo.sent[2][1], /Mã đề xuất: 8413\.70\.90/);
   // Phân loại xong tự kèm thuế + thủ tục (miễn phí) — không còn bắt gõ "2"
   assert.match(zalo.sent[2][1], /💰 Thuế — 8413\.70\.90 \(xuất xứ CN\)/);
+  assert.match(zalo.sent[2][1], /📖 Chú giải — chương 8413/);
+  assert.match(zalo.sent[2][1], /🗂️ Tiền lệ phân loại — 8413\.70\.90/);
   assert.match(zalo.sent[2][1], /gõ "3" để viết mô tả khai báo/);
   assert.doesNotMatch(zalo.sent[2][1], /gõ "2" để xem thuế/);
   await bot.handleUpdate(dm('3', 'd2'));
@@ -520,6 +522,21 @@ await t('biên tập: editor lỗi → giữ bản đầy đủ như cũ; CAN_DU
   const s = zalo2.sent.at(-1)[1];
   assert.match(s, /Mã đề xuất: 8413\.70\.90/);                      // editor chết → bản đầy đủ như cũ
   assert.match(s, /💰 Thuế — 8413\.70\.90/);
+});
+
+await t('tự kèm: mô tả có thương hiệu → tự kiểm SHTT sau khi chốt mã; không có thương hiệu thì thôi', async () => {
+  const zalo = fakeZalo();
+  const mcp = fakeMcp({ phan_loai_hs: { ok: true, data: { maDeXuat: '84137090' } },
+    kiem_tra_shtt: { ok: true, data: { ketQua: [{ ten: 'PENTAX', den: 'XANH' }] } } });
+  const bot = createBot({ zalo, mcp, log: {} });
+  await bot.handleUpdate(dm('1', 'shtt0'));           // vào gói 1 (không để regex "thương hiệu" bắt sang gói 6)
+  await bot.handleUpdate(dm('Tên hàng: máy bơm nước\nThương hiệu: Pentax', 'shtt1'));
+  assert.deepEqual(mcp.calls.find((c) => c[0] === 'kiem_tra_shtt')[1], { tenNhan: 'Pentax', maHs: '84137090', xuatXu: 'CN' });
+  assert.match(zalo.sent.at(-1)[1], /Rủi ro nhãn hiệu "Pentax"/);
+  const zalo2 = fakeZalo();
+  const mcp2 = fakeMcp({ phan_loai_hs: { ok: true, data: { maDeXuat: '84137090' } } });
+  await createBot({ zalo: zalo2, mcp: mcp2, log: {} }).handleUpdate(dm('máy bơm nước ly tâm', 'shtt2'));
+  assert.equal(mcp2.calls.filter((c) => c[0] === 'kiem_tra_shtt').length, 0);   // không nhãn → không đốt điểm
 });
 
 console.log(`\n${pass} test đạt`);
