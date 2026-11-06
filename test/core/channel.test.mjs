@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createChannel } from '../../channels/zalo-bot.js';
+import { createChannel, kiemTruocPolling } from '../../channels/zalo-bot.js';
 
 const IMG = { result: { event_name: 'message.image.received', message: { chat: { id: 1 }, photo_url: 'u' } } };
 
@@ -84,4 +84,28 @@ test('hợp đồng: name, maxText, capabilities, getMe, lỗi không chứa tok
   const err = createChannel({ token: 'SECRETTOK', secret: 's', fetchImpl: async () => ({ ok: false, status: 500, json: async () => ({ description: 'boom' }) }) });
   await assert.rejects(() => err.sendText('1', 'x'), (e) => e.status === 500 && !e.message.includes('SECRETTOK'));
   assert.throws(() => createChannel({ secret: 's' }), /ZALO_BOT_TOKEN/);
+});
+
+// Chặn polling khi đang có webhook production: chạy `npm run dev` (polling) trên máy từng xoá webhook của bot thật (06/11/2026).
+test('kiemTruocPolling: webhook trống → được chạy polling', async () => {
+  assert.deepEqual(await kiemTruocPolling({ getWebhookInfo: async () => ({ url: '' }) }), { ok: true, url: '' });
+});
+
+test('kiemTruocPolling: đang có webhook → KHÔNG chạy, nêu URL và cách vượt', async () => {
+  const r = await kiemTruocPolling({ getWebhookInfo: async () => ({ url: 'https://chatbot.example.vn/webhook/zalo', updated_at: 1 }) });
+  assert.equal(r.ok, false);
+  assert.equal(r.url, 'https://chatbot.example.vn/webhook/zalo');
+  assert.match(r.lyDo, /chatbot\.example\.vn/);
+  assert.match(r.lyDo, /ZALO_FORCE_POLLING=1/);
+});
+
+test('kiemTruocPolling: ép (ZALO_FORCE_POLLING) → cho chạy dù có webhook', async () => {
+  assert.deepEqual(await kiemTruocPolling({ getWebhookInfo: async () => ({ url: 'https://x.vn/w' }) }, { force: true }), { ok: true, url: 'https://x.vn/w' });
+});
+
+test('kiemTruocPolling: không đọc được webhook → KHÔNG chạy (không đoán), lỗi không lộ token', async () => {
+  const r = await kiemTruocPolling({ getWebhookInfo: async () => { throw new Error('Zalo getWebhookInfo lỗi: HTTP 500'); } });
+  assert.equal(r.ok, false);
+  assert.match(r.lyDo, /không đọc được/);
+  assert.match(r.lyDo, /HTTP 500/);
 });

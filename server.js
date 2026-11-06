@@ -2,7 +2,7 @@
 //   ZALO_MODE=webhook (mặc định): HTTP server nhận POST từ Zalo tại ZALO_WEBHOOK_PATH.
 //   ZALO_MODE=polling: tự gọi getUpdates (chạy được trên máy không có tên miền công khai).
 import http from 'node:http';
-import { createZaloClient, safeEqual } from './lib/zalo.js';
+import { createZaloClient, safeEqual, kiemTruocPolling } from './lib/zalo.js';
 import { createMcpClient } from './lib/mcp.js';
 import { createBot } from './lib/bot.js';
 import { availablePackages } from './lib/packages.js';
@@ -128,5 +128,14 @@ server.listen(PORT, '0.0.0.0', async () => {
   } catch (e) { console.error('[mcp]', e.message); }
   console.log(`[bot] chế độ ${MODE}, cổng ${PORT}${MODE === 'webhook' ? `, đường dẫn ${PATH}` : ''}`);
   if (MODE === 'webhook' && SECRET.length < 8) console.error('[bot] ZALO_WEBHOOK_SECRET phải dài 8–256 ký tự');
-  if (MODE === 'polling') pollLoop();
+  if (MODE === 'polling') {
+    // Không xoá webhook của bot thật: đang có webhook thì dừng hẳn (ZALO_FORCE_POLLING=1 để cố ý chiếm bot).
+    const g = await kiemTruocPolling(zalo, { force: /^(1|true|yes)$/i.test(env.ZALO_FORCE_POLLING || '') });
+    if (!g.ok) {
+      console.error(`[polling] DỪNG: ${g.lyDo}`);
+      process.exit(1);
+    }
+    if (g.url) console.warn(`[polling] ZALO_FORCE_POLLING bật: sẽ xoá webhook ${g.url} — nhớ đặt lại: npm run webhook:set -- ${g.url}`);
+    pollLoop();
+  }
 });

@@ -45,6 +45,27 @@ export function parse(raw) {
   return { updateKey, ...u, raw };
 }
 
+/**
+ * Trước khi chạy polling (getUpdates, kèm deleteWebhook): bot đang có webhook (thường là production) thì KHÔNG chạy,
+ * vì xoá webhook làm bot thật ngừng nhận tin (sự cố 06/11/2026). Không đọc được trạng thái webhook cũng không chạy.
+ * force (ZALO_FORCE_POLLING=1): cố ý chiếm bot, chấp nhận xoá webhook.
+ * → { ok: true, url } | { ok: false, url?, lyDo }
+ */
+export async function kiemTruocPolling(zalo, { force = false } = {}) {
+  let info;
+  try {
+    info = await zalo.getWebhookInfo();
+  } catch (e) {
+    return { ok: false, lyDo: `không đọc được trạng thái webhook (${e?.message ?? e}) — dừng để khỏi xoá nhầm webhook production` };
+  }
+  const url = String(info?.url ?? '').trim();
+  if (url && !force) {
+    return { ok: false, url, lyDo: `bot đang có webhook ${url} (bot thật đang chạy). Chạy polling sẽ xoá webhook này và bot thật ngừng nhận tin. `
+      + 'Hãy dùng token bot thử riêng; hoặc nếu cố ý chiếm bot, đặt ZALO_FORCE_POLLING=1 rồi nhớ đặt lại webhook sau.' };
+  }
+  return { ok: true, url };
+}
+
 export function createZaloClient({ token, baseUrl = DEFAULT_BASE, fetchImpl = fetch } = {}) {
   if (!token) throw new Error('Thiếu ZALO_BOT_TOKEN');
   const base = `${baseUrl.replace(/\/$/, '')}/bot${token}`;
