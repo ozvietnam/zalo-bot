@@ -35,11 +35,13 @@ const botNames = (env.BOT_NAMES || '').split(',').map((s) => s.trim()).filter(Bo
 // Khoá dự phòng (cổng LLM chuẩn OpenAI bất kỳ): dùng khi Gemini lỗi/quá tải/quá giờ. Thiếu 1 trong 3 biến = tắt.
 const duPhong = createLlm2({ baseUrl: env.LLM2_BASE_URL || '', apiKey: env.LLM2_API_KEY || '', model: env.LLM2_MODEL || '',
   timeoutMs: Number(env.LLM2_TIMEOUT_MS) || undefined });
+// LLM_CHINH=llm2: não định tuyến + biên tập hỏi khoá llm2 trước, Gemini chỉ cứu khi llm2 lỗi. Mặc định gemini.
+const uuTien = /^llm2$/i.test((env.LLM_CHINH || '').trim()) && duPhong ? 'llm2' : 'gemini';
 // Não hiểu câu hỏi (Gemini function calling) cho chế độ Tự động: dùng chung khoá đọc ảnh; GEMINI_BRAIN=0 để tắt.
-const brain = createBrain({ apiKey: env.GEMINI_API_KEY || '', model: env.GEMINI_BRAIN_MODEL || undefined, duPhong,
+const brain = createBrain({ apiKey: env.GEMINI_API_KEY || '', model: env.GEMINI_BRAIN_MODEL || undefined, duPhong, uuTien,
   off: /^(0|false|no|off)$/i.test(env.GEMINI_BRAIN || '') });
 // Não biên tập: kết quả phân loại dài → bản chốt ngắn (code kiểm từng con số khớp gốc); GEMINI_EDITOR=0 để tắt.
-const editor = createEditor({ apiKey: env.GEMINI_API_KEY || '', model: env.GEMINI_EDITOR_MODEL || undefined, duPhong,
+const editor = createEditor({ apiKey: env.GEMINI_API_KEY || '', model: env.GEMINI_EDITOR_MODEL || undefined, duPhong, uuTien,
   off: /^(0|false|no|off)$/i.test(env.GEMINI_EDITOR || '') });
 const bot = createBot({
   zalo, mcp, botNames, brain, editor,
@@ -118,7 +120,8 @@ server.listen(PORT, '0.0.0.0', async () => {
       console.log(`[bot] đọc ảnh: ${env.GEMINI_API_KEY ? 'BẬT (Gemini)' : 'tắt (chưa có GEMINI_API_KEY)'}`);
       console.log(`[bot] não hiểu câu hỏi (chế độ Tự động): ${brain ? `BẬT (${env.GEMINI_BRAIN_MODEL || 'gemini-flash-lite-latest'})` : 'tắt'}`);
       console.log(`[bot] não biên tập kết quả: ${editor ? `BẬT (${env.GEMINI_EDITOR_MODEL || 'gemini-flash-latest'})` : 'tắt'}`);
-      console.log(`[bot] khoá dự phòng: ${duPhong ? `BẬT (${duPhong.model})` : 'tắt (chưa đủ LLM2_BASE_URL / LLM2_API_KEY / LLM2_MODEL)'}`);
+      console.log(`[bot] khoá llm2: ${duPhong ? `BẬT (${duPhong.model})` : 'tắt (chưa đủ LLM2_BASE_URL / LLM2_API_KEY / LLM2_MODEL)'}`);
+      console.log(`[bot] mô hình chính: ${uuTien === 'llm2' ? `${duPhong.model} (Gemini dự phòng)` : `Gemini${duPhong ? ` (${duPhong.model} dự phòng)` : ''}`}`);
     } else {
       console.error('[mcp] chưa kết nối được Cổng OZ — kiểm tra OZ_MCP_URL / OZ_MCP_TOKEN (bot vẫn chạy, sẽ thử lại khi có tin)');
     }

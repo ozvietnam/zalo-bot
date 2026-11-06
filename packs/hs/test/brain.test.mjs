@@ -196,6 +196,25 @@ test('dự phòng: không có khoá Gemini nhưng có dự phòng → não vẫn
   assert.equal(await hong.hieu({ text: 'chào', last: null, pkgs: PACKAGES }), null);
 });
 
+test('LLM_CHINH=llm2: gọi khoá llm2 TRƯỚC, không tốn Gemini; llm2 lỗi (null) → Gemini cứu', async () => {
+  const g = fakeGemini(() => goi('hoi_lai', { cauHoi: 'Gemini hỏi lại' }));
+  const dp = fakeDuPhong({ text: '', call: { name: 'phan_loai', args: { tenHang: 'máy bơm nước', doChac: 0.9 } } });
+  const brain = createBrain({ apiKey: 'k', fetchImpl: g.fetchImpl, duPhong: dp, uuTien: 'llm2', log: {} });
+  assert.deepEqual(await brain.hieu({ text: 'máy bơm nước mã gì', last: null, pkgs: PACKAGES }), { kind: 'chay', goi: 1, text: 'Tên hàng: máy bơm nước' });
+  assert.equal(dp.calls.length, 1);
+  assert.equal(g.requests.length, 0);
+  // llm2 trả lời nhưng bị luật loại (doChac thấp) → null, KHÔNG gọi thêm Gemini
+  const g2 = fakeGemini(() => goi('hoi_lai', { cauHoi: 'x' }));
+  const b2 = createBrain({ apiKey: 'k', fetchImpl: g2.fetchImpl, duPhong: fakeDuPhong({ text: '', call: { name: 'phan_loai', args: { tenHang: 'bút', doChac: 0.2 } } }), uuTien: 'llm2', log: {} });
+  assert.equal(await b2.hieu({ text: 'bút', last: null, pkgs: PACKAGES }), null);
+  assert.equal(g2.requests.length, 0);
+  // llm2 lỗi mạng/khoá → Gemini trả lời thay
+  const g3 = fakeGemini(() => goi('hoi_lai', { cauHoi: 'Gemini hỏi lại' }));
+  const b3 = createBrain({ apiKey: 'k', fetchImpl: g3.fetchImpl, duPhong: fakeDuPhong(null), uuTien: 'llm2', log: {} });
+  assert.deepEqual(await b3.hieu({ text: 'ơi', last: null, pkgs: PACKAGES }), { kind: 'hoi-lai', cauHoi: 'Gemini hỏi lại' });
+  assert.equal(g3.requests.length, 1);
+});
+
 // Chỉ khai báo để npm test bắt được nếu ai xoá nhầm availablePackages khỏi Export — bộ não dùng nó lọc gói.
 test('bối cảnh: PACKAGES đầy 7 gói, lọc theo công cụ vẫn chạy', () => {
   assert.equal(PACKAGES.length, 7);

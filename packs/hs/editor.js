@@ -32,8 +32,10 @@ const lamDam = (s) => String(s).replace(/(?<!\d)(\d{4}\.\d{2}\.\d{2}|\d{8})(?!\d
  * Bản gốc dưới 80 ký tự là đã ngắn, không tốn lượt Gemini.
  */
 export function createEditor({ apiKey, model = 'gemini-flash-latest', models, fetchImpl = fetch, timeoutMs = 15_000,
-  toiDa = 1200, toiThieuGoc = 80, off = false, duPhong = null, log = console } = {}) {
+  toiDa = 1200, toiThieuGoc = 80, off = false, duPhong = null, uuTien = 'gemini', log = console } = {}) {
   if ((!apiKey && !duPhong) || off) return null;
+  // uuTien 'llm2' (LLM_CHINH=llm2): biên tập bằng llm2 trước, Gemini chỉ cứu khi llm2 lỗi.
+  const llm2Truoc = uuTien === 'llm2' && !!duPhong;
   // Có khoá dự phòng (llm2.js) thì chỉ thử 1 mẫu Gemini rồi chuyển.
   const dsMau = !apiKey ? [] : (models && models.length ? models : [model, 'gemini-flash-lite-latest'])
     .map((m) => String(m).trim()).filter((m, i, a) => m && a.indexOf(m) === i)
@@ -56,6 +58,16 @@ export function createEditor({ apiKey, model = 'gemini-flash-latest', models, fe
       contents: [{ role: 'user', parts: [{ text: noiDung }] }],
       generationConfig: { temperature: 0.1, maxOutputTokens: 400 },
     };
+    /** Hỏi llm2: undefined = lỗi (cho bên kia cứu); còn lại là bản chốt đã kiểm số (có thể null). */
+    async function quaLlm2() {
+      const r = await duPhong.chat({ system: HE_THONG, user: noiDung, temperature: 0.1, maxTokens: 400 });
+      if (!r) return undefined;
+      return r.text ? xuLy(r.text, goc) : null;
+    }
+    if (llm2Truoc) {
+      const kq = await quaLlm2();
+      if (kq !== undefined) return kq;
+    }
     for (const m of dsMau) {
       try {
         const res = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, {
@@ -76,9 +88,8 @@ export function createEditor({ apiKey, model = 'gemini-flash-latest', models, fe
       }
     }
     // Gemini không trả lời được → khoá dự phòng, cùng luật kiểm số.
-    if (!duPhong) return null;
-    const r = await duPhong.chat({ system: HE_THONG, user: noiDung, temperature: 0.1, maxTokens: 400 });
-    return r?.text ? xuLy(r.text, goc) : null;
+    if (!duPhong || llm2Truoc) return null;
+    return (await quaLlm2()) ?? null;
   }
 
   return { chot };
