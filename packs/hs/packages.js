@@ -176,12 +176,12 @@ export const PACKAGES = [
         ghiTruot(ctx, 'GO_LAI', { goi: 1, cau: bo.slice(0, 1000), cauTruoc: truoc.cau.slice(0, 1000), maHsTruoc: truoc.maHs || null });
       }
       const r = await ctx.mcp.callTool('phan_loai_hs', args);
-      return { r, resultTool: 'ket_qua_phan_loai', label: 'Đang phân loại mã HS', context: { tenHang, boSung: false, cauMoi: text } };
+      return { r, resultTool: 'ket_qua_phan_loai', label: 'Đang phân loại mã HS', context: { tenHang, boSung: false, cauMoi: text, thuongHieu: v.thuongHieu || null } };
     },
     /** Kết quả cuối (đã xong, hoặc lỗi/hết hạn) → chữ trả lời; ghi phiên last/choBoSung.
      *  Có mã HS → tự chạy tiếp thuế + thủ tục (tra cứu miễn phí) ngay trong tin: khách "vất hàng vào" là ra hết,
      *  không phải gõ "2". Gói 3/4 tính điểm nên vẫn để khách chủ động gọi. */
-    async xong(r, { tenHang, boSung = false, cauMoi }, ctx) {
+    async xong(r, { tenHang, boSung = false, cauMoi, thuongHieu = null }, ctx) {
       const maHs = pickHs(r);
       const maLuot = r?.maLuot || r?.chiPhi?.maLuot || r?.data?.maLuot;
       ctx.session.last = { tenHang, maHs, maLuotPhanLoai: UUID.test(maLuot || '') ? maLuot : null };
@@ -204,12 +204,22 @@ export const PACKAGES = [
       }
       if (maHs) {
         const xx = findCountryInText(String(tenHang || '')) || 'CN';
-        const [thue, thuTuc] = await Promise.all([
+        // Chuỗi tự kèm sau khi có mã: thuế + thủ tục (gói 2), chú giải + tiền lệ (gói 5) — đều tra cứu miễn phí;
+        // nhãn hiệu (gói 6) TÍNH ĐIỂM nên chỉ chạy khi khách nêu thương hiệu và mã đã chốt (không chạy trên mã tạm).
+        const [thue, thuTuc, chuGiai, tienLe] = await Promise.all([
           has(ctx, 'tra_thue') ? ctx.mcp.callTool('tra_thue', { maHs, xuatXu: xx }).catch(() => null) : null,
           has(ctx, 'tra_thu_tuc_nhap_khau') ? ctx.mcp.callTool('tra_thu_tuc_nhap_khau', { maHs }).catch(() => null) : null,
+          has(ctx, 'tra_chu_giai') ? ctx.mcp.callTool('tra_chu_giai', { maHs: maHs.slice(0, 4) }).catch(() => null) : null,
+          has(ctx, 'tra_tien_le') ? ctx.mcp.callTool('tra_tien_le', { maHs }).catch(() => null) : null,
         ]);
         if (thue) out += `\n\n${renderResult(thue, { title: `💰 Thuế — ${fmtHs(maHs)} (xuất xứ ${xx})`, renderer: 'tax' })}`;
         if (thuTuc) out += `\n\n${renderResult(thuTuc, { title: '📋 Thủ tục / chính sách quản lý' })}`;
+        if (chuGiai) out += `\n\n${renderResult(chuGiai, { title: `📖 Chú giải — chương ${maHs.slice(0, 4)}` })}`;
+        if (tienLe) out += `\n\n${renderResult(tienLe, { title: `🗂️ Tiền lệ phân loại — ${fmtHs(maHs)}` })}`;
+        if (thuongHieu && st !== 'CAN_DU_KIEN' && has(ctx, 'kiem_tra_shtt')) {
+          const shtt = await ctx.mcp.callTool('kiem_tra_shtt', { tenNhan: thuongHieu, maHs, xuatXu: xx }).catch(() => null);
+          if (shtt) out += `\n\n${renderResult(shtt, { title: `®️ Rủi ro nhãn hiệu "${thuongHieu}" — ${fmtHs(maHs)}` })}`;
+        }
         out += `\n\n{b}👉 Tiếp theo:{/b} gõ "3" để viết mô tả khai báo · xuất xứ khác: gõ "2" kèm mã HS và nước.`;
       }
       out += '\n{orange}ℹ️ Mã HS là GỢI Ý tham khảo, không thay thế ý kiến phân loại của Hải quan.{/orange}';
