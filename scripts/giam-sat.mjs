@@ -6,6 +6,7 @@ import { existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { DatabaseSync } from 'node:sqlite';
 import { tinhHieu } from '../lib/giam-sat/tinh-hieu.js';
+import { guiTelegram, dungBanTin } from '../lib/giam-sat/telegram.js';
 import { openStore } from '../core/store.js';
 import { xuLyIssue } from '../lib/giam-sat/issue.js';
 import { redact } from '../core/redact.js';
@@ -71,15 +72,15 @@ for (const c of ketQua.comment) console.log(`  ↗ CŨ: ${c.repo}#${c.issue} —
 for (const b of ketQua.boViGioiHan) console.log(`  ⊘ BỎ: ${b.repo} — ${b.ma} (${b.lyDo})`);
 
 // ═══ 5. Bản tin ngày (cho Telegram / lưu file) ═══
-const banTin = [
-  `📊 Giám sát ${ngay}`,
-  `Phát hiện: ${phatHien.length}`,
-  ...phatHien.map(p => `• ${p.ma}: ${p.soDo} → ${p.repo}`),
-  ketQua.boViGioiHan.length > 0 ? `(Bỏ ${ketQua.boViGioiHan.length} vì giới hạn)` : '',
-].filter(Boolean).join('\n');
+const banTin = dungBanTin({ ngay, phatHien, ketQua });
 
+// Lưu file
 const banTinPath = join(DATA_DIR, `giam-sat-${ngay}.md`);
 if (!dryRun) {
-  writeFileSync(banTinPath, banTin);
+  writeFileSync(banTinPath, banTin.replace(/<[^>]+>/g, '')); // bỏ HTML tag cho file
   console.log(`[giám sát] Bản tin lưu: ${banTinPath}`);
 }
+
+// Gửi Telegram cho CEO (im lặng nếu chưa cấu hình)
+const sent = await guiTelegram(banTin, { dryRun });
+console.log(`[giám sát] Telegram: ${sent ? '✓ đã gửi' : '(chưa cấu hình TELEGRAM_BOT_TOKEN/CHAT_ID)'}`);
