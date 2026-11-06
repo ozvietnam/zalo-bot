@@ -24,6 +24,10 @@ if (!existsSync(DB_PATH)) {
 console.log(`[giám sát] Ngày ${ngay} · dryRun=${dryRun}`);
 
 // ═══ 1. Đọc dữ liệu từ SQLite ═══
+import { Store } from '../core/store.js';
+// Khởi tạo schema nếu chưa có (bot.db tạo khi bot nhận tin đầu tiên)
+const store = new Store(DB_PATH);
+store.close();
 const db = new DatabaseSync(DB_PATH, { readOnly: true });
 const dauNgay = `${ngay}T00:00:00Z`;
 const cuoiNgay = `${ngay}T23:59:59Z`;
