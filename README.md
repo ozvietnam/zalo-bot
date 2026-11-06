@@ -29,7 +29,6 @@ Cuối mỗi tin trả lời luôn có dòng menu gói; gõ số để chuyển 
 - Thêm gói mới: thêm một mục vào `PACKAGES` trong `lib/packages.js`. Công cụ mới chưa có mẫu hiển thị riêng vẫn hiện
   được nhờ bộ dựng chung trong `lib/render.js`.
 
-<<<<<<< HEAD
 ## Não hiểu câu hỏi (AI)
 
 Ở chế độ **Tự động**, câu tự do của khách được Gemini (AI Studio, function calling) hiểu trước khi tra:
@@ -58,7 +57,6 @@ không phải text thuần.
 - Thẻ lạ / thẻ không khớp / dữ liệu MCP chứa `{` `}` → **giữ nguyên chữ**, không mất dữ liệu.
 - Tin >2000 ký tự được chia đoạn, mỗi đoạn giữ đúng định dạng; thẻ bị cắt dở được cân bằng trước khi gửi.
 - Thêm màu mới: mở `CODES` trong `lib/style.js` (mã màu Zalo: `c_db342e` đỏ, `c_f27806` cam, `c_f7b503` vàng, `c_15a85f` xanh).
->>>>>>> origin/001-nen-tang-chung
 
 ## 1. Tạo bot Zalo
 
