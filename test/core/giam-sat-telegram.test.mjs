@@ -18,7 +18,7 @@ test('dungBanTin: 2 phát hiện → có mã + số đo + repo', () => {
     ],
     ketQua: { moi: [{ repo: 'ozplugin/ozplugin' }], comment: [], boViGioiHan: [] },
   });
-  assert.ok(t.includes('TOOL-ERR/tra_thue'));
+  assert.ok(t.includes('<code>TOOL-ERR</code>/tra_thue'));
   assert.ok(t.includes('KHACH-BUC'));
   assert.ok(t.includes('ozplugin'));
   assert.ok(t.includes('Issue mới: 1'));
