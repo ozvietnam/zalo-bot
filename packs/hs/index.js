@@ -1,8 +1,8 @@
 // packs/hs/index.js — gói "Tra cứu hải quan" (7 gói con) theo specs/001-nen-tang-chung/contracts/pack.md.
 // Cùng hành vi với lib/bot.js cũ, trừ ba thứ của lõi: chống trùng/giới hạn/ALLOW_USERS, bỏ "@Tên bot", thêm "@tên" trong nhóm.
-// Không gửi tin, không chờ việc nền: gặp DANG_XU_LY thì trả jobs + câu "⏳", lõi hỏi kết quả rồi gọi onJobResult.
+// Không gửi tin, không chờ việc nền: gặp DANG_XU_LY thì chỉ trả jobs (không câu chờ), lõi hỏi kết quả rồi gọi onJobResult.
 import { routeThongMinh } from './brain.js';
-import { PACKAGES, availablePackages, menuText, toJob, notice, hetHan } from './packages.js';
+import { PACKAGES, availablePackages, menuText, toJob, hetHan } from './packages.js';
 import { renderResult, clipReply } from './render.js';
 import { norm } from './input.js';
 import { photoFlow } from './flow-photo.js';
@@ -24,7 +24,8 @@ async function runPkg(st, pkg, text, { head = '', nguonThongSo } = {}) {
   const t = toJob(b.r, b.resultTool, pctx);
   if (!t.job) return reply(await pkg.xong(t.result, b.context, pctx), b.context);
   const job = { ...t.job, context: { goi: pkg.so, head, ...b.context } };
-  return result(st, [notice(b.label)], { jobs: [job], known: b.context });
+  // Không gửi câu chờ "⏳ Đang …" (chủ repo bỏ 06/11): lõi chỉ gửi kết quả khi việc nền xong.
+  return result(st, [], { jobs: [job], known: b.context });
 }
 
 async function textFlow(turn, ctx, st) {

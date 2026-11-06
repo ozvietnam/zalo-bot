@@ -152,12 +152,79 @@ export function renderTax(d, origin = 'CN') {
     else l.push(`• ACFTA xuất xứ ${fo.origin || origin}: nhiều mức, cần tra dòng chi tiết`);
   }
   if (x.taxVat) l.push(`• VAT: ${pct(x.taxVat)}${x.vatReduction?.noteVi ? ` (${clip(x.vatReduction.noteVi, 160)})` : ''}`);
-  const w = x.warnings;
+  // Tóm tắt chính sách do AI của Cổng tổng hợp, chưa kiểm (nhanAi AI_CHUA_KIEM) không được dùng làm căn cứ → không hiện;
+  // chính sách có căn cứ nằm ở mục "📋 Chính sách nhập khẩu" (renderPolicy).
+  const w = x.warnings?.nhanAi === 'AI_CHUA_KIEM' ? null : x.warnings;
   const dkW = dieuKienOf(w) ?? dieuKienOf(x);
   const dkTextW = dkW != null && dkW !== '' ? ` — điều kiện: ${clip(typeof dkW === 'object' ? JSON.stringify(dkW) : dkW, 300)}` : '';
   if (w?.summary) l.push(`${w.severity === 'HIGH' ? '{red}🔴{/red}' : '{orange}🟡{/orange}'} Chính sách: ${clip(w.summary, 300)}${dkTextW}`);
   else if (x.policyByHs) l.push(`{orange}🟡 Chính sách: ${clip(x.policyByHs, 300)}{/orange}`);
   else if (x.hasPolicyWarning === false) l.push('Chính sách: chưa có dữ liệu cảnh báo (không có nghĩa là không cần thủ tục).');
+  return l.join('\n');
+}
+
+// Số hiệu văn bản: "36/2026/TT-BKHCN", "29/2025/TT-BKHCN-PL2", "37/2026/NĐ-CP".
+const SO_HIEU = /\d{1,4}\/\d{4}\/[A-ZĐa-zđ0-9]+(?:-[A-ZĐa-zđ0-9]+)*/;
+/** Văn bản gốc của một số hiệu (bỏ đuôi phụ lục "-PL2"). */
+const goc = (s) => String(s || '').replace(/-PL\d+$/i, '');
+const ngayVN = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? `${m[3]}/${m[2]}/${m[1]}` : null; };
+
+/**
+ * Thủ tục nhập khẩu (tra_thu_tuc_nhap_khau) → bản gọn tiếng Việt cho khách: hàng CÓ dính chính sách quản lý không,
+ * là những gì, và văn bản nào dẫn tới. Chỉ dùng trường Cổng trả; bỏ phần AI tổng hợp chưa kiểm (warnings) và dữ liệu kỹ thuật.
+ * Không có dữ liệu ≠ không cần thủ tục (luật Cổng OZ mục 3).
+ */
+export function renderPolicy(d) {
+  if (!d || typeof d !== 'object') return null;
+  // Không đúng khuôn kết quả thủ tục → null (bộ dựng chung lo), tránh kết luận "chưa ghi nhận" trên dữ liệu lạ.
+  if (!['kiemTraChuyenNganh', 'giayPhep', 'vanBanQuanLy', 'chinhSach'].some((k) => k in d)) return null;
+  const vbList = Array.isArray(d.vanBanQuanLy) ? d.vanBanQuanLy : [];
+  // Gộp theo văn bản gốc; giữ bản có thông tin hiệu lực.
+  const vb = new Map();
+  for (const v of vbList) {
+    const so = goc(v?.hieuLuc?.soHieu || v?.soHieu);
+    if (!so) continue;
+    if (!vb.has(so) || (!vb.get(so).hieuLuc && v.hieuLuc)) vb.set(so, { so, hieuLuc: v.hieuLuc || null });
+  }
+  const hetHieuLuc = (so) => vb.get(goc(so))?.hieuLuc?.tinhTrang === 'HET_HIEU_LUC';
+
+  const muc = [];
+  for (const p of d.chinhSach?.policyLines || []) {
+    const raw = String(p?.text || '').trim();
+    if (!raw) continue;
+    const so = p.soHieu || (raw.match(SO_HIEU) || [])[0];
+    let t = raw.replace(new RegExp(`\\s*[—–-]\\s*${SO_HIEU.source}\\s*$`), '').replace(new RegExp(`\\s*\\(${SO_HIEU.source}\\)\\s*$`), '').trim();
+    if (so && hetHieuLuc(so)) t += ' (căn cứ đã hết hiệu lực)';
+    muc.push(clip(t, 200));
+  }
+  if (!muc.length) for (const k of d.kiemTraChuyenNganh || []) if (k?.label) muc.push(clip(k.label, 200));
+  for (const g of d.giayPhep || []) {
+    const ten = typeof g === 'string' ? g : g?.ten || g?.label || g?.tenVi || g?.name;
+    if (ten) muc.push(`Giấy phép: ${clip(ten, 200)}`);
+  }
+
+  const l = [`{b}📋 Chính sách nhập khẩu${d.maHs ? ` — ${fmtHs(d.maHs)}` : ''}{/b}`];
+  if (!muc.length) {
+    l.push('✅ Cổng OZ chưa ghi nhận chính sách quản lý chuyên ngành cho mã này (không có nghĩa là chắc chắn miễn thủ tục).');
+    return l.join('\n');
+  }
+  l.push('{red}⚠️ CÓ chính sách quản lý chuyên ngành:{/red}');
+  for (const m of [...new Set(muc)]) l.push(`• ${m}`);
+  if (vb.size) {
+    l.push('{b}Văn bản dẫn tới chính sách:{/b}');
+    for (const { so, hieuLuc: h } of vb.values()) {
+      let tt = '';
+      if (h?.tinhTrang === 'CON_HIEU_LUC') tt = ' (còn hiệu lực)';
+      else if (h?.tinhTrang === 'HET_HIEU_LUC') {
+        const thay = (h.biThayTheBoi || []).filter(Boolean);
+        tt = ` (hết hiệu lực${ngayVN(h.hetHieuLucTu) ? ` từ ${ngayVN(h.hetHieuLucTu)}` : ''}${thay.length ? `, thay bởi ${thay.join(', ')}` : ''})`;
+      }
+      l.push(`• ${b(so)}${h?.ten ? ` — ${clip(h.ten, 160)}` : ''}${tt}`);
+    }
+  }
+  if (d.chinhSach?.policyBasisReview?.status === 'OUTDATED_BASIS') {
+    l.push('{orange}⚠️ Dữ liệu chính sách của mã này còn dẫn văn bản cũ — đối chiếu văn bản mới trước khi khai/đặt hàng.{/orange}');
+  }
   return l.join('\n');
 }
 
@@ -187,9 +254,11 @@ export function renderResult(r, { title, renderer } = {}) {
   let body = null;
   if (renderer === 'tax') body = renderTax(data);
   if (renderer === 'search') body = renderSearch(data);
+  if (renderer === 'policy') body = renderPolicy(data);   // tự có tiêu đề kèm mã HS
+  const ownTitle = renderer === 'policy' && body;
   if (!body) body = typeof data === 'string' ? clip(data, MAX_REPLY) : renderGeneric(data).join('\n');
   const warn = (r.canhBao || []).map((c) => (typeof c === 'string' ? c : c?.thongBao || c?.noteVi || c?.message)).filter(Boolean);
-  const parts = [title ? `{b}${title}{/b}` : null, body || '(không có dữ liệu)'];
+  const parts = [title && !ownTitle ? `{b}${title}{/b}` : null, body || '(không có dữ liệu)'];
   if (warn.length) parts.push(`{orange}⚠️ ${clip(warn.join('; '), 400)}{/orange}`);
   const diem = r.chiPhi?.diem;
   if (diem) parts.push(`({yellow}Trừ ${diem} điểm tài khoản OZ{/yellow})`);

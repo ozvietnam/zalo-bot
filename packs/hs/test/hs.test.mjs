@@ -62,11 +62,11 @@ test('menu: đúng chữ menu cũ, không gắn nhãn; footer = menuText(availab
   assert.ok(plain(c.replies[0].text).endsWith(FOOTER)); assert.deepEqual(c.labels, []);
 });
 
-test('phan_loai_hs trả DANG_XU_LY → handle trả jobs [{maLuot, resultTool:"ket_qua_phan_loai"}] và 1 câu "⏳"', async () => {
+test('phan_loai_hs trả DANG_XU_LY → handle trả jobs [{maLuot, resultTool:"ket_qua_phan_loai"}] và KHÔNG câu chờ', async () => {
   const { ctx, calls } = fakeCtx({ phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' } });
   const r = await hs.handle(turn('Tên hàng: máy bơm nước ly tâm\nChất liệu: gang\nThông số: công suất 1.5HP, điện áp 220V'), ctx);
   assert.deepEqual(calls, [{ name: 'phan_loai_hs', args: { tenHang: 'máy bơm nước ly tâm', chatLieu: 'gang', thongSo: { 'công suất': '1.5HP', 'điện áp': '220V' }, nguonThongSo: 'CHU' } }]);
-  assert.deepEqual(r.replies, [{ text: '⏳ Đang phân loại mã HS… thường mất 1–3 phút, bot sẽ gửi kết quả ngay khi xong.' }]);
+  assert.deepEqual(r.replies, []);   // không gửi câu chờ "⏳ Đang phân loại…" (chủ repo bỏ 06/11): chỉ gửi kết quả
   assert.equal(r.jobs.length, 1);
   assert.equal(r.jobs[0].maLuot, ML); assert.equal(r.jobs[0].resultTool, 'ket_qua_phan_loai');
   assert.deepEqual(r.labels, ['tra-cuu-hs']);
@@ -84,7 +84,7 @@ test('onJobResult(job, {trangThai:"XONG", ...}) → reply có mã HS gợi ý (d
   assert.match(s, /^🔎 Phân loại: "máy bơm nước ly tâm"/);                 // đã chọn gói 1 → không có dòng "Tự động chọn gói"
   assert.match(s, /Mã đề xuất: 8413\.70\.90/);
   // Tự chạy tiếp thuế + thủ tục (miễn phí) ngay trong tin kết quả — khách không phải gõ "2"
-  assert.match(s, /💰 Thuế — 8413\.70\.90 \(xuất xứ CN\)/); assert.match(s, /📋 Thủ tục \/ chính sách quản lý/);
+  assert.match(s, /💰 Thuế — 8413\.70\.90 \(xuất xứ CN\)/); assert.match(s, /📋 Chính sách nhập khẩu/);
   assert.match(s, /gõ "3" để viết mô tả khai báo/); assert.doesNotMatch(s, /gõ "2" để xem thuế/);
   assert.ok(s.endsWith(FOOTER));
   assert.deepEqual(calls.filter((c) => ['tra_thue', 'tra_thu_tuc_nhap_khau'].includes(c.name)).map((c) => c.name).sort(), ['tra_thu_tuc_nhap_khau', 'tra_thue']);
@@ -112,7 +112,7 @@ test('mã 8 số → gói 2, kết quả có thuế suất từ Cổng (giữ ng
   assert.deepEqual(calls.find((c) => c.name === 'tra_thue').args, { maHs: '84137090', xuatXu: 'CN' });
   assert.match(s, /Tự động chọn gói 2/);
   assert.match(s, /KHÔNG được hưởng → áp MFN/);
-  assert.match(s, /Thủ tục[\s\S]*gặp lỗi/);
+  assert.match(s, /Chính sách nhập khẩu[\s\S]*gặp lỗi/);
   assert.match(s, /Gõ "menu" để xem các gói/);
   assert.deepEqual(r.jobs, []); assert.deepEqual(r.labels, ['tra-cuu-hs']); assert.deepEqual(r.interests, [{ hs: '84137090' }]);
   assert.equal(r.evidence.length, 2);
@@ -156,7 +156,7 @@ test('CAN_DU_KIEN → người dùng trả lời → bo_sung_du_kien đúng mã 
   const b = await hs.handle(turn('bơm ly tâm, cánh gang'), ctx);
   assert.equal(calls.filter((c) => c.name === 'phan_loai_hs').length, 1);
   assert.deepEqual(calls.at(-1), { name: 'bo_sung_du_kien', args: { maLuot: MB, boSung: 'bơm ly tâm, cánh gang' } });
-  assert.deepEqual(b.replies, [{ text: '⏳ Đã nhận dữ kiện bổ sung, đang phân loại lại… thường mất 1–3 phút, bot sẽ gửi kết quả ngay khi xong.' }]);
+  assert.deepEqual(b.replies, []);   // không gửi câu chờ, chỉ gửi kết quả phân loại lại
   assert.equal(b.jobs[0].maLuot, MB); assert.equal(b.jobs[0].resultTool, 'ket_qua_phan_loai');
   assert.equal(store.choBoSung, null);
   const c = await hs.onJobResult(b.jobs[0], { ok: true, trangThai: 'XONG', data: { maDeXuat: '84137090' } }, ctx);
@@ -167,7 +167,7 @@ test('CAN_DU_KIEN → người dùng trả lời → bo_sung_du_kien đúng mã 
 test('kiểm sâu gói 4 → job ket_qua_soat; "kết quả <mã lượt>" hỏi thẳng Cổng', async () => {
   const { ctx, calls } = fakeCtx({ kiem_ma_to_khai: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' }, ket_qua_phan_loai: { ok: true, data: { maDeXuat: '84137090' } } });
   const r = await hs.handle(turn('gói 4 Mã HS: 84137090\nMô tả: Máy bơm\nKiểm sâu: có'), ctx);
-  assert.equal(r.jobs[0].resultTool, 'ket_qua_soat'); assert.match(r.replies[0].text, /^⏳ Đang kiểm mô tả với mã HS…/);
+  assert.equal(r.jobs[0].resultTool, 'ket_qua_soat'); assert.deepEqual(r.replies, []);   // không câu chờ
   const d = await hs.onJobResult(r.jobs[0], { ok: true, data: { k2: 'khớp' } }, ctx);
   assert.match(plain(d.replies[0].text), /^✅ Kiểm sâu — 8413\.70\.90/); assert.ok(plain(d.replies[0].text).endsWith(FOOTER));
   const k = await hs.handle(turn(`kết quả ${ML}`), ctx);
@@ -195,7 +195,7 @@ test('lỗi gốc không lọt ra khách: ảnh lỗi, thủ tục lỗi (gói 2
   const c = await hs.handle(turn('gói 5 8413'), fakeCtx({ tra_chu_giai: () => { throw new Error(RAW); } }).ctx);
   const d = await hs.handle(turn('84137090'), fakeCtx({ tra_thue: TAX, tra_thu_tuc_nhap_khau: ERR }).ctx);
   for (const r of [a, b, c, d]) assert.doesNotMatch(r.replies[0].text, /ECONNREFUSED|10\.0\.0\.7|fetch failed|HTTP 404/, r.replies[0].text);
-  assert.match(b.replies[0].text, /Thủ tục[\s\S]*gặp lỗi/);
+  assert.match(b.replies[0].text, /Chính sách nhập khẩu[\s\S]*gặp lỗi/);
   assert.match(d.replies[0].text, /Điểm đã được hoàn/);
 });
 
@@ -318,4 +318,15 @@ test('lỗi nghiệp vụ của Cổng (gọi thành công, ok:false) vẫn hi�
   assert.doesNotMatch(e.replies[0].text, /HTTP 500|x\.js/);
   const f = await hs.handle(turn('gói 1 Tên hàng: bơm'), fakeCtx({ phan_loai_hs: { ok: true, data: { trangThai: 'XONG', thongBao: 'fetch failed ECONNREFUSED 10.0.0.7:3000' } } }).ctx);
   assert.doesNotMatch(f.replies[0].text, /ECONNREFUSED|10\.0\.0\.7/);
+});
+
+test('gói 1 xong có mã: KHÔNG tự kèm chú giải + tiền lệ (chủ repo bỏ 06/11); vẫn kèm thuế + chính sách', async () => {
+  const { ctx, calls } = fakeCtx({ phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' }, tra_thue: TAX,
+    tra_thu_tuc_nhap_khau: { ok: true, data: { maHs: '84137090', kiemTraChuyenNganh: [], giayPhep: [], vanBanQuanLy: [] } } });
+  const { jobs: [job] } = await hs.handle(turn('máy bơm nước ly tâm 1.5HP'), ctx);
+  const r = await hs.onJobResult(job, { ok: true, trangThai: 'XONG', data: { maDeXuat: '84137090' } }, ctx);
+  const s = plain(r.replies[0].text);
+  assert.ok(!calls.some((c) => ['tra_chu_giai', 'tra_tien_le'].includes(c.name)), 'không gọi chú giải/tiền lệ');
+  assert.doesNotMatch(s, /Chú giải|Tiền lệ phân loại/);
+  assert.match(s, /💰 Thuế/); assert.match(s, /📋 Chính sách nhập khẩu — 8413\.70\.90/);
 });
