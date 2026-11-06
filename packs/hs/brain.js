@@ -73,9 +73,35 @@ function declarations(pkgs) {
   return ds;
 }
 
-/** Kết quả function call → dạng router dùng được; sai khuôn/không chắc → null (rơi về regex). */
-function chuanHoa(name, a, pkgs, doChacToiThieu) {
-  a = (a && typeof a === 'object') ? a : {};
+/**
+ * Các mã HS khách (hoặc Ngữ cảnh) THỰC SỰ đã nêu: dãy 4–8 số, cho phép dấu chấm/cách giữa nhóm
+ * ("8413.70.90", "8413 70 90"); bỏ số dính dấu "/" của số hiệu văn bản ("57/2022/NĐ-CP").
+ */
+export function maDaNeu(text, last = null) {
+  const ds = [];
+  for (const m of String(text ?? '').matchAll(/(?<![\d/])\d{4}(?:[.\s]?\d{2}){0,2}(?![\d/])/g)) ds.push(digits(m[0]));
+  const l = digits(last?.maHs);
+  if (l.length >= 4 && l.length <= 8) ds.push(l);
+  return ds;
+}
+
+const TRUONG_MA = ['maHs', 'maKhai', 'maHaiQuan'];
+
+/**
+ * Kết quả function call → dạng router dùng được; sai khuôn/không chắc → null (rơi về regex).
+ * Mã HS não điền chỉ được giữ khi là (tiền tố của) mã khách đã nêu — não tự đoán mã (vd "mỹ phẩm" → 33049930,
+ * "8413" → 84137090) thì bỏ trường đó; gói cần mã mà mất mã → null → regex lo (gói 2 tự tìm mã từ chữ của khách).
+ */
+function chuanHoa(name, a, pkgs, doChacToiThieu, { cau = '', last = null, log = null } = {}) {
+  a = (a && typeof a === 'object') ? { ...a } : {};
+  const daNeu = maDaNeu(cau, last);
+  for (const k of TRUONG_MA) {
+    const ma = maHsOk(a[k]);
+    if (ma && !daNeu.some((d) => d.startsWith(ma))) {
+      log?.info?.(`[nao] bỏ ${k}=${ma}: khách chưa nêu mã này`);
+      a[k] = null;
+    }
+  }
   if (name === 'hoi_lai') return str(a.cauHoi, 2) ? { kind: 'hoi-lai', cauHoi: a.cauHoi.trim().slice(0, 300) } : null;
   if (name === 'khac') return str(a.cauDan, 2) ? { kind: 'khac', cauDan: a.cauDan.trim().slice(0, 500) } : null;
   const g = GOI.find((x) => x.ham === name);
@@ -124,7 +150,7 @@ export function createBrain({ apiKey, model = 'gemini-flash-lite-latest', models
         }
         const call = (j?.candidates?.[0]?.content?.parts || []).map((p) => p.functionCall).find(Boolean);
         if (!call?.name) return null;
-        const kq = chuanHoa(call.name, call.args, pkgs, doChacToiThieu);
+        const kq = chuanHoa(call.name, call.args, pkgs, doChacToiThieu, { cau, last, log });
         log.info?.(`[nao] ${kq ? (kq.kind === 'chay' ? `gói ${kq.goi}` : kq.kind) : `bỏ ${call.name} (sai khuôn hoặc không chắc)`}`);
         return kq;
       } catch (e) {

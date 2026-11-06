@@ -107,6 +107,52 @@ test('routeThongMinh: não hỏi lại / chọn gói khác regex / gói lạ →
   assert.equal(r2.tuDong, true); assert.equal(r2.pkg.so, 1);
 });
 
+test('hieu: mã HS khách KHÔNG nêu (não tự đoán) bị bỏ — "thủ tục nhập khẩu mỹ phẩm" không thành 33049930', async () => {
+  const mk = (args) => createBrain({ apiKey: 'k', fetchImpl: fakeGemini(() => goi(...args)).fetchImpl, log: {} });
+  // Gói 2 cần mã: mã bịa → null → nơi gọi rơi về regex (gói 2 tự tìm mã bằng tim_ma_hs từ chữ của khách)
+  assert.equal(await mk(['thue_thu_tuc', { maHs: '33049930', doChac: 0.9 }]).hieu({ text: 'thủ tục nhập khẩu mỹ phẩm', last: null, pkgs: PACKAGES }), null);
+  assert.equal(await mk(['thue_thu_tuc', { maHs: '9503', doChac: 0.9 }]).hieu({ text: 'đồ chơi trẻ em có phải kiểm tra chất lượng không', last: null, pkgs: PACKAGES }), null);
+  // Khách gõ 4 số, não "nở" thành 8 số → cũng là bịa
+  assert.equal(await mk(['thue_thu_tuc', { maHs: '84137090', doChac: 0.9 }]).hieu({ text: 'thuế nhóm 8413', last: null, pkgs: PACKAGES }), null);
+  // Gói 5 có mô tả: bỏ mã bịa, vẫn tìm tiền lệ theo mô tả
+  assert.deepEqual(await mk(['phap_luat', { maHs: '85261010', moTa: 'máy ra đa xuyên đất', doChac: 0.9 }]).hieu({ text: 'tiền lệ máy ra đa xuyên đất', last: null, pkgs: PACKAGES }),
+    { kind: 'chay', goi: 5, text: 'máy ra đa xuyên đất' });
+  // Gói 7: mã Hải quan áp bịa → bỏ trường đó, giữ mã khai khách đã nêu
+  assert.deepEqual(await mk(['giai_trinh', { maKhai: '84137090', maHaiQuan: '84138190', moTaHang: 'máy bơm ly tâm', doChac: 0.9 }])
+    .hieu({ text: 'khai 84137090 máy bơm ly tâm bị hải quan áp mã khác', last: null, pkgs: PACKAGES }),
+  { kind: 'chay', goi: 7, text: 'Mã khai: 84137090\nMô tả hàng: máy bơm ly tâm' });
+});
+
+test('hieu: mã HS khách đã nêu (có dấu chấm/cách) hoặc có trong ngữ cảnh thì giữ; mã ngắn hơn mã khách gõ cũng được', async () => {
+  const mk = (args) => createBrain({ apiKey: 'k', fetchImpl: fakeGemini(() => goi(...args)).fetchImpl, log: {} });
+  assert.deepEqual(await mk(['thue_thu_tuc', { maHs: '84137090', doChac: 0.9 }]).hieu({ text: 'thuế mã 8413.70.90 bao nhiêu', last: null, pkgs: PACKAGES }),
+    { kind: 'chay', goi: 2, text: '84137090' });
+  assert.deepEqual(await mk(['thue_thu_tuc', { maHs: '84137090', doChac: 0.9 }]).hieu({ text: 'thuế 8413 70 90', last: null, pkgs: PACKAGES }),
+    { kind: 'chay', goi: 2, text: '84137090' });
+  assert.deepEqual(await mk(['thue_thu_tuc', { maHs: '84137090', xuatXu: 'JP', doChac: 0.9 }]).hieu({ text: 'thế còn nhập từ Nhật thì sao', last: { tenHang: 'máy bơm', maHs: '84137090' }, pkgs: PACKAGES }),
+    { kind: 'chay', goi: 2, text: '84137090 JP' });
+  assert.deepEqual(await mk(['phap_luat', { maHs: '8413', doChac: 0.9 }]).hieu({ text: 'chú giải của 84137090', last: null, pkgs: PACKAGES }),
+    { kind: 'chay', goi: 5, text: '8413' });
+});
+
+test('autoPick (dự phòng khi Gemini lỗi): từ khoá phải đứng thành từ — "nhập máy" không phải "áp mã"', async () => {
+  const { autoPick } = await import('../router.js');
+  const so = (q) => autoPick(q, PACKAGES).so;
+  assert.equal(so('nhập máy bơm nước từ TQ về thì thuế bao nhiêu'), 1);
+  assert.equal(so('nhập máy in về cần giấy phép không'), 1);
+  assert.equal(so('hàng nhập máy nén khí'), 1);
+  // Vẫn bắt đúng khi thật sự nói tới áp mã / giải trình / tham vấn
+  assert.equal(so('hàng bị hải quan áp mã khác'), 7);
+  assert.equal(so('soạn giải trình mã HS'), 7);
+  assert.equal(so('áp mã sai thì sao'), 7);
+  // Các nhánh khác không đổi
+  assert.equal(so('kiểm tra nhãn hiệu nike'), 6);
+  assert.equal(so('tiền lệ máy bơm'), 5);
+  assert.equal(so('thuế máy bơm'), 2);
+  // "brand" chỉ khi là từ riêng; "soat" không ăn vào "kiểm soát"? vẫn cần mã 8 số nên an toàn
+  assert.equal(so('brandy rượu mạnh mã gì'), 1);
+});
+
 // Chỉ khai báo để npm test bắt được nếu ai xoá nhầm availablePackages khỏi Export — bộ não dùng nó lọc gói.
 test('bối cảnh: PACKAGES đầy 7 gói, lọc theo công cụ vẫn chạy', () => {
   assert.equal(PACKAGES.length, 7);
