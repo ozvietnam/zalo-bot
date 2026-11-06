@@ -3,8 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Bot Zalo tra cứu hải quan — nguồn hs-code-api (OZ Việt Nam)",
-  "engines": { "node": ">=22.13" },
+  "description": "Bot Zalo tra c\u1ee9u h\u1ea3i quan \u2014 ngu\u1ed3n hs-code-api (OZ Vi\u1ec7t Nam)",
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "dev": "node --env-file=.env --disable-warning=ExperimentalWarning server.js",
     "start": "node --disable-warning=ExperimentalWarning server.js",
@@ -12,6 +14,8 @@
     "eval": "node --disable-warning=ExperimentalWarning eval/run.mjs",
     "audit": "node scripts/audit.mjs",
     "webhook:set": "node scripts/set-webhook.mjs set",
-    "webhook:info": "node scripts/set-webhook.mjs info"
+    "webhook:info": "node scripts/set-webhook.mjs info",
+    "giam-sat": "node scripts/giam-sat.mjs",
+    "giam-sat:dry": "node scripts/giam-sat.mjs --dry-run"
   }
 }
