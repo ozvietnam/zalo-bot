@@ -33,7 +33,8 @@ export async function waitJob(ctx, r, resultTool, { everyMs = 6000, maxMs = WAIT
   const { job } = toJob(r, resultTool, ctx);
   if (!job) return r;
   const { maLuot } = job;
-  await ctx.notify?.(notice(label));
+  // Không gửi câu chờ "⏳ Đang …" (chủ repo bỏ 06/11): khách chỉ nhận kết quả. `label` giữ cho tương thích chữ ký.
+  void label;
   const until = Date.now() + maxMs;
   let loiLanCuoi = null;
   while (Date.now() < until) {

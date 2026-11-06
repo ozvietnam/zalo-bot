@@ -204,18 +204,15 @@ export const PACKAGES = [
       }
       if (maHs) {
         const xx = findCountryInText(String(tenHang || '')) || 'CN';
-        // Chuỗi tự kèm sau khi có mã: thuế + thủ tục (gói 2), chú giải + tiền lệ (gói 5) — đều tra cứu miễn phí;
-        // nhãn hiệu (gói 6) TÍNH ĐIỂM nên chỉ chạy khi khách nêu thương hiệu và mã đã chốt (không chạy trên mã tạm).
-        const [thue, thuTuc, chuGiai, tienLe] = await Promise.all([
+        // Chuỗi tự kèm sau khi có mã: thuế + chính sách (gói 2), tra cứu miễn phí. Chú giải + tiền lệ (gói 5) KHÔNG tự kèm
+        // (chủ repo bỏ 06/11: dài, khách chưa cần) — khách gõ "5" khi cần. Nhãn hiệu (gói 6) TÍNH ĐIỂM nên chỉ chạy khi
+        // khách nêu thương hiệu và mã đã chốt (không chạy trên mã tạm).
+        const [thue, thuTuc] = await Promise.all([
           has(ctx, 'tra_thue') ? ctx.mcp.callTool('tra_thue', { maHs, xuatXu: xx }).catch(() => null) : null,
           has(ctx, 'tra_thu_tuc_nhap_khau') ? ctx.mcp.callTool('tra_thu_tuc_nhap_khau', { maHs }).catch(() => null) : null,
-          has(ctx, 'tra_chu_giai') ? ctx.mcp.callTool('tra_chu_giai', { maHs: maHs.slice(0, 4) }).catch(() => null) : null,
-          has(ctx, 'tra_tien_le') ? ctx.mcp.callTool('tra_tien_le', { maHs }).catch(() => null) : null,
         ]);
         if (thue) out += `\n\n${renderResult(thue, { title: `💰 Thuế — ${fmtHs(maHs)} (xuất xứ ${xx})`, renderer: 'tax' })}`;
-        if (thuTuc) out += `\n\n${renderResult(thuTuc, { title: '📋 Thủ tục / chính sách quản lý' })}`;
-        if (chuGiai) out += `\n\n${renderResult(chuGiai, { title: `📖 Chú giải — chương ${maHs.slice(0, 4)}` })}`;
-        if (tienLe) out += `\n\n${renderResult(tienLe, { title: `🗂️ Tiền lệ phân loại — ${fmtHs(maHs)}` })}`;
+        if (thuTuc) out += `\n\n${renderResult(thuTuc, { title: '📋 Chính sách nhập khẩu', renderer: 'policy' })}`;
         if (thuongHieu && st !== 'CAN_DU_KIEN' && has(ctx, 'kiem_tra_shtt')) {
           const shtt = await ctx.mcp.callTool('kiem_tra_shtt', { tenNhan: thuongHieu, maHs, xuatXu: xx }).catch(() => null);
           if (shtt) out += `\n\n${renderResult(shtt, { title: `®️ Rủi ro nhãn hiệu "${thuongHieu}" — ${fmtHs(maHs)}` })}`;
@@ -256,7 +253,7 @@ export const PACKAGES = [
         maHs.length === 8 && has(ctx, 'tra_thu_tuc_nhap_khau') ? ctx.mcp.callTool('tra_thu_tuc_nhap_khau', { maHs }).catch(() => ({ ok: false, loi: 'CONG_KHONG_TRA_LOI', transport: true })) : null,
       ]);
       const parts = [renderResult(thue, { title: `💰 Thuế — ${fmtHs(maHs)} (xuất xứ ${xuatXu})`, renderer: 'tax' })];
-      if (thuTuc) parts.push(renderResult(thuTuc, { title: '📋 Thủ tục / chính sách quản lý' }));
+      if (thuTuc) parts.push(renderResult(thuTuc, { title: '📋 Chính sách nhập khẩu', renderer: 'policy' }));
       const pv = nhacPhongVe(thue, thuTuc);
       if (pv) parts.push(pv);
       ctx.session.last = { ...(ctx.session.last || {}), maHs: maHs.length === 8 ? maHs : ctx.session.last?.maHs };
