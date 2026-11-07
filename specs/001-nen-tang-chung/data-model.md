@@ -36,7 +36,7 @@ Ghi `INSERT OR IGNORE`: update trùng khoá thì không vào lần hai. Đây l�
 | `last_inbound_at` | TEXT | |
 | `last_outbound_at` | TEXT | |
 
-Chuyển trạng thái: `bot → human` (khách xin người, `/nhan`, `/tl`, gói yêu cầu); `human → bot` (chỉ `/tra-bot`);
+Chuyển trạng thái: `bot → human` (khách xin người, `/nhan`, `/tl`, gói yêu cầu); `human → bot` (`/tra-bot` hoặc tự về sau khoảng lặng lâu ~2 giờ);
 `* → blocked` (`/chan`); `blocked → bot` (`/tra-bot`). Mỗi lần chuyển ghi một dòng audit `state-change`.
 
 ### `convs`: trạng thái theo người trong nhóm (US8, FR-030)

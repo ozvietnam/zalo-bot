@@ -90,7 +90,7 @@ Bám theo trạng thái code hiện tại:
 5. **T027–T032** — health/metrics, bản tin, `npm run audit`, đủ 9 kịch bản eval, viết lại README.
 
 Sau khi 001 đạt Success Criteria, thứ tự giữa các spec khác là `docs/ROADMAP.md:20`:
-**001 → 007 → 005**, và **008 trước 003**.
+**001 → 007 → 005**, **008 trước 003**, và **003 trước 002**.
 
 ## 5. Mâu thuẫn giữa tài liệu và code
 
@@ -99,47 +99,47 @@ Ghi cả hai phía. Không tự chọn bên nào đúng.
 1. **Danh sách việc gần như chưa tick ô nào, dù code đã xong T001–T015, T037 và T038.**
    - Tài liệu nói: gần như mọi bước trong `specs/001-nen-tang-chung/tasks.md` vẫn là `- [ ]` (chưa đánh dấu).
    - Code thật nói: `docs/sdd/001-ledger.md:10-37` ghi T001–T015 hoàn tất, và `core/` có đủ các tệp tương ứng. Đã tick ô Step 1 cho T037 (`specs/001-nen-tang-chung/tasks.md:293`) sau khi khoá `conv_id` xong, và cho T038 (`specs/001-nen-tang-chung/tasks.md:300`).
-2. **Hiến pháp Điều II chưa phản ánh quyết định ngày 06/11.**
-   - Tài liệu nói: `.specify/memory/constitution.md:17` — phòng "chỉ trở về `bot` khi nhân viên ra lệnh rõ ràng"; `.specify/memory/constitution.md:77` ghi "Last Amended: 2026-11-04".
-   - Nghịch thêm: `specs/001-nen-tang-chung/tasks.md:380` (T022) yêu cầu "không có hàm nào tự đưa `human → bot` theo thời gian" — trái với quyết định mới.
-3. **`docs/ROADMAP.md` chưa phản ánh "spec 003 làm trước 002".**
-   - Tài liệu nói: `docs/ROADMAP.md:22` — "Các spec 002, 003, 004, 006 chưa xếp thứ tự".
-   - Code/tài liệu khác: không tìm thấy chỗ nào trong repo ghi 003 trước 002.
-4. **`npm run audit` trỏ tới tệp không tồn tại.**
+2. **`npm run audit` trỏ tới tệp không tồn tại.**
    - Tài liệu/lệnh nói: `package.json:15` khai `"audit": "node scripts/audit.mjs"`.
    - Code thật nói: không có tệp *scripts/audit.mjs* trong repo → chạy lệnh sẽ lỗi.
-5. **README dạy làm gói theo đường cũ.**
+3. **README dạy làm gói theo đường cũ.**
    - Tài liệu nói: `README.md:33` — "thêm một mục vào `PACKAGES` trong `lib/packages.js`".
    - Code thật nói: `lib/packages.js` chỉ là tệp chuyển tiếp sang `packs/hs/packages.js`; lõi nạp gói theo mẫu thư mục gói, ví dụ `packs/hs/index.js` (`core/registry.js:9`). Mô hình lõi/gói/kênh chưa được mô tả trong README (việc của T032).
-6. **`docs/TIEP-TUC.md` đã cũ ở một chỗ.**
+4. **`docs/TIEP-TUC.md` đã cũ ở một chỗ.**
    - Tài liệu nói: `docs/TIEP-TUC.md:13` — "`npm run eval` vẫn đỏ được chấp nhận tới T030" (hàm ý bộ chạy eval chưa có).
    - Code thật nói: `eval/run.mjs:1` đã có và đã có 7 kịch bản.
-7. **"Đã ship lên production" không đồng nghĩa với lõi `core/`.**
+5. **"Đã ship lên production" không đồng nghĩa với lõi `core/`.**
    - Tài liệu nói: `docs/TIEP-TUC.md:5` ghi các PR não AI và biên tập "đã ship lên production".
    - Code thật nói: production nối `lib/bot.js` tại `server.js:7`; lõi `core/` chưa được nối (T016 chưa làm). Những gì "ship" là đường cũ.
-8. **README và `package.json` lệch về phiên bản Node.**
+6. **README và `package.json` lệch về phiên bản Node.**
    - Tài liệu nói: `README.md:5` — "Node 20+".
    - Code thật nói: `package.json:8` yêu cầu Node từ 22.13.
 
-## 6. Hai quyết định của chủ repo ngày 06/11 (chỉ ghi nhận)
+## 6. Hai quyết định của chủ repo ngày 06/11 (đã phản ánh) và việc còn chờ
 
-Hai quyết định dưới đây được ghi nhận tại đây. Việc này **không** sửa hiến pháp hay lộ trình;
-sửa chính thức phải làm theo `Quản trị` trong `.specify/memory/constitution.md:72-75` (PR riêng).
+Hai quyết định dưới đây đã được sửa theo `Quản trị` (`.specify/memory/constitution.md:73`):
+hiến pháp lên **2.0.0** (`.specify/memory/constitution.md:77`), có mục lịch sử sửa đổi ở
+`.specify/memory/constitution.md:79`. PR sửa hiến pháp **chờ chủ repo duyệt** — hiến pháp quy định
+sửa MAJOR cần anh Thắng duyệt (`.specify/memory/constitution.md:74`).
 
 1. **Hiến pháp Điều II** đổi thành: "nhân viên ra lệnh trả về bot, hoặc tự trả về sau khoảng lặng lâu
    (đề xuất khoảng 2 giờ)".
-   - Hiện trạng repo: **chưa phản ánh**. `.specify/memory/constitution.md:17` vẫn ghi phòng chỉ trở về `bot`
-     khi nhân viên ra lệnh rõ ràng, và `specs/001-nen-tang-chung/tasks.md:380` còn cấm tự hồi theo thời gian.
-   - Cần làm sau: mở PR riêng sửa hiến pháp (tăng phiên bản) và sửa lại yêu cầu của T022 cho khớp.
+   - Đã phản ánh: `.specify/memory/constitution.md:17` (Điều II mới), `.specify/memory/constitution.md:77`
+     (phiên bản 2.0.0), `.specify/memory/constitution.md:79` (mục lịch sử sửa đổi); tài liệu spec khớp theo ở
+     `specs/001-nen-tang-chung/spec.md:26`, `specs/001-nen-tang-chung/spec.md:72`,
+     `specs/001-nen-tang-chung/spec.md:212`, `specs/001-nen-tang-chung/tasks.md:380`,
+     `specs/001-nen-tang-chung/data-model.md:39`, `specs/001-nen-tang-chung/research.md:71`.
+   - Còn chờ: **code tự trở về chưa có** — T022 (`specs/001-nen-tang-chung/tasks.md:380`) chưa làm,
+     và PR sửa hiến pháp còn chờ chủ repo duyệt.
 2. **Spec 003 làm trước 002.**
-   - Hiện trạng repo: **chưa phản ánh**. `docs/ROADMAP.md:22` vẫn ghi 002, 003, 004, 006 "chưa xếp thứ tự";
-     `docs/ROADMAP.md:20` mới chỉ nói "008 trước 003".
-   - Cần làm sau: cập nhật lại thứ tự trong `docs/ROADMAP.md`.
+   - Đã phản ánh: `docs/ROADMAP.md:20` ghi "**003 trước 002** (cập nhật 06/11)"; `docs/ROADMAP.md:9`
+     ghi 002 "làm **sau 003**".
+   - Còn chờ: không có gì về code — đây chỉ là thứ tự spec, không đổi đường đang chạy.
 
 ## 7. Câu hỏi cần người quyết
 
 - Không có vướng về tiền hay pháp lý trong việc ghi wiki này.
-- Việc sửa hiến pháp Điều II và việc đổi thứ tự 003/002 là việc riêng, cần chủ repo duyệt.
+- PR sửa hiến pháp Điều II và đổi thứ tự 003/002 đã soạn xong, chờ chủ repo duyệt.
 - Ngoài hai quyết định trên, `docs/TIEP-TUC.md:59-64` còn liệt kê các việc đang chờ chủ repo chốt:
   số profile Chrome cho spec 008, cách vào máy văn phòng và VPS, danh sách nhóm Zalo nhân viên
   cùng `STAFF_CHAT_ID`/`STAFF_USERS` (cần trước T024), và cách đọc log Cổng OZ cho spec 007.
