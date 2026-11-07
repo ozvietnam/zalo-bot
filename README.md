@@ -4,6 +4,7 @@ Bot Zalo (Zalo Bot Platform chính thức) nối với **Cổng OZ** qua MCP (`h
 Bot tự đọc danh sách công cụ của Cổng (`tools/list`), nên Cổng thêm tính năng mới thì bot dùng được mà không cần
 sửa phần kết nối. Node 20+, không thư viện ngoài.
 
+📚 **Wiki tri thức của repo**: [docs/wiki/index.md](docs/wiki/index.md) — kiến trúc, luồng tin nhắn, gói nghiệp vụ, não AI, an toàn, tiến độ thật.
 ## Các gói người dùng chọn
 
 Cuối mỗi tin trả lời luôn có dòng menu gói; gõ số để chuyển gói, `menu` để xem chi tiết, `0` để bot tự chọn.
