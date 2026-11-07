@@ -329,8 +329,8 @@ test('chỉ core/gate.js gọi sendText', async () => {
 
 **Files:** Modify `server.js` · Create `test/core/webhook.test.mjs`
 
-- [ ] **Step 1: Test đỏ** (HTTP thật, cổng 0): POST đúng secret → 200 và `inbox` có 1 dòng `pending`; POST lại cùng update → 200, vẫn 1 dòng; secret sai → 403; `store.inbox.insertIgnore` ném lỗi → 503; 50 POST đồng thời → p95 < 200 ms.
-- [ ] **Step 2:** FAIL · **Step 3:** handler: `verifyWebhook` → `parse` → `insertIgnore` → trả 200 → `queue.run(chatId, () => engine.process(update))` nếu vừa chèn mới. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(server): inbox-first webhook ack"`
+- [x] **Step 1: Test đỏ** (HTTP thật, cổng 0): POST đúng secret → 200 và `inbox` có 1 dòng `pending`; POST lại cùng update → 200, vẫn 1 dòng; secret sai → 403; `store.inbox.insertIgnore` ném lỗi → 503; 50 POST đồng thời → p95 < 200 ms.
+- [x] **Step 2:** FAIL · **Step 3:** handler: `verifyWebhook` → `parse` → `insertIgnore` → trả 200 → `queue.run(chatId, () => engine.process(update))` nếu vừa chèn mới. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(server): inbox-first webhook ack"`
 
 ### T019 [US3] [P] `core/queue.js`
 
