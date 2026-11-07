@@ -404,7 +404,7 @@ test('hỏi lại theo nhịp 6 s, 12 s, 24 s… tối đa 60 s', …)
 
 **Interfaces — Produces:** `wantsHuman(text) -> boolean` · `asksIfBot(text) -> boolean` · hằng `REPLY_HANDOFF`, `REPLY_IS_BOT`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 for (const s of ['cho em gặp nhân viên', 'gọi lại cho anh', 'có ai trực không', 'muốn nói chuyện với người thật', 'tư vấn viên đâu'])
   assert.equal(wantsHuman(s), true);
@@ -414,7 +414,37 @@ for (const s of ['máy bơm nước ly tâm 1.5HP', 'nhân viên văn phòng dù
   { assert.equal(wantsHuman(s), false); assert.equal(asksIfBot(s), false); }
 assert.match(REPLY_IS_BOT, /trợ lý tự động của OZ/);
 ```
-- [ ] **Step 2:** FAIL · **Step 3:** regex trên `normVi`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): human-request and is-bot intents"`
+- [x] **Step 2:** FAIL · **Step 3:** regex trên `normVi`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): human-request and is-bot intents"`
+
+> Khi làm (07/11) ghi lại những điều phát hiện lúc viết regex, để T026 không phải dò lại:
+> (1) `normVi` bỏ dấu nên nhiều cặp từ trùng nhau: "gói" (đóng gói hàng) ↔ "gọi" (gọi điện),
+> "bột" ↔ "bot", "máy" ↔ "mày", và — nguy nhất vì gặp hằng ngày — tiểu từ lịch sự **"ạ" ↔ "à"** hỏi.
+> Né bằng ba lớp (`core/intents.js:6-19`): hệ từ "là/phải"; chủ ngữ (gọi thẳng bot "bạn/mày là bot"
+> thì đủ, chủ ngữ chỉ định "cái này/đây" trỏ vào hàng cũng được nên buộc thêm tiểu từ hỏi cuối câu);
+> và kiểm dấu thanh trên **bản gốc** trước khi chuẩn hoá (`core/intents.js:30` cho "ạ"/"à",
+> `core/intents.js:113` cho "gói"/"gọi"). Thiếu lớp thứ ba thì "dạ cái này là máy ạ" — câu tả hàng
+> thường ngày — bị nhận là hỏi danh tính, và ở T026 bot sẽ trả lời "em là trợ lý tự động" thay vì
+> phân loại hàng. Giới hạn còn lại: khách gõ **không dấu** "goi lai cho em" thì hai nghĩa trùng hoàn
+> toàn, luật chọn nghĩa "gọi lại" (mở phiếu cho nhân viên còn hơn bỏ lời khách).
+> (2) Tiểu từ hỏi phải ở **cuối câu**, và trong "có phải X không" thì X phải là **vị ngữ** của "phải".
+> Nếu chỉ cần từ khoá xuất hiện gần đó thì các câu nghiệp vụ rất thường gặp bị nhận sai:
+> "cái này là máy không chịu thuế", "có phải máy này chịu thuế không", "có phải máy không chịu thuế" (`core/intents.js:39`,
+> `core/intents.js:166`).
+> (3) `wantsHuman` và `asksIfBot` loại trừ nhau ở mệnh đề "người hay máy": mệnh đề đó là lời hỏi danh
+> tính, nếu để cả hai cùng `true` thì T026 sẽ chuyển phòng sang `human` ngay khi khách mới chỉ hỏi bot
+> là người hay máy — trái mô tả của T026 ở `tasks.md:448` ("phòng vẫn bot"). Nhưng chỉ loại **riêng
+> mệnh đề đó**, không thoát sớm trên cả câu: "hay" tiếng Việt còn nghĩa "thường hay", nên
+> "máy hay bị lỗi, cho em gặp nhân viên với" vẫn phải là lời xin gặp người (`core/intents.js:47`,
+> `core/intents.js:120`). Hướng bỏ sót lời khách nặng hơn hướng mở phiếu thừa: bỏ sót là trái FR-014.
+> (4) Chủ ngữ **ngôi thứ nhất** ("em/anh/chị/mình") phải nằm cùng nhóm với chủ ngữ chỉ định, tức là
+> buộc có tiểu từ hỏi. Khách dùng chính các từ đó để tả hàng của mình ("hàng của anh là máy ạ",
+> "lô của em là bột"), nên nếu cho nhóm này khỏi cần tiểu từ thì nó **đi vòng qua** đúng lớp "ạ"/"à"
+> ở (1) (`core/intents.js:148-149`). Hai cặp dấu nữa cùng loại: "chị" ↔ **"chỉ"** ("hàng này chỉ là
+> máy") và "đó" chỉ định/nhấn mạnh ("cái này là máy đó ạ") — "đó" vì vậy không tính là tiểu từ hỏi
+> (`core/intents.js:154`). (5) Lời xin gặp người **gián tiếp** (xin số, xin nối, "có ai hỗ trợ không")
+> cũng nhận, theo đúng nguyên tắc ở (3) (`core/intents.js:78`, `core/intents.js:83`); nhưng "nối" và
+> "số" **trần** thì không, vì trùng "nội/nơi/nói" và vì "số nhân viên" là đếm người còn "số máy" trong
+> tờ khai là số khung của hàng.
 
 ### T024 [US2] Phiếu vào nhóm nhân viên + gộp tin
 
