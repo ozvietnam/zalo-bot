@@ -55,6 +55,7 @@ export function loadConfig(env = process.env) {
     dataDir: str(env, 'DATA_DIR', './data'),
     companyPhones: new Set(list(env, 'COMPANY_PHONES').map(normPhone).filter(Boolean)),
     capChatDay: int(env, 'CAP_CHAT_DAY', 8, 0),
+    capGroupDay: int(env, 'CAP_GROUP_DAY', 200, 0),
     capAllDay: int(env, 'CAP_ALL_DAY', 300, 0),
     sessionTtlMs: int(env, 'SESSION_TTL_MS', 7_200_000, 1),
     bannedPatterns: Object.freeze(patterns(env, 'BANNED_PATTERNS')),

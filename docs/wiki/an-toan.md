@@ -1,6 +1,6 @@
 # An toàn
 
-> Cập nhật: 2026-11-07 · commit: ef2b48f
+> Cập nhật: 2026-11-07 · commit: 1316cfe
 
 Trang này đối chiếu 9 điều hiến pháp với code thật. Mỗi điều có hai phần rõ ràng: **đã có code ở đâu** và **chưa có code ở đâu**.
 
@@ -9,11 +9,11 @@ Trang này đối chiếu 9 điều hiến pháp với code thật. Mỗi điề
 | Đường | Điểm vào | Cách gửi tin | Trạng thái |
 |---|---|---|---|
 | Đường đang chạy | `server.js:7` | gọi thẳng `zalo.sendText` | đang chạy thật |
-| Lõi mới | `core/engine.js:58` | qua cửa gửi `core/gate.js:91` | đã có code, **chưa nối** vào `server.js` |
+| Lõi mới | `core/engine.js:58` | qua cửa gửi `core/gate.js:106` | đã có code, **chưa nối** vào `server.js` |
 
 Việc nối lõi mới vào chương trình chính là T016, mô tả ở `specs/001-nen-tang-chung/tasks.md:303`, chưa làm. Vì vậy, khi đọc "đã có code" bên dưới, luôn hiểu là "đã có code trong lõi, chưa chạy ở đường đang chạy", trừ khi ghi rõ là cả hai.
 
-Tự kiểm bằng một lệnh: chỉ có `core/gate.js:64` gọi `channel.sendText`, còn `lib/bot.js:112`, `lib/bot.js:117` và `lib/bot.js:121` gọi `zalo.sendText` không qua cửa.
+Tự kiểm bằng một lệnh: chỉ có `core/gate.js:79` gọi `channel.sendText`, còn `lib/bot.js:112`, `lib/bot.js:117` và `lib/bot.js:121` gọi `zalo.sendText` không qua cửa.
 
 ## Bảng tổng quan 9 điều
 
@@ -35,12 +35,12 @@ Tự kiểm bằng một lệnh: chỉ có `core/gate.js:64` gọi `channel.send
 
 **Đã có code (lõi).**
 
-- Quyết định là hàm thuần, không I/O: `core/gate-decide.js:68`.
-- Thi hành quyết định và ghi vào outbox: `core/gate.js:91`.
-- Nơi duy nhất trong lõi gọi `channel.sendText`: `core/gate.js:64`.
-- Cửa không sửa câu: chỉ tách tin dài bằng `splitText` ở `core/gate.js:59`, tin gốc lưu nguyên văn ở `core/gate.js:82-85`.
-- Bốn loại quyết định: **gửi** ở `core/gate-decide.js:117`, **bỏ** — trùng idempotent (`core/gate-decide.js:81`) và trùng nội dung (`core/gate-decide.js:101`), **hoãn** ở `core/gate-decide.js:91`, **từ chối** — tin rỗng (`core/gate-decide.js:78`) và số tiền thiếu bằng chứng (`core/gate-decide.js:114`).
-- Gói nghiệp vụ không tự gửi tin: hợp đồng quy định gói chỉ trả về danh sách câu trả lời (`specs/001-nen-tang-chung/contracts/pack.md:23`), lõi đưa từng câu qua `gate.send` tại `core/engine.js:118`.
+- Quyết định là hàm thuần, không I/O: `core/gate-decide.js:69`.
+- Thi hành quyết định và ghi vào outbox: `core/gate.js:106`.
+- Nơi duy nhất trong lõi gọi `channel.sendText`: `core/gate.js:79`.
+- Cửa không sửa câu: chỉ tách tin dài bằng `splitText` ở `core/gate.js:74`, tin gốc lưu nguyên văn ở `core/gate.js:131`.
+- Bốn loại quyết định: **gửi** ở `core/gate-decide.js:119`, **bỏ** — trùng idempotent (`core/gate-decide.js:82`) và trùng nội dung (`core/gate-decide.js:103`), **hoãn** ở `core/gate-decide.js:92`, **từ chối** — tin rỗng (`core/gate-decide.js:79`) và số tiền thiếu bằng chứng (`core/gate-decide.js:116`).
+- Gói nghiệp vụ không tự gửi tin: hợp đồng quy định gói chỉ trả về danh sách câu trả lời (`specs/001-nen-tang-chung/contracts/pack.md:23`), lõi đưa từng câu qua `gate.send` tại `core/engine.js:120`.
 
 **Chưa có code.**
 
@@ -49,19 +49,19 @@ Tự kiểm bằng một lệnh: chỉ có `core/gate.js:64` gọi `channel.send
 
 ## Điều II — Người trước máy
 
-**Yêu cầu.** Phòng chat ở trạng thái `human` thì bot im hoàn toàn; phòng trở về `bot` khi nhân viên ra lệnh rõ ràng, hoặc tự trở về sau khoảng lặng lâu (mặc định khoảng 2 giờ), và tự trở về chỉ đổi trạng thái phòng, không gửi tin (`.specify/memory/constitution.md:16`, `.specify/memory/constitution.md:17`).
+**Yêu cầu.** Phòng chat ở trạng thái `human` thì bot im hoàn toàn; phòng trở về `bot` khi nhân viên ra lệnh rõ ràng, hoặc tự trở về sau khoảng lặng lâu (mặc định khoảng 2 giờ), và tự trở về chỉ đổi trạng thái phòng, không gửi tin (`.specify/memory/constitution.md:16`, `.specify/memory/constitution.md:17`). Từ US8 (T037), trong nhóm "phòng do người" được tính theo **từng người** (`conv`), không áp cho cả nhóm.
 
 **Đã có code (lõi).**
 
-- Cửa từ chối khi phòng do người: `core/gate-decide.js:85` trả quyết định từ chối với lý do dạng `chat-human`.
-- Trạng thái phòng đọc từ bảng chats: `core/gate.js:25`.
-- Cột trạng thái có sẵn trong lược đồ, mặc định `bot`: `core/store/schema.js:11`.
-- Ba loại tin nội bộ được miễn nhóm luật của tin chủ động (trạng thái phòng, giờ yên, trần gửi, trùng nội dung, kiểm số tiền): `core/gate-decide.js:15`.
+- Cửa từ chối khi cuộc trò chuyện do người hoặc bị chặn: `core/gate-decide.js:86` trả quyết định từ chối với lý do dạng `chat-human` / `chat-blocked`.
+- Trạng thái hiệu dụng đọc qua `effectiveState` (`core/gate.js:22`): `chats.state = 'blocked'` chặn cả nhóm, `convs.state` (`human`/`blocked`) chặn theo người, chat 1-1 lấy `chats.state` cũ, còn lại `bot`.
+- Cột trạng thái có sẵn trong lược đồ, mặc định `bot`: bảng `chats` (`core/store/schema.js:15`) và bảng `convs` (`core/store/schema.js:18`).
+- Ba loại tin nội bộ được miễn nhóm luật của tin chủ động (trạng thái phòng, giờ yên, trần gửi, trùng nội dung, kiểm số tiền): `core/gate-decide.js:16`.
 
 **Chưa có code.**
 
-- Chưa có tệp *core/handoff.js*, tức chưa có mã chuyển trạng thái phòng sang `human` và không có mã trả phòng về `bot`. Cột `state` mới chỉ là khung.
-- Lõi không có nhánh bàn giao phòng: `core/engine.js:110` chọn gói rồi chạy, không có bước "nhường phòng cho nhân viên".
+- Chưa có tệp *core/handoff.js*, tức chưa có mã chuyển trạng thái cuộc trò chuyện sang `human` và không có mã trả về `bot`. Bảng `convs` và `convs.setState` đã có (`core/store/state.js:32`) nhưng chưa có lệnh nhân viên gọi nó; cột `state` mới chỉ là khung.
+- Lõi không có nhánh bàn giao: `core/engine.js:112` chọn gói rồi chạy, không có bước "nhường cuộc trò chuyện cho nhân viên".
 - Đường đang chạy không có khái niệm phòng do người; bot trả lời mọi tin trong nhóm được nhắc tên.
 - Quyết định ngày 06/11 về việc phòng tự trở về bot sau một khoảng lặng dài **đã có trong hiến pháp** (`.specify/memory/constitution.md:17`, phiên bản 2.0.0) nhưng **chưa có code** — thuộc việc T022 (`specs/001-nen-tang-chung/tasks.md:380`), chưa làm.
 
@@ -71,9 +71,9 @@ Tự kiểm bằng một lệnh: chỉ có `core/gate.js:64` gọi `channel.send
 
 **Đã có code.**
 
-- Cửa kiểm cờ `moneyCheck`: `core/gate-decide.js:111`.
-- Gom tập số đã có trong bằng chứng: `core/gate-decide.js:43`.
-- Từ chối khi có số không có căn cứ: `core/gate-decide.js:114`.
+- Cửa kiểm cờ `moneyCheck`: `core/gate-decide.js:113`.
+- Gom tập số đã có trong bằng chứng: `core/gate-decide.js:44`.
+- Từ chối khi có số không có căn cứ: `core/gate-decide.js:116`.
 - Bộ đọc số tiền trong câu: `core/text.js:40`.
 - Kiểm từng con số của bản chốt do AI viết lại: `packs/hs/editor.js:21`, dùng ở `packs/hs/editor.js:48` (không khớp thì bỏ bản chốt, giữ bản đầy đủ).
 - Hợp đồng gói khai cờ này: `specs/001-nen-tang-chung/contracts/pack.md:13`.
@@ -89,13 +89,13 @@ Tự kiểm bằng một lệnh: chỉ có `core/gate.js:64` gọi `channel.send
 
 **Đã có code (lõi).**
 
-- Bảng audit: `core/store/schema.js:28`, có chỉ mục theo lượt tại `core/store/schema.js:44`.
-- Ghi tin vào: `core/engine.js:96`.
-- Ghi gói được chọn: `core/engine.js:111`.
-- Ghi tin ra cùng quyết định của cửa: `core/engine.js:126`.
+- Bảng audit: `core/store/schema.js:35`, có chỉ mục theo lượt tại `core/store/schema.js:54`.
+- Ghi tin vào: `core/engine.js:98`.
+- Ghi gói được chọn: `core/engine.js:113`.
+- Ghi tin ra cùng quyết định của cửa: `core/engine.js:128`.
 - Ghi lời gọi công cụ: `core/engine-ctx.js:30`; kết quả chỉ lưu dấu vân tay và 500 ký tự đầu đã che, xem `core/engine-ctx.js:42`.
-- Quyết định của cửa được ghi riêng: `core/gate.js:43`.
-- Lịch sử tin khách: `core/engine.js:102`. Lịch sử tin bot ghi khi gửi thành công: `core/gate.js:81-85`.
+- Quyết định của cửa được ghi riêng: `core/gate.js:60`.
+- Lịch sử tin khách: `core/engine.js:104`. Lịch sử tin bot ghi khi gửi thành công: `core/gate.js:97`.
 - Test chạy không cần mạng: `package.json:13`.
 
 **Chưa có code.**
@@ -127,7 +127,7 @@ Tự kiểm bằng một lệnh: chỉ có `core/gate.js:64` gọi `channel.send
 
 - Khai báo phiên bản Node: `package.json:8`.
 - Tệp `package.json` không có mục `dependencies`: toàn bộ phần mềm chạy bằng thư viện chuẩn của Node, trong đó có `node:sqlite` mở ở `core/store.js:9`.
-- Dung lượng tệp lõi nằm dưới 300 dòng; tệp lớn nhất là `core/gate.js` (181 dòng), sau đó `core/engine.js` (169 dòng).
+- Dung lượng tệp lõi nằm dưới 300 dòng; tệp lớn nhất là `core/gate.js` (203 dòng), sau đó `core/engine.js` (171 dòng).
 - CI chạy test và eval trên Node 22: `.github/workflows/ci.yml:17` và `.github/workflows/ci.yml:18`.
 
 **Chưa có code.**
@@ -141,15 +141,15 @@ Tự kiểm bằng một lệnh: chỉ có `core/gate.js:64` gọi `channel.send
 
 **Đã có code.**
 
-- Cửa dừng thay vì gửi: từ chối khi tin rỗng `core/gate-decide.js:78`, từ chối khi không có nợ để gửi chủ động `core/gate-decide.js:90`, bỏ khi trùng nội dung `core/gate-decide.js:101`.
-- Báo nhân viên khi quyết định nghiêm trọng: `core/gate.js:49` gọi kênh cảnh báo hoặc tạo phiếu.
-- Idempotent: khóa `idem_key` là UNIQUE ở `core/store/schema.js:16`; lỗi khóa trùng được bắt ở `core/gate.js:115`; lõi tự chặn trùng ở `core/engine.js:65` và `core/engine.js:69`.
-- Khôi phục khi tiến trình chết giữa chừng: `core/gate.js:169`.
+- Cửa dừng thay vì gửi: từ chối khi tin rỗng `core/gate-decide.js:79`, từ chối khi không có nợ để gửi chủ động `core/gate-decide.js:91`, bỏ khi trùng nội dung `core/gate-decide.js:103`.
+- Báo nhân viên khi quyết định nghiêm trọng: `core/gate.js:64` gọi kênh cảnh báo hoặc tạo phiếu.
+- Idempotent: khóa `idem_key` là UNIQUE ở `core/store/schema.js:23`; lỗi khóa trùng được bắt ở `core/gate.js:135`; lõi tự chặn trùng ở `core/engine.js:65` và `core/engine.js:69`.
+- Khôi phục khi tiến trình chết giữa chừng: `core/gate.js:191`.
 - Thử lại 3 lần, mỗi lần cách nhau 1, 5 rồi 15 phút: `core/gate.js:12`.
 
 **Chưa có code.**
 
-- `recover()` có ở `core/gate.js:169` nhưng lõi chưa gọi lúc khởi động (việc T020 chưa làm). Dòng outbox còn trạng thái `queued` sau khi chết giữa chừng chưa tự được quét lại.
+- `recover()` có ở `core/gate.js:191` nhưng lõi chưa gọi lúc khởi động (việc T020 chưa làm). Dòng outbox còn trạng thái `queued` sau khi chết giữa chừng chưa tự được quét lại.
 - Đường đang chạy chống trùng bằng bản ghi trong RAM ở `lib/bot.js:50`, mất sạch khi khởi động lại, và không có đường báo nhân viên khi lỗi.
 
 ## Điều VIII — Trung thực với khách
@@ -165,7 +165,7 @@ Tự kiểm bằng một lệnh: chỉ có `core/gate.js:64` gọi `channel.send
 **Chưa có code.**
 
 - Chưa có câu trả lời cố định kiểu "em là trợ lý tự động của OZ, anh liên hệ nhân viên". Câu đáp cho chào hỏi và câu ngoài phạm vi do mô hình sinh ra, xem `packs/hs/brain.js:72`, nên không kiểm được bằng code. Đây là khoảng trống đã biết, chưa có test khoá.
-- Chưa có cơ chế "mời gặp người": bảng phiếu mới chỉ là khung lược đồ ở `core/store/schema.js:25`, chưa có đường ghi và chưa có nhóm nhân viên.
+- Chưa có cơ chế "mời gặp người": bảng phiếu mới chỉ là khung lược đồ ở `core/store/schema.js:32`, chưa có đường ghi và chưa có nhóm nhân viên.
 
 **Chưa xác minh.** Câu bot trả lời thật khi khách hỏi "người hay máy" ở đường đang chạy: repo không lưu log hội thoại để đối chiếu.
 
@@ -177,8 +177,8 @@ Tự kiểm bằng một lệnh: chỉ có `core/gate.js:64` gọi `channel.send
 
 - Che bí mật trong log: `core/redact.js:16` thay chuỗi Bearer, token bot và chuỗi dài giống khoá.
 - Dò nội dung không được lộ ra khách: `core/redact.js:24`, gồm đường dẫn tệp ở `core/redact.js:7` và dấu stack ở `core/redact.js:9`.
-- Cửa chặn trước khi gửi: `core/gate-decide.js:106` trả quyết định từ chối với lý do dạng `leak-...`.
-- Lõi ghi log đã che: `core/engine.js:130` và `core/engine-ctx.js:33`.
+- Cửa chặn trước khi gửi: `core/gate-decide.js:109` trả quyết định từ chối với lý do dạng `leak-...`.
+- Lõi ghi log đã che: `core/engine.js:133` và `core/engine-ctx.js:33`.
 - Gói hải quan không kèm lỗi gốc cho khách: `packs/hs/index.js:91` trả câu báo chung, chi tiết lỗi chỉ vào log ở `packs/hs/index.js:90`.
 - Đường đang chạy cũng không kèm lỗi gốc cho khách khi lỗi Cổng: `lib/bot.js:214` trả câu báo chung, chi tiết lỗi chỉ vào log ở `lib/bot.js:213`.
 - Test khoá ba nhánh lỗi của đường đang chạy trong `test/core/loi-goc-khach.test.mjs`: nhánh chạy gói ở `test/core/loi-goc-khach.test.mjs:101-110`, nhánh mở lại lượt (`ket-qua`) ở `test/core/loi-goc-khach.test.mjs:112-123`, nhánh đọc ảnh ở `test/core/loi-goc-khach.test.mjs:125-135`. Cả ba ca kiểm tin khách không chứa mảnh lỗi gốc (hàm kiểm ở `test/core/loi-goc-khach.test.mjs:76-84`, danh sách mảnh ở `test/core/loi-goc-khach.test.mjs:24` và `test/core/loi-goc-khach.test.mjs:28`). Hai nhánh gói và mở lại lượt kiểm đúng câu báo chuẩn Cổng (nguyên văn ở `test/core/loi-goc-khach.test.mjs:31`, assert ở `test/core/loi-goc-khach.test.mjs:108` và `test/core/loi-goc-khach.test.mjs:121`), nhánh ảnh kiểm đúng câu báo lỗi ảnh (`test/core/loi-goc-khach.test.mjs:133`).

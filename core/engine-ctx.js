@@ -26,8 +26,8 @@ const hashOf = (s) => createHash('sha1').update(s).digest('hex');
 const json = (v) => { try { return JSON.stringify(v) ?? 'null'; } catch { return String(v); } };
 
 /** MCP bọc: mỗi callTool ghi một dòng audit `tool` { name, args (đã che), ok, sha1, head (500 ký tự đầu, đã che) }. */
-export function auditedMcp({ mcp, store, now, chatId, turnId }) {
-  const add = (data) => store.audit.add({ at: now().toISOString(), turn_id: turnId, chat_id: chatId, type: 'tool', data });
+export function auditedMcp({ mcp, store, now, chatId, convId, turnId }) {
+  const add = (data) => store.audit.add({ at: now().toISOString(), turn_id: turnId, conv_id: convId ?? null, chat_id: chatId, type: 'tool', data });
   return {
     async callTool(name, args = {}) {
       const a = redact(json(args)).slice(0, 500);
@@ -66,15 +66,16 @@ export function redactedLog(log) {
   return { info: (...a) => log.info?.(...clean(a)), error: (...a) => log.error?.(...clean(a)) };
 }
 
-/** ctx đầy đủ cho handle/onJobResult. */
-export function buildCtx({ store, mcp, tools, vision, brain, now, log, chatId, turnId, sessionKey, ttlMs, ghiTruot = null, editor = null }) {
+/** ctx đầy đủ cho handle/onJobResult. Lịch sử và hồ sơ khách theo convId (mỗi người một cuộc trò chuyện). */
+export function buildCtx({ store, mcp, tools, vision, brain, now, log, chatId, convId, turnId, sessionKey, ttlMs, ghiTruot = null, editor = null }) {
+  const key = convId ?? chatId;
   return {
     ghiTruot,
-    mcp: auditedMcp({ mcp, store, now, chatId, turnId }),
+    mcp: auditedMcp({ mcp, store, now, chatId, convId, turnId }),
     tools,
     session: sessionApi({ store, key: sessionKey, ttlMs, now }),
-    history: (n = 20) => store.messages.recent(chatId, n).map((m) => ({ speaker: m.speaker, text: m.text, at: m.at })),
-    customer: store.customers.get(chatId) ?? null,
+    history: (n = 20) => store.messages.recent(key, n).map((m) => ({ speaker: m.speaker, text: m.text, at: m.at })),
+    customer: store.customers.get(key) ?? null,
     vision: vision ?? null,
     brain: brain ?? null,
     editor: editor ?? null,

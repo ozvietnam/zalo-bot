@@ -32,11 +32,12 @@ const OUTBOX_COLS = ['turn_id', 'kind', 'text', 'decision', 'reason', 'status', 
 const outOut = (r) => (r ? { ...r, ctx: fromJson(r.ctx) } : null);
 
 export function outboxTable(db) {
-  const ins = db.prepare(`INSERT INTO outbox (idem_key, chat_id, turn_id, kind, text, decision, reason, status, not_before, parts_sent, attempts, next_retry_at, created_at, sent_at, ctx)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const ins = db.prepare(`INSERT INTO outbox (idem_key, conv_id, chat_id, turn_id, kind, text, decision, reason, status, not_before, parts_sent, attempts, next_retry_at, created_at, sent_at, ctx)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const has = db.prepare('SELECT 1 FROM outbox WHERE idem_key = ?');
-  const recent = db.prepare(`SELECT text FROM outbox WHERE chat_id = ? AND status = 'sent' AND kind IN ('reply','notice','job_result')
+  const recent = db.prepare(`SELECT text FROM outbox WHERE conv_id = ? AND status = 'sent' AND kind IN ('reply','notice','job_result')
     AND sent_at >= ? ORDER BY sent_at DESC, id DESC LIMIT ?`);
+  const cntConv = db.prepare("SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND conv_id = ? AND sent_at >= ?");
   const cntChat = db.prepare("SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND chat_id = ? AND sent_at >= ?");
   const cntAll = db.prepare("SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND sent_at >= ?");
   const queued = db.prepare("SELECT * FROM outbox WHERE status = 'queued' ORDER BY id");
@@ -46,7 +47,7 @@ export function outboxTable(db) {
   return {
     insert(m) {
       try {
-        return Number(ins.run(m.idem_key, m.chat_id, m.turn_id ?? null, m.kind, m.text, m.decision, m.reason ?? null, m.status,
+        return Number(ins.run(m.idem_key, m.conv_id ?? m.chat_id, m.chat_id, m.turn_id ?? null, m.kind, m.text, m.decision, m.reason ?? null, m.status,
           m.not_before ?? null, m.parts_sent ?? 0, m.attempts ?? 0, m.next_retry_at ?? null, m.created_at ?? null, m.sent_at ?? null, m.ctx === undefined || m.ctx === null ? null : toJson(m.ctx)).lastInsertRowid);
       } catch (e) {
         if (isUniqueViolation(e)) throw new Error(`DUPLICATE_IDEM: ${m.idem_key}`, { cause: e });
@@ -57,8 +58,10 @@ export function outboxTable(db) {
     queued: () => queued.all().map(outOut),
     get: (id) => outOut(byId.get(id)),
     hasIdem: (key) => has.get(key) !== undefined,
-    recentBotTexts: (chatId, sinceIso, limit) => recent.all(chatId, sinceIso, limit).map((r) => r.text),
-    countSent: (chatId, sinceIso) => (chatId === null || chatId === undefined ? cntAll.get(sinceIso) : cntChat.get(chatId, sinceIso)).n,
+    recentBotTexts: (convId, sinceIso, limit) => recent.all(convId, sinceIso, limit).map((r) => r.text),
+    countSent: (convId, sinceIso) => (convId === null || convId === undefined ? cntAll.get(sinceIso) : cntConv.get(convId, sinceIso)).n,
+    /** Đếm tin đã gửi theo phòng (cả nhóm, không tách theo người) — dùng cho trần ngày của nhóm. */
+    countSentChat: (chatId, sinceIso) => cntChat.get(chatId, sinceIso).n,
     due: (nowIso) => due.all(nowIso).map(outOut),
   };
 }
@@ -67,16 +70,16 @@ const JOB_COLS = ['status', 'attempts', 'next_poll_at', 'expires_at', 'done_at',
 const jobOut = (r) => (r ? { ...r, context: fromJson(r.context) } : r);
 
 export function jobsTable(db) {
-  const ins = db.prepare(`INSERT INTO jobs (chat_id, session_key, pack, ma_luot, result_tool, context, status, attempts, next_poll_at, expires_at, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-  const open = db.prepare("SELECT 1 FROM jobs WHERE chat_id = ? AND (status IN ('waiting','polling') OR (status = 'done' AND done_at >= ?)) LIMIT 1");
+  const ins = db.prepare(`INSERT INTO jobs (conv_id, chat_id, session_key, pack, ma_luot, result_tool, context, status, attempts, next_poll_at, expires_at, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const open = db.prepare("SELECT 1 FROM jobs WHERE conv_id = ? AND (status IN ('waiting','polling') OR (status = 'done' AND done_at >= ?)) LIMIT 1");
   const claimJob = db.prepare("UPDATE jobs SET status = 'polling' WHERE id = ? AND status = 'waiting'");
   const due = db.prepare("SELECT * FROM jobs WHERE status = 'waiting' AND next_poll_at <= ? ORDER BY next_poll_at, id");
   const next = db.prepare("SELECT MIN(next_poll_at) AS t FROM jobs WHERE status = 'waiting'");
   return {
     add(j) {
       try {
-        return Number(ins.run(j.chat_id, j.session_key, j.pack, j.ma_luot, j.result_tool, j.context === undefined ? null : toJson(j.context),
+        return Number(ins.run(j.conv_id ?? j.chat_id, j.chat_id, j.session_key, j.pack, j.ma_luot, j.result_tool, j.context === undefined ? null : toJson(j.context),
           j.status ?? 'waiting', j.attempts ?? 0, j.next_poll_at, j.expires_at, j.created_at ?? null).lastInsertRowid);
       } catch (e) {
         if (isUniqueViolation(e)) return null;
@@ -89,7 +92,7 @@ export function jobsTable(db) {
     /** Mốc hỏi sớm nhất của việc đang 'waiting', hoặc null. */
     nextDue: () => next.get()?.t ?? null,
     /** Phòng còn việc nền nợ: đang 'waiting'/'polling', hoặc 'done' từ sinceIso trở lại. */
-    openFor: (chatId, sinceIso) => open.get(chatId, sinceIso) !== undefined,
+    openFor: (convId, sinceIso) => open.get(convId, sinceIso) !== undefined,
     update: (id, patch) => patchRow(db, 'jobs', 'id', id, patch, JOB_COLS, ['context']),
   };
 }

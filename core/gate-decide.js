@@ -5,6 +5,7 @@ import { jaccard, extractMoney } from './text.js';
 
 export const DEFAULT_RULES = Object.freeze({
   capChatDay: 8,
+  capGroupDay: 200,
   capAllDay: 300,
   similarity: 0.8,
   directReplyMs: 600_000,
@@ -93,6 +94,7 @@ export function decide(msg, facts = {}, rules = {}) {
     // 4, 5
     if (CAPPED.has(msg.kind)) {
       if ((facts.sentTodayChat ?? 0) >= r.capChatDay) return out('defer', 'cap:chat');
+      if ((facts.isGroup === true) && (facts.sentTodayGroup ?? 0) >= r.capGroupDay) return out('defer', 'cap:group');
       if ((facts.sentTodayAll ?? 0) >= r.capAllDay) return out('defer', 'cap:all');
     }
     // 6

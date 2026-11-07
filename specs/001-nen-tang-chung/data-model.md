@@ -39,10 +39,24 @@ Ghi `INSERT OR IGNORE`: update trùng khoá thì không vào lần hai. Đây l�
 Chuyển trạng thái: `bot → human` (khách xin người, `/nhan`, `/tl`, gói yêu cầu); `human → bot` (`/tra-bot` hoặc tự về sau khoảng lặng lâu ~2 giờ);
 `* → blocked` (`/chan`); `blocked → bot` (`/tra-bot`). Mỗi lần chuyển ghi một dòng audit `state-change`.
 
+### `convs`: trạng thái theo người trong nhóm (US8, FR-030)
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| `conv_id` | TEXT PK | `chat_id` (1-1) hoặc `chat_id:user_id` (nhóm) |
+| `chat_id` | TEXT NOT NULL | nơi gửi (phòng/nhóm) |
+| `user_id` | TEXT | rỗng với chat 1-1 |
+| `display_name` | TEXT | tên Zalo, chỉ để đọc, không làm khoá |
+| `state` | TEXT NOT NULL DEFAULT `bot` | `bot \| human \| blocked` theo người |
+| `state_by` / `state_at` / `state_reason` | TEXT | ai đổi, lúc nào, vì sao |
+| `last_inbound_at` / `last_outbound_at` | TEXT | |
+
+`convs.upsertSeen` cập nhật thông tin gặp mặt mà **không đụng `state`**; `convs.setState(convId, chatId, …)`
+chuyển trạng thái theo người. `chats.state` chỉ còn dùng cho chặn cấp nhóm (`blocked`, FR-032).
+
 ### `sessions`: phiên người dùng (FR-017)
 | Cột | Kiểu | Ghi chú |
 |---|---|---|
-| `key` | TEXT PK | `chat_id` hoặc `chat_id:user_id` trong nhóm (giữ cách hiện tại) |
+| `key` | TEXT PK | = `conv_id`: `chat_id` (1-1) hoặc `chat_id:user_id` (nhóm) |
 | `data` | TEXT NOT NULL | JSON: `{ goi, last, choBoSung, choXacNhanAnh, ... }` |
 | `updated_at` | TEXT NOT NULL | quá `SESSION_TTL_MS` (mặc định 2 giờ) thì coi là phiên mới |
 
@@ -51,6 +65,7 @@ Chuyển trạng thái: `bot → human` (khách xin người, `/nhan`, `/tl`, g�
 |---|---|---|
 | `id` | INTEGER PK | |
 | `idem_key` | TEXT UNIQUE NOT NULL | xem dưới |
+| `conv_id` | TEXT NOT NULL | khoá cuộc trò chuyện theo người |
 | `chat_id` | TEXT NOT NULL | |
 | `turn_id` | TEXT | trỏ về audit |
 | `kind` | TEXT NOT NULL | `reply | notice | job_result | staff_relay | ticket | digest` |
@@ -66,8 +81,8 @@ Chuyển trạng thái: `bot → human` (khách xin người, `/nhan`, `/tl`, g�
 | `ctx` | TEXT (JSON) | bối cảnh để chạy lại `decide` khi quét: `{ pack: { id, moneyCheck }, evidenceNumbers: [số], inReplyToAt, debt, staffId }`. `debt` = `hasOpenJob` lúc quyết định đầu. Chỉ lưu **số**, không lưu chữ của khách |
 
 **Khoá idempotency**:
-- trả lời: `r:<chat_id>:<update_key>:<chỉ số tin trong lượt>`
-- kết quả việc nền: `j:<chat_id>:<maLuot>`
+- trả lời: `r:<conv_id>:<update_key>:<chỉ số tin trong lượt>`
+- kết quả việc nền: `j:<conv_id>:<maLuot>`
 - nhân viên chuyển: `s:<update_key của lệnh /tl>`
 - phiếu và bản tin: `t:<ticket_id>:<n>`, `d:<ngày>:<giờ>`
 
@@ -75,6 +90,7 @@ Chuyển trạng thái: `bot → human` (khách xin người, `/nhan`, `/tl`, g�
 | Cột | Kiểu | Ghi chú |
 |---|---|---|
 | `id` | INTEGER PK | |
+| `conv_id` | TEXT NOT NULL | khoá cuộc trò chuyện theo người |
 | `chat_id` | TEXT NOT NULL | |
 | `session_key` | TEXT NOT NULL | |
 | `pack` | TEXT NOT NULL | |
@@ -91,7 +107,8 @@ Chuyển trạng thái: `bot → human` (khách xin người, `/nhan`, `/tl`, g�
 | Cột | Kiểu | Ghi chú |
 |---|---|---|
 | `id` | INTEGER PK | mã hiển thị `P<id>` |
-| `chat_id` | TEXT NOT NULL | một phiếu `open` mỗi phòng |
+| `conv_id` | TEXT NOT NULL | một phiếu `open` mỗi conv (mỗi người) |
+| `chat_id` | TEXT NOT NULL | nơi gửi (phòng/nhóm) |
 | `reason` | TEXT NOT NULL | `khach-xin-nguoi | goi-yeu-cau | cap | gate-reject | loi-cong` |
 | `status` | TEXT NOT NULL | `open | claimed | closed` |
 | `claimed_by` | TEXT | |
@@ -104,6 +121,7 @@ Chuyển trạng thái: `bot → human` (khách xin người, `/nhan`, `/tl`, g�
 | `id` | INTEGER PK | |
 | `at` | TEXT NOT NULL | |
 | `turn_id` | TEXT | một lượt = một `update_key`, hoặc `job:<id>` |
+| `conv_id` | TEXT | nullable; để truy theo người trong nhóm |
 | `chat_id` | TEXT | |
 | `type` | TEXT NOT NULL | `inbound | route | tool | gate | outbound | state-change | staff-cmd | error`. Lượt bỏ qua vì chào kết ghi `outbound` với `data.skipped = 'closer'` (không có tin ra; số liệu T029 không đếm là tin gửi) |
 | `data` | TEXT NOT NULL | JSON đã che bí mật; kết quả công cụ lưu `sha1` + 500 ký tự đầu |
@@ -114,6 +132,7 @@ Giữ 90 ngày; `store.audit.prune(beforeIso)` chạy mỗi ngày lúc 03:00 gi�
 | Cột | Kiểu | Ghi chú |
 |---|---|---|
 | `id` | INTEGER PK | |
+| `conv_id` | TEXT NOT NULL | khoá cuộc trò chuyện theo người |
 | `chat_id` | TEXT NOT NULL | |
 | `turn_id` | TEXT | |
 | `speaker` | TEXT NOT NULL | `khach | bot | nhan-vien` |
@@ -127,7 +146,8 @@ Không tự xoá. Chỉ bị xoá bởi `/xoa-du-lieu`. Không ghi bản sao và
 ### `customers`: hồ sơ khách (FR-025, FR-026)
 | Cột | Kiểu | Ghi chú |
 |---|---|---|
-| `chat_id` | TEXT PK | một hồ sơ mỗi phòng khách (1-1). Nhóm khách: một hồ sơ cho nhóm |
+| `conv_id` | TEXT PK | một hồ sơ mỗi người (1-1 hoặc trong nhóm) |
+| `chat_id` | TEXT | nơi gửi (phòng/nhóm) |
 | `display_name` | TEXT | tên Zalo, chỉ để đọc, không bao giờ làm khoá |
 | `phone` | TEXT | chỉ khi khách tự gõ; chuẩn hoá `0xxxxxxxxx`; bỏ số trong `COMPANY_PHONES` |
 | `labels` | TEXT NOT NULL DEFAULT `'[]'` | JSON `[{ "nhan": "tra-cuu-hs", "nguon": "auto", "at": "…" }]` |
@@ -144,8 +164,9 @@ Nhãn có nguồn `staff:*` không bị máy gỡ.
 `schema_version`, `last_digest_at`, `last_backup_at`.
 
 ## Chỉ mục
-`inbox(status, received_at)` · `outbox(chat_id, created_at)` · `outbox(status, not_before)` · `jobs(status, next_poll_at)` ·
-`tickets(status)` · UNIQUE `tickets(chat_id)` WHERE `status IN ('open','claimed')` (một phiếu mở mỗi phòng) · `audit(turn_id)` · `audit(chat_id, at)` · `messages(chat_id, at)` · `customers(phone)`.
+`inbox(status, received_at)` · `convs(chat_id)` · `outbox(chat_id, created_at)` · `outbox(conv_id, sent_at)` · `outbox(status, not_before)` ·
+`jobs(status, next_poll_at)` · `jobs(conv_id, status)` · `tickets(status)` · UNIQUE `tickets(conv_id)` WHERE `status IN ('open','claimed')` (một phiếu mở mỗi conv) ·
+`audit(turn_id)` · `audit(chat_id, at)` · `audit(conv_id, at)` · `messages(chat_id, at)` · `messages(conv_id, at)` · `customers(phone)`.
 
 ## Sao lưu (FR-028)
 03:00 giờ VN mỗi ngày: `VACUUM INTO '<DATA_DIR>/backup/bot-YYYY-MM-DD.db'`, xoá bản cũ hơn 7 ngày, ghi `meta.last_backup_at`.

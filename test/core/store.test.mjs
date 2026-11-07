@@ -98,16 +98,16 @@ test('outbox.due: failed with NULL next_retry_at is due only while attempts <= 3
 
 test('tickets.open returns the existing open/claimed ticket; unique index enforces', () => {
   const s = openStore();
-  const a = s.tickets.open('c', 'khach-xin-nguoi', T);
-  const b = s.tickets.open('c', 'cap', at(1));
+  const a = s.tickets.open('c', 'c', 'khach-xin-nguoi', T);
+  const b = s.tickets.open('c', 'c', 'cap', at(1));
   assert.equal(a.id, b.id);
   assert.equal(s.tickets.list('open').length, 1);
   s.tickets.update(a.id, { status: 'claimed', claimed_by: 'u1' });
-  assert.equal(s.tickets.open('c', 'cap', at(2)).id, a.id);
+  assert.equal(s.tickets.open('c', 'c', 'cap', at(2)).id, a.id);
   s.tickets.update(a.id, { status: 'closed', closed_at: at(3) });
-  const c = s.tickets.open('c', 'cap', at(4));
+  const c = s.tickets.open('c', 'c', 'cap', at(4));
   assert.notEqual(c.id, a.id);
-  assert.equal(s.tickets.open('d', 'cap', at(4)).chat_id, 'd');
+  assert.equal(s.tickets.open('d', 'd', 'cap', at(4)).chat_id, 'd');
 });
 
 test('chats', () => {
@@ -187,7 +187,7 @@ test('jobs', () => {
 test('tickets', () => {
   const s = openStore();
   assert.equal(s.tickets.openFor('c'), null);
-  const t = s.tickets.open('c', 'khach-xin-nguoi', T);
+  const t = s.tickets.open('c', 'c', 'khach-xin-nguoi', T);
   assert.equal(t.status, 'open');
   assert.equal(s.tickets.openFor('c').id, t.id);
   s.tickets.update(t.id, { status: 'claimed', claimed_by: 'u1', claimed_at: at(1) });
@@ -224,8 +224,10 @@ test('messages', () => {
 test('customers', () => {
   const s = openStore();
   assert.equal(s.customers.get('c'), null);
-  s.customers.upsert('c', { display_name: 'An', labels: [{ nhan: 'tra-cuu-hs', nguon: 'auto', at: T }] }, T);
+  s.customers.upsert('c', { chat_id: 'c', display_name: 'An', labels: [{ nhan: 'tra-cuu-hs', nguon: 'auto', at: T }] }, T);
   let c = s.customers.get('c');
+  assert.equal(c.conv_id, 'c');
+  assert.equal(c.chat_id, 'c');
   assert.equal(c.display_name, 'An');
   assert.deepEqual(c.interests, []);
   assert.equal(c.labels[0].nhan, 'tra-cuu-hs');
@@ -235,12 +237,22 @@ test('customers', () => {
   c = s.customers.get('c');
   assert.equal(c.phone, '0912345678');
   assert.equal(c.display_name, 'An'); // untouched
+  assert.equal(c.chat_id, 'c'); // untouched
   assert.equal(c.labels.length, 1);
   assert.deepEqual(c.interests, [{ mon: 'bơm' }]);
   assert.equal(c.first_seen_at, T);
   assert.equal(c.last_seen_at, at(5));
   s.customers.deleteChat('c');
   assert.equal(s.customers.get('c'), null);
+});
+
+test('outbox.countSentChat: đếm theo chat_id (cả nhóm, không tách người)', () => {
+  const s = openStore();
+  s.outbox.insert(ob({ idem_key: 'kA', conv_id: 'g1:A', chat_id: 'g1', status: 'sent', sent_at: at(1) }));
+  s.outbox.insert(ob({ idem_key: 'kB', conv_id: 'g1:B', chat_id: 'g1', status: 'sent', sent_at: at(2) }));
+  assert.equal(s.outbox.countSent('g1:A', T), 1);
+  assert.equal(s.outbox.countSent('g1:B', T), 1);
+  assert.equal(s.outbox.countSentChat('g1', T), 2);
 });
 
 test('tx commit / rollback / returns value', () => {
