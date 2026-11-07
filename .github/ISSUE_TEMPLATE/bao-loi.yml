@@ -1,0 +1,21 @@
+name: Báo lỗi
+description: Bot trả lời sai hoặc không chạy
+labels: ["bao-loi"]
+body:
+  - type: textarea
+    id: xay-ra
+    attributes:
+      label: Chuyện gì đã xảy ra
+      description: Đã nhắn gì, bot trả lời gì, đúng ra phải thế nào. Ẩn tên và số điện thoại của khách.
+    validations:
+      required: true
+  - type: input
+    id: luc-nao
+    attributes:
+      label: Lúc nào
+      placeholder: 07/11/2026 khoảng 9 giờ
+  - type: textarea
+    id: them
+    attributes:
+      label: Log hoặc ảnh (nếu có)
+      description: Không dán khoá hay dữ liệu khách. Repo này công khai.
