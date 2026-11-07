@@ -340,8 +340,16 @@ test('chỉ core/gate.js gọi sendText', async () => {
 
 **Interfaces — Produces:** `createQueue() -> { run(key, fn) -> Promise, size() -> number }`
 
-- [ ] **Step 1: Test đỏ**: cùng key, `fn1` chờ 50 ms rồi ghi `1`, `fn2` ghi `2` → thứ tự `[1, 2]`; khác key chạy song song (tổng < 80 ms); `fn1` ném lỗi thì `fn2` vẫn chạy; xong hết thì `size() === 0` (không rò bộ nhớ).
-- [ ] **Step 2:** FAIL · **Step 3:** `Map<key, Promise>` nối chuỗi, xoá key khi chuỗi rỗng. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): per-chat serial queue"`
+- [x] **Step 1: Test đỏ**: cùng key, `fn1` chờ 50 ms rồi ghi `1`, `fn2` ghi `2` → thứ tự `[1, 2]`; khác key chạy song song (tổng < 80 ms); `fn1` ném lỗi thì `fn2` vẫn chạy; xong hết thì `size() === 0` (không rò bộ nhớ).
+- [x] **Step 2:** FAIL · **Step 3:** `Map<key, Promise>` nối chuỗi, xoá key khi chuỗi rỗng. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): per-chat serial queue"`
+
+> **Đã làm (ghi nhận 2026-11-07).** Tạo `core/queue.js` (`createQueue()` → `{ run, size }`) và `test/core/queue.test.mjs` (7 test); nối vào `server.js` qua `runTask: (key, fn) => queue.run(key, fn)`. Khoá là `convId` (theo người), xem ghi chú T038 ở đầu mục này — nên commit thật là `feat(core): per-conversation serial queue`, **khác** chữ `per-chat` ở Step 5.
+>
+> **Hai điểm lệch so với chữ đặc tả, đều có lý do:**
+> 1. Step 1 ghi "khác key chạy song song (tổng < 80 ms)". Test đo bằng **số lượt chạy đồng thời** (`maxDong === 2`) thay vì đo đồng hồ. Lý do: đo thật cho thấy ngưỡng 80 ms đỏ **11/12 lần** khi máy tải nặng (có lần đo 99 ms) → CI đỏ ngẫu nhiên. Cách đo mới không bao giờ đỏ vì chậm máy mà vẫn bắt được hàng đợi tuần tự toàn cục.
+> 2. Thêm test bảo vệ điều kiện dọn khoá `chuoi.get(key) === duoi`. Lý do: bỏ điều kiện này thì lượt thứ 3 cùng khoá **chạy chồng** lượt thứ 2 — phá đúng thứ T019 sinh ra; QA đã tái hiện được.
+>
+> **Kiểm đã chạy:** `npm test` 332/332 xanh · `npm run eval` 7/7 · `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.
 
 ### T020 [US3] Khôi phục khi khởi động
 

@@ -398,39 +398,68 @@ test('L1: giới hạn 1 MB đếm theo BYTE — body nhiều byte quá hạn b�
 
 // ───── L2: lỗi ĐỒNG BỘ từ runTask không được làm sập tiến trình ─────
 
-test('L2: runTask ném lỗi đồng bộ → vẫn 200, không uncaughtException, lỗi vào log.error', async (t) => {
-  // `Promise.resolve(runTask(...))` gọi runTask TRƯỚC khi bọc, nên lỗi đồng bộ thoát khỏi
-  // callback 'end' → uncaughtException → bot chết sau khi đã ack (tin mất).
+/** Bọc res.end để đếm số lần phản hồi bị kết thúc (phát hiện `loi500` gọi end lần hai). */
+const demResEnd = () => {
+  const o = { so: 0 };
+  o.boc = (req, res) => {
+    const goc = res.end.bind(res);
+    res.end = (...a) => { o.so++; return goc(...a); };
+  };
+  return o;
+};
+
+test('L2: runTask ném lỗi đồng bộ → 200, lỗi vào .catch riêng, không đụng phản hồi đã gửi', async (t) => {
+  // Lỗi đồng bộ của runTask phải đi vào .catch RIÊNG (đường lỗi CỦA VIỆC), không được rơi
+  // vào try/catch của callback 'end' — rơi vào đó thì lỗi bị gán nhầm nhãn "lỗi không lường
+  // được" và `loi500` gọi res.end() LẦN HAI trên phản hồi đã trả 200.
+  // Đếm res.end là cách bắt đúng khác biệt này: cách sai (runTask gọi đồng bộ) → 2 lần
+  // ⇒ ĐỎ; cách đúng (`Promise.resolve().then(() => runTask(...))`) → 1 lần ⇒ xanh.
   const bat = [];
   const batUncaught = (e) => bat.push(e?.message ?? String(e));
+  const batUnhandled = (e) => bat.push('unhandledRejection: ' + (e?.message ?? String(e)));
   process.on('uncaughtException', batUncaught);
-  t.after(() => process.off('uncaughtException', batUncaught));
+  process.on('unhandledRejection', batUnhandled);
+  t.after(() => { process.off('uncaughtException', batUncaught); process.off('unhandledRejection', batUnhandled); });
 
+  const dem = demResEnd();
   const runTask = () => { throw new Error('dong-bo-no'); };
-  const { url, log } = await dung(t, { runTask });
+  const { url, log } = await dung(t, { runTask, boc: dem.boc });
   const res = await post(`${url}/webhook/zalo`, JSON.stringify(update()), { 'x-bot-api-secret-token': SECRET });
   assert.equal(res.status, 200, 'đã bền hoá thì vẫn phải ack 200');
   assert.deepEqual(await res.json(), { ok: true });
   await new Promise((r) => setTimeout(r, 60));
 
-  assert.deepEqual(bat, [], 'lỗi đồng bộ của runTask không được thành uncaughtException');
+  assert.deepEqual(bat, [], 'lỗi đồng bộ của runTask không được thành uncaughtException/unhandledRejection');
+  assert.equal(dem.so, 1, `phải gọi res.end đúng 1 lần (đã gọi ${dem.so}) — 2 lần nghĩa là lỗi rơi vào loi500`);
   assert.equal(log.calls.error.length >= 1, true, 'lỗi phải được ghi vào log.error');
   assert.equal(log.calls.error.join(' ').includes('dong-bo-no'), true, 'log phải nêu nguyên nhân');
+  assert.equal(log.calls.error.join(' ').includes('lỗi không lường được'), false,
+    'lỗi của việc KHÔNG được gán nhãn "lỗi không lường được" của handler');
 });
 
-test('L2: engine.process ném lỗi đồng bộ (runTask mặc định) → 200, không sập, có log', async (t) => {
+test('L2: engine.process ném lỗi đồng bộ (runTask mặc định) → 200, lỗi đi .catch riêng, res.end 1 lần', async (t) => {
+  // runTask mặc định gọi `fn()` thẳng, nên lỗi đồng bộ của engine.process là lỗi đồng bộ của
+  // runTask: cũng phải vào .catch riêng, không được đụng phản hồi đã trả 200.
   const bat = [];
   const batUncaught = (e) => bat.push(e?.message ?? String(e));
+  const batUnhandled = (e) => bat.push('unhandledRejection: ' + (e?.message ?? String(e)));
   process.on('uncaughtException', batUncaught);
-  t.after(() => process.off('uncaughtException', batUncaught));
+  process.on('unhandledRejection', batUnhandled);
+  t.after(() => { process.off('uncaughtException', batUncaught); process.off('unhandledRejection', batUnhandled); });
 
+  const dem = demResEnd();
   const engine = { calls: [], process: () => { throw new Error('engine-dong-bo-no'); } };
-  const { url, log } = await dung(t, { engine });
+  const { url, log } = await dung(t, { engine, boc: dem.boc });
   const res = await post(`${url}/webhook/zalo`, JSON.stringify(update()), { 'x-bot-api-secret-token': SECRET });
   assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { ok: true });
   await new Promise((r) => setTimeout(r, 60));
-  assert.deepEqual(bat, [], 'không được sập tiến trình');
+  assert.deepEqual(bat, [], 'không được sập tiến trình, không được bỏ rơi promise');
+  assert.equal(dem.so, 1, `phải gọi res.end đúng 1 lần (đã gọi ${dem.so}) — 2 lần nghĩa là lỗi rơi vào loi500`);
   assert.equal(log.calls.error.length >= 1, true, 'phải có log.error');
+  assert.equal(log.calls.error.join(' ').includes('engine-dong-bo-no'), true, 'log phải nêu nguyên nhân');
+  assert.equal(log.calls.error.join(' ').includes('lỗi không lường được'), false,
+    'lỗi của việc KHÔNG được gán nhãn "lỗi không lường được" của handler');
 });
 
 // ───── L3: lỗi không lường được trong thân handler → 500, không sập ─────
