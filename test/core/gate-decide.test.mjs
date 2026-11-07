@@ -138,3 +138,125 @@ test('0 text rỗng/khoảng trắng -> reject empty (trước cả duplicate-id
   assert.deepEqual(run({}, { text: '  ' }), { decision: 'reject', reason: 'empty' });
   assert.equal(run({ idemExists: true }, { text: '' }).reason, 'empty');
 });
+
+// 6: cửa sổ chống trùng tách theo loại tin (issue #55)
+const truoc = (ms) => new Date(Date.parse(NOW) - ms).toISOString();
+const GIONG = 'Dạ mã 8413.70.90 ạ'; // jaccard với base.text = 0.83 >= 0.8
+const KHAC = 'Em gửi anh bảng giá cước đường biển tháng sau';
+// Chủ động thật: không có mốc tin khách. (base.inReplyToAt = NOW nên phải ghi đè null,
+// nếu không thì theo luật bước 6 đây là câu trả lời trực tiếp trả muộn, không phải tin chủ động.)
+const CHU_DONG = { kind: 'job_result', inReplyToAt: null };
+const FACTS_CHU_DONG = { hasOpenJob: true };
+
+test('6 trả lời trực tiếp: trùng chữ trong 60 giây -> drop similar', () => {
+  const r = run({ recentBotTexts: [{ text: GIONG, at: truoc(20_000) }] });
+  assert.equal(r.decision, 'drop');
+  assert.match(r.reason, /^similar:/);
+});
+
+test('6 trả lời trực tiếp: trùng chữ nhưng đã 3 phút -> send (lỗi của issue #55)', () => {
+  const r = run({ recentBotTexts: [{ text: GIONG, at: truoc(180_000) }] });
+  assert.deepEqual(r, { decision: 'send', reason: 'ok' });
+});
+
+test('6 tin chủ động: trùng chữ sau 3 phút vẫn drop similar (cửa sổ 15 phút)', () => {
+  const r = run({ ...FACTS_CHU_DONG, recentBotTexts: [{ text: GIONG, at: truoc(180_000) }] }, CHU_DONG);
+  assert.equal(r.decision, 'drop');
+  assert.match(r.reason, /^similar:/);
+});
+
+test('6 tin chủ động: trùng chữ sau 16 phút -> send (ngoài cả cửa sổ dài)', () => {
+  const r = run({ ...FACTS_CHU_DONG, recentBotTexts: [{ text: GIONG, at: truoc(960_000) }] }, CHU_DONG);
+  assert.deepEqual(r, { decision: 'send', reason: 'ok' });
+});
+
+test('6 tương thích ngược: chuỗi trần không có mốc -> coi như trong cửa sổ, drop similar', () => {
+  const r = run({ recentBotTexts: [GIONG] });
+  assert.equal(r.decision, 'drop');
+  assert.match(r.reason, /^similar:/);
+});
+
+test('6 mốc không đọc được -> coi như trong cửa sổ (mặc định an toàn)', () => {
+  for (const at of [null, 'hom qua', undefined]) {
+    assert.match(run({ recentBotTexts: [{ text: GIONG, at }] }).reason, /^similar:/);
+  }
+});
+
+// job_result là câu trả lời cho câu khách đã hỏi, chỉ trả muộn vì chờ Cổng OZ phân loại (issue #55).
+// Có mốc tin khách còn mới thì đi cửa sổ ngắn như reply/notice; không có mốc thì vẫn là tin chủ động.
+test('6 job_result có mốc tin khách 3 phút: trùng chữ cách 3 phút -> send (lỗi của issue #55 trên đường việc nền)', () => {
+  const r = run(
+    { hasOpenJob: true, recentBotTexts: [{ text: GIONG, at: truoc(180_000) }] },
+    { kind: 'job_result', inReplyToAt: truoc(180_000) },
+  );
+  assert.deepEqual(r, { decision: 'send', reason: 'ok' });
+});
+
+test('6 job_result không có mốc tin khách: trùng chữ cách 3 phút -> vẫn drop similar (cửa sổ 15 phút)', () => {
+  const r = run(
+    { hasOpenJob: true, recentBotTexts: [{ text: GIONG, at: truoc(180_000) }] },
+    { kind: 'job_result', inReplyToAt: null },
+  );
+  assert.equal(r.decision, 'drop');
+  assert.match(r.reason, /^similar:/);
+});
+
+test('3a job_result có mốc tin khách mới nhưng không nợ việc nền -> vẫn reject proactive-no-debt', () => {
+  const r = run({ hasOpenJob: false }, { kind: 'job_result', inReplyToAt: truoc(180_000) });
+  assert.deepEqual(r, { decision: 'reject', reason: 'proactive-no-debt' });
+});
+
+test('3b job_result có mốc tin khách mới, có nợ, trong giờ yên -> vẫn defer quiet-hours', () => {
+  const dem = '2026-11-04T16:30:00.000Z'; // 23:30 VN
+  const r = run(
+    { hasOpenJob: true, now: dem },
+    { kind: 'job_result', inReplyToAt: '2026-11-04T16:28:00.000Z' },
+  );
+  assert.deepEqual(r, { decision: 'defer', reason: 'quiet-hours', notBefore: '2026-11-05T00:00:00.000Z' });
+});
+
+test('6 hai câu khác nhau trong cùng 20 giây -> send', () => {
+  const r = run({ recentBotTexts: [{ text: KHAC, at: truoc(20_000) }] });
+  assert.deepEqual(r, { decision: 'send', reason: 'ok' });
+});
+
+// Biên đúng của hai cửa sổ: không được lệch 1 giây (kểm thử độc lập issue #55).
+test('6 biên cửa sổ trả lời trực tiếp: đúng 60.000 ms vẫn bỏ, 60.001 ms thì gửi', () => {
+  assert.match(run({ recentBotTexts: [{ text: GIONG, at: truoc(59_999) }] }).reason, /^similar:/);
+  assert.match(run({ recentBotTexts: [{ text: GIONG, at: truoc(60_000) }] }).reason, /^similar:/);
+  assert.deepEqual(run({ recentBotTexts: [{ text: GIONG, at: truoc(60_001) }] }), { decision: 'send', reason: 'ok' });
+});
+
+test('6 biên cửa sổ chủ động: đúng 900.000 ms (15 phút) vẫn bỏ, 900.001 ms thì gửi', () => {
+  const f = { ...FACTS_CHU_DONG, recentBotTexts: [{ text: GIONG, at: truoc(899_999) }] };
+  assert.match(run(f, CHU_DONG).reason, /^similar:/);
+  assert.match(run({ ...FACTS_CHU_DONG, recentBotTexts: [{ text: GIONG, at: truoc(900_000) }] }, CHU_DONG).reason, /^similar:/);
+  assert.deepEqual(run({ ...FACTS_CHU_DONG, recentBotTexts: [{ text: GIONG, at: truoc(900_001) }] }, CHU_DONG), { decision: 'send', reason: 'ok' });
+});
+
+test('6 mốc gửi là số mili giây hoặc Date → vẫn lọc cửa sổ đúng', () => {
+  const t = Date.parse(NOW);
+  assert.match(run({ recentBotTexts: [{ text: GIONG, at: t - 20_000 }] }).reason, /^similar:/);
+  assert.match(run({ recentBotTexts: [{ text: GIONG, at: new Date(t - 20_000) }] }).reason, /^similar:/);
+  assert.deepEqual(run({ recentBotTexts: [{ text: GIONG, at: t - 60_001 }] }), { decision: 'send', reason: 'ok' });
+});
+
+test('6 reply có mốc tin khách cũ hơn directReplyMs → đi cửa sổ dài (15 phút), không phải 60 giây', () => {
+  const f = { hasOpenJob: true, recentBotTexts: [{ text: GIONG, at: truoc(3 * 60_000) }] };
+  // mốc cũ 11 phút → không còn là trả lời trực tiếp → tin bot cách 3 phút vẫn trùng → bỏ
+  assert.match(run(f, { inReplyToAt: truoc(11 * 60_000) }).reason, /^similar:/);
+  // mốc còn trong 10 phút → cửa sổ 60 giây → tin bot cách 3 phút không còn trùng → gửi
+  assert.deepEqual(run(f).decision, 'send');
+});
+
+// Khoá có mặt với giá trị undefined không được ghi đè mặc định: nếu ghi đè thì cửa sổ 60 giây
+// biến mất và lỗi #55 (khách hỏi lại bị bỏ) quay lại âm thầm, không cảnh báo gì.
+test('rules có khoá undefined -> vẫn dùng mặc định (không âm thầm mất ngưỡng)', () => {
+  const f = { recentBotTexts: [{ text: GIONG, at: truoc(180_000) }] };
+  for (const r of [{}, { dupDirectMs: undefined }, { dupDirectMs: undefined, dupWindowMs: undefined }, { similarity: undefined }]) {
+    assert.deepEqual(run(f, {}, r), { decision: 'send', reason: 'ok' }, `rules = ${JSON.stringify(r)}`);
+  }
+  // Giá trị thật vẫn ghi đè được (0 và false không bị bỏ qua).
+  assert.match(run(f, {}, { dupDirectMs: 900_000 }).reason, /^similar:/);
+  assert.deepEqual(run({ recentBotTexts: [GIONG] }, {}, { similarity: 2 }), { decision: 'send', reason: 'ok' });
+});

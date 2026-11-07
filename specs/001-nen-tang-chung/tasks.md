@@ -22,7 +22,7 @@ description: "Danh sách việc spec 001: khuôn spec-kit, mỗi việc viết t
 - Không thêm dependency vào `package.json`.
 - Mỗi tệp < 300 dòng; tệp `store` vượt thì tách `core/store/<bảng>.js`.
 - Thời gian lưu `new Date().toISOString()`; giờ VN tính bằng cộng 7 giờ trên UTC, **không** dùng giờ địa phương của máy.
-- Giờ yên `[23:00, 07:00)` giờ VN. Trần mặc định `CAP_CHAT_DAY=8`, `CAP_ALL_DAY=300`. Ngưỡng trùng `0.8`, cửa sổ `15 phút`, so với `4` tin gần nhất.
+- Giờ yên `[23:00, 07:00)` giờ VN. Trần mặc định `CAP_CHAT_DAY=8`, `CAP_ALL_DAY=300`. Ngưỡng trùng `0.8`, so với `4` tin gần nhất; cửa sổ chống trùng **tách theo loại tin**: `60 giây` cho tin **trả lời trực tiếp** (còn mốc tin khách trong `10 phút`), `15 phút` cho tin **chủ động** (issue #55).
 - "Trả lời trực tiếp" = tin ra trong `10 phút` kể từ tin khách.
 - Chỉ `core/gate.js` được gọi `channel.sendText`.
 - `npm test` không dùng mạng. 21 test trong `test/test.mjs` phải xanh từ T014 trở đi.
@@ -130,7 +130,7 @@ assert.equal(findLeak('gọi 0985559918', [/0985\D?559\D?918/]), 'banned');
 `inbox.{insertIgnore(row)->boolean, get(key)->row|null, pending()->row[], markDone(key, at), markFailed(key, err, at)}` ·
 `chats.{get(id)->row|null, upsertSeen(id, kind, title, at), setState(id, state, by, reason, at)}` ·
 `sessions.{get(key, ttlMs, now)->object, set(key, data, now)}` ·
-`outbox.{insert(msg)->id /*throws 'DUPLICATE_IDEM'*/, update(id, patch), hasIdem(key)->boolean, recentBotTexts(chatId, sinceIso, limit)->string[], countSent(chatId|null, sinceIso)->number, due(nowIso)->row[]}` ·
+`outbox.{insert(msg)->id /*throws 'DUPLICATE_IDEM'*/, update(id, patch), hasIdem(key)->boolean, recentBotMsgs(convId, sinceIso, limit)->[{text, at}], countSent(chatId|null, sinceIso)->number, due(nowIso)->row[]}` ·
 `jobs.{add(job)->id|null, due(nowIso)->row[], update(id, patch)}` ·
 `tickets.{openFor(chatId)->row|null, open(chatId, reason, at)->row, update(id, patch), list(status)->row[]}` ·
 `audit.{add(rec), byTurn(turnId)->row[], byChat(chatId, limit)->row[], prune(beforeIso)}` ·
@@ -194,7 +194,7 @@ expect({ hasOpenJob: true, now: '2026-11-04T16:30:00Z' }, { kind: 'job_result' }
 expect({ now: '2026-11-04T16:30:00Z' }, { kind: 'reply', inReplyToAt: '2026-11-04T16:28:00Z' }) → 'send'   // trả lời trực tiếp trong giờ yên
 expect({ sentTodayChat: 8 }) → { decision: 'defer', reason: 'cap:chat' }
 expect({ sentTodayAll: 300 }) → { decision: 'defer', reason: 'cap:all' }
-expect({ recentBotTexts: ['Dạ mã 8413.70.90 ạ'] }) → { decision: 'drop', reason: /^similar:0\.\d+$/ }
+expect({ recentBotTexts: ['Dạ mã 8413.70.90 ạ'] }) → { decision: 'drop', reason: /^similar:0\.\d+$/ }   // chuỗi trần = không có mốc → coi như trong cửa sổ (T039)
 expect({}, { text: 'xem /home/oz/a.log' }) → { decision: 'reject', reason: 'leak:path' }
 expect({}, { text: 'Cước 27.000đ/kg', pack: { moneyCheck: true }, evidence: [{ donGia: 25650 }] }) → { decision: 'reject', reason: 'money:27000' }
 expect({}, { text: 'Cước 25.650đ/kg', pack: { moneyCheck: true }, evidence: [{ donGia: 25650 }] }) → 'send'
@@ -566,6 +566,22 @@ c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'au
 
 ---
 
+## Phase 10: Nới luật chống trùng (issue #55)
+
+### T039 [US1] Cửa sổ chống trùng tách theo loại tin
+
+**Files:** Modify `core/gate-decide.js`, `core/gate.js`, `core/store/queue.js`, `core/jobs.js` · Modify `test/core/gate-decide.test.mjs`, `test/core/gate-send.test.mjs`, `test/core/store.test.mjs`, `test/core/conv.test.mjs`, `test/core/engine.test.mjs`
+
+**Interfaces — Produces:** `DEFAULT_RULES.dupDirectMs = 60_000` và `DEFAULT_RULES.dupWindowMs = 900_000` · hàm riêng `isDirectReply(msg, nowMs, rules)` (không phải `isProactive` của bước 3a) trong `core/gate-decide.js` · `Store.outbox.recentBotMsgs(convId, sinceIso, limit) -> [{ text, at }]` (thay `recentBotTexts` → `string[]`) · `job_result` mang `inReplyToAt` = mốc tin khách của lượt (`context.receivedAt` của dòng `jobs`)
+
+- [x] **Step 1: Test đỏ**: `test/core/gate-decide.test.mjs` — trùng chữ sau 20 giây (trả lời trực tiếp) → `drop similar`; trùng chữ sau 3 phút (trả lời trực tiếp) → `send`; tin chủ động trùng sau 3 phút → `drop`; tin chủ động trùng sau 16 phút → `send`; chuỗi trần không mốc → `drop` (tương thích ngược); mốc không đọc được (`null`/`'hom qua'`/`undefined`) → `drop`; `job_result` có mốc tin khách 3 phút → `send`; `job_result` không mốc → `drop`; `job_result` có mốc nhưng không nợ việc nền → `reject proactive-no-debt`; `job_result` có mốc, có nợ, trong giờ yên → `defer quiet-hours`; hai câu khác nhau trong 20 giây → `send`. `test/core/gate-send.test.mjs` — khách bấm gửi hai lần trong 20 giây → chỉ 1 tin ra; khách hỏi lại sau 3 phút → 2 tin ra; ba mã khác nhau liên tiếp → 3 tin ra; tin chủ động giống tin vừa gửi trong 15 phút → `drop`. `test/core/store.test.mjs` + `test/core/conv.test.mjs` — `recentBotMsgs` trả `[{ text, at }]`. `test/core/engine.test.mjs` — khách hỏi lại đúng câu sau 3 phút trên đường việc nền → nhận kết quả thứ hai.
+- [x] **Step 2:** FAIL (bản cũ bỏ tin trùng trong 15 phút bất kể loại tin → khách hỏi lại không được trả lời).
+- [x] **Step 3:** `core/gate-decide.js` thêm `dupDirectMs`/`dupWindowMs` và hàm `isDirectReply`; bước chống trùng chọn cửa sổ theo `isDirectReply` (60 giây cho trả lời trực tiếp, 15 phút cho chủ động), tin không có mốc đọc được thì coi như trong cửa sổ; `core/store/queue.js` đổi `recentBotTexts` → `recentBotMsgs` (kèm `sent_at`); `core/gate.js` đọc theo cửa sổ dài 15 phút rồi `decide` tự lọc; `core/engine-jobs.js` ghi `receivedAt` vào `context` của dòng `jobs` và truyền `inReplyToAt` khi gửi `job_result` (dòng cũ không có → `null`). `job_result` vẫn luôn chịu luật `proactive-no-debt` và luật giờ yên như trước.
+- [x] **Step 4:** PASS — `npm test` xanh.
+- [ ] **Step 5:** `git commit -m "feat(gate): split duplicate window by message kind"`
+
+---
+
 ## Dependencies & Execution Order
 
 - T001 → T002 → (T003, T004, T005, T007 song song) → T006 → T008 → T009 → T010
@@ -575,6 +591,7 @@ c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'au
 - T033 cần T026; T034 song song; T035 cần T033 + T034; T036 cần T035
 - T027 → T028; T029 song song; T030 cần T026 + T021 + T035; T031 sau T030
 - T032 cuối cùng
+- T039 đánh số sau T038; đã code xong 07/11/2026 (issue #55), chờ commit
 
 **MVP an toàn để bật lại cho khách** = xong Phase 1–6b (T001–T026, T033–T036): cửa gửi, gói hs trên lõi, bền vững, người cầm phòng, lịch sử và hồ sơ khách.
 

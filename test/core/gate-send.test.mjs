@@ -137,14 +137,50 @@ test('chat human → reject chat-human; không gọi onAlert/onTicket', async ()
   assert.equal(alerts.length + tickets.length, 0);
 });
 
-test('tin giống tin vừa gửi (15 phút) → drop similar', async () => {
-  const { gate, ch, msg, clock } = setup();
-  await gate.send(msg({ idemKey: 'a', text: 'Dạ mã HS là 8413.70.90 thuế 10%' }));
+test('tin chủ động giống tin vừa gửi (15 phút) → drop similar', async () => {
+  const { gate, store, ch, msg, clock } = setup();
+  store.jobs.add({ chat_id: 'c1', session_key: 'c1', pack: 'hs', ma_luot: 'L1', result_tool: 't', status: 'waiting', next_poll_at: START, expires_at: START, created_at: START });
+  // inReplyToAt: null = chủ động thật (msg() mặc định gắn mốc "vừa xong", tức trả lời trực tiếp).
+  await gate.send(msg({ idemKey: 'a', kind: 'job_result', text: 'Dạ mã HS là 8413.70.90 thuế 10%', inReplyToAt: null }));
   clock.advance('5m');
+  const r = await gate.send(msg({ idemKey: 'b', kind: 'job_result', text: 'Dạ mã HS là 8413.70.90 thuế 10%', inReplyToAt: null }));
+  assert.equal(r.decision, 'drop');
+  assert.match(r.reason, /^similar:/);
+  assert.equal(ch.sent.length, 1);
+});
+
+test('khách hỏi lại đúng câu đó sau 3 phút → vẫn được trả lời', async () => {
+  const { gate, ch, msg, clock } = setup();
+  await gate.send(msg({ idemKey: 'a', text: 'Dạ mã HS là 8413.70.90 thuế 10%', inReplyToAt: clock.now().toISOString() }));
+  clock.advance('3m');
+  const r = await gate.send(msg({ idemKey: 'b', text: 'Dạ mã HS là 8413.70.90 thuế 10%', inReplyToAt: clock.now().toISOString() }));
+  assert.equal(r.decision, 'send');
+  assert.equal(ch.sent.length, 2);
+});
+
+test('khách bấm gửi hai lần trong 20 giây → chỉ một câu trả lời', async () => {
+  const { gate, ch, msg, clock } = setup();
+  await gate.send(msg({ idemKey: 'a', text: 'Dạ mã HS là 8413.70.90 thuế 10%', inReplyToAt: clock.now().toISOString() }));
+  clock.advance('20s');
   const r = await gate.send(msg({ idemKey: 'b', text: 'Dạ mã HS là 8413.70.90 thuế 10%', inReplyToAt: clock.now().toISOString() }));
   assert.equal(r.decision, 'drop');
   assert.match(r.reason, /^similar:/);
   assert.equal(ch.sent.length, 1);
+});
+
+test('ba lượt tra ba mã khác nhau liên tiếp → đều được gửi', async () => {
+  const { gate, ch, msg, clock } = setup();
+  const texts = [
+    'Dạ mã HS là 8413.70.90 thuế NK 10% VAT 8%',
+    'Dạ mã HS là 8516.90.00 thuế NK 15% VAT 8%',
+    'Dạ mã HS là 6404.11.90 thuế NK 20% VAT 8%',
+  ];
+  for (const [i, text] of texts.entries()) {
+    if (i > 0) clock.advance('10s');
+    const r = await gate.send(msg({ idemKey: `k${i}`, text, inReplyToAt: clock.now().toISOString() }));
+    assert.deepEqual([i, r.decision, r.reason], [i, 'send', 'ok']);
+  }
+  assert.equal(ch.sent.length, 3);
 });
 
 test('job_result có việc nền nợ → gửi; không nợ → proactive-no-debt', async () => {
@@ -483,4 +519,17 @@ test('R2: tin hoãn (chưa từng failed) bị reject proactive-no-debt → KHÔ
   clock.set(SEVEN);
   await gate.sweep();
   assert.equal(tickets.length, before);
+});
+
+test('cửa sổ 60 giây qua cửa thật + store: 59 giây thì bỏ, 61 giây thì gửi', async () => {
+  const { gate, ch, msg, clock } = setup();
+  await gate.send(msg({ idemKey: 'a' }));
+  clock.advance('59s');
+  const r1 = await gate.send(msg({ idemKey: 'b' }));
+  assert.equal(r1.decision, 'drop');
+  assert.match(r1.reason, /^similar:/);
+  clock.advance('2s'); // tổng 61 giây kể từ tin bot gửi trước
+  const r2 = await gate.send(msg({ idemKey: 'c' }));
+  assert.deepEqual([r2.decision, r2.reason], ['send', 'ok']);
+  assert.equal(ch.sent.length, 2);
 });

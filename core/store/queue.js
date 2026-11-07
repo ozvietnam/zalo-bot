@@ -35,7 +35,7 @@ export function outboxTable(db) {
   const ins = db.prepare(`INSERT INTO outbox (idem_key, conv_id, chat_id, turn_id, kind, text, decision, reason, status, not_before, parts_sent, attempts, next_retry_at, created_at, sent_at, ctx)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const has = db.prepare('SELECT 1 FROM outbox WHERE idem_key = ?');
-  const recent = db.prepare(`SELECT text FROM outbox WHERE conv_id = ? AND status = 'sent' AND kind IN ('reply','notice','job_result')
+  const recent = db.prepare(`SELECT text, sent_at FROM outbox WHERE conv_id = ? AND status = 'sent' AND kind IN ('reply','notice','job_result')
     AND sent_at >= ? ORDER BY sent_at DESC, id DESC LIMIT ?`);
   const cntConv = db.prepare("SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND conv_id = ? AND sent_at >= ?");
   const cntChat = db.prepare("SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND chat_id = ? AND sent_at >= ?");
@@ -58,7 +58,8 @@ export function outboxTable(db) {
     queued: () => queued.all().map(outOut),
     get: (id) => outOut(byId.get(id)),
     hasIdem: (key) => has.get(key) !== undefined,
-    recentBotTexts: (convId, sinceIso, limit) => recent.all(convId, sinceIso, limit).map((r) => r.text),
+    /** Tin bot gần đây kèm mốc gửi, để cửa tự lọc cửa sổ chống trùng theo loại tin (gate-decide bước 6). */
+    recentBotMsgs: (convId, sinceIso, limit) => recent.all(convId, sinceIso, limit).map((r) => ({ text: r.text, at: r.sent_at })),
     countSent: (convId, sinceIso) => (convId === null || convId === undefined ? cntAll.get(sinceIso) : cntConv.get(convId, sinceIso)).n,
     /** Đếm tin đã gửi theo phòng (cả nhóm, không tách theo người) — dùng cho trần ngày của nhóm. */
     countSentChat: (chatId, sinceIso) => cntChat.get(chatId, sinceIso).n,

@@ -9,6 +9,8 @@ export const DEFAULT_RULES = Object.freeze({
   capAllDay: 300,
   similarity: 0.8,
   directReplyMs: 600_000,
+  dupDirectMs: 60_000,
+  dupWindowMs: 900_000,
   bannedPatterns: [],
   quietHours: true, // false: tắt giờ yên (chỉ createBot cũ dùng để test cũ chạy mọi giờ)
 });
@@ -23,12 +25,18 @@ function toMs(v) {
   return Number.isNaN(t) ? null : t;
 }
 
-/** Tin chủ động: job_result, hoặc reply/notice trả muộn quá directReplyMs / không có mốc tin khách. */
+/** Còn mốc tin khách đọc được và trong directReplyMs: tin này là câu trả lời cho câu khách vừa hỏi. */
+function isDirectReply(msg, nowMs, rules) {
+  const at = msg.inReplyToAt == null ? null : toMs(msg.inReplyToAt);
+  return at != null && nowMs - at <= rules.directReplyMs;
+}
+
+/** Tin chủ động (bước 3a: nợ việc nền + giờ yên): job_result luôn tính là chủ động —
+ *  kết quả việc nền phải có việc nền nợ và phải chịu giờ yên (hiến pháp Điều II). */
 function isProactive(msg, nowMs, rules) {
   if (NEVER_PROACTIVE.has(msg.kind)) return false;
   if (msg.kind === 'job_result') return true;
-  const at = msg.inReplyToAt == null ? null : toMs(msg.inReplyToAt);
-  return at == null || nowMs - at > rules.directReplyMs;
+  return !isDirectReply(msg, nowMs, rules);
 }
 
 // Một cách đọc duy nhất, cùng quy ước extractMoney: nhóm cuối đúng 3 chữ số thì mọi dấu là ngăn nghìn, ngược lại dấu cuối là thập phân.
@@ -67,7 +75,10 @@ export function evidenceNumbers(evidence) {
  * facts.now (hoặc msg.now) bắt buộc; hàm không tự đọc đồng hồ.
  */
 export function decide(msg, facts = {}, rules = {}) {
-  const r = { ...DEFAULT_RULES, ...rules };
+  // Khoá có mặt với giá trị undefined (ví dụ `dupDirectMs: config.dupDirectMs` mà config thiếu)
+  // KHÔNG được ghi đè mặc định: mất một ngưỡng là âm thầm đổi luật gửi. Giá trị false vẫn giữ.
+  const r = { ...DEFAULT_RULES };
+  for (const [k, v] of Object.entries(rules)) if (v !== undefined) r[k] = v;
   const nowRaw = facts.now ?? msg.now;
   const nowMs = nowRaw == null ? null : toMs(nowRaw);
   if (nowMs == null) throw new Error('decide: thiếu facts.now (hoặc msg.now)');
@@ -97,9 +108,21 @@ export function decide(msg, facts = {}, rules = {}) {
       if ((facts.isGroup === true) && (facts.sentTodayGroup ?? 0) >= r.capGroupDay) return out('defer', 'cap:group');
       if ((facts.sentTodayAll ?? 0) >= r.capAllDay) return out('defer', 'cap:all');
     }
-    // 6
+    // 6: luật này sinh ra từ sự cố #2 (hai tiến trình cùng một phòng, khách bấm gửi hai lần —
+    // research.md:11). Nay lớp chặn chính là khoá outbox.idem_key UNIQUE và claim nguyên tử bảng
+    // inbox, nên Jaccard chỉ là lưới an toàn cuối. Vì vậy cửa sổ tách theo mốc tin khách: tin trả
+    // lời câu khách vừa hỏi (còn trong directReplyMs — kể cả job_result trả muộn qua việc nền) chỉ
+    // chống trùng trong dupDirectMs (đủ chặn hai lần bấm gửi); tin không có mốc, hoặc mốc đã cũ,
+    // giữ dupWindowMs. Đây là khái niệm RIÊNG của bước 6, không phải isProactive của bước 3a:
+    // job_result vẫn luôn chịu luật nợ việc nền và giờ yên ở trên.
+    // Tin cũ trong recentBotTexts không có mốc đọc được thì coi như trong cửa sổ — mặc định an toàn.
+    const dupMs = isDirectReply(msg, nowMs, r) ? r.dupDirectMs : r.dupWindowMs;
     let best = 0;
-    for (const prev of facts.recentBotTexts ?? []) best = Math.max(best, jaccard(text, prev));
+    for (const prev of facts.recentBotTexts ?? []) {
+      const at = typeof prev === 'string' || prev?.at == null ? null : toMs(prev.at);
+      if (at != null && nowMs - at > dupMs) continue;
+      best = Math.max(best, jaccard(text, typeof prev === 'string' ? prev : prev?.text));
+    }
     if (best >= r.similarity) return out('drop', `similar:${best.toFixed(2)}`);
   }
 
