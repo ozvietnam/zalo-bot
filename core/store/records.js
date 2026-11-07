@@ -8,11 +8,28 @@ export function auditTable(db) {
   const byTurn = db.prepare('SELECT * FROM audit WHERE turn_id = ? ORDER BY id');
   const byChat = db.prepare('SELECT * FROM audit WHERE chat_id = ? ORDER BY at DESC, id DESC LIMIT ?');
   const prune = db.prepare('DELETE FROM audit WHERE at < ?');
+  const cntInvalidGate = db.prepare("SELECT COUNT(*) AS n FROM audit WHERE type = 'gate' AND at >= ? AND json_valid(data) = 0");
   return {
     add: (r) => { ins.run(r.at, r.turn_id ?? null, r.conv_id ?? null, r.chat_id ?? null, r.type, toJson(r.data)); },
     byTurn: (turnId) => byTurn.all(turnId).map(auditOut),
     byChat: (chatId, limit = 50) => byChat.all(chatId, limit).map(auditOut),
     prune: (beforeIso) => { prune.run(beforeIso); },
+    /**
+     * Đếm các lý do chặn sớm theo từng lý do.
+     * Dòng audit có JSON HỎNG phải bị BỎ QUA, không được làm hỏng cả endpoint: `json_extract`
+     * trên JSON hỏng ném lỗi "malformed JSON". Vì vậy chỉ gọi json_extract trên dữ liệu đã qua
+     * `json_valid` (SQLite short-circuit trong CASE + điều kiện lọc ở WHERE).
+     */
+    countGateReasons: (sinceIso, reasons) => {
+      if (!reasons?.length) return [];
+      const q = `SELECT CASE WHEN json_valid(data) THEN json_extract(data, '$.reason') END AS reason, COUNT(*) AS n FROM audit
+        WHERE type = 'gate' AND at >= ? AND json_valid(data)
+          AND CASE WHEN json_valid(data) THEN json_extract(data, '$.reason') END IN (${reasons.map(() => '?').join(',')})
+        GROUP BY 1`;
+      return db.prepare(q).all(sinceIso, ...reasons);
+    },
+    /** Số dòng audit loại 'gate' có JSON hỏng kể từ `sinceIso` — để vận hành biết mà không phải mở db. */
+    countInvalidGate: (sinceIso) => cntInvalidGate.get(sinceIso).n,
   };
 }
 

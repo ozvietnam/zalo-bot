@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS customers (
   interests TEXT NOT NULL DEFAULT '[]', first_seen_at TEXT, last_seen_at TEXT,
   turns INTEGER DEFAULT 0, note TEXT);
 CREATE INDEX IF NOT EXISTS ix_inbox_status ON inbox (status, received_at);
+CREATE INDEX IF NOT EXISTS ix_inbox_received ON inbox (received_at);
 CREATE INDEX IF NOT EXISTS ix_convs_chat ON convs (chat_id);
 CREATE INDEX IF NOT EXISTS ix_outbox_chat ON outbox (chat_id, created_at);
 CREATE INDEX IF NOT EXISTS ix_outbox_conv ON outbox (conv_id, sent_at);
@@ -54,6 +55,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_tickets_open ON tickets (conv_id) WHERE sta
 CREATE INDEX IF NOT EXISTS ix_audit_turn ON audit (turn_id);
 CREATE INDEX IF NOT EXISTS ix_audit_chat ON audit (chat_id, at);
 CREATE INDEX IF NOT EXISTS ix_audit_conv ON audit (conv_id, at);
+CREATE INDEX IF NOT EXISTS ix_audit_type_at ON audit (type, at);
+CREATE INDEX IF NOT EXISTS ix_outbox_created ON outbox (created_at);
 CREATE INDEX IF NOT EXISTS ix_messages_chat ON messages (chat_id, at);
 CREATE INDEX IF NOT EXISTS ix_messages_conv ON messages (conv_id, at);
 CREATE INDEX IF NOT EXISTS ix_customers_phone ON customers (phone);
