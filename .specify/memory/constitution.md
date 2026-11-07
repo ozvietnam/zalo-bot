@@ -14,7 +14,7 @@ Code gửi đi mà không qua cửa là lỗi chặn merge.
 
 ### II. Người trước máy (NON-NEGOTIABLE)
 Phòng chat ở trạng thái `human` (nhân viên đã nhận, hoặc người đang trả lời) thì bot **im hoàn toàn**:
-không trả lời, không soạn nháp, không quét lại, không gọi mô hình. Phòng chỉ trở về `bot` khi nhân viên ra lệnh rõ ràng.
+không trả lời, không soạn nháp, không quét lại, không gọi mô hình. Phòng trở về `bot` khi nhân viên ra lệnh rõ ràng, hoặc tự trở về sau khoảng lặng lâu (mặc định khoảng 2 giờ); tự trở về chỉ đổi trạng thái phòng, không phải bot tự nhắc khách.
 Bot chỉ nói khi khách vừa nhắn mới, hoặc khi đang nợ khách một kết quả đã hứa (có bản ghi việc nền).
 Khách im thì máy im: không nhắc lại, không "chăm sóc lại" tự phát.
 
@@ -74,4 +74,16 @@ Hiến pháp đứng trên mọi tài liệu khác trong repo. Sửa hiến phá
 tăng số phiên bản (MAJOR: đổi/bỏ nguyên tắc; MINOR: thêm nguyên tắc; PATCH: sửa chữ). Sửa MAJOR cần anh Thắng duyệt.
 Mỗi PR phải tự kiểm theo bảng "Constitution Check" trong `plan.md` của spec tương ứng.
 
-**Version**: 1.0.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-04
+**Version**: 2.0.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-07
+
+## Lịch sử sửa đổi
+
+### 2.0.0 — 2026-11-07 (MAJOR)
+- **Đổi:** Điều II — phòng `human` trở về `bot` khi nhân viên ra lệnh rõ ràng **hoặc** tự trở về sau khoảng lặng lâu (mặc định khoảng 2 giờ). Trước đây Điều II quy định phòng *chỉ* trở về `bot` khi nhân viên ra lệnh.
+- **Lý do:** quyết định của chủ repo (anh Thắng) ngày 06/11/2026, ghi nhận tại `docs/wiki/tien-do.md` mục 6.
+- **Bằng chứng:** bài học sự cố #4 tại `specs/001-nen-tang-chung/research.md:13` — ngưỡng tự về quá ngắn (45 phút) từng gây 22 tin bot chen ngang nhân viên; quyết định mới nâng ngưỡng lên khoảng lặng lâu (~2 giờ) và quy định tự về chỉ đổi trạng thái phòng, không gửi tin.
+- **Mức phiên bản:** đổi nội dung một nguyên tắc NON-NEGOTIABLE → MAJOR theo mục Quản trị. Cần anh Thắng duyệt trước khi ban hành.
+- **Tài liệu khớp theo:** `specs/001-nen-tang-chung/spec.md:26` · `specs/001-nen-tang-chung/spec.md:72` · `specs/001-nen-tang-chung/spec.md:212` · `specs/001-nen-tang-chung/tasks.md:380` · `specs/001-nen-tang-chung/data-model.md:39` · `specs/001-nen-tang-chung/research.md:71` · `docs/ROADMAP.md:9` · `docs/ROADMAP.md:20` · `docs/ROADMAP.md:22` · `docs/ROADMAP.md:31`.
+
+### 1.0.0 — 2026-11-04
+- Ban hành lần đầu: 9 nguyên tắc, ràng buộc kỹ thuật, quy trình làm việc, quản trị. Bằng chứng gốc tại `specs/001-nen-tang-chung/research.md` §1.

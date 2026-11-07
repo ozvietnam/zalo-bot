@@ -54,7 +54,7 @@ Tự kiểm bằng một lệnh: chỉ có `core/gate.js:79` gọi `channel.send
 
 ## Điều II — Người trước máy
 
-**Yêu cầu.** Phòng chat ở trạng thái `human` thì bot im hoàn toàn; phòng chỉ trở về `bot` khi nhân viên ra lệnh rõ ràng (`.specify/memory/constitution.md:16`, `.specify/memory/constitution.md:17`). Từ US8 (T037), trong nhóm "phòng do người" được tính theo **từng người** (`conv`), không áp cho cả nhóm.
+**Yêu cầu.** Phòng chat ở trạng thái `human` thì bot im hoàn toàn; phòng trở về `bot` khi nhân viên ra lệnh rõ ràng, hoặc tự trở về sau khoảng lặng lâu (mặc định khoảng 2 giờ), và tự trở về chỉ đổi trạng thái phòng, không gửi tin (`.specify/memory/constitution.md:16`, `.specify/memory/constitution.md:17`). Từ US8 (T037), trong nhóm "phòng do người" được tính theo **từng người** (`conv`), không áp cho cả nhóm.
 
 **Đã có code.**
 
@@ -67,7 +67,7 @@ Tự kiểm bằng một lệnh: chỉ có `core/gate.js:79` gọi `channel.send
 
 - Chưa có tệp *core/handoff.js*, tức chưa có mã chuyển trạng thái cuộc trò chuyện sang `human` và không có mã trả về `bot`. Bảng `convs` và `convs.setState` đã có (`core/store/state.js:33`) nhưng chưa có lệnh nhân viên gọi nó; cột `state` mới chỉ là khung.
 - Lõi không có nhánh bàn giao: `core/engine.js:114` chọn gói rồi chạy, không có bước "nhường cuộc trò chuyện cho nhân viên".
-- Quyết định ngày 06/11 về việc phòng tự trở về bot sau một khoảng lặng dài chưa có trong hiến pháp (`.specify/memory/constitution.md:17` vẫn ghi "chỉ trở về khi nhân viên ra lệnh rõ ràng") và chưa có code.
+- Quyết định ngày 06/11 về việc phòng tự trở về bot sau một khoảng lặng dài **đã có trong hiến pháp** (`.specify/memory/constitution.md:17`, phiên bản 2.0.0) nhưng **chưa có code** — thuộc việc T022 (`specs/001-nen-tang-chung/tasks.md:380`), chưa làm.
 
 ## Điều III — Số tiền do code tra
 

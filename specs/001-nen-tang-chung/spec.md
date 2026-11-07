@@ -23,7 +23,7 @@ giữ nguyên hành vi. Các gói mới (CSKH, nội bộ…) là các spec sau,
 
 ### Session 2026-11-04 (anh Thắng trả lời)
 
-- Q: Phòng đã chuyển cho nhân viên thì khi nào bot được nói lại? → A: Chỉ khi nhân viên ra lệnh `/tra-bot`. Không tự về theo thời gian, không tự về khi phiếu đóng.
+- Q: Phòng đã chuyển cho nhân viên thì khi nào bot được nói lại? → A: Khi nhân viên ra lệnh `/tra-bot`, hoặc phòng tự trở về `bot` sau khoảng lặng lâu (mặc định khoảng 2 giờ; anh Thắng chốt 06/11). Không tự về khi phiếu đóng.
 - Q: Nhân viên nhận phiếu và trả lời khách ở đâu? → A: Nhóm Zalo nhân viên (D6). Không làm Telegram, Sheet hay web console ở spec này.
 - Q: Xong 001 thì làm spec nào? → A: 005 (kênh Fanpage / Zalo OA) trước. Xem `docs/ROADMAP.md`.
 - Q: Cách thực thi `tasks.md`? → A: `superpowers:subagent-driven-development`: mỗi việc một agent làm, một agent khác review trước khi sang việc kế.
@@ -69,7 +69,7 @@ Zalo giả lập không nhận tin bot nào; nhóm nhân viên nhận đúng m�
 1. **Given** khách nhắn "cho em gặp nhân viên", **When** bot xử lý, **Then** bot trả một câu báo đã chuyển người, phòng sang `human`, nhóm nhân viên nhận phiếu có mã phòng, tên khách, 5 tin gần nhất.
 2. **Given** phòng ở `human`, **When** khách nhắn tiếp, **Then** bot không gọi gói nào, không gọi Cổng OZ, chỉ chuyển nguyên văn tin vào phiếu.
 3. **Given** nhân viên gõ `/tl P123 Dạ anh chờ em 5 phút` trong nhóm, **When** bot xử lý, **Then** khách nhận đúng câu đó; audit ghi người gửi là nhân viên.
-4. **Given** phòng ở `human`, **When** nhân viên gõ `/tra-bot P123`, **Then** phòng về `bot`, và bot chỉ trả lời từ tin khách **kế tiếp**, không trả lời bù tin cũ.
+4. **Given** phòng ở `human`, **When** nhân viên gõ `/tra-bot P123`, **Then** phòng về `bot`, và bot chỉ trả lời từ tin khách **kế tiếp**, không trả lời bù tin cũ; **Given** phòng `human` không có tin nào trong khoảng lặng lâu (mặc định khoảng 2 giờ), **When** hết khoảng lặng, **Then** phòng tự trở về `bot` (audit `state-change` lý do `idle-timeout`) và bot vẫn im cho tới tin khách **kế tiếp**.
 5. **Given** khách hỏi "bạn là người hay máy", **When** bot trả lời, **Then** câu trả lời nói rõ là trợ lý tự động của OZ và chỉ cách gặp người.
 
 ---
@@ -209,7 +209,7 @@ Trước khi merge hay bật một gói, chạy phát lại các hội thoại m
 - **FR-008**: Với gói có `moneyCheck: true`, cửa gửi MUST từ chối tin có số tiền không xuất hiện trong bằng chứng của lượt.
 
 **Người trước máy**
-- **FR-010**: Mỗi phòng MUST có trạng thái `bot | human | blocked`, lưu bền, đổi được qua lệnh nhân viên và ghi audit mỗi lần đổi.
+- **FR-010**: Mỗi phòng MUST có trạng thái `bot | human | blocked`, lưu bền, đổi được qua lệnh nhân viên hoặc tự trở về `bot` sau khoảng lặng lâu (mặc định khoảng 2 giờ), và ghi audit mỗi lần đổi.
 - **FR-011**: Phòng `human` hoặc `blocked`: hệ thống MUST NOT gọi gói, Cổng OZ hay mô hình nào, và cửa gửi MUST từ chối mọi tin không phải của nhân viên.
 - **FR-012**: Khi chuyển người, hệ thống MUST mở một phiếu trong nhóm nhân viên (mã phòng, tên, 5 tin gần nhất) và gộp tin khách mới vào phiếu đó, tối đa một tin nhóm / phòng / 5 phút.
 - **FR-013**: Nhân viên MUST gửi được tin tới khách bằng `/tl <mã> <nội dung>`, nhận phòng bằng `/nhan <mã>`, trả phòng bằng `/tra-bot <mã>`, chặn bằng `/chan <mã>`, xem hàng chờ bằng `/cho`.
