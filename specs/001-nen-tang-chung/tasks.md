@@ -395,8 +395,21 @@ test('hỏi lại theo nhịp 6 s, 12 s, 24 s… tối đa 60 s', …)
 
 **Interfaces — Produces:** `createHandoff({ store, gate, config, now }) -> { stateOf(chatId), toHuman(chatId, by, reason), toBot(chatId, by), block(chatId, by), open(chatId, reason, turn), forward(chatId, turn), command(turn) }`
 
-- [ ] **Step 1: Test đỏ**: `toHuman` rồi `toBot` → mỗi lần một audit `state-change`; phòng `human` tự trở về `bot` sau khoảng lặng lâu (mặc định khoảng 2 giờ) và ghi audit `state-change` lý do `idle-timeout`, `state_by = 'system'` (test: `advance('1h')` vẫn `human`; `advance('2h')` thì `bot` và không có tin nào gửi ra); `block` rồi khách nhắn → `stateOf === 'blocked'`.
-- [ ] **Step 2:** FAIL · **Step 3:** viết trên `Store.chats` + `Store.audit`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(handoff): chat state machine"`
+> Khi làm (07/11) đã lệch bốn chỗ so với dòng trên, ghi lý do tại đây:
+> (1) Khoá là `convId` (người), không phải `chatId`: T037/T038 (làm trước việc này) chuyển mọi khoá sang
+> `conv_id`, và cửa gửi đọc trạng thái theo `conv_id` (`core/gate.js:24`). Cùng lý do với ghi chú T019, T021.
+> (2) Trạng thái ghi vào **`Store.convs`**, không phải `Store.chats` như Step 3 viết. Cửa gửi đọc `chats`
+> cho chat 1-1 (`core/gate.js:27`) nhưng `chats` **không có đường về**: ghi `human` vào `chats` thì
+> `/tra-bot` (T025) và tự về đều không mở lại được phòng. `chats.state` chỉ còn giữ `blocked` cấp nhóm
+> (FR-032, `data-model.md:40`). `Store.audit` giữ nguyên.
+> (3) Chưa nhận `gate`: T022 không gửi tin nào (tự về "chỉ đổi trạng thái phòng" — Điều II). `gate` vào
+> ở T024 (phiếu) và T025 (lệnh `/tl`), cùng với `open`/`forward`/`command` — ba hàm đó thuộc hai việc sau.
+> (4) Thêm `touch(convId, by)`: bộ đếm khoảng lặng phải tính lại khi **lệnh nhân viên chạm vào phòng**
+> mà không sinh tin nào (ví dụ `/nhan` trên phòng đã `human`); không có hàm này thì phòng đang được
+> nhân viên theo dõi vẫn tự về sau 2 giờ.
+
+- [x] **Step 1: Test đỏ**: `toHuman` rồi `toBot` → mỗi lần một audit `state-change`; phòng `human` tự trở về `bot` sau khoảng lặng lâu (mặc định khoảng 2 giờ) và ghi audit `state-change` lý do `idle-timeout`, `state_by = 'system'` (test: `advance('1h')` vẫn `human`; `advance('2h')` thì `bot` và không có tin nào gửi ra); `block` rồi khách nhắn → `stateOf === 'blocked'`. Thêm: ngưỡng riêng `HUMAN_IDLE_MS`; bộ đếm tính lại theo tin khách / tin nhân viên / `touch`; tin bot không phá khoảng lặng; phiếu không liên quan (phiếu mở vẫn tự về, đóng phiếu không về ngay); `blocked` không tự về; không ghi `human` vào `chats`; sự cố #4 (`research.md:13`) — sau tin nhân viên, lặng 45 phút thì 22 tin bot vẫn bị cửa chặn `chat-human`.
+- [x] **Step 2:** FAIL · **Step 3:** viết trên `Store.convs` + `Store.audit` (xem ghi chú (2) ở trên). · **Step 4:** PASS · **Step 5:** `git commit -m "feat(handoff): chat state machine"`
 
 ### T023 [US2] [P] Nhận ý "gặp người" và "người hay máy"
 
