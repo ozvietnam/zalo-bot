@@ -25,6 +25,25 @@ Quy ước:
 - **Trang wiki đã sửa:** `docs/wiki/tien-do.md`, `docs/wiki/an-toan.md`, `docs/wiki/su-co-bai-hoc.md`.
 - **Chưa có code:** luật tự trở về sau khoảng lặng thuộc việc T022, chưa viết; đường đang chạy không đổi gì.
 - **Kiểm tra:** `npm test`, `npm run eval`, `node scripts/kiem-wiki.mjs --nghiem` đều đạt.
+## 2026-11-07 — Vá câu báo lỗi gửi khách (issue #23), sửa trang an toàn
+
+- **Commit mã nguồn đã đọc:** `ef2b48f`. Lưu ý: thay đổi code của issue #23 (sửa `lib/bot.js:214`,
+  thêm `test/core/loi-goc-khach.test.mjs`) còn nằm ở working tree, **chưa có commit riêng**.
+- **Trang wiki đã sửa:** `docs/wiki/an-toan.md`, `docs/wiki/kiem-thu.md`, `docs/wiki/log.md`.
+- **Vì sao:** đường đang chạy trước đây kèm lỗi gốc vào câu báo gửi khách (in 120 ký tự đầu của
+  `e.message`), khách thật nhận được lỗi gốc — vi phạm Hiến pháp Điều IX
+  (`.specify/memory/constitution.md:50`). Sau khi sửa, câu báo gửi khách không còn kèm lỗi gốc,
+  chi tiết chỉ vào log. Trang an toàn được cập nhật cho khớp: chuyển nhận định "không kèm lỗi gốc"
+  của đường đang chạy từ "Chưa có code" sang "Đã có code" (kèm test khoá), bổ sung dòng log
+  `lib/bot.js:213` vào khoảng trống log chưa che, đổi ô Điều IX trong bảng tổng quan thành
+  "có phần", và bỏ mục rủi ro "Câu báo lỗi của đường đang chạy kèm lỗi gốc". Trang kiểm thử
+  cập nhật số liệu cho khớp sau khi thêm test: 23 tệp test (17 trong `test/core/`), `npm test`
+  226/226 đạt, thêm tệp test mới vào bảng `test/core/` và cập nhật mục "Kết quả chạy gần nhất".
+  Sau đó tệp `test/core/loi-goc-khach.test.mjs` được viết lại (135 dòng) thành 3 ca test khoá cả ba
+  nhánh lỗi của đường đang chạy — nhánh chạy gói, nhánh mở lại lượt (`ket-qua`) và nhánh đọc ảnh
+  (`test/core/loi-goc-khach.test.mjs:101-135`). Trang an toàn và trang kiểm thử đã đồng bộ lại
+  trích dẫn theo dòng mới, số test tăng lên 226; trang kiểm thử đã cập nhật số liệu "Kết quả chạy
+  gần nhất" thành 226/226 và tổng 260 test.
 
 ## 2026-11-07 — Đưa wiki thành cửa vào; sửa trích dẫn
 
