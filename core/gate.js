@@ -37,7 +37,8 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
       chatState: effectiveState(m),
       idemExists: false,
       hasOpenJob: store.jobs.openFor(m.convId, iso(t - R.directReplyMs)),
-      recentBotTexts: store.outbox.recentBotTexts(m.convId, iso(t - 15 * MIN), 4),
+      // Đọc theo cửa sổ dài nhất; decide tự lọc cửa sổ ngắn hơn cho câu trả lời trực tiếp.
+      recentBotTexts: store.outbox.recentBotMsgs(m.convId, iso(t - R.dupWindowMs), 4),
       sentTodayChat: store.outbox.countSent(m.convId, dayStart),
       sentTodayGroup: isGroup ? store.outbox.countSentChat(m.chatId, dayStart) : 0,
       sentTodayAll: store.outbox.countSent(null, dayStart),

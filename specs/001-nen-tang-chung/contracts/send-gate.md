@@ -17,12 +17,14 @@ send(msg) -> Promise<{ id, decision, reason, status }>
 | `chatId`, `turnId`, `kind`, `text` | bắt buộc | `kind ∈ reply | notice | job_result | staff_relay | ticket | digest` |
 | `convId` | tuỳ chọn | khoá cuộc trò chuyện: 1-1 thì `chatId`, nhóm thì `chatId:userId`. Cửa fallback `msg.convId ?? msg.chatId` (thiếu thì coi như chat 1-1) |
 | `isGroup` | tuỳ chọn | cửa tự suy `msg.isGroup === true \|\| convId !== chatId`; truyền tường minh cũng được |
-| `inReplyToAt` | với `reply`/`notice` | thời điểm tin khách được trả lời |
+| `inReplyToAt` | với `reply`/`notice`/`job_result` | thời điểm tin khách được trả lời. `job_result` lấy từ `context.receivedAt` của dòng `jobs` (`core/engine-jobs.js:21`, `core/engine-jobs.js:64`); dòng cũ không có trường đó → `null` → coi là tin chủ động |
 | `pack` | | để áp `moneyCheck` |
 | `evidence` | | mảng kết quả công cụ + lời khách của lượt |
 
 ## `facts` (thi hành tự đọc từ db rồi đưa vào `decide`)
-`chatState`, `idemExists`, `hasOpenJob` (conv có dòng `jobs` đang `waiting` hoặc vừa `done` mà chưa giao), `recentBotTexts` (≤ 4 tin trong 15 phút, theo conv), `sentTodayChat` (theo conv), `sentTodayGroup` (theo chat, chỉ khi `isGroup`), `sentTodayAll` (mọi chat), `isGroup`, `now`. (`decide` không đọc đồng hồ: `now` lấy từ `facts.now`, thiếu thì từ `msg.now`, vẫn thiếu thì ném lỗi.)
+`chatState`, `idemExists`, `hasOpenJob` (conv có dòng `jobs` đang `waiting` hoặc vừa `done` mà chưa giao), `recentBotTexts` (**≤ 4 tin kèm mốc gửi** trong 15 phút, theo `conv`), `sentTodayChat` (theo conv), `sentTodayGroup` (theo chat, chỉ khi `isGroup`), `sentTodayAll` (mọi chat), `isGroup`, `now`. (`decide` không đọc đồng hồ: `now` lấy từ `facts.now`, thiếu thì từ `msg.now`, vẫn thiếu thì ném lỗi.)
+
+Hợp đồng tầng lưu trữ: `store.outbox.recentBotMsgs(convId, sinceIso, limit) -> [{ text, at }]` (`core/store/queue.js:62`) — đọc theo cửa sổ **dài** 15 phút, còn `decide` tự lọc cửa sổ ngắn hơn cho tin trả lời trực tiếp (`core/gate.js:41`). Tên fact truyền vào `decide` vẫn là `facts.recentBotTexts`; mỗi phần tử là `{ text, at }`, chuỗi trần (không có mốc) vẫn chấp nhận và được coi như **trong** cửa sổ.
 
 ## Thứ tự kiểm (tin đầu tiên trượt thì dừng)
 | # | Điều kiện | Quyết định | `reason` |
@@ -35,10 +37,17 @@ send(msg) -> Promise<{ id, decision, reason, status }>
 | 4 | `kind ∈ {reply, notice, job_result}` và `sentTodayChat ≥ CAP_CHAT_DAY` | `defer` + mở phiếu (theo conv) | `cap:chat` |
 | 5 | như trên, `isGroup` và `sentTodayGroup ≥ CAP_GROUP_DAY` | `defer` + cảnh báo (theo chat) | `cap:group` |
 | 6 | như trên và `sentTodayAll ≥ CAP_ALL_DAY` | `defer` + cảnh báo | `cap:all` |
-| 7 | Jaccard(`text`, một tin trong `recentBotTexts`) ≥ 0,8 | `drop` | `similar:<điểm>` |
+| 7 | Jaccard(`text`, một tin trong `recentBotTexts`) ≥ 0,8 — cửa sổ **tách theo loại tin**: tin **trả lời trực tiếp** (còn mốc tin khách trong 10 phút) dùng cửa sổ **60 giây**, tin **chủ động** dùng cửa sổ **15 phút**; tin không có mốc đọc được coi như **trong** cửa sổ | `drop` | `similar:<điểm>` |
 | 8 | `text` khớp mẫu lộ (đường dẫn `/home/`, `/opt/`, `C:\`, stack `at x (file:line)`, chuỗi ≥ 32 ký tự base64/hex, `Bearer `, mục trong `BANNED_PATTERNS`) | `reject` + cảnh báo | `leak:<loại>` |
 | 9 | `pack.moneyCheck` và có số tiền trong `text` không thấy trong `evidence` | `reject` + mở phiếu (theo conv) | `money:<số>` |
 | — | còn lại | `send` | `ok` |
+
+### Hai khái niệm "chủ động" — đọc kỹ, dễ hiểu sai nhất
+- **Bước 3a/3b (nợ việc nền, giờ yên)**: `job_result` **luôn** là tin chủ động, không có ngoại lệ. Nó luôn chịu luật `proactive-no-debt` và luật giờ yên (hiến pháp Điều II: khách im thì máy im) — kể cả khi nó trả lời đúng câu khách vừa hỏi.
+- **Bước 7 (chống trùng)**: phân loại **riêng**, bằng hàm `isDirectReply` (`core/gate-decide.js:29`), **không** dùng định nghĩa chủ động của bước 3a. Ở đây `job_result` **có mốc tin khách** (`inReplyToAt`) còn trong 10 phút thì tính là **trả lời trực tiếp** → đi cửa sổ ngắn 60 giây; không có mốc (hoặc mốc đã cũ) thì mới là tin chủ động → cửa sổ dài 15 phút. Lý do: việc nền chỉ trả lời **trễ**, nên chờ Cổng OZ phân loại vài phút là chuyện thường.
+- `job_result` lấy mốc tin khách ở đâu: `core/engine-jobs.js` ghi `receivedAt` vào `context` của dòng `jobs`, rồi truyền sang `gate.send({ …, inReplyToAt })`. Dòng `jobs` cũ (trước thay đổi này) không có trường đó → `inReplyToAt = null` → vẫn là tin chủ động, giữ hành vi cũ.
+
+Số thứ tự trong bảng này **lệch một bậc** so với chú thích trong code: code gộp ba luật trần ngày vào khối `// 4, 5` (`core/gate-decide.js:102`) và đánh số luật chống trùng là **6** (`core/gate-decide.js:108`), còn bảng này tách `cap:chat`/`cap:group`/`cap:all` thành 4/5/6 nên luật chống trùng là **7**. Thứ tự kiểm thực tế không đổi.
 
 Số tiền = số có ≥ 1 chữ số, chỉ dùng dấu `.`/`,` ngăn nghìn hoặc thập phân (dấu cách **không** ngăn nghìn: `25 650đ` ra `650`), đi kèm `đ`, `vnd`, `đồng`, `₫`, `tr`, `triệu`, `k`, `tệ`, `¥`, `$`, `usd`. `%` **không** phải tiền (là thuế suất). `k` = ×1.000, `tr`/`triệu` = ×1.000.000; `đồng` không tính khi là từ khác (`đồng ý`). Chuỗi dài ở dòng 8 không tính khi nằm trong URL và phải có cả chữ lẫn số.
 So khớp sau khi chuẩn hoá về số nguyên (bài học "1,5 tấn" và "1.234.000đ", research #6).

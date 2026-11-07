@@ -94,7 +94,7 @@ test('outbox/messages/jobs: lọc theo conv_id, đếm theo chat_id cho nhóm', 
   s.outbox.insert(ob({ idem_key: 'kB', conv_id: 'g1:B', chat_id: 'g1', text: 'B', status: 'sent', sent_at: at(2) }));
   assert.equal(s.outbox.countSent('g1:A', T), 1);
   assert.equal(s.outbox.countSentChat('g1', T), 2);
-  assert.deepEqual(s.outbox.recentBotTexts('g1:A', T, 10), ['A']);
+  assert.deepEqual(s.outbox.recentBotMsgs('g1:A', T, 10), [{ text: 'A', at: at(1) }]);
   s.messages.add({ conv_id: 'g1:A', chat_id: 'g1', speaker: 'khach', text: 'A', at: at(1) });
   s.messages.add({ conv_id: 'g1:B', chat_id: 'g1', speaker: 'khach', text: 'B', at: at(2) });
   assert.deepEqual(s.messages.recent('g1:A', 5).map((r) => r.text), ['A']);

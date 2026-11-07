@@ -33,6 +33,21 @@ giữ nguyên hành vi. Các gói mới (CSKH, nội bộ…) là các spec sau,
 - Q: Dữ liệu nằm ở đâu? → A: **SQLite trên máy chạy bot**, sao lưu mỗi ngày.
 - (17:54) Anh Thắng: "Trong nhóm chat cả ngàn người, phải nhận diện được đang nói chuyện với ai, tag đúng tên và giữ nhịp phòng chat riêng." → Thêm khái niệm **cuộc trò chuyện** (`conv`): 1-1 thì `conv = chat_id`; trong nhóm thì `conv = chat_id:user_id`. Trạng thái người cầm, phiếu, hồ sơ, lịch sử, trần tin, chống trùng nội dung, hàng đợi đều theo `conv`, không theo cả nhóm. Thay giả định cũ "human áp cho cả nhóm". Xem US8.
 
+### Session 2026-11-07 (issue #55)
+
+- Q: Khách hỏi lại đúng câu cũ sau vài phút thì bot có trả lời không? → A: **Có.** Bước chống trùng nay **tách cửa sổ thời gian theo loại tin**, ngưỡng Jaccard vẫn `0,8`, vị trí bước trong thứ tự kiểm không đổi:
+  - Tin **trả lời trực tiếp** câu khách vừa hỏi (còn mốc tin khách trong `directReplyMs` = 10 phút, kể cả `job_result` trả muộn qua việc nền) → cửa sổ **60 giây** (`dupDirectMs`).
+  - Tin **chủ động** (không có mốc tin khách, hoặc mốc đã cũ hơn 10 phút) → giữ cửa sổ **15 phút** (`dupWindowMs`).
+- Q: Vì sao nới? → A: Luật cũ **không nhằm** để bot im khi khách hỏi lại thật. Nó sinh ra từ sự cố #2 (`specs/001-nen-tang-chung/research.md:11`): khách bấm gửi hai lần, hoặc hai tiến trình cùng xử lý một phòng. Nay lớp chặn chính cho sự cố đó là khoá `outbox.idem_key` UNIQUE (`core/store/schema.js:23`, `core/store/queue.js:53`) và claim nguyên tử bảng `inbox` (`core/store/queue.js:24`) — hai lớp này không phụ thuộc chữ. Jaccard chỉ còn là **lưới an toàn cuối**.
+- Q: "Chủ động" ở bước chống trùng có giống bước 3a không? → A: **Không, đây là hai khái niệm khác nhau.** Bước chống trùng phân loại bằng hàm riêng `isDirectReply` (`core/gate-decide.js:29`): `job_result` có mốc tin khách còn trong 10 phút thì tính là **trả lời trực tiếp**. Còn bước 3a thì `job_result` **luôn** là tin chủ động (`core/gate-decide.js:36`), nên vẫn luôn chịu luật `proactive-no-debt` và luật giờ yên (hiến pháp Điều II: khách im thì máy im).
+- Q: Tin cũ không có mốc thời gian đọc được thì sao? → A: Coi như **trong** cửa sổ — mặc định an toàn (`core/gate-decide.js:119`).
+- Đây là **issue #55**. **Hiến pháp không đổi**: Điều I vẫn giữ bước "trùng nội dung"; chỉ **phạm vi áp dụng** của luật chống trùng trong spec thay đổi.
+- **Tiêu chí nghiệm thu:**
+  1. Cùng câu hai lần trong 20 giây → chỉ **một** câu trả lời (tin thứ hai bị `drop`).
+  2. Khách hỏi lại sau 3 phút → **được** trả lời (`send`).
+  3. Tin chủ động trùng trong 15 phút → vẫn **bị bỏ** (`drop`).
+  4. Ba mã khác nhau gửi liên tiếp → **đều** được gửi.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Không bao giờ gửi trùng, gửi sai (Priority: P1)
@@ -48,9 +63,11 @@ hay khách bấm gửi hai lần liền.
 **Acceptance Scenarios**:
 
 1. **Given** một tin khách đã được trả lời, **When** Zalo gửi lại đúng update đó, **Then** bot không gửi gì thêm và audit ghi `drop: duplicate-update`.
-2. **Given** bot vừa gửi một câu cho phòng X, **When** một luồng khác định gửi câu giống ≥ 80 % cho phòng X trong 15 phút, **Then** cửa bỏ tin đó và ghi lý do.
-3. **Given** câu trả lời có chứa đường dẫn tệp nội bộ hoặc chuỗi giống token, **When** gửi, **Then** cửa từ chối, khách không nhận gì, nhóm nhân viên nhận cảnh báo.
-4. **Given** phòng X đã nhận 8 tin bot trong ngày, **When** có tin thứ 9, **Then** cửa hoãn tin và mở phiếu cho người.
+2. **Given** bot vừa gửi một câu **chủ động** cho conv X, **When** một luồng khác định gửi câu giống ≥ 80 % cho conv X trong 15 phút, **Then** cửa bỏ tin đó và ghi lý do.
+3. **Given** bot vừa trả lời khách ở conv X, **When** khách bấm gửi lại đúng câu đó trong 60 giây, **Then** cửa bỏ tin thứ hai (khách chỉ nhận một câu trả lời).
+4. **Given** bot đã trả lời khách ở conv X đã lâu hơn 60 giây, **When** khách hỏi lại đúng câu đó, **Then** cửa gửi câu trả lời (không bỏ).
+5. **Given** câu trả lời có chứa đường dẫn tệp nội bộ hoặc chuỗi giống token, **When** gửi, **Then** cửa từ chối, khách không nhận gì, nhóm nhân viên nhận cảnh báo.
+6. **Given** phòng X đã nhận 8 tin bot trong ngày, **When** có tin thứ 9, **Then** cửa hoãn tin và mở phiếu cho người.
 
 ---
 
@@ -202,7 +219,7 @@ Trước khi merge hay bật một gói, chạy phát lại các hội thoại m
 - **FR-001**: Hệ thống MUST đưa mọi tin ra (trả lời, thông báo, kết quả việc nền, tin nhân viên chuyển) qua một cửa gửi duy nhất.
 - **FR-002**: Cửa gửi MUST chỉ trả một trong bốn quyết định `send | drop | defer | reject` kèm lý do, và không bao giờ sửa nội dung tin.
 - **FR-003**: Cửa gửi MUST có khoá idempotency cho mỗi tin; khoá đã gửi thì không gửi lại, kể cả sau khi khởi động lại.
-- **FR-004**: Cửa gửi MUST bỏ tin giống ≥ 0,8 (Jaccard trên tập từ đã chuẩn hoá) với một trong 4 tin bot gần nhất của cùng phòng trong 15 phút.
+- **FR-004**: Cửa gửi MUST bỏ tin giống ≥ 0,8 (Jaccard trên tập từ đã chuẩn hoá) với một trong 4 tin bot gần nhất **cùng `conv`** (khoá theo người, không theo cả phòng). Cửa sổ chống trùng MUST **tách theo loại tin**: tin **trả lời trực tiếp** (còn mốc tin khách trong 10 phút) chống trùng trong **60 giây**; tin **chủ động** (không có mốc tin khách, hoặc mốc đã cũ hơn 10 phút) chống trùng trong **15 phút**. Tin không có mốc thời gian đọc được MUST coi như **trong** cửa sổ.
 - **FR-005**: Cửa gửi MUST hoãn tin chủ động trong giờ yên tới 07:00 giờ VN, và hoãn kèm mở phiếu khi chạm trần theo phòng hoặc trần theo ngày.
 - **FR-006**: Hệ thống MUST xử lý tin của cùng một phòng tuần tự (tin sau chờ tin trước xong).
 - **FR-007**: Cửa gửi MUST từ chối tin chứa đường dẫn hệ thống, stack trace, chuỗi giống khoá/token, hoặc mục trong danh sách cấm (số điện thoại cá nhân, số tài khoản…) đọc từ config.

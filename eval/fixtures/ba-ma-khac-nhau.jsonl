@@ -1,0 +1,8 @@
+// #55 (07/11): chốt chặn chống hồi quy. Nới chống trùng cho câu trả lời thẳng KHÔNG được làm ba câu trả lời khác nhau bị gộp thành một: khách tra ba mã liên tiếp thì phải nhận đủ ba tin
+{"step":"mcp","tool":"tra_thue","returns":[{"ok":true,"data":{"hsCode":"84137090","nameVi":"Bơm ly tâm khác, dùng điện","unitVi":"Cái","taxNkPreferential":"0","taxVat":"8"}},{"ok":true,"data":{"hsCode":"85169000","nameVi":"Phụ tùng ấm đun nước siêu tốc","unitVi":"Chiếc","taxNkPreferential":"15","taxVat":"10"}},{"ok":true,"data":{"hsCode":"64041190","nameVi":"Giày thể thao mũ vải, đế cao su","unitVi":"Đôi","taxNkPreferential":"25","taxVat":"10"}}]}
+{"step":"in","update":{"id":"b1","text":"84137090"}}
+{"step":"advance","by":"15s"}
+{"step":"in","update":{"id":"b2","text":"85169000"}}
+{"step":"advance","by":"10s"}
+{"step":"in","update":{"id":"b3","text":"64041190"}}
+{"step":"expect","sentTo":"c1","count":3,"match":"6404\\.11\\.90"}

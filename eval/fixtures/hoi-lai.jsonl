@@ -1,0 +1,7 @@
+// #55 (07/11): khách hỏi lại ĐÚNG câu cũ sau 3 phút → phải nhận câu trả lời. Trước đây cửa gửi bỏ tin vì similar:1.00 trong 15 phút, khách tưởng bot chết
+{"step":"mcp","tool":"tra_thue","returns":[{"ok":true,"data":{"hsCode":"84137090","nameVi":"Bơm ly tâm khác, dùng điện","unitVi":"Cái","taxNkPreferential":"0","taxNkTt":"5","taxVat":"8"}}]}
+{"step":"in","update":{"id":"h1","text":"84137090"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"8413\\.70\\.90"}
+{"step":"advance","by":"3m"}
+{"step":"in","update":{"id":"h2","text":"84137090"}}
+{"step":"expect","sentTo":"c1","count":2,"match":"8413\\.70\\.90"}

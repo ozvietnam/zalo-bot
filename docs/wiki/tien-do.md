@@ -51,7 +51,8 @@ danh sách việc `specs/001-nen-tang-chung/tasks.md:563`.
 | T035 | Cắm hồ sơ khách vào engine | Chưa | `core/engine.js` không gọi hồ sơ khách |
 | T036 | Lệnh hồ sơ + *core/backup.js* (sao lưu) | Chưa | không có tệp *core/backup.js* |
 | T037 | Khoá theo `conv_id` trong nhóm | Xong | `core/conv.js:1` (convIdOf), `core/gate.js:22` (effectiveState), `test/core/conv.test.mjs:1` (test conv đủ trường hợp) |
-| T038 | Gắn tên trong nhóm, hàng đợi theo người | Xong | `core/mention.js:15` (groupNameTag), `core/engine.js:79` (namePrefix), `core/engine-jobs.js:54` (gắn lại tên khi job xong), `test/core/group-tag.test.mjs:51` |
+| T038 | Gắn tên trong nhóm, hàng đợi theo người | Xong | `core/mention.js:15` (groupNameTag), `core/engine.js:79` (namePrefix), `core/engine-jobs.js:56` (gắn lại tên khi job xong), `test/core/group-tag.test.mjs:51` |
+| T039 | Cửa sổ chống trùng tách theo loại tin (issue #55) | **Xong** | cửa sổ chọn theo `isDirectReply` (`core/gate-decide.js:119`): `dupDirectMs` 60 giây cho câu trả lời trực tiếp (`core/gate-decide.js:12`), `dupWindowMs` 15 phút cho tin chủ động (`core/gate-decide.js:13`); `job_result` mang mốc tin khách (`core/engine-jobs.js:21`, `core/engine-jobs.js:64`) nên khách hỏi lại qua việc nền cũng được trả lời, nhưng vẫn luôn chịu luật nợ việc nền và giờ yên (`core/gate-decide.js:36`); store trả kèm mốc gửi (`core/store/queue.js:62`); `npm test` (313 test) và `npm run eval` (9/9, thêm `eval/fixtures/hoi-lai.jsonl` và `eval/fixtures/ba-ma-khac-nhau.jsonl`) xanh |
 
 ## 2. Kết luận trạng thái spec 001
 
@@ -65,8 +66,8 @@ thư mục `lib/` đã bị xoá hẳn. Trong toàn bộ tệp sản xuất ch�
 và điều này bị khoá bằng `test/core/one-gate.test.mjs:167`.
 
 Hệ quả thực tế: các luật của lõi **bắt đầu có tác dụng với khách thật** — giờ yên
-(`core/gate-decide.js:92`), trần tin theo ngày (`core/gate-decide.js:7-9`), chống trùng nội dung
-(`core/gate-decide.js:103`), audit từng lượt (`core/engine.js:100`, `core/engine.js:115`, `core/engine.js:130`)
+(`core/gate-decide.js:103`), trần tin theo ngày (`core/gate-decide.js:7-9`), chống trùng nội dung
+(`core/gate-decide.js:126`), audit từng lượt (`core/engine.js:100`, `core/engine.js:115`, `core/engine.js:130`)
 và lịch sử hội thoại bền (`core/store/schema.js:38`).
 Phần còn thiếu của hiến pháp (nhường phòng cho người, phiếu/cảnh báo tới nhóm nhân viên) xem [An toàn](an-toan.md).
 

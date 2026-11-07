@@ -16,7 +16,9 @@ export function jobRow({ chatId, convId, sessionKey, pack, job, turn, nowMs }) {
   const iso = (ms) => new Date(ms).toISOString();
   return {
     chat_id: chatId, conv_id: convId, session_key: sessionKey, pack, ma_luot: job.maLuot, result_tool: job.resultTool,
-    context: { data: job.context ?? null, turnId: turn.turnId, isGroup: turn.isGroup, userName: turn.userName ?? null, userId: turn.userId ?? null },
+    // receivedAt: mốc tin khách của lượt đã sinh ra việc nền — cửa dùng để biết kết quả này
+    // vẫn là câu trả lời trực tiếp cho câu khách vừa hỏi (issue #55).
+    context: { data: job.context ?? null, turnId: turn.turnId, isGroup: turn.isGroup, userName: turn.userName ?? null, userId: turn.userId ?? null, receivedAt: turn.receivedAt ?? null },
     status: 'waiting', attempts: 0, next_poll_at: iso(nowMs + FIRST_POLL_MS), expires_at: iso(nowMs + JOB_TTL_MS), created_at: iso(nowMs),
   };
 }
@@ -59,6 +61,7 @@ export async function pollDueJobs({ store, mcp, registry, gate, now, log, tools,
         const idemKey = i === 0 ? `j:${row.conv_id}:${row.ma_luot}` : `j:${row.conv_id}:${row.ma_luot}:${i}`;
         const g = await gate.send({
           idemKey, chatId: row.chat_id, convId: row.conv_id, isGroup: c.isGroup === true, turnId, kind: 'job_result', text: prefix + r.text,
+          inReplyToAt: c.receivedAt ?? null,   // dòng jobs cũ (trước thay đổi này) không có trường → null, cửa coi là tin chủ động
           pack: { id: pack.id, moneyCheck: pack.moneyCheck === true }, evidence: res.evidence ?? [],
         });
         sent.push({ idemKey, decision: g.decision, reason: g.reason, status: g.status });
