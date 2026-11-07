@@ -1,11 +1,11 @@
 # Tiến độ
 
-> Cập nhật: 2026-11-07 · commit: 6e94671
+> Cập nhật: 2026-11-07 · commit: 0842386
 
-Trang này ghi **trạng thái thật**, đối chiếu với **code** ở commit `6e94671`, không tin tài liệu.
+Trang này ghi **trạng thái thật**, đối chiếu với **code** ở commit `0842386`, không tin tài liệu.
 Nguyên tắc: mỗi việc T0xx ghi rõ **xong / dở / chưa làm**, kèm bằng chứng `tệp:dòng`.
 Chỗ nào chưa kiểm được thì ghi "chưa xác minh".
-Code T038 (gắn tên trong nhóm) còn ở working tree, chưa có commit riêng — xem [Nhật ký](log.md).
+T016 (nối `server.js` vào lõi, xoá `lib/`) **đã xong** ở commit `0842386` (bản nối xong ở `6a9cf5e`) — xem [Nhật ký](log.md).
 
 Nguồn đối chiếu: mã nguồn ở nhánh `main`, sổ làm việc `docs/sdd/001-ledger.md:10-37`,
 danh sách việc `specs/001-nen-tang-chung/tasks.md:563`.
@@ -23,30 +23,30 @@ danh sách việc `specs/001-nen-tang-chung/tasks.md:563`.
 | T007 | `core/text.js` (chuẩn hoá tiếng Việt) | Xong | `core/text.js`, `test/core/text.test.mjs` |
 | T008 | `gate.decide()` (hàm thuần) | Xong | `core/gate-decide.js:6`, `test/core/gate-decide.test.mjs` |
 | T009 | `gate.send()` (chia phần, idempotent) | Xong | `core/gate.js:106`, `core/gate.js:74`, `test/core/gate-send.test.mjs` |
-| T010 | `gate.sweep()` (tin hoãn, thử lại) | Xong | `core/gate.js:169`, `core/gate.js:149` |
+| T010 | `gate.sweep()` (tin hoãn, thử lại) | Xong | `core/gate.js:176`, `core/gate.js:156` |
 | T011 | `core/types.js` (kiểu dùng chung) | Xong | `core/types.js` |
 | T012 | `channels/zalo-bot.js` (adapter kênh) | Xong | `channels/zalo-bot.js:13`, `test/core/channel.test.mjs` |
 | T013 | `core/registry.js` (chọn gói) | Xong | `core/registry.js:9`, `core/registry.js:34`, `test/core/registry.test.mjs` |
 | T014 | Chuyển 7 gói hải quan sang `packs/hs/` | Xong | `packs/hs/packages.js:142`, `packs/hs/index.js:96`, `docs/sdd/001-ledger.md:30` (36 lượt đối chiếu khớp) |
 | T015 | `core/engine.js` (một lượt) | Xong | `core/engine.js:25`, `core/engine.js:58`, `docs/sdd/001-ledger.md:37` |
-| T016 | Nối `server.js`, xoá `lib/`, khoá một cửa gửi | **Chưa** | `server.js:7` vẫn nối `lib/bot.js`; `lib/bot.js:112` tự gọi `zalo.sendText` |
+| T016 | Nối `server.js`, xoá `lib/`, khoá một cửa gửi | **Xong** | `server.js:1-2` (tệp chỉ nối dây), `server.js:76` (dựng engine), `server.js:77` (gọi `gate.recover()`); gói nạp theo đường dẫn tương đối tới **tệp mã nguồn** nên không phụ thuộc thư mục làm việc (`server.js:72`), và có cảnh báo to khi không nạp được gói nào (`server.js:74`); thư mục `lib/` đã bị xoá hẳn; `core/gate.js:79` là nơi duy nhất gọi `channel.sendText`, bị khoá bởi `test/core/one-gate.test.mjs:167`; câu báo lỗi chung của lõi giữ nguyên thẻ màu `{orange}` (`core/engine.js:13`); `npm test` (274 test) và `npm run eval` (7/7) xanh tại commit `0842386` |
 | T017 | Gói mẫu `packs/echo/` | Chưa | thư mục `packs/` chỉ có `hs/` |
-| T018 | Webhook ghi `inbox` trước khi trả 200 | Chưa | `server.js:71` trả 200 rồi xử lý tại chỗ, không ghi bảng `inbox` |
+| T018 | Webhook ghi `inbox` trước khi trả 200 | Chưa | `server.js:91` trả 200 rồi mới xử lý ở `server.js:93`; bảng `inbox` được ghi sau đó ở `core/engine.js:65` |
 | T019 | *core/queue.js* (hàng đợi theo người (`conv_id`)) | Chưa | không có tệp *core/queue.js*; `core/store/queue.js` là tầng lưu trữ, không phải hàng đợi |
-| T020 | Khôi phục khi khởi động | Dở | có `core/gate.js:191` (`recover`) nhưng `core/engine.js` không có `recover`; thiếu tệp *test/core/recover.test.mjs* |
+| T020 | Khôi phục khi khởi động | Dở | `recover()` ở `core/gate.js:198`, được gọi lúc khởi động tại `server.js:77`; `core/engine.js` vẫn không có `recover`; thư mục `test/core/` chưa có tệp test riêng cho hàm này |
 | T021 | *core/jobs.js* (việc nền bền) | Chưa | không có tệp *core/jobs.js*; bộ hỏi việc nền nằm trong `core/engine-jobs.js` |
 | T022 | *core/handoff.js* (trạng thái phòng) | Chưa | không có tệp *core/handoff.js* |
 | T023 | *core/intents.js* (gặp người / người hay máy) | Chưa | không có tệp *core/intents.js* |
 | T024 | Phiếu vào nhóm nhân viên + gộp tin | Chưa | bảng `tickets` đã có sẵn ở `core/store/schema.js:32`, nhưng phần phiếu chưa làm |
 | T025 | Lệnh nhân viên | Chưa | không có tệp *core/handoff.js* |
-| T026 | Cắm handoff vào engine | Chưa | `core/engine.js` không có nhánh handoff (luồng ở `core/engine.js:111-128` chỉ có chọn gói rồi trả lời) |
+| T026 | Cắm handoff vào engine | Chưa | `core/engine.js` không có nhánh handoff (luồng ở `core/engine.js:113-124` chỉ có chọn gói rồi trả lời) |
 | T027 | `/health` và `/metrics` | Dở | `core/health.js:3` chỉ trả `{ok, mode, startedAt, version}`; chưa có `/metrics` |
 | T028 | Bản tin gộp 08:00 và 17:00 | Chưa | không có tệp *core/ops.js* |
 | T029 | Lệnh npm run audit | Chưa | `package.json:15` khai lệnh trỏ tới tệp *scripts/audit.mjs* **không tồn tại** |
 | T030 | `eval/run.mjs` + 9 kịch bản | Dở | `eval/run.mjs:1` đã có; thư mục `eval/fixtures/` mới có 7 kịch bản, thiếu `human-room`, `is-bot`, `ho-so-khach` |
 | T031 | CI | Xong | `.github/workflows/ci.yml:17` chạy `npm test`, `.github/workflows/ci.yml:18` chạy `npm run eval`, `.github/workflows/ci.yml:27` chạy cổng kiểm wiki |
-| T032 | README + kiểm tay quickstart | Dở | `README.md:33` còn dạy "thêm gói mới: thêm một mục vào `PACKAGES` trong `lib/packages.js`" — đường cũ |
-| T033 | Ghi mọi tin vào `messages` | Xong (lõi) | `core/engine.js:104` ghi tin khách, `core/gate.js:97` ghi tin bot khi đã gửi |
+| T032 | README + kiểm tay quickstart | Dở | phần "thêm gói mới" đã trỏ sang `packs/hs/packages.js` (`README.md:33`); phần quickstart và mô hình lõi/gói/kênh chưa viết lại đầy đủ |
+| T033 | Ghi mọi tin vào `messages` | Xong (lõi) | `core/engine.js:106` ghi tin khách, `core/gate.js:98` ghi tin bot khi đã gửi |
 | T034 | *core/customers.js* (hồ sơ + nhãn) | Chưa | không có tệp *core/customers.js*; bảng `customers` đã có ở `core/store/schema.js:41` |
 | T035 | Cắm hồ sơ khách vào engine | Chưa | `core/engine.js` không gọi hồ sơ khách |
 | T036 | Lệnh hồ sơ + *core/backup.js* (sao lưu) | Chưa | không có tệp *core/backup.js* |
@@ -60,19 +60,21 @@ chọn gói, adapter kênh và 7 gói hải quan. Có bằng chứng ghi trong s
 Ngoài ra T037 đã xong: khoá chuyển sang `conv_id` (mỗi người một cuộc trò chuyện trong nhóm), xem `core/conv.js:10`.
 T038 đã xong: tin ra trong nhóm gắn tên người nhận, tên trùng phân biệt bằng hậu tố 2 ký tự cuối `userId`, xem `core/mention.js:15`.
 
-**Việc chuyển giao T016 chưa làm.** `server.js:7` vẫn nối `lib/bot.js`, và `lib/bot.js:112`
-gọi thẳng `zalo.sendText` — tức bot đang chạy **không đi qua cửa gửi** của lõi.
-Trong lõi mới, chỉ một chỗ gọi kênh: `core/gate.js:79`.
+**T016 đã làm.** `server.js` nay chỉ nối dây (`server.js:1-2`) và dựng engine ở `server.js:76`;
+thư mục `lib/` đã bị xoá hẳn. Trong toàn bộ tệp sản xuất chỉ một chỗ gọi kênh: `core/gate.js:79`,
+và điều này bị khoá bằng `test/core/one-gate.test.mjs:167`.
 
-Hệ quả thực tế: nhiều tính năng của lõi (giờ yên, trần tin theo ngày, chống trùng nội dung,
-audit, lịch sử hội thoại) hiện **chưa có tác dụng với khách thật**, vì đường đang chạy là đường cũ.
-Chi tiết về mức độ thực thi từng nguyên tắc an toàn: xem [An toàn](an-toan.md).
+Hệ quả thực tế: các luật của lõi **bắt đầu có tác dụng với khách thật** — giờ yên
+(`core/gate-decide.js:92`), trần tin theo ngày (`core/gate-decide.js:7-9`), chống trùng nội dung
+(`core/gate-decide.js:103`), audit từng lượt (`core/engine.js:100`, `core/engine.js:115`, `core/engine.js:130`)
+và lịch sử hội thoại bền (`core/store/schema.js:38`).
+Phần còn thiếu của hiến pháp (nhường phòng cho người, phiếu/cảnh báo tới nhóm nhân viên) xem [An toàn](an-toan.md).
 
 ## 3. Spec 007, 008, 009
 
 | Spec | Trạng thái | Bằng chứng |
 |---|---|---|
-| 007 — Agent giám sát | Spec còn Draft nhưng **code đã có gần xong** | `specs/007-giam-sat-nang-cap/spec.md:7`; đo 9 tín hiệu ở `lib/giam-sat/tinh-hieu.js:37`, mở issue đúng repo ở `lib/giam-sat/issue.js:6`, báo Telegram ở `lib/giam-sat/telegram.js:10`, chạy lệnh ở `scripts/giam-sat.mjs:2` |
+| 007 — Agent giám sát | Spec còn Draft nhưng **code đã có gần xong** | `specs/007-giam-sat-nang-cap/spec.md:7`; đo 9 tín hiệu ở `scripts/giam-sat/tinh-hieu.js:37`, mở issue đúng repo ở `scripts/giam-sat/issue.js:51`, báo Telegram ở `scripts/giam-sat/telegram.js:10`, chạy lệnh ở `scripts/giam-sat.mjs:2` |
 | 008 — Cổng AI Studio | **Chỉ có spec** | `specs/008-cong-ai-studio/spec.md:7` (Draft); chưa có mã nguồn trong repo này, dự kiến tách repo riêng |
 | 009 — Agent tra cứu hải quan | **Chỉ có spec** | `specs/009-agent-tra-cuu/spec.md:7` (Draft); não hiện tại ở `packs/hs/brain.js` chỉ chọn một gói, chưa phải vòng lặp gọi nhiều công cụ |
 
@@ -83,11 +85,10 @@ T001–T015 → **T037–T038** → T016–T026 → T033–T036 → T027–T032.
 
 Bám theo trạng thái code hiện tại:
 
-1. **T016** — nối `server.js` vào lõi `core/`, xoá `lib/`, khoá "một cửa gửi". Đây là bước bật lại an toàn cho khách. T037 (khoá theo `conv_id`) và T038 (gắn tên, tách trùng tên) đã xong.
-2. **T018–T021** — webhook ghi `inbox` trước, hàng đợi theo người (`conv_id`), khôi phục khi khởi động, việc nền bền.
-3. **T022–T026** — người cầm phòng (handoff) và lệnh nhân viên.
-4. **T033–T036** — lịch sử (đã có phần lõi), hồ sơ khách, sao lưu.
-5. **T027–T032** — health/metrics, bản tin, `npm run audit`, đủ 9 kịch bản eval, viết lại README.
+1. **T018–T021** — webhook ghi `inbox` trước khi trả 200, hàng đợi theo người (`conv_id`), khôi phục khi khởi động, việc nền bền. T016 đã xong nên đây là nhóm kế tiếp.
+2. **T022–T026** — người cầm phòng (handoff) và lệnh nhân viên.
+3. **T033–T036** — lịch sử (đã có phần lõi), hồ sơ khách, sao lưu.
+4. **T027–T032** — health/metrics, bản tin, `npm run audit`, đủ 9 kịch bản eval, viết lại README.
 
 Sau khi 001 đạt Success Criteria, thứ tự giữa các spec khác là `docs/ROADMAP.md:20`:
 **001 → 007 → 005**, và **008 trước 003**.
@@ -108,15 +109,15 @@ Ghi cả hai phía. Không tự chọn bên nào đúng.
 4. **`npm run audit` trỏ tới tệp không tồn tại.**
    - Tài liệu/lệnh nói: `package.json:15` khai `"audit": "node scripts/audit.mjs"`.
    - Code thật nói: không có tệp *scripts/audit.mjs* trong repo → chạy lệnh sẽ lỗi.
-5. **README dạy làm gói theo đường cũ.**
-   - Tài liệu nói: `README.md:33` — "thêm một mục vào `PACKAGES` trong `lib/packages.js`".
-   - Code thật nói: `lib/packages.js` chỉ là tệp chuyển tiếp sang `packs/hs/packages.js`; lõi nạp gói theo mẫu thư mục gói, ví dụ `packs/hs/index.js` (`core/registry.js:9`). Mô hình lõi/gói/kênh chưa được mô tả trong README (việc của T032).
+5. **README chưa mô tả đủ mô hình lõi/gói/kênh.**
+   - Tài liệu nói: `README.md:33` trỏ sang `packs/hs/packages.js` (đã sửa ở phiên cập nhật wiki này; trước đó là lib/packages.js).
+   - Code thật nói: lõi nạp gói theo mẫu thư mục, ví dụ `packs/hs/index.js` (`core/registry.js:9`), và mọi tin ra đều qua `core/gate.js:79` — README chưa nói rõ điều này (việc của T032).
 6. **`docs/TIEP-TUC.md` đã cũ ở một chỗ.**
    - Tài liệu nói: `docs/TIEP-TUC.md:13` — "`npm run eval` vẫn đỏ được chấp nhận tới T030" (hàm ý bộ chạy eval chưa có).
    - Code thật nói: `eval/run.mjs:1` đã có và đã có 7 kịch bản.
-7. **"Đã ship lên production" không đồng nghĩa với lõi `core/`.**
+7. **"Đã ship lên production" trong nhật ký cũ không đồng nghĩa với lõi `core/`.**
    - Tài liệu nói: `docs/TIEP-TUC.md:5` ghi các PR não AI và biên tập "đã ship lên production".
-   - Code thật nói: production nối `lib/bot.js` tại `server.js:7`; lõi `core/` chưa được nối (T016 chưa làm). Những gì "ship" là đường cũ.
+   - Code thật nói: khi đó production còn nối lib/bot.js; nay T016 đã xong, production nối lõi `core/` (`server.js:76`) và `lib/` đã bị xoá. Những gì "ship" trong nhật ký cũ là đường cũ.
 8. **README và `package.json` lệch về phiên bản Node.**
    - Tài liệu nói: `README.md:5` — "Node 20+".
    - Code thật nói: `package.json:8` yêu cầu Node từ 22.13.
@@ -124,7 +125,7 @@ Ghi cả hai phía. Không tự chọn bên nào đúng.
 ## 6. Hai quyết định của chủ repo ngày 06/11 (chỉ ghi nhận)
 
 Hai quyết định dưới đây được ghi nhận tại đây. Việc này **không** sửa hiến pháp hay lộ trình;
-sửa chính thức phải làm theo `Quản trị` trong `.specify/memory/constitution.md:72-75` (PR riêng).
+sửa chính thức phải làm theo `Quản trị` trong `.specify/memory/constitution.md:73-75` (PR riêng).
 
 1. **Hiến pháp Điều II** đổi thành: "nhân viên ra lệnh trả về bot, hoặc tự trả về sau khoảng lặng lâu
    (đề xuất khoảng 2 giờ)".

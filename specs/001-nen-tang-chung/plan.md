@@ -36,7 +36,7 @@ Hành vi với khách không đổi: 21 test cũ phải xanh ở mọi bước.
 
 | Điều | Kiểm | Kết quả |
 |---|---|---|
-| I. Một cửa gửi | Gói chỉ trả `replies`; chỉ `core/gate.js` gọi `channel.sendText` (kiểm bằng `grep` trong test T020) | ✅ |
+| I. Một cửa gửi | Gói chỉ trả `replies`; chỉ `core/gate.js` gọi `channel.sendText` (kiểm bằng `grep` trong test T016 — `test/core/one-gate.test.mjs`) | ✅ |
 | II. Người trước máy | `engine` dừng trước `registry` khi phòng `human`/`blocked`; cửa từ chối lớp hai | ✅ |
 | III. Số tiền do code tra | `moneyCheck` ở cửa; gói hs đặt `false` ở v1 vì số thuế lấy nguyên văn từ Cổng; gói CSKH (spec 003) đặt `true` | ✅ |
 | IV. Bằng chứng | Bảng `audit`; mọi tin ra có `turn_id`; test không cần mạng | ✅ |
@@ -71,6 +71,7 @@ specs/001-nen-tang-chung/
 server.js                 # chỉ nối dây: config → store → channel → engine → http/poll
 core/
 ├── config.js             # đọc + kiểm biến môi trường, trả object đóng băng
+├── mcp.js                # MCP client (Streamable HTTP) cho Cổng OZ — T016. Lý do: hạ tầng dùng chung cho MỌI gói (createEngine tiêm vào như `mcp` rồi bọc audit), không phải kênh khách, không phải nghiệp vụ gói ⇒ thuộc lõi.
 ├── time.js               # UTC ↔ giờ VN, isQuietHours, nextMorning
 ├── redact.js             # che token/đường dẫn; dùng cho log, audit, lỗi
 ├── store.js              # node:sqlite: migrate, các hàm truy vấn theo bảng
@@ -89,11 +90,13 @@ core/
 ├── backup.js             # VACUUM INTO mỗi ngày, giữ 7 bản
 └── ops.js                # /health, /metrics, bản tin gộp
 channels/
-└── zalo-bot.js           # từ lib/zalo.js, theo contracts/channel.md
+├── zalo-bot.js           # từ lib/zalo.js, theo contracts/channel.md
+└── zalo-polling.js      # vòng lặp polling getUpdates của kênh Zalo — T016. Lý do: đọc tin là việc của KÊNH, không phải của lõi; tách ra để server.js chỉ nối dây và còn ≤ 120 dòng (tasks.md T016).
 packs/
 └── hs/
     ├── index.js          # manifest + match/handle/onJobResult/footer
     ├── packages.js       # từ lib/packages.js (bỏ vòng chờ waitJob)
+    ├── miss-log.js       # sổ ghi lượt "trượt từ vựng" — T016. Lý do: CHỈ gói hs ghi sổ này (packages.js, flow-turn.js) ⇒ nghiệp vụ của gói, không phải hạ tầng chung.
     ├── router.js  render.js  input.js  format.js  vision.js   # chuyển nguyên
     ├── jobs.js           # toJob/waitJob tách từ packages.js để packages.js < 300 dòng (T014)
     ├── flow-turn.js  flow-photo.js   # phiên/bằng chứng/PackResult và lượt ảnh, tách từ index.js cho < 300 dòng (T014)
@@ -108,11 +111,13 @@ test/
 └── core/*.test.mjs       # test của từng module lõi
 scripts/
 ├── set-webhook.mjs       # giữ nguyên
+├── giam-sat.mjs          # agent giám sát hằng ngày (dùng scripts/giam-sat/)
+├── giam-sat/             # issue.js, telegram.js, tinh-hieu.js — T016. Lý do: thuộc spec 007 (không phải spec 001), nhưng tasks.md T016 yêu cầu dọn hết `lib/`; đặt cạnh `scripts/giam-sat.mjs` (tệp dùng chúng) cho tự nhiên.
 └── audit.mjs             # npm run audit -- --chat <id> | --turn <id>
 ```
 
 **Structure Decision**: Một project. `core/` là lõi chung, `packs/` là nghiệp vụ, `channels/` là kênh.
-`lib/` bị xoá sau khi chuyển xong (T030). Gói và kênh không import lẫn nhau, chỉ import `core/types.js`.
+`lib/` bị xoá ở bước NGAY SAU T016: T016 tạo bản mới ở vị trí mới (`core/mcp.js`, `packs/hs/miss-log.js`, `scripts/giam-sat/`) và sửa đường import; bước sau xoá tệp cũ trong `lib/` (kèm viết lại một tệp test). Gói và kênh không import lẫn nhau, chỉ import `core/types.js`.
 Ngoại lệ duy nhất: `packs/hs/render.js` import `findLeak` từ `core/redact.js` để lọc câu lỗi nghiệp vụ của Cổng bằng đúng bộ dò lộ của cửa gửi (T015 vòng 2; chép bản thứ hai thì hai bộ dò sẽ lệch nhau).
 
 ## Luồng một lượt

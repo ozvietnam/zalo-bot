@@ -1,100 +1,93 @@
 # Luồng tin nhắn
 
-> Cập nhật: 2026-11-07 · commit: 6e94671
+> Cập nhật: 2026-11-07 · commit: 0842386
 
-Một tin khách đi qua những hàm nào, từ lúc vào tới lúc gửi đi. Có **hai đường**; đường A đang chạy, đường B là lõi mới.
+Một tin khách đi qua những hàm nào, từ lúc vào tới lúc gửi đi.
 
-## Đường A — đang chạy (webhook)
+Từ 07/11/2026 (T016) bot chạy **một đường duy nhất**: `server.js` nối thẳng vào lõi `core/`.
+Thư mục `lib/` đã bị xoá hẳn; không còn đường nào tự gọi kênh để gửi tin ngoài cửa gửi.
+
+## Đường webhook (mặc định)
 
 ```
 Zalo POST /webhook/zalo
   │
-  ├─ server.js:62  kiểm ZALO_MODE + đường dẫn  ── sai ──► 404
-  ├─ server.js:63  so secret header (safeEqual)    ── sai ──► 403
-  ├─ server.js:69  JSON.parse body                ── hỏng ─► 400
-  ├─ server.js:71  trả 200 NGAY (Zalo không gửi lại)
-  └─ server.js:73  bot.handleUpdate(payload)  (chạy nền)
-        ├─ lib/bot.js:107  parseUpdate            (ra update chuẩn hoá)
-        ├─ lib/bot.js:109  chống trùng messageId
-        ├─ lib/bot.js:110  kiểm ALLOW_USERS
-        ├─ lib/bot.js:120  giới hạn lượt mỗi phút
-        ├─ lib/bot.js:125  lấy phiên (RAM)
-        ├─ lib/bot.js:126  hỏi Cổng OZ công cụ nào khả dụng
-        ├─ lib/bot.js:165  routeThongMinh  (não định tuyến)
-        ├─ lib/bot.js:194  pkg.chay → gọi công cụ Cổng OZ
-        └─ lib/bot.js:196  send(...)  ──► lib/bot.js:112 zalo.sendText
-                                                    └─► channels/zalo-bot.js:102 tách + gửi
+  ├─ server.js:84  kiểm ZALO_MODE + đường dẫn  ── sai ──► 404
+  ├─ server.js:85  so secret header (safeEqual)    ── sai ──► 403
+  ├─ server.js:90  JSON.parse body                ── hỏng ─► 400
+  ├─ server.js:91  trả 200 NGAY (Zalo không gửi lại)
+  └─ server.js:93  engine.process(payload)  (chạy nền)
+        ├─ core/engine.js:60     parse update chuẩn hoá
+        ├─ core/engine.js:65-68  ghi inbox + claim (chống trùng)
+        ├─ core/engine.js:76     kiểm ALLOW_USERS
+        ├─ core/engine.js:87     giới hạn lượt mỗi phút
+        ├─ core/engine.js:102    lấy phiên bền (SQLite)
+        ├─ core/engine.js:113    hỏi Cổng OZ công cụ nào khả dụng
+        ├─ core/engine.js:114    registry.pick  (chọn gói)
+        ├─ core/engine.js:118    pack.handle → gọi công cụ Cổng OZ
+        └─ core/engine.js:122    reply() → gate.send ──► core/gate.js:79 channel.sendText
 ```
 
-Polling chạy cùng logic nhưng lấy tin từ `getUpdates`: `server.js:79` mở vòng lặp, `server.js:88` gọi `getUpdates`, `server.js:91` đưa vào `bot.handleUpdate`.
+Polling chạy cùng logic nhưng lấy tin từ `getUpdates`: vòng lặp ở `channels/zalo-polling.js:22`,
+gọi `getUpdates` ở `channels/zalo-polling.js:31`, đưa vào engine ở `channels/zalo-polling.js:34`.
 
-Trước khi chạy polling, bot kiểm tra xem bot thật đang có webhook không — nếu có thì dừng hẳn, tránh xoá nhầm webhook production (`server.js:133`, `channels/zalo-bot.js:54`).
+Trước khi chạy polling, bot kiểm tra xem bot thật đang có webhook không — nếu có thì dừng hẳn,
+tránh xoá nhầm webhook production (`channels/zalo-bot.js:54`, `channels/zalo-polling.js:11`).
 
-## Bảng từng bước (đường A)
+## Bảng từng bước
 
 | Bước | Hàm | Ghi chú |
 |---|---|---|
-| 1 | `server.js:58` | Tạo HTTP server |
-| 2 | `server.js:59` | `GET /health` trả trạng thái |
-| 3 | `server.js:63` | Xác thực header `x-bot-api-secret-token` |
-| 4 | `server.js:71` | Trả 200 trước khi xử lý |
-| 5 | `lib/bot.js:106` | `handleUpdate` — hàm chính |
+| 1 | `server.js:80` | Tạo HTTP server |
+| 2 | `server.js:81` | `GET /health` trả trạng thái |
+| 3 | `server.js:85` | Xác thực header `x-bot-api-secret-token` (`channels/zalo-bot.js:31`) |
+| 4 | `server.js:91` | Trả 200 trước khi xử lý |
+| 5 | `core/engine.js:58` | `process` — hàm chính của một lượt |
 | 6 | `channels/zalo-bot.js:136` | `parseUpdate` — chuẩn hoá payload |
-| 7 | `lib/bot.js:109` | Chống trùng bằng `messageId` |
-| 8 | `lib/bot.js:120` | Giới hạn lượt mỗi phút |
-| 9 | `lib/bot.js:165` | Não định tuyến chọn gói |
-| 10 | `lib/mcp.js:105` | Gọi công cụ Cổng OZ |
-| 11 | `lib/bot.js:196` | Dựng câu trả lời + menu gói |
-| 12 | `channels/zalo-bot.js:102` | Tách tin theo giới hạn 2000 ký tự (`channels/zalo-bot.js:8`), gửi kèm định dạng (`channels/zalo-bot.js:105`) |
+| 7 | `core/engine.js:65-68` | Chống trùng bằng bảng `inbox` (claim nguyên tử) |
+| 8 | `core/engine.js:87` | Giới hạn lượt mỗi phút |
+| 9 | `core/engine.js:114` | `registry.pick` chọn gói |
+| 10 | `core/mcp.js:106` | Gọi công cụ Cổng OZ (bọc audit ở `core/engine-ctx.js:29`) |
+| 11 | `core/engine.js:122` | Dựng câu trả lời + menu gói, gửi qua cửa |
+| 12 | `core/gate.js:74` | Cửa tách tin theo giới hạn 2000 ký tự (`channels/zalo-bot.js:8`), gửi kèm định dạng (`channels/zalo-bot.js:25`) |
 
 ## Nhánh ảnh
 
-- Sự kiện ảnh đi qua `lib/bot.js:76` (`handlePhoto`).
-- Nếu đang ở gói kiểm nhãn hiệu thì gọi `kiem_tra_shtt_anh` bằng ảnh (`lib/bot.js:80`).
-- Nếu có bật đọc ảnh bằng AI thì đọc thông số và chờ khách xác nhận bằng "ok" (`lib/bot.js:141`).
-- Nếu không bật đọc ảnh, bot mời khách gõ bằng chữ (`lib/bot.js:86`).
+- Sự kiện ảnh đi qua `packs/hs/flow-photo.js:8` (`photoFlow`).
+- Nếu đang ở gói kiểm nhãn hiệu thì gọi `kiem_tra_shtt_anh` bằng ảnh (`packs/hs/flow-photo.js:13`).
+- Nếu có bật đọc ảnh bằng AI thì đọc thông số và chờ khách xác nhận bằng "ok" (`packs/hs/flow-photo.js:20`,
+  xử lý xác nhận ở `packs/hs/index.js:37-41`).
+- Nếu không bật đọc ảnh, bot mời khách gõ bằng chữ (`packs/hs/flow-photo.js:16-19`).
 
 ## Nhánh nhóm
 
-- Nhóm được nhận biết khi `chat_type` có chữ "group", hoặc khi `userId` khác `chatId` (`lib/bot.js:11`).
-- Trong nhóm, bot **không bắt buộc** phải được nhắc tên: nó bỏ phần nhắc tên ở đầu/cuối tin rồi vẫn trả lời (`lib/bot.js:17`). Ở đường lõi, việc bỏ nhắc tên áp dụng cho cả chú thích ảnh (`core/engine.js:91`).
-- Câu trả lời trong nhóm được ghi kèm tên người hỏi (`lib/bot.js:112`). Ở đường lõi, người trùng tên trong nhóm được phân biệt bằng hậu tố 2 ký tự cuối `userId` (`core/mention.js:29`); phần này còn ở working tree, chưa có commit riêng.
-- Tin không phải chữ trong nhóm thì bỏ qua, không trả lời (`lib/bot.js:116`).
+- Nhóm được nhận biết khi `chat_type` có chữ "group", hoặc khi `userId` khác `chatId` (`core/mention.js:4-7`).
+- Trong nhóm, bot **không bắt buộc** phải được nhắc tên: nó bỏ phần nhắc tên ở đầu/cuối tin rồi vẫn trả lời
+  (`core/mention.js:33`). Việc bỏ nhắc tên áp dụng cho cả chú thích ảnh (`core/engine.js:92-93`).
+- Câu trả lời trong nhóm được ghi kèm tên người hỏi (`core/engine.js:19`, `core/engine.js:79`).
+  Người trùng tên trong nhóm được phân biệt bằng hậu tố 2 ký tự cuối `userId` (`core/mention.js:15-29`).
+- Tin không phải chữ trong nhóm thì bỏ qua, không trả lời (`core/engine.js:83`).
 
 ## Nhánh lỗi
 
 | Lỗi | Xử lý | Chỗ xử lý |
 |---|---|---|
-| Sai secret webhook | Trả 403, không xử lý | `server.js:63` |
-| Body JSON hỏng | Trả 400 | `server.js:69` |
-| Vượt giới hạn lượt | Nhắc khách chờ 1 phút | `lib/bot.js:121` |
-| Cổng OZ lỗi | Câu báo **kèm 120 ký tự đầu của lỗi gốc** — chưa đúng điều IX hiến pháp ở đường đang chạy | `lib/bot.js:214` |
-| Cổng OZ lỗi (đường lõi) | Câu báo chung, không kèm lỗi gốc | `packs/hs/index.js:91` |
-| Gọi Cổng OZ lỗi khi xử lý ảnh | Câu báo chung cho khách | `lib/bot.js:133` |
+| Sai secret webhook | Trả 403, không xử lý | `server.js:85` |
+| Body JSON hỏng | Trả 400 | `server.js:90` |
+| Vượt giới hạn lượt | Nhắc khách chờ 1 phút | `core/engine.js:88` (câu báo ở `core/engine.js:12`) |
+| Cổng OZ lỗi | Câu báo **chung**, không kèm lỗi gốc | `packs/hs/index.js:91` (chi tiết chỉ vào log ở `packs/hs/index.js:90`) |
+| Cổng OZ lỗi ở tầng lõi | Câu báo chung của lõi (có thẻ màu `{orange}`), có kèm menu gói | `core/engine.js:13` (gửi ở `core/engine.js:139`) |
+| Gọi Cổng OZ lỗi khi xử lý ảnh | Câu báo chung cho khách, không lộ lỗi Gemini | `packs/hs/vision.js:26-33` |
 
-## Đường B — lõi mới (chưa nối vào `server.js`)
+## Ba đường chạy nền
 
-```
-update ─► core/engine.js:58  process
-            ├─ core/engine.js:65-68  ghi inbox + claim nguyên tử
-            ├─ core/engine.js:73-75  convId + chats/convs.upsertSeen
-            ├─ core/engine.js:76  kiểm ALLOW_USERS
-            ├─ core/engine.js:85  giới hạn lượt
-            ├─ core/engine.js:98  audit inbound (đã che bí mật)
-            ├─ core/engine.js:104 ghi tin khách vào messages
-            ├─ core/engine.js:106 câu chào kết ──► im
-            ├─ core/engine.js:112 registry.pick  (chọn gói)
-            ├─ core/engine.js:116 pack.handle
-            ├─ core/engine.js:120 gửi từng câu qua cửa (core/engine.js:49)
-            └─ core/engine.js:126 ghi việc nền vào jobs
-```
+- **Việc nền**: `core/engine.js:162` gọi `core/engine-jobs.js:25`, hỏi kết quả ở `core/engine-jobs.js:45`,
+  dựng câu ở `core/engine-jobs.js:52`, gửi qua cửa ở `core/engine-jobs.js:60`.
+- **Quét tin hoãn / tin lỗi**: `core/gate.js:176` lấy tin đến hạn rồi chạy lại quyết định (`core/gate.js:156`).
+- **Khởi động lại**: `core/gate.js:198` chuyển tin dở dang sang trạng thái để quét gửi tiếp; `server.js:77` gọi hàm này
+  lúc khởi động.
 
-Ba đường nữa chạy nền:
-
-- **Việc nền**: `core/engine.js:160` gọi `core/engine-jobs.js:24`, hỏi kết quả ở `core/engine-jobs.js:44`, dựng câu ở `core/engine-jobs.js:51`, gửi qua cửa ở `core/engine-jobs.js:55`.
-- **Quét tin hoãn / tin lỗi**: `core/gate.js:169` lấy tin đến hạn rồi chạy lại quyết định.
-- **Khởi động lại**: `core/gate.js:191` chuyển tin dở dang sang trạng thái để quét gửi tiếp.
-
-Khác biệt lớn nhất so với đường A: mọi tin ra đều đi qua `core/gate.js:79` (một cửa gửi), và có bản ghi audit cho từng lượt.
+Đặc điểm lớn nhất của đường này: mọi tin ra đều đi qua `core/gate.js:79` (một cửa gửi), và có bản ghi audit
+cho từng lượt (`core/engine.js:100`, `core/engine.js:115`, `core/engine.js:130`).
 
 Liên quan: [Kiến trúc](kien-truc.md), [Dữ liệu](du-lieu.md), [An toàn](an-toan.md).

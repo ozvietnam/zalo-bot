@@ -2,7 +2,7 @@
 // Mỗi tín hiệu: nạp dữ liệu giả lập có đúng kiểu lỗi → script phải ra đúng phát hiện.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tinhHieu, NGUONG } from '../../lib/giam-sat/tinh-hieu.js';
+import { tinhHieu, NGUONG } from '../../scripts/giam-sat/tinh-hieu.js';
 
 // ═══ helpers: dựng rows messages/outbox/jobs/audit trong 1 ngày ═══
 const DAY = '2026-11-06';

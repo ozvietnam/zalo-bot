@@ -4,12 +4,15 @@ import assert from 'node:assert/strict';
 import { openStore } from '../../core/store.js';
 import { createGate } from '../../core/gate.js';
 import { createRegistry } from '../../core/registry.js';
-import { createEngine } from '../../core/engine.js';
+import { createEngine, GENERIC_ERROR_TEXT } from '../../core/engine.js';
 import hsPack from '../../packs/hs/index.js';
 import { fakeChannel, fakeClock, fakeMcp } from '../helpers/fakes.mjs';
 
 const START = '2026-11-04T03:00:00.000Z'; // 10:00 VN
 const silent = { info() {}, error() {} };
+
+/** Câu báo lỗi chung — nguyên văn đường cũ (lib/bot.js:214, packs/hs/index.js:91): có thẻ màu {orange}. */
+const CLOI_CHUAN = '{orange}⚠️ Cổng tra cứu OZ đang lỗi tạm thời{/orange}. Bạn thử lại sau ít phút nhé.';
 
 function setup({ packs = [hsPack], script = {}, config = {}, rules, mcp, log = silent } = {}) {
   const store = openStore();
@@ -102,6 +105,20 @@ test('gói ném lỗi → khách nhận câu báo chung không chứa nội dung
   assert.ok(err);
   assert.doesNotMatch(JSON.stringify(err.data), /abcdef0123456789abcdef0123456789/);
   assert.equal(store.inbox.get('e1').status, 'failed');
+});
+
+test('câu báo lỗi chung của lõi đúng NGUYÊN VĂN đường cũ (có thẻ màu {orange})', () => {
+  assert.equal(GENERIC_ERROR_TEXT, CLOI_CHUAN);
+});
+
+test('tin lỗi gửi khách: đúng câu chuẩn, KHÔNG kèm lỗi gốc', async () => {
+  const boom = { id: 'boom', audience: 'public', priority: 99, match: () => true, async handle() { throw new Error('ECONNRESET /home/oz/app.js Bearer abcdef0123456789abcdef0123456789'); } };
+  const { channel, engine } = setup({ packs: [boom, hsPack] });
+  await engine.process(upd('máy bơm', { id: 'eX' }));
+  assert.equal(channel.sent.length, 1);
+  const s = channel.sent[0].text;
+  assert.ok(s.startsWith(CLOI_CHUAN), `tin phải bắt đầu bằng câu chuẩn, thực tế: ${JSON.stringify(s)}`);
+  assert.doesNotMatch(s, /ECONNRESET|\/home\/oz|Bearer|abcdef/);
 });
 
 test('ALLOW_USERS và rate limit 10/phút giữ như cũ', async () => {

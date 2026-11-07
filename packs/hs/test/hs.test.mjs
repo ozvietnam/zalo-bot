@@ -180,7 +180,9 @@ test('Cổng lỗi → câu báo lỗi tạm thời + menu, không ném, không 
   const { ctx } = fakeCtx({ tra_thue: () => { throw new Error('MCP lỗi HTTP 502'); } });
   ctx.log = { info() {}, error: (m) => logged.push(m) };
   const r = await hs.handle(turn('84137090'), ctx);
-  const s = plain(r.replies[0].text);
+  const raw = r.replies[0].text;
+  const s = plain(raw);
+  assert.match(raw, /^\{orange\}⚠️ Cổng tra cứu OZ đang lỗi tạm thời\{\/orange\}\./);   // khoá thẻ màu như lib/bot.js cũ
   assert.match(s, /^⚠️ Cổng tra cứu OZ đang lỗi tạm thời\. Bạn thử lại sau ít phút nhé\./); assert.ok(s.endsWith(FOOTER));
   assert.doesNotMatch(s, /502|MCP lỗi/);
   assert.ok(logged.some((m) => /MCP lỗi HTTP 502/.test(m)));        // chi tiết chỉ vào log

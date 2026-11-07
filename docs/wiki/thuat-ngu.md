@@ -1,6 +1,6 @@
 # Thuật ngữ
 
-> Cập nhật: 2026-11-07 · commit: 1316cfe
+> Cập nhật: 2026-11-07 · commit: 0842386
 
 Trang này giải nghĩa các từ tiếng Anh và từ viết tắt dùng trong mã nguồn, trong
 tài liệu và trong wiki này. Mục cuối là các từ do chính repo đặt ra, không phải
@@ -15,12 +15,12 @@ chính thức, đặt tên trong `README.md:3`.
 
 **Webhook** (cổng gọi lại) — cách Zalo đẩy tin nhắn về máy chủ của bot: mỗi khi
 có tin, Zalo gọi HTTP tới một địa chỉ mà bot đăng ký. Trong repo, bot kiểm tra
-chữ ký bằng `safeEqual` rồi trả HTTP 200 (`server.js:63`).
+chữ ký bằng `safeEqual` rồi trả HTTP 200 (`server.js:85`, hàm so chữ ký ở `channels/zalo-bot.js:31`).
 
 **Polling** (thăm dò) — cách bot chủ động hỏi Zalo "có tin mới không" qua lệnh
 `getUpdates` (`channels/zalo-bot.js:95`). Trong repo có chốt chặn: nếu bot đang có
 webhook thì không chạy polling, vì xoá webhook làm bot thật ngừng nhận tin
-(`channels/zalo-bot.js:49`).
+(`channels/zalo-polling.js:11`, `channels/zalo-bot.js:49`).
 
 **Chat / phòng chat** — nơi khách và bot nói chuyện. Mỗi chat có một `chat_id`
 dùng làm khoá. Trạng thái cấp phòng là `bot` (máy trả lời) hoặc `human` (nhân viên
@@ -50,18 +50,18 @@ giá. Bot gọi vào đó qua MCP. Theo Hiến pháp, tri thức nằm ở Cổn
 vào mã nguồn (`.specify/memory/constitution.md:32`).
 
 **MCP** (Model Context Protocol) — giao thức chuẩn để một ứng dụng gọi công cụ
-của nơi khác. Client trong repo là `lib/mcp.js`, nói JSON-RPC 2.0 qua Streamable
-HTTP (`lib/mcp.js:1`).
+của nơi khác. Client trong repo là `core/mcp.js`, nói JSON-RPC 2.0 qua Streamable
+HTTP (`core/mcp.js:1`).
 
 **JSON-RPC 2.0** — định dạng tin nhắn gọi hàm: mỗi yêu cầu có `method`, `params`,
-`id`; mỗi câu trả lời có `id` khớp. Xem `lib/mcp.js:56`.
+`id`; mỗi câu trả lời có `id` khớp. Xem `core/mcp.js:57`.
 
 **Streamable HTTP** — kiểu truyền HTTP cho MCP, một đầu chốt, không phải WebSocket
 cũ. `initialize` trả về `Mcp-Session-Id`, client gửi kèm ở mọi request sau
-(`lib/mcp.js:28`).
+(`core/mcp.js:29`).
 
 **SSE** (Server-Sent Events) — kiểu trả lời dạng luồng, `text/event-stream`.
-Client của repo nhận được cả JSON lẫn SSE (`lib/mcp.js:24`).
+Client của repo nhận được cả JSON lẫn SSE (`core/mcp.js:25`).
 
 **Tool** (công cụ) — một hàm mà Cổng OZ cung cấp, ví dụ `phan_loai_hs`,
 `tra_tien_le`, `kiem_tra_shtt`. Danh sách gói khai ở `packs/hs/packages.js:142`;
@@ -103,8 +103,9 @@ Trong lõi mới, `core/gate.js` là tệp duy nhất gọi `channel.sendText`
 **Contract** (hợp đồng) — văn bản ghi rõ giao diện giữa hai lớp, để lớp này đổi
 không làm lớp kia hỏng.
 
-**Re-export** (tái xuất) — tệp một dòng chỉ chuyển tiếp tên từ tệp khác. Nhiều
-tệp trong `lib/` hiện chỉ là re-export sang `packs/hs/` hoặc `channels/`.
+**Re-export** (tái xuất) — tệp một dòng chỉ chuyển tiếp tên từ tệp khác. Thư mục
+`lib/` từng chứa nhiều tệp như vậy và đã bị xoá hẳn (T016); nay mã thật nằm trực tiếp
+trong `packs/hs/` và `channels/`.
 
 **Store** (kho dữ liệu) — lớp lưu bền, ở đây là SQLite. `openStore` mở tệp cơ sở
 dữ liệu (`core/store.js:9`).
@@ -219,11 +220,11 @@ thêm (`packs/hs/packages.js:192`).
 **TIEN_LE_RONG** — mã trạng thái: công cụ tra tiền lệ không trả về tiền lệ nào
 (`packs/hs/packages.js:70`).
 
-**GO_LAI** — mã trạng thái: khách gõ lại hoặc sửa mô tả hàng (`lib/truot.js:2`).
+**GO_LAI** — mã trạng thái: khách gõ lại hoặc sửa mô tả hàng (`packs/hs/miss-log.js:3`).
 
 **Sổ trượt từ vựng** — sổ ghi lại các lượt "trượt" (thiếu dữ kiện, không có tiền
 lệ, khách gõ lại) để ca đêm quét, nạp điển đồng nghĩa hoặc mở issue. Ghi mỗi
-ngày một tệp JSONL, **không lưu mã chat hay mã người dùng** (`lib/truot.js:3`).
+ngày một tệp JSONL, **không lưu mã chat hay mã người dùng** (`packs/hs/miss-log.js:4`).
 
 ## Trạng thái và quy ước nội bộ
 

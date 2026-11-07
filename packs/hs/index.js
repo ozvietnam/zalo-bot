@@ -88,7 +88,7 @@ async function textFlow(turn, ctx, st) {
     }
   } catch (e) {
     ctx.log?.error?.(`[hs] lỗi (${r.kind}${r.pkg ? ` gói ${r.pkg.so}` : ''}): ${e.message}`);   // chi tiết chỉ vào log (lõi che bí mật)
-    return one(`⚠️ Cổng tra cứu OZ đang lỗi tạm thời. Bạn thử lại sau ít phút nhé.\n\n${st.footer}`);   // Hiến pháp IX: không kèm lỗi gốc
+    return one(`{orange}⚠️ Cổng tra cứu OZ đang lỗi tạm thời{/orange}. Bạn thử lại sau ít phút nhé.\n\n${st.footer}`);   // Hiến pháp IX: không kèm lỗi gốc
   }
 }
 

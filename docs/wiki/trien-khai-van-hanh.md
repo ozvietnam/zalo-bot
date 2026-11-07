@@ -1,14 +1,16 @@
 # Triển khai và vận hành
 
-> Cập nhật: 2026-11-07 · commit: 1316cfe
+> Cập nhật: 2026-11-07 · commit: 0842386
 
 Trang này nói cách cài, chạy, theo dõi và khôi phục bot. Mọi nhận định về code kèm
 `tệp:dòng` để mở ra kiểm.
 
-**Cảnh báo quan trọng.** Repo có hai đường xử lý (xem [Kiến trúc](kien-truc.md)).
-Đường đang chạy là `server.js` → `lib/bot.js`, và nó **không** dùng lớp cấu hình
-`core/config.js`, không ghi SQLite, không có cửa gửi. Vì vậy nhiều biến môi trường
-mô tả dưới đây **hiện chưa có tác dụng với khách thật** — chi tiết ở [An toàn](an-toan.md).
+**Cảnh báo quan trọng.** Từ 07/11/2026 (T016) bot chạy thẳng vào lõi `core/`:
+`server.js` chỉ nối dây (`server.js:1-2`) và dựng engine ở `server.js:76`.
+Gói nghiệp vụ được nạp theo đường dẫn tương đối tới **tệp mã nguồn** (`server.js:72`), nên
+việc nạp gói không phụ thuộc thư mục làm việc khi chạy.
+Thư mục `lib/` đã bị xoá hẳn, nên **mọi** biến môi trường mô tả dưới đây đều có tác dụng
+với khách thật — chi tiết ở [An toàn](an-toan.md).
 
 ## 1. Yêu cầu và cài đặt
 
@@ -35,17 +37,17 @@ Lệnh trên khớp với `npm run dev` (`package.json:11`); `npm start` thì kh
 
 ## 2. Hai chế độ chạy
 
-`ZALO_MODE` chọn chế độ, mặc định là `webhook` (`server.js:17`); lõi có kiểm tra
-giá trị hợp lệ (`core/config.js:37-38`).
+`ZALO_MODE` chọn chế độ, mặc định là `webhook` (`core/config.js:37`); lõi có kiểm tra
+giá trị hợp lệ (`core/config.js:38`).
 
 ### Webhook (production)
 
-- HTTP server nhận POST tại `ZALO_WEBHOOK_PATH`, mặc định `/webhook/zalo` (`server.js:19`).
-- Chỉ nhận đúng method POST và đúng đường dẫn, còn lại trả 404 (`server.js:62`).
+- HTTP server nhận POST tại `ZALO_WEBHOOK_PATH`, mặc định `/webhook/zalo` (`core/config.js:44`).
+- Chỉ nhận đúng method POST và đúng đường dẫn, còn lại trả 404 (`server.js:84`).
 - Kiểm tra header `x-bot-api-secret-token` bằng so sánh không rò rỉ thời gian; sai hoặc
-  thiếu mã thì trả 403 (`server.js:63`).
-- Body quá 1 MB thì hủy kết nối (`server.js:66`); JSON hỏng thì trả 400 (`server.js:69`).
-- Trả 200 **ngay** rồi mới xử lý nền, để Zalo không gửi lại (`server.js:71`, `server.js:73`).
+  thiếu mã thì trả 403 (`server.js:85`, hàm so ở `channels/zalo-bot.js:31`).
+- Body quá 1 MB thì hủy kết nối (`server.js:87`); JSON hỏng thì trả 400 (`server.js:90`).
+- Trả 200 **ngay** rồi mới xử lý nền, để Zalo không gửi lại (`server.js:91`, `server.js:93`).
 
 Đăng ký webhook sau khi deploy:
 
@@ -59,14 +61,14 @@ ký tự (`scripts/set-webhook.mjs:14`). Xem webhook đang đặt: `npm run webh
 
 ### Polling (chạy thử, máy không có tên miền)
 
-- Vòng lặp gọi `getUpdates` với độ trễ dài 30 giây (`server.js:88`), nghỉ tối thiểu
-  `POLL_GAP_MS` giữa hai lần gọi (`server.js:83`).
+- Vòng lặp gọi `getUpdates` với độ trễ dài 30 giây (`channels/zalo-polling.js:31`), nghỉ tối thiểu
+  `POLL_GAP_MS` giữa hai lần gọi (`channels/zalo-polling.js:26`).
 - Khi lỗi (khác phải hết thời gian chờ) thì lùi dần: 3 giây rồi 10 giây nếu bị chặn
-  giới hạn, tối đa 120 giây (`server.js:101`).
+  giới hạn, tối đa 120 giây (`channels/zalo-polling.js:43`).
 - **Không được chạy polling khi bot thật đang có webhook.** Trước khi vào vòng lặp,
-  chương trình kiểm tra và dừng hẳn nếu thấy webhook (`server.js:133`, `channels/zalo-bot.js:54`).
+  chương trình kiểm tra và dừng hẳn nếu thấy webhook (`channels/zalo-polling.js:11`, `channels/zalo-bot.js:54`).
   Muốn cố ý chiếm thì đặt `ZALO_FORCE_POLLING`; chương trình sẽ cảnh báo phải đặt lại
-  webhook sau (`server.js:138`).
+  webhook sau (`channels/zalo-polling.js:16`).
 
 ## 3. Biến môi trường
 
@@ -76,24 +78,24 @@ Chỉ ghi **tên** biến và ý nghĩa. Giá trị thật nằm trong `.env` �
 
 | Biến | Ý nghĩa | Bằng chứng |
 |---|---|---|
-| `ZALO_BOT_TOKEN` | Token bot, bắt buộc | `server.js:26`, `core/config.js:35-36` |
-| `ZALO_MODE` | `webhook` hoặc `polling` | `server.js:17` |
-| `ZALO_WEBHOOK_PATH` | Đường dẫn nhận webhook | `server.js:19` |
-| `ZALO_WEBHOOK_SECRET` | Mã bí mật so khớp lúc đặt webhook | `server.js:20`, `server.js:130` |
-| `ZALO_API_BASE` | Đổi địa chỉ API Zalo | `server.js:26` |
-| `ZALO_FORCE_POLLING` | Cho phép polling xoá webhook đang có | `server.js:133` |
-| `POLL_GAP_MS` | Nghỉ tối thiểu giữa hai lần `getUpdates` | `server.js:83` |
-| `BOT_NAMES` | Tên bot để bỏ phần nhắc tên trong nhóm | `server.js:34` |
-| `ALLOW_USERS` | Danh sách người được dùng bot, để trống là mở | `server.js:53` |
-| `RATE_LIMIT_PER_MIN` | Số tin tối đa mỗi người mỗi phút | `server.js:52` |
+| `ZALO_BOT_TOKEN` | Token bot, bắt buộc | `core/config.js:35-36` |
+| `ZALO_MODE` | `webhook` hoặc `polling` | `core/config.js:37` |
+| `ZALO_WEBHOOK_PATH` | Đường dẫn nhận webhook | `core/config.js:44` |
+| `ZALO_WEBHOOK_SECRET` | Mã bí mật so khớp lúc đặt webhook | `core/config.js:45`, cảnh báo lúc khởi động ở `server.js:103` |
+| `ZALO_API_BASE` | Đổi địa chỉ API Zalo | `server.js:39` |
+| `ZALO_FORCE_POLLING` | Cho phép polling xoá webhook đang có | `channels/zalo-polling.js:11` |
+| `POLL_GAP_MS` | Nghỉ tối thiểu giữa hai lần `getUpdates` | `channels/zalo-polling.js:26` |
+| `BOT_NAMES` | Tên bot để bỏ phần nhắc tên trong nhóm | `core/config.js:62` |
+| `ALLOW_USERS` | Danh sách người được dùng bot, để trống là mở | `core/config.js:52` |
+| `RATE_LIMIT_PER_MIN` | Số tin tối đa mỗi người mỗi phút | `core/config.js:51` |
 
 ### Cổng OZ (MCP)
 
 | Biến | Ý nghĩa | Bằng chứng |
 |---|---|---|
-| `OZ_MCP_URL` | Địa chỉ cổng, có giá trị mặc định trong code | `server.js:29` |
-| `OZ_MCP_TOKEN` | Khoá/tài khoản OZ của bot | `server.js:30` |
-| `OZ_MCP_AUTH_HEADER` | Tên header gửi khoá, mặc định `Authorization` | `server.js:31` |
+| `OZ_MCP_URL` | Địa chỉ cổng, có giá trị mặc định trong code | `core/config.js:46` |
+| `OZ_MCP_TOKEN` | Khoá/tài khoản OZ của bot | `core/config.js:47` |
+| `OZ_MCP_AUTH_HEADER` | Tên header gửi khoá, mặc định `Authorization` | `core/config.js:48` |
 
 Cổng OZ dùng cho công cụ tính điểm, nên mọi người dùng bot đều trừ vào tài khoản này.
 README khuyên giới hạn `ALLOW_USERS` nếu chỉ dùng nội bộ (`README.md:78-79`).
@@ -102,25 +104,23 @@ README khuyên giới hạn `ALLOW_USERS` nếu chỉ dùng nội bộ (`README.
 
 | Biến | Ý nghĩa | Bằng chứng |
 |---|---|---|
-| `GEMINI_API_KEY` | Khoá dùng chung cho đọc ảnh, não định tuyến, não biên tập | `server.js:41` |
-| `GEMINI_MODEL` | Mẫu đọc ảnh | `server.js:51` |
-| `GEMINI_BRAIN` | Tắt não định tuyến bằng `0` | `server.js:42` |
-| `GEMINI_BRAIN_MODEL` | Mẫu não định tuyến | `server.js:41` |
-| `GEMINI_EDITOR` | Tắt não biên tập bằng `0` | `server.js:45` |
-| `GEMINI_EDITOR_MODEL` | Mẫu não biên tập | `server.js:44` |
-| `LLM2_BASE_URL`, `LLM2_API_KEY`, `LLM2_MODEL` | Khoá dự phòng theo chuẩn OpenAI; thiếu một biến là tắt | `server.js:36` |
-| `LLM2_TIMEOUT_MS` | Thời gian chờ mỗi lần gọi dự phòng | `server.js:37` |
-| `LLM_CHINH` | `llm2` để đảo vai chính/dự phòng | `server.js:39` |
+| `GEMINI_API_KEY` | Khoá dùng chung cho đọc ảnh, não định tuyến, não biên tập | `core/config.js:49` |
+| `GEMINI_MODEL` | Mẫu đọc ảnh | `core/config.js:50` |
+| `GEMINI_BRAIN` | Tắt não định tuyến bằng `0` | `server.js:46` |
+| `GEMINI_BRAIN_MODEL` | Mẫu não định tuyến | `server.js:46` |
+| `GEMINI_EDITOR` | Tắt não biên tập bằng `0` | `server.js:47` |
+| `GEMINI_EDITOR_MODEL` | Mẫu não biên tập | `server.js:47` |
+| `LLM2_BASE_URL`, `LLM2_API_KEY`, `LLM2_MODEL` | Khoá dự phòng theo chuẩn OpenAI; thiếu một biến là tắt | `server.js:44` |
+| `LLM2_TIMEOUT_MS` | Thời gian chờ mỗi lần gọi dự phòng | `server.js:44` |
+| `LLM_CHINH` | `llm2` để đảo vai chính/dự phòng | `server.js:45` |
 
 Mọi câu khách gửi tới não sẽ đi qua nhà cung cấp LLM đang cấu hình — chỉ dùng nhà
 cung cấp công ty đã đồng ý (`README.md:62`). Chi tiết ở [Não AI](nao-ai.md).
 
-### Lõi dùng chung (spec 001) — **hiện chưa có tác dụng**
+### Lõi dùng chung (spec 001) — **đã có tác dụng**
 
-Các biến dưới đây được đọc bởi `core/config.js`, nhưng hàm `loadConfig` chưa được
-gọi ở nơi nào ngoài test (`core/config.js:34`, `test/core/config.test.mjs:8`).
-`server.js` chỉ import `core/health.js` từ thư mục `core/` (`server.js:14`).
-Chúng sẽ có tác dụng khi lõi được nối vào chương trình chính (việc T016).
+Các biến dưới đây được đọc bởi `core/config.js:34`, và `server.js` gọi hàm đó lúc
+khởi động (`server.js:30`). Từ T016, chúng có tác dụng với khách thật.
 
 | Biến | Ý nghĩa | Bằng chứng |
 |---|---|---|
@@ -138,12 +138,12 @@ Chúng sẽ có tác dụng khi lõi được nối vào chương trình chính 
 
 | Biến | Ý nghĩa | Bằng chứng |
 |---|---|---|
-| `PORT` | Cổng HTTP; chương trình đang chạy mặc định 3000 | `server.js:18` |
-| `DEBUG` | Bật in log chi tiết | `server.js:21` |
-| `APP_VERSION` / `SOURCE_COMMIT` | Commit đang chạy, hiện ở `/health` | `server.js:24` |
+| `PORT` | Cổng HTTP; mặc định trong code là 3010, Docker đặt 3000 | `core/config.js:43`, `Dockerfile:6` |
+| `DEBUG` | Bật in log chi tiết | `server.js:24` |
+| `APP_VERSION` / `SOURCE_COMMIT` | Commit đang chạy, hiện ở `/health` | `server.js:25` |
 | `TRUOT_DIR` | Thư mục ghi sổ trượt từ vựng; đặt `off` để tắt | `server.js:49` |
-| `GITHUB_TOKEN` / `GH_TOKEN` | Mở issue khi giám sát phát hiện sự cố | `lib/giam-sat/issue.js:12` |
-| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Gửi bản tin giám sát; thiếu thì bỏ qua | `lib/giam-sat/telegram.js:11-13` |
+| `GITHUB_TOKEN` / `GH_TOKEN` | Mở issue khi giám sát phát hiện sự cố | `scripts/giam-sat/issue.js:12` |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Gửi bản tin giám sát; thiếu thì bỏ qua | `scripts/giam-sat/telegram.js:11-12` |
 
 ## 4. Chạy 24/7 với Docker
 
@@ -171,9 +171,9 @@ Hai điểm vận hành phải biết:
 ### Kiểm tra sức khoẻ
 
 `GET /health` trả JSON gồm `ok`, `mode`, `startedAt` và `version` nếu có
-(`core/health.js:3-9`), phục vụ `server.js:59-61`. Mục đích là xác minh production
+(`core/health.js:3-9`), phục vụ `server.js:81-82`. Mục đích là xác minh production
 đã build lại với code mới mà không cần đọc log (`core/health.js:1-2`).
-Phiên bản đọc từ `APP_VERSION` hoặc `SOURCE_COMMIT` (`server.js:24`).
+Phiên bản đọc từ `APP_VERSION` hoặc `SOURCE_COMMIT` (`server.js:25`).
 
 ### Agent giám sát hằng ngày
 
@@ -188,62 +188,63 @@ Các bước của lần chạy:
 2. Đọc bống `messages`, `outbox`, `jobs`, `audit` trong ngày (`scripts/giam-sat.mjs:36-47`).
 3. Tính 9 tín hiệu vận hành: rò rỉ, số tiền không căn cứ, lỗi công cụ, công cụ trả
    rỗng, việc nền hết hạn, hỏi lại nhiều, người thay bot, khách bực, xin lỗi tay
-   (`lib/giam-sat/tinh-hieu.js:6-14`).
+   (`scripts/giam-sat/tinh-hieu.js:5-15`).
 4. Mở issue GitHub hoặc bình luận vào issue cũ, tối đa 5 issue mới mỗi repo mỗi ngày
-   (`lib/giam-sat/issue.js:6-7`).
+   (`scripts/giam-sat/issue.js:51`).
 5. Lưu bản tin dạng Markdown trong `DATA_DIR` (`scripts/giam-sat.mjs:78`).
 6. Gửi bản tin Telegram cho CEO; nếu thiếu biến cấu hình thì bỏ qua, không báo lỗi
-   (`lib/giam-sat/telegram.js:13`).
+   (`scripts/giam-sat/telegram.js:10`).
 
-**Mâu thuẫn vận hành cần biết.** Script giám sát đọc `DATA_DIR/bot.db`, nhưng đường
-đang chạy **không** ghi SQLite: trong `lib/` và `server.js` không có chỗ nào mở cơ sở
-dữ liệu (đã kiểm bằng `grep` toàn bộ `lib/` và `server.js`; chỉ `scripts/giam-sat.mjs:7`
-mới import `node:sqlite`). Nói cách khác, ở production hiện tại `bot.db` do chính
-script giám sát tạo ra (`scripts/giam-sat.mjs:30`) và luôn rỗng — tức bản tin giám sát
-không phản ánh hoạt động thật của bot. Việc nối lõi mới (T016) mới làm cho phần này
-có dữ liệu. Trạng thái chi tiết: [Tiến độ](tien-do.md).
+**Dữ liệu giám sát giờ phản ánh hoạt động thật.** Trước T016, đường đang chạy không ghi
+SQLite, nên `bot.db` do chính script giám sát tạo ra (`scripts/giam-sat.mjs:30`) và luôn
+rỗng. Nay bot mở cơ sở dữ liệu ngay khi khởi động (`server.js:38`) và ghi tin, outbox,
+jobs, audit (`core/engine.js:100`, `core/engine.js:115`, `core/engine.js:130`), nên bản tin
+giám sát phản ánh hoạt động thật của bot. Trạng thái chi tiết: [Tiến độ](tien-do.md).
 
 ### Cảnh báo của lõi
 
-Trong lõi mới, cửa gửi gọi callback cảnh báo `onAlert` khi: tin có dấu hiệu lộ bí
+Cửa gửi gọi callback cảnh báo `onAlert` khi: tin có dấu hiệu lộ bí
 mật bị từ chối, vượt trần toàn hệ thống, hoặc vượt trần của nhóm; và gọi callback
 tạo phiếu `onTicket` khi vượt trần của cuộc trò chuyện hoặc số tiền không có căn cứ
 (`core/gate.js:64`). Khi gửi lỗi quá số lần thử thì cũng gọi cảnh báo
-(`core/gate.js:90`). Cơ chế này chưa được nối vào chương trình chính.
+(`core/gate.js:90`).
+
+Cơ chế này **đã được nối** vào chương trình chính, nhưng callback hiện chỉ ghi log
+(`server.js:66`, `server.js:67`); chưa có đường gửi cảnh báo tới nhóm nhân viên (T024 chưa làm).
 
 ## 6. Khôi phục sau sự cố
 
 Cửa gửi có hàm `recover()`: đổi các dòng `outbox` còn `queued` sang `failed` để bộ
 quét thử lại từ đoạn đã gửi, và ghi một bản ghi audit lý do `crash-mid-send`
-(`core/gate.js:191-199`). Nếu đã gửi được một phần thì còn gọi cảnh báo
-(`core/gate.js:197`).
+(`core/gate.js:198-206`). Nếu đã gửi được một phần thì còn gọi cảnh báo
+(`core/gate.js:204`).
 
-**Hiện chưa ai gọi `recover()` khi khởi động.** Hàm này chỉ được gọi trong test
-(`test/core/gate-send.test.mjs:439`); `server.js` không import `core/gate.js`
-(`server.js:4-14`). Hậu quả: tin nằm trôi trạng thái `queued` sau khi tiến trình chết
-giữa chừng sẽ không được gửi lại. Đây là việc T020 chưa làm, xem [Tiến độ](tien-do.md).
+**Hàm này đã được gọi lúc khởi động** (`server.js:77`), nên tin nằm trôi trạng thái `queued`
+sau khi tiến trình chết giữa chừng vẫn được gửi lại. Phần còn thiếu của T020 là tệp test
+riêng cho `recover()` và hàm tương đương ở tầng engine, xem [Tiến độ](tien-do.md).
 
 Các việc vận hành khi bot không trả lời, theo thứ tự nên làm:
 
 1. Xem `/health`: còn sống không, `startedAt` có đúng lần deploy không
-   (`server.js:59-61`).
+   (`server.js:81-82`).
 2. Xem log khởi động: dòng `[bot] đăng nhập` báo lỗi nghĩa là token sai
-   (`server.js:115`); dòng `[mcp] chưa kết nối được Cổng OZ` báo kiểm lại URL và
-   token Cổng (`server.js:126`).
+   (`server.js:57`); dòng `[bot] KHÔNG nạp được gói nào` báo kiểm lại thư mục
+   `packs/` (`server.js:74`); dòng `[mcp] chưa kết nối được Cổng OZ` báo kiểm lại URL và
+   token Cổng (`server.js:112`).
 3. Nếu bot không nhận được tin trong nhóm: kiểm tra bot đã được mời vào nhóm và
    trưởng nhóm đã xác nhận (`README.md:92`).
 4. Nếu dùng polling mà bot im: kiểm tra chương trình đã dừng vì còn webhook
-   (`server.js:133-136`).
+   (`channels/zalo-polling.js:11-14`).
 5. Chạy `npm test` và `npm run eval` để biết phần mềm còn đúng không (xem [Kiểm thử](kiem-thu.md)).
 
 ## 7. Sao lưu dữ liệu
 
 Trạng thái thật:
 
-- Cơ sở dữ liệu SQLite của lõi mới: `DATA_DIR/bot.db` (`scripts/giam-sat.mjs:19`).
-  Ở production hiện tại chưa có dữ liệu vì đường đang chạy không ghi SQLite.
+- Cơ sở dữ liệu SQLite của lõi: `DATA_DIR/bot.db` (`scripts/giam-sat.mjs:19`), do bot mở
+  lúc khởi động (`server.js:38`).
 - Sổ trượt từ vựng: mỗi ngày một tệp JSONL trong thư mục `TRUOT_DIR`
-  (`lib/truot.js:28`), không lưu mã chat hay người dùng (`lib/truot.js:3`).
+  (`packs/hs/miss-log.js:29`), không lưu mã chat hay người dùng (`packs/hs/miss-log.js:4`).
 - Bản tin giám sát hằng ngày: tệp Markdown trong `DATA_DIR` (`scripts/giam-sat.mjs:78`).
 
 Việc sao lưu có bản dựng riêng trong đặc tả (T036) **chưa làm**; chưa có tệp nào
@@ -283,15 +284,15 @@ node scripts/kiem-wiki.mjs
 | Chạy thử trên máy | `cp .env.example .env`, điền token, rồi `npm run dev` (`package.json:11`) |
 | Deploy lên production | Build bằng `Dockerfile`, đặt biến môi trường, gắn named volume cho `/app/data`, rồi đăng ký webhook (`README.md:98-101`) |
 | Đổi cấu hình | Sửa `.env` ở máy chủ, khởi động lại tiến trình; kiểm tra `/health` trả `startedAt` mới (`core/health.js:7`) |
-| Bot không nhận tin | Kiểm tra webhook (403 là sai mã, 404 là sai đường dẫn), rồi log khởi động (`server.js:62-63`) |
-| Khách phàn về trả lời | Bật `DEBUG` để in log chi tiết (`server.js:21`), chạy lại và đọc log |
+| Bot không nhận tin | Kiểm tra webhook (403 là sai mã, 404 là sai đường dẫn), rồi log khởi động (`server.js:84-85`) |
+| Khách phàn về trả lời | Bật `DEBUG` để in log chi tiết (`server.js:24`), chạy lại và đọc log |
 | Hằng ngày | Job giám sát lúc 07:30 tự chạy; kiểm tra issue mới và bản tin Telegram (`scripts/giam-sat.mjs:2`) |
 | Trước khi mở PR | `npm test`, `npm run eval`, `node scripts/kiem-wiki.mjs` phải xanh (`CONTRIBUTING.md:23`) |
 | Đổi hành vi | Cập nhật wiki cùng PR (`AGENTS.md`) |
 
 ## Trang liên quan
 
-- [Kiến trúc](kien-truc.md) — hai đường xử lý, ranh giới giữa lõi, gói, kênh.
+- [Kiến trúc](kien-truc.md) — một đường xử lý, ranh giới giữa lõi, gói, kênh.
 - [Dữ liệu](du-lieu.md) — bảng nào lưu gì, giữ bao lâu.
 - [An toàn](an-toan.md) — nguyên tắc nào đang thực thi, nguyên tắc nào chưa.
 - [Tiến độ](tien-do.md) — trạng thái thật từng việc T0xx.

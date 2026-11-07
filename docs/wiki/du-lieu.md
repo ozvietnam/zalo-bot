@@ -1,8 +1,9 @@
 # Dữ liệu
 
-> Cập nhật: 2026-11-07 · commit: 1316cfe
+> Cập nhật: 2026-11-07 · commit: 0842386
 
-Nơi bot giữ dữ liệu: SQLite cho đường lõi mới, bộ nhớ (RAM) cho đường đang chạy.
+Nơi bot giữ dữ liệu: SQLite là nơi duy nhất. Từ 07/11/2026 (T016) bot chạy thẳng vào lõi `core/`,
+thư mục `lib/` đã bị xoá, nên không còn đường nào giữ dữ liệu trong RAM.
 
 ## Lược đồ SQLite
 
@@ -34,8 +35,10 @@ chỉ có một phiếu đang mở (`core/store/schema.js:53`). Năm chỉ mục
 
 ## Phiên (session)
 
-- **Đường lõi (bền)**: phiên lưu trong bảng `sessions`, đọc và ghi qua `sessionApi` (`core/engine-ctx.js:50`). Khoá phiên là `convId` — `chatId` với khách lẻ, `chatId:userId` trong nhóm (`core/engine.js:100`, `core/conv.js:10`). Thời hạn mặc định 2 giờ (`core/config.js:60`), được gia hạn mỗi lượt (`core/engine-ctx.js:56`).
-- **Đường đang chạy (RAM)**: phiên nằm trong một `Map` trong tiến trình (`lib/bot.js:32`), mất trắng khi khởi động lại.
+- Phiên lưu trong bảng `sessions`, đọc và ghi qua `sessionApi` (`core/engine-ctx.js:50`). Khoá phiên là `convId` —
+  `chatId` với khách lẻ, `chatId:userId` trong nhóm (`core/engine.js:102`, `core/conv.js:10`).
+  Thời hạn mặc định 2 giờ (`core/config.js:60`), được gia hạn mỗi lượt (`core/engine-ctx.js:56`).
+- Phiên nằm trong SQLite nên **không mất** khi khởi động lại; đây là khác biệt so với đường cũ (RAM) đã bị xoá.
 
 ## Outbox (hàng đợi tin đi)
 
@@ -43,26 +46,22 @@ chỉ có một phiếu đang mở (`core/store/schema.js:53`). Năm chỉ mục
 - Bốn quyết định của cửa được đổi thành trạng thái dòng: `send` → `queued`, `drop` → `dropped`, `defer` → `deferred`, `reject` → `rejected` (`core/gate.js:13`).
 - Tin dài được chia nhiều phần (`core/gate.js:74`); số phần đã gửi lưu ở `parts_sent` (`core/gate.js:75`) và cập nhật sau mỗi phần (`core/gate.js:81`). Nhờ vậy tiến trình chết giữa chừng không gửi lại phần đã bay.
 - Gửi lỗi thì tăng `attempts` và hẹn lại bằng `next_retry_at` (`core/gate.js:88`); hết số lần thì báo cảnh báo.
-- Cột `ctx` lưu bối cảnh để chạy lại quyết định khi quét tin hoãn (`core/gate.js:132`).
-- Lúc khởi động lại, tin còn `queued` được chuyển sang trạng thái để bộ quét gửi tiếp (`core/gate.js:191`).
+- Cột `ctx` lưu bối cảnh để chạy lại quyết định khi quét tin hoãn (`core/gate.js:139`).
+- Lúc khởi động lại, tin còn `queued` được chuyển sang trạng thái để bộ quét gửi tiếp (`core/gate.js:198`).
 
 ## Việc nền (jobs)
 
 - Mỗi việc nền có `ma_luot` (mã lượt phía Cổng OZ) và `result_tool` (tên công cụ để hỏi kết quả).
 - Ràng buộc UNIQUE trên `(pack, ma_luot)` nên không ghi trùng việc (`core/store/schema.js:31`).
-- Bộ quét hỏi theo nhịp 6 giây rồi 12, 24, 48, tối đa 60 giây (`core/engine-jobs.js:6`); việc quá 30 phút thì hết hạn (`core/engine-jobs.js:8`).
+- Bộ quét hỏi theo nhịp 6 giây rồi 12, 24, 48, tối đa 60 giây (`core/engine-jobs.js:7`, `core/engine-jobs.js:8`, `core/engine-jobs.js:12`);
+  việc quá 30 phút thì hết hạn (`core/engine-jobs.js:9`).
 
 ## Nơi lưu dữ liệu
 
 - Thư mục dữ liệu lấy từ biến môi trường `DATA_DIR`, mặc định `./data` (`core/config.js:55`).
 - Tên tệp db là `bot.db`, ghép từ `DATA_DIR` (`scripts/giam-sat.mjs:19`).
 - Trong Docker, `DATA_DIR=/app/data` và `/app/data` là một volume (`Dockerfile:6`, `Dockerfile:8`).
-- Sổ ghi lượt "trượt từ vựng" là tệp JSONL theo ngày trong thư mục riêng, không lưu mã phòng hay người dùng (`lib/truot.js:3`, `lib/truot.js:28`).
-
-## Cảnh báo: đường đang chạy chưa ghi SQLite
-
-Đường A (qua `lib/bot.js`) chỉ giữ dữ liệu trong RAM. Tệp `bot.db` do script giám sát tự mở để đọc, và chính script cũng ghi rõ bot.db chỉ xuất hiện khi bot nhận tin đầu tiên (`scripts/giam-sat.mjs:29`). Nói cách khác: **mở `bot.db` ở production không có nghĩa là bot đang ghi dữ liệu bền**.
-
-Lý do và việc cần làm: xem [Tiến độ](tien-do.md).
+- Sổ ghi lượt "trượt từ vựng" là tệp JSONL theo ngày trong thư mục riêng, không lưu mã phòng hay người dùng
+  (`packs/hs/miss-log.js:4`, ghi dòng ở `packs/hs/miss-log.js:29`).
 
 Liên quan: [Kiến trúc](kien-truc.md), [Luồng tin nhắn](luong-tin-nhan.md).

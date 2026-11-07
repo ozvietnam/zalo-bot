@@ -5,10 +5,10 @@
 import { existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { DatabaseSync } from 'node:sqlite';
-import { tinhHieu } from '../lib/giam-sat/tinh-hieu.js';
-import { guiTelegram, dungBanTin } from '../lib/giam-sat/telegram.js';
+import { tinhHieu } from './giam-sat/tinh-hieu.js';
+import { guiTelegram, dungBanTin } from './giam-sat/telegram.js';
 import { openStore } from '../core/store.js';
-import { xuLyIssue } from '../lib/giam-sat/issue.js';
+import { xuLyIssue } from './giam-sat/issue.js';
 import { redact } from '../core/redact.js';
 
 const args = process.argv.slice(2);

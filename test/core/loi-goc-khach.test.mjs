@@ -1,14 +1,14 @@
 // test/core/loi-goc-khach.test.mjs — Hiến pháp Điều IX: khách KHÔNG được thấy lỗi gốc (bí mật nội bộ).
-// lib/bot.js bắt lỗi khi gọi Cổng OZ: tin gửi khách phải là câu chuẩn, KHÔNG kèm e.message.
-// Chi tiết lỗi gốc CHỈ được ghi vào log (lib/bot.js:213 và :131), không bao giờ vào tin gửi khách.
+// packs/hs/index.js bắt lỗi khi gọi Cổng OZ: tin gửi khách phải là câu chuẩn, KHÔNG kèm e.message.
+// Chi tiết lỗi gốc CHỈ được ghi vào log (packs/hs/index.js:90), không bao giờ vào tin gửi khách.
 //
-// Cảnh báo khoá hành vi: nếu sau này ai đó đổi câu chuẩn ở lib/bot.js:214 (thêm lại e.message,
+// Cảnh báo khoá hành vi: nếu sau này ai đó đổi câu chuẩn ở packs/hs/index.js:91 (thêm lại e.message,
 // đổi câu chữ, thêm nội dung), các test dưới đây sẽ ĐỎ. Đó là chủ ý — sửa cả code lẫn test
 // trong cùng một PR.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createBot } from '../../lib/bot.js';
-import { menuText } from '../../lib/packages.js';
+import { createBot } from '../helpers/legacy-bot.mjs';
+import { menuText } from '../../packs/hs/packages.js';
 
 /**
  * Lỗi gốc giả — cố tình nhồi NHIỀU dấu hiệu bí mật cùng lúc để một hồi quy rò (kể cả chỉ rò
@@ -27,7 +27,7 @@ const MANH_LOI_GOC = ['/home/oz', 'OZ_MCP_TOKEN', 'sk-gia-loi-goc', 'tra_thue', 
 const LOI_GOC_ANH = 'Gemini lỗi 400 (API_KEY=/home/oz/.env GEMINI_KEY=sk-gia-loi-goc read_specs)';
 const MANH_LOI_GOC_ANH = ['/home/oz', 'API_KEY', 'GEMINI_KEY', 'sk-gia-loi-goc', 'read_specs', 'Gemini', '400'];
 
-/** Câu báo chuẩn cho khách khi Cổng OZ lỗi (nguyên văn ở lib/bot.js:214). */
+/** Câu báo chuẩn cho khách khi Cổng OZ lỗi (nguyên văn ở packs/hs/index.js:91). */
 const CLOI_CHUAN = '{orange}⚠️ Cổng tra cứu OZ đang lỗi tạm thời{/orange}. Bạn thử lại sau ít phút nhé.';
 
 /** Footer (menu gọn) mọi tin có — lấy từ mã nguồn để không phải chép lại. */
@@ -36,7 +36,7 @@ const FOOTER = menuText(null);
 /** Tin khách duy nhất khi Cổng OZ lỗi. */
 const TIN_LOI_CHUAN = `${CLOI_CHUAN}\n\n${FOOTER}`;
 
-/** Tin khách khi đọc ảnh lỗi (lib/bot.js:130-136 → packs/hs/vision.js:26-33). */
+/** Tin khách khi đọc ảnh lỗi (packs/hs/vision.js:26-33, ghép ở packs/hs/index.js:118). */
 const TIN_ANH_LOI = `⚠️ Bot chưa đọc được ảnh này, hoặc gõ tên hàng + thông số bằng chữ giúp bot nhé.\n\n${FOOTER}`;
 
 function fakeZalo() {
@@ -110,7 +110,7 @@ test('nhánh chạy gói: lỗi gốc của Cổng OZ không lọt ra tin khách
 });
 
 test('nhánh mở lại lượt (ket-qua): lỗi gốc của Cổng OZ không lọt ra tin khách', async () => {
-  // Nhánh này ĐÃ an toàn sẵn (rơi vào cùng catch ở lib/bot.js:212) → test khoá hành vi, không phải test đỏ trước.
+  // Nhánh này ĐÃ an toàn sẵn (rơi vào cùng catch ở packs/hs/index.js:89) → test khoá hành vi, không phải test đỏ trước.
   const mcp = fakeMcp({ names: ['phan_loai_hs', 'tra_thue', 'tra_thu_tuc_nhap_khau', 'tim_ma_hs', 'ket_qua_phan_loai'] });
   const { zalo, log, bot } = taoBot({ mcp });
 
@@ -123,7 +123,7 @@ test('nhánh mở lại lượt (ket-qua): lỗi gốc của Cổng OZ không l�
 });
 
 test('nhánh ảnh: lỗi gốc khi đọc ảnh không lọt ra tin khách', async () => {
-  // Nhánh này ĐÃ an toàn sẵn (lib/bot.js:130-136 → packs/hs/vision.js:26-33) → test khoá hành vi, không phải test đỏ trước.
+  // Nhánh này ĐÃ an toàn sẵn (packs/hs/vision.js:26-33) → test khoá hành vi, không phải test đỏ trước.
   const { zalo, log, bot } = taoBot({ vision: fakeVision() });
 
   await bot.handleUpdate(updateAnh('m3'));

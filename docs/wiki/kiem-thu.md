@@ -1,10 +1,10 @@
 # Kiểm thử
 
-> Cập nhật: 2026-11-07 · commit: 1316cfe
+> Cập nhật: 2026-11-07 · commit: 0842386
 
 Trang này nói: repo có những cổng kiểm nào, chạy lệnh gì, bộ test nằm ở đâu, và
 bộ kiểm thử còn thiếu gì. Kết quả chạy ghi trong mục "Kết quả chạy gần nhất" là của
-ngày 07/11/2026 trên commit `1316cfe` (sau T037 — khoá theo `conv_id`).
+ngày 07/11/2026 trên commit `0842386` (sau T016 — nối `server.js` vào lõi, xoá `lib/`).
 
 ## Ba cổng kiểm
 
@@ -27,7 +27,7 @@ Lệnh khác trong `package.json`:
 
 ## Cấu trúc bộ test
 
-Có **24 tệp test** chạy bằng `node --test` (18 tệp trong `test/core/`, 6 tệp trong
+Có **26 tệp test** chạy bằng `node --test` (20 tệp trong `test/core/`, 6 tệp trong
 `packs/hs/test/`), cộng 1 bộ test riêng trong `test/test.mjs`.
 
 ### `test/core/` — test của lõi mới
@@ -36,7 +36,7 @@ Có **24 tệp test** chạy bằng `node --test` (18 tệp trong `test/core/`, 
 |---|---|
 | `test/core/smoke.test.mjs` | `node:sqlite` có sẵn và ghi được (`test/core/smoke.test.mjs:4`) |
 | `test/core/store.test.mjs` | Lược đồ, migrate idempotent, claim inbox/jobs, TTL phiên, outbox, tickets, audit, messages, customers, transaction |
-| `test/core/engine.test.mjs` | Một lượt khách: audit, chống trùng, phiên, nhịp việc nền, câu báo lỗi chung, giới hạn tần suất |
+| `test/core/engine.test.mjs` | Một lượt khách: audit, chống trùng, phiên, nhịp việc nền, câu báo lỗi chung (đúng nguyên văn đường cũ, có thẻ màu `{orange}` — `test/core/engine.test.mjs:110`), giới hạn tần suất |
 | `test/core/gate-send.test.mjs` | Cửa gửi: ghi outbox trước khi gửi, chống trùng, chia tin, hoãn giờ yên, trần, quét lại, thử lại |
 | `test/core/gate-decide.test.mjs` | Bảng quyết định thuần của cửa (`decide`), theo đúng thứ tự điều kiện |
 | `test/core/conv.test.mjs` | Khoá theo `conv_id` (T037): `convIdOf` cho chat 1-1 và nhóm (`test/core/conv.test.mjs:18`), trần ngày theo người và trần ngày của nhóm (`test/core/conv.test.mjs:138`), trạng thái theo người so với chặn cả nhóm (`test/core/conv.test.mjs:160`), phiếu và việc nền theo `conv_id` (`test/core/conv.test.mjs:261`) |
@@ -52,6 +52,8 @@ Có **24 tệp test** chạy bằng `node --test` (18 tệp trong `test/core/`, 
 | `test/core/fakes.test.mjs` | Bản thân bộ đồ giả dùng chung |
 | `test/core/giam-sat.test.mjs` | 9 tín hiệu giám sát (spec 007) |
 | `test/core/giam-sat-telegram.test.mjs` | Gửi tin cảnh báo qua Telegram |
+| `test/core/group-tag.test.mjs` | Gắn tên người nhận trong nhóm (T038): tên trùng nhau thì phân biệt bằng hậu tố 2 ký tự cuối `userId` (`test/core/group-tag.test.mjs:51`) |
+| `test/core/one-gate.test.mjs` | Một cửa gửi: quét đệ quy `core/`, `packs/`, `channels/`, `scripts/` cộng `server.js` và đòi đúng một nơi gọi `.sendText(` (`test/core/one-gate.test.mjs:167`); thêm ra đó là đòi `server.js` không dài quá 120 dòng (`test/core/one-gate.test.mjs:141`), thư mục `lib/` không còn tồn tại (`test/core/one-gate.test.mjs:173`), gói được nạp theo đường dẫn tương đối tới **tệp mã nguồn** nên không phụ thuộc thư mục làm việc (`test/core/one-gate.test.mjs:146`) và `server.js` phải **cảnh báo to** khi không nạp được gói nào (`test/core/one-gate.test.mjs:153`) |
 
 ### `packs/hs/test/` — test của gói hải quan
 
@@ -71,7 +73,7 @@ Có **24 tệp test** chạy bằng `node --test` (18 tệp trong `test/core/`, 
 `test/helpers/legacy-bot.mjs` là bọc riêng cho test: nó dựng `createBot` cũ trên
 lõi mới để bộ test cũ chạy được (`test/helpers/legacy-bot.mjs:1`). Tệp này đặt ở
 trong `test/` để `server.js` không vô tình import nhầm — có test canh điều đó
-(`test/core/engine.test.mjs:288`).
+(`test/core/engine.test.mjs:302`).
 
 Các test gọi mô hình ngôn ngữ (não định tuyến, não biên tập, khoá dự phòng) truyền
 `fetch` giả vào nên cũng không cần mạng, ví dụ `packs/hs/test/editor.test.mjs:10`.
@@ -115,9 +117,9 @@ Nguồn bảng này: `eval/README.md:25`.
 
 ### So với yêu cầu trong spec
 
-Spec 001 yêu cầu **9 kịch bản** (`specs/001-nen-tang-chung/tasks.md:516`) và
+Spec 001 yêu cầu **9 kịch bản** (`specs/001-nen-tang-chung/tasks.md:518`) và
 bước kiểm tra là `npm run eval` phải in `eval: 9/9`
-(`specs/001-nen-tang-chung/tasks.md:528`).
+(`specs/001-nen-tang-chung/tasks.md:530`).
 
 Hiện mới có 7. Ba kịch bản còn thiếu được ghi rõ trong `eval/README.md:37`:
 `human-room` (chờ T022–T026), `is-bot` (chờ T023) và `ho-so-khach` (chờ
@@ -158,13 +160,13 @@ với `main` (`.specify/memory/constitution.md:67`).
 
 ## Kết quả chạy gần nhất
 
-Ngày 07/11/2026, chạy tại thư mục gốc repo trên commit `1316cfe` (sau T037 — khoá
-theo `conv_id`, thêm `test/core/conv.test.mjs`):
+Ngày 07/11/2026, chạy tại thư mục gốc repo trên commit `0842386` (sau T016 — nối
+`server.js` vào lõi, xoá `lib/`, thêm `test/core/one-gate.test.mjs`):
 
 ```
 npm test
-  # tests 249
-  # pass 249
+  # tests 274
+  # pass 274
   # fail 0
   # skipped 0
   # todo 0
@@ -184,17 +186,18 @@ node scripts/kiem-wiki.mjs --nghiem
   wiki: ĐẠT (16 trang).
 ```
 
-Tổng phần `node --test` là 249 test đạt, 0 trượt. Phần `test/test.mjs` in thêm
-"34 test đạt". Cộng lại 283 test. Lệnh `npm run eval` đạt 7/7 kịch bản.
+Lệnh `npm test` đạt 274 test, 0 trượt (phần `test/test.mjs` in thêm "34 test đạt").
+Lệnh `npm run eval` đạt 7/7 kịch bản. Cổng wiki nghiêm đạt ở 16 trang.
 
 ## Giới hạn của bộ kiểm thử
 
 Các điểm này đọc từ code, không phải suy đoán:
 
-- **Chưa có test bảo chứng "một cửa gửi" trên toàn repo.** Trong lõi mới, chỉ
-  `core/gate.js:79` gọi `channel.sendText`. Nhưng đường đang chạy ở `lib/bot.js:112`
-  vẫn gọi thẳng `zalo.sendText`, và không có tệp test nào quét mã nguồn để khẳng
-  định điều đó. Khẳng định "chỉ một nơi gửi tin" hiện chỉ đúng trong `core/`.
+- **"Một cửa gửi" nay đã có test bảo chứng trên toàn repo.** Tệp
+  `test/core/one-gate.test.mjs:167` quét đệ quy `core/`, `packs/`, `channels/`, `scripts/`
+  cộng `server.js` và đòi đúng một nơi gọi `.sendText(` — đó là `core/gate.js:79`.
+  Trước T016, đường cũ ở lib/bot.js gọi thẳng `zalo.sendText` và không có tệp test
+  nào khẳng định điều đó.
 - **Chưa có bộ test cho việc nền bền và hàng đợi theo phòng.** Việc nền mới có
   bộ đồ giả đồng hồ trong test của engine, chưa có tệp riêng.
 - **Bản tin gộp 08:00/17:00, lệnh nhân viên và hồ sơ khách chưa có kịch bản eval.**
@@ -207,7 +210,7 @@ Các điểm này đọc từ code, không phải suy đoán:
 
 ## Trang liên quan
 
-- [Kiến trúc](kien-truc.md) — hai đường xử lý trong repo.
+- [Kiến trúc](kien-truc.md) — một đường xử lý trong repo.
 - [Tiến độ](tien-do.md) — trạng thái T0xx của spec 001, kèm mâu thuẫn tài liệu và code.
 - [Sự cố và bài học](su-co-bai-hoc.md) — nguồn của các kịch bản eval.
 - [An toàn](an-toan.md) — các nguyên tắc mà bộ test kiểm được và không kiểm được.

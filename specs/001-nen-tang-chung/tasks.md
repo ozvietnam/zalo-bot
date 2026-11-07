@@ -304,15 +304,15 @@ test('ALLOW_USERS và rate limit 10/phút giữ như cũ', …)
 
 **Files:** Modify `server.js` · Delete `lib/bot.js` (và `lib/`) · Create `test/core/one-gate.test.mjs`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 test('chỉ core/gate.js gọi sendText', async () => {
   const hits = await grepFiles(['core', 'packs', 'server.js'], /\.sendText\(/);   // đọc tệp bằng fs
   assert.deepEqual(hits.map((h) => h.file), ['core/gate.js']);
 });
 ```
-- [ ] Thêm (review B2): `gate.send({text: undefined})` trả `reject: empty`, không ném lỗi.
-- [ ] **Step 2:** FAIL (server.js cũ còn gọi) · **Step 3:** `server.js` chỉ nối dây (< 120 dòng); bộ quét `setInterval(5000)` gọi `jobs.tick` + `gate.sweep`, có cờ chống chạy chồng. · **Step 4:** `npm test` PASS · **Step 5:** `git commit -m "refactor: server wiring on core, remove lib/"`
+- [x] Thêm (review B2): `gate.send({text: undefined})` trả `reject: empty`, không ném lỗi.
+- [x] **Step 2:** FAIL (server.js cũ còn gọi) · **Step 3:** `server.js` chỉ nối dây (< 120 dòng); bộ quét `setInterval(5000)` gọi `jobs.tick` + `gate.sweep`, có cờ chống chạy chồng. · **Step 4:** `npm test` PASS · **Step 5:** `git commit -m "refactor: server wiring on core, remove lib/"`
 
 ### T017 [US4] Gói mẫu `packs/echo/` (nhân viên)
 

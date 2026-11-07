@@ -1,6 +1,6 @@
 # Nền tảng Zalo
 
-> Cập nhật: 2026-11-07 · commit: 64a728a
+> Cập nhật: 2026-11-07 · commit: 0842386
 
 Trang này mô tả nền tảng mà bot đang dùng: **Zalo Bot Platform** (bot tự nhắn qua Zalo).
 
@@ -32,12 +32,12 @@ Code trong repo chỉ dùng `POST` với body JSON:
 
 | Lệnh | Việc | Chỗ gọi trong repo | Tài liệu |
 |---|---|---|---|
-| `getMe` | Lấy thông tin bot (tên) | `channels/zalo-bot.js:94`, dùng ở `server.js:112` | [getMe](https://bot.zapps.me/docs/apis/getMe/) |
-| `getUpdates` | Nhận tin bằng long polling | `channels/zalo-bot.js:95`, dùng ở `server.js:88` | [getUpdates](https://bot.zapps.me/docs/apis/getUpdates/) |
+| `getMe` | Lấy thông tin bot (tên) | `channels/zalo-bot.js:94`, dùng ở `server.js:54` | [getMe](https://bot.zapps.me/docs/apis/getMe/) |
+| `getUpdates` | Nhận tin bằng long polling | `channels/zalo-bot.js:95`, dùng ở `channels/zalo-polling.js:31` | [getUpdates](https://bot.zapps.me/docs/apis/getUpdates/) |
 | `sendMessage` | Gửi tin | `channels/zalo-bot.js:27` và `channels/zalo-bot.js:106` | [sendMessage](https://bot.zapps.me/docs/apis/sendMessage/) |
 | `sendChatAction` | Báo trạng thái "đang nhập" | `channels/zalo-bot.js:29` và `channels/zalo-bot.js:96` | [sendChatAction](https://bot.zapps.me/docs/apis/sendChatAction/) |
 | `setWebhook` | Đặt webhook | `channels/zalo-bot.js:97`, gọi ở `scripts/set-webhook.mjs:15` | [setWebhook](https://bot.zapps.me/docs/apis/setWebhook/) |
-| `deleteWebhook` | Xoá webhook | `channels/zalo-bot.js:98`, gọi ở `server.js:80` và `scripts/set-webhook.mjs:17` | [deleteWebhook](https://bot.zapps.me/docs/apis/deleteWebhook/) |
+| `deleteWebhook` | Xoá webhook | `channels/zalo-bot.js:98`, gọi ở `channels/zalo-polling.js:23` và `scripts/set-webhook.mjs:17` | [deleteWebhook](https://bot.zapps.me/docs/apis/deleteWebhook/) |
 | `getWebhookInfo` | Xem webhook đang đặt | `channels/zalo-bot.js:99`, đọc ở `channels/zalo-bot.js:57` | [getWebhookInfo](https://bot.zapps.me/docs/apis/getWebhookInfo/) |
 
 Tài liệu còn mô tả `sendPhoto`, `sendSticker`, `sendVoice`, `testWebhook` — repo **chưa** dùng tới.
@@ -56,21 +56,21 @@ Code trong repo:
 - Client cũ tự chia tin dài rồi gửi từng phần: `channels/zalo-bot.js:102-107`.
 - Kênh mới theo contract chỉ gửi **một** phần, vì cửa gửi đã chia sẵn: `channels/zalo-bot.js:22-28`.
 - Bot dùng thẻ riêng `{b}…{/b}` rồi đổi sang `text_styles`: `packs/hs/style.js:44` và `packs/hs/style.js:97`; gắn vào body ở `channels/zalo-bot.js:25-26` và `channels/zalo-bot.js:105`.
-- Trạng thái "đang nhập": `sendChatAction` với `action` là `typing` (`channels/zalo-bot.js:29`). Tài liệu liệt kê `typing` và `upload_photo` (đang "sắp ra mắt"). Repo gọi lệnh này trước khi trả lời ở `lib/bot.js:165`, và ở đường lõi tại `core/engine.js:113`. Lỗi của lệnh này bị nuốt (`channels/zalo-bot.js:96`) nên bot vẫn gửi tin được.
+- Trạng thái "đang nhập": `sendChatAction` với `action` là `typing` (`channels/zalo-bot.js:29`). Tài liệu liệt kê `typing` và `upload_photo` (đang "sắp ra mắt"). Repo gọi lệnh này trước khi trả lời ở `core/engine.js:117`. Lỗi của lệnh này bị nuốt (`channels/zalo-bot.js:96`) nên bot vẫn gửi tin được.
 - Ảnh: update có trường `photo_url` (`channels/zalo-bot.js:148`) và `caption` (`channels/zalo-bot.js:149`). Repo **chưa** gọi `sendPhoto`.
 
 ## 4. Nhận tin: hai chế độ
 
 ### 4.1 Webhook (mặc định)
 
-Chế độ mặc định là webhook (`server.js:17`). Đường dẫn nhận mặc định là `/webhook/zalo`, đổi bằng biến `ZALO_WEBHOOK_PATH` (`server.js:19`).
+Chế độ mặc định là webhook (`core/config.js:37`). Đường dẫn nhận mặc định là `/webhook/zalo`, đổi bằng biến `ZALO_WEBHOOK_PATH` (`core/config.js:44`).
 
 Luồng trong code:
 
-1. Chỉ nhận `POST` đúng đường dẫn, sai thì 404 (`server.js:62`).
-2. So header khoá webhook, sai thì 403 (`server.js:63`).
-3. Đọc body, quá 1.000.000 byte thì huỷ kết nối (`server.js:66`); JSON hỏng thì 400 (`server.js:69`).
-4. **Trả 200 ngay** để Zalo không gửi lại (`server.js:71`), rồi mới xử lý ở nền (`server.js:73`).
+1. Chỉ nhận `POST` đúng đường dẫn, sai thì 404 (`server.js:84`).
+2. So header khoá webhook, sai thì 403 (`server.js:85`).
+3. Đọc body, quá 1.000.000 byte thì huỷ kết nối (`server.js:87`); JSON hỏng thì 400 (`server.js:90`).
+4. **Trả 200 ngay** để Zalo không gửi lại (`server.js:91`), rồi mới xử lý ở nền (`server.js:93`).
 
 Theo tài liệu [Webhook](https://bot.zapps.me/docs/webhook/) và [setWebhook](https://bot.zapps.me/docs/apis/setWebhook/):
 
@@ -81,7 +81,7 @@ Theo tài liệu [Webhook](https://bot.zapps.me/docs/webhook/) và [setWebhook](
 
 Code đọc tên sự kiện từ `event_name` (`channels/zalo-bot.js:142`) và lấy ảnh từ `photo_url` (`channels/zalo-bot.js:148`).
 
-**Chưa xác minh**: trang webhook không nói thời hạn phải trả lời (ACK) và không nói số lần Zalo thử lại. Repo trả 200 ngay (`server.js:71`) nên vẫn đúng nguyên tắc "trả lời nhanh", nhưng con số cụ thể thì chưa có tài liệu để dẫn.
+**Chưa xác minh**: trang webhook không nói thời hạn phải trả lời (ACK) và không nói số lần Zalo thử lại. Repo trả 200 ngay (`server.js:91`) nên vẫn đúng nguyên tắc "trả lời nhanh", nhưng con số cụ thể thì chưa có tài liệu để dẫn.
 
 ### 4.2 Polling
 
@@ -93,17 +93,17 @@ Chế độ polling tự gọi `getUpdates`. Theo [tài liệu `getUpdates`](htt
 
 Code:
 
-- Vòng lặp polling: `server.js:79`; xoá webhook trước khi bắt đầu: `server.js:80`.
-- Chờ 30 giây mỗi lần: `server.js:88`; client tự tính timeout HTTP là `(30 + 10) * 1000` ms (`channels/zalo-bot.js:95`).
-- Nghỉ tối thiểu giữa hai lần gọi: `POLL_GAP_MS`, mặc định 1500 ms (`server.js:83`).
-- Khi lỗi (khác timeout): lùi dần 3 giây, 10 giây nếu gặp mã 429, nhân đôi mỗi lần, tối đa 120 giây (`server.js:101`). Lỗi timeout thì coi như bình thường, không lùi (`server.js:98-99`).
-- **Chống xoá nhầm webhook production**: trước khi polling, bot đọc `getWebhookInfo`; nếu bot đang có webhook thì dừng hẳn trừ khi bật `ZALO_FORCE_POLLING` (`channels/zalo-bot.js:54`, `server.js:133`). Lý do ghi ngay trong code: xoá webhook làm bot thật ngừng nhận tin, đã xảy ra sự cố ngày 06/11/2026 (`channels/zalo-bot.js:50`). Khi cố ý chiếm bot, bot cảnh báo phải đặt lại webhook sau (`server.js:138`).
+- Vòng lặp polling: `channels/zalo-polling.js:22`; xoá webhook trước khi bắt đầu: `channels/zalo-polling.js:23`.
+- Chờ 30 giây mỗi lần: `channels/zalo-polling.js:31`; client tự tính timeout HTTP là `(30 + 10) * 1000` ms (`channels/zalo-bot.js:95`).
+- Nghỉ tối thiểu giữa hai lần gọi: `POLL_GAP_MS`, mặc định 1500 ms (`channels/zalo-polling.js:26`).
+- Khi lỗi (khác timeout): lùi dần 3 giây, 10 giây nếu gặp mã 429, nhân đôi mỗi lần, tối đa 120 giây (`channels/zalo-polling.js:43`). Lỗi timeout thì coi như bình thường, không lùi (`channels/zalo-polling.js:41`).
+- **Chống xoá nhầm webhook production**: trước khi polling, bot đọc `getWebhookInfo`; nếu bot đang có webhook thì dừng hẳn trừ khi bật `ZALO_FORCE_POLLING` (`channels/zalo-bot.js:54`, `channels/zalo-polling.js:11`). Lý do ghi ngay trong code: xoá webhook làm bot thật ngừng nhận tin, đã xảy ra sự cố ngày 06/11/2026 (`channels/zalo-bot.js:50`). Khi cố ý chiếm bot, bot cảnh báo phải đặt lại webhook sau (`channels/zalo-polling.js:16`).
 
 ## 5. Xác thực
 
-- Khoá webhook (`secret_token`): tài liệu nói dài **từ 8 đến 256 ký tự**. Repo kiểm lúc đặt webhook (`scripts/set-webhook.mjs:14`) và cảnh báo khi secret quá ngắn lúc khởi động (`server.js:130`).
-- Header: tài liệu viết `X-Bot-Api-Secret-Token`; repo đọc `x-bot-api-secret-token` (`server.js:63`). HTTP header không phân biệt hoa thường nên hai cách viết là một.
-- So sánh thời gian hằng (không lộ sai sót qua thời gian): `channels/zalo-bot.js:164`, dùng ở `server.js:63` và `channels/zalo-bot.js:34`.
+- Khoá webhook (`secret_token`): tài liệu nói dài **từ 8 đến 256 ký tự**. Repo kiểm lúc đặt webhook (`scripts/set-webhook.mjs:14`) và cảnh báo khi secret quá ngắn lúc khởi động (`server.js:103`).
+- Header: tài liệu viết `X-Bot-Api-Secret-Token`; repo đọc `x-bot-api-secret-token` (`channels/zalo-bot.js:32`), kiểm ở `server.js:85`. HTTP header không phân biệt hoa thường nên hai cách viết là một.
+- So sánh thời gian hằng (không lộ sai sót qua thời gian): `channels/zalo-bot.js:164`, dùng ở `channels/zalo-bot.js:34`.
 - Token bot nằm trong đường dẫn nên phải cẩn thận khi log; client chỉ nêu tên phương thức khi lỗi (`channels/zalo-bot.js:83-85`).
 
 ## 6. Cấu trúc update
@@ -122,21 +122,21 @@ Một update từ Zalo được chuẩn hoá thành các trường sau (`channel
 | `caption` | Chú thích ảnh | `channels/zalo-bot.js:149` |
 | `messageId` | Id tin, dùng chống trùng | `channels/zalo-bot.js:150` |
 
-- Nhóm được nhận biết khi `chat_type` chứa chữ "group" hoặc `userId` khác `chatId` (`lib/bot.js:11`). Tài liệu `Webhook` nói `chat_type` chỉ có hai giá trị: `PRIVATE` và `GROUP` (ghi rõ là Beta).
-- Bỏ phần "@Tên bot" ở đầu và cuối tin: `lib/bot.js:17`.
+- Nhóm được nhận biết khi `chat_type` chứa chữ "group" hoặc `userId` khác `chatId` (`core/mention.js:4-7`). Tài liệu `Webhook` nói `chat_type` chỉ có hai giá trị: `PRIVATE` và `GROUP` (ghi rõ là Beta).
+- Bỏ phần "@Tên bot" ở đầu và cuối tin: `core/mention.js:33`.
 - Khoá chống trùng: ưu tiên `message_id`, không có thì lấy sha1 của JSON đã sắp khoá (`channels/zalo-bot.js:44`, `channels/zalo-bot.js:155`).
 
 ## 7. Giới hạn kỹ thuật đo được từ repo
 
 | Giới hạn | Giá trị trong repo | Chỗ |
 |---|---|---|
-| Kích thước body webhook | 1.000.000 byte | `server.js:66` |
+| Kích thước body webhook | 1.000.000 byte | `server.js:87` |
 | Timeout một lệnh bot | 40.000 ms | `channels/zalo-bot.js:73` |
 | Chờ `getUpdates` | 30 giây (timeout HTTP 40 giây) | `channels/zalo-bot.js:95` |
-| Timeout gọi công cụ Cổng OZ | 150.000 ms | `lib/mcp.js:105` |
+| Timeout gọi công cụ Cổng OZ | 150.000 ms | `core/mcp.js:106` |
 | Timeout não định tuyến | 15.000 ms | `packs/hs/brain.js:119` |
 | Timeout khoá dự phòng | 20.000 ms | `packs/hs/llm2.js:19` |
-| Số lượt khách mỗi phút | 10 (mặc định) | `server.js:52`, `lib/bot.js:64` |
+| Số lượt khách mỗi phút | 10 (mặc định) | `core/config.js:51`, `core/engine.js:29` |
 | Ký tự tối đa mỗi tin | 2000 | `channels/zalo-bot.js:8` |
 
 ### Mã lỗi API (theo [bảng mã lỗi](https://bot.zapps.me/docs/error-code/))
@@ -144,11 +144,11 @@ Một update từ Zalo được chuẩn hoá thành các trường sau (`channel
 | Mã | Ý nghĩa theo tài liệu | Xử lý trong repo |
 |---|---|---|
 | 400 | Sai đường dẫn hoặc tên API không hợp lệ | Ném lỗi kèm mã HTTP (`channels/zalo-bot.js:86`) |
-| 401 | Token đã hết hạn hoặc không hợp lệ | Như trên; thông báo lỗi khi khởi động chỉ ra kiểm token (`server.js:115`) |
+| 401 | Token đã hết hạn hoặc không hợp lệ | Như trên; thông báo lỗi khi khởi động chỉ ra kiểm token (`server.js:57`) |
 | 403 | Lỗi phía máy chủ của Zalo | Như trên |
 | 404 | Yêu cầu truy cập không lệ | Như trên |
-| 408 | Quá thời gian xử lý cho phép | Polling coi là hết thời gian chờ, không lùi (`server.js:98-99`) |
-| 429 | Vượt quá giới hạn sử dụng API cho phép | Polling lùi 10 giây rồi nhân đôi, tối đa 120 giây (`server.js:101`) |
+| 408 | Quá thời gian xử lý cho phép | Polling coi là hết thời gian chờ, không lùi (`channels/zalo-polling.js:41`) |
+| 429 | Vượt quá giới hạn sử dụng API cho phép | Polling lùi 10 giây rồi nhân đôi, tối đa 120 giây (`channels/zalo-polling.js:43`) |
 
 Tài liệu cũng nói mỗi lỗi có thêm mô tả trong trường `description` của phản hồi; client của repo
 lấy trường `description` (hoặc `message`) để đưa vào thông báo lỗi nội bộ (`channels/zalo-bot.js:84`).
@@ -175,7 +175,7 @@ Vì các mục trên chưa xác minh, cửa gửi của lõi phải đọc giớ
 
 ## 10. Giới hạn vận hành của chính bot
 
-- Khi Cổng OZ lỗi, **đường đang chạy** trả câu kèm 120 ký tự đầu của thông báo lỗi gốc (`lib/bot.js:214`) — vi phạm điều IX hiến pháp. Đường lõi mới làm đúng: trả câu báo chung, không kèm lỗi gốc (`packs/hs/index.js:91`).
+- Khi Cổng OZ lỗi, bot trả **câu báo chung**, không kèm thông báo lỗi gốc (`packs/hs/index.js:91`); chi tiết lỗi chỉ vào log (`packs/hs/index.js:90`). Câu báo chung dùng chung của lõi cũng có thẻ màu `{orange}` (`core/engine.js:13`). Trước đó, đường cũ ở thư mục lib từng trả kèm 120 ký tự đầu lỗi gốc — vi phạm điều IX hiến pháp; lỗi đó đã được vá và đường cũ đã bị xoá hẳn cùng `lib/` (T016).
 - `sendChatAction` lỗi thì bị nuốt, bot vẫn gửi tin (`channels/zalo-bot.js:96`).
 - Lệnh bot lỗi sẽ ném `Error` kèm mã HTTP (`channels/zalo-bot.js:86`) để tầng trên quyết định có thử lại hay không.
 

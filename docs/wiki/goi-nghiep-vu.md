@@ -1,5 +1,5 @@
 # Gói nghiệp vụ và Cổng OZ
-> Cập nhật: 2026-11-07 · commit: 64a728a
+> Cập nhật: 2026-11-07 · commit: 0842386
 
 Trang này nói về **gói** (pack) — đơn vị nghiệp vụ của bot — và về **Cổng OZ**, nơi mọi tri thức nghiệp vụ nằm.
 
@@ -41,29 +41,30 @@ Kết quả: Cổng OZ thêm công cụ mới thì bot dùng được ngay, khô
 
 Cổng OZ là nơi giữ tri thức nghiệp vụ: mã HS, thuế suất, thủ tục, giá, bảng cước. Bot **không** nhúng tri thức này vào code. Nguyên tắc này nằm ở Hiến pháp điều V, xem [An toàn](an-toan.md).
 
-Giao thức: MCP (Model Context Protocol) — cách để bot gọi công cụ của một máy chủ khác. Client nằm ở `lib/mcp.js`.
+Giao thức: MCP (Model Context Protocol) — cách để bot gọi công cụ của một máy chủ khác. Client nằm ở `core/mcp.js`.
 
 | Nội dung | Chi tiết | Chỗ |
 |---|---|---|
-| Giao thức | Streamable HTTP + JSON-RPC 2.0 | `lib/mcp.js:1` |
-| Địa chỉ mặc định | `https://mcp.uythacnhapkhau.com/mcp` | `lib/mcp.js:7` |
-| Xác thực | Gửi token qua header; mặc định `Authorization: Bearer <token>` | `lib/mcp.js:27` |
-| Bắt tay | `initialize` → lưu `Mcp-Session-Id` → `notifications/initialized` | `lib/mcp.js:76`, `lib/mcp.js:81` |
-| Liệt kê công cụ | `tools/list`, cache 10 phút | `lib/mcp.js:89`, `lib/mcp.js:12` |
-| Gọi công cụ | `tools/call`, hết giờ sau 150 giây | `lib/mcp.js:105` |
-| Phiên hết hạn | Tự khởi tạo lại một lần rồi thử lại | `lib/mcp.js:59` |
+| Giao thức | Streamable HTTP + JSON-RPC 2.0 | `core/mcp.js:1` |
+| Địa chỉ mặc định | `https://mcp.uythacnhapkhau.com/mcp` | `core/mcp.js:8` |
+| Xác thực | Gửi token qua header; mặc định `Authorization: Bearer <token>` | `core/mcp.js:28` |
+| Bắt tay | `initialize` → lưu `Mcp-Session-Id` → `notifications/initialized` | `core/mcp.js:77`, `core/mcp.js:82` |
+| Liệt kê công cụ | `tools/list`, cache 10 phút | `core/mcp.js:96`, `core/mcp.js:13` |
+| Gọi công cụ | `tools/call`, hết giờ sau 150 giây | `core/mcp.js:108` |
+| Phiên hết hạn | Tự khởi tạo lại một lần rồi thử lại | `core/mcp.js:60` |
 
 Ghi chú vận hành:
 
 - Tên biến môi trường: `OZ_MCP_URL`, `OZ_MCP_TOKEN`, `OZ_MCP_AUTH_HEADER`. Xem [Triển khai và vận hành](trien-khai-van-hanh.md).
-- Kết quả Cổng trả về có thể là JSON hoặc luồng sự kiện; client tự bóc ra phần dữ liệu (`lib/mcp.js:128`).
+- Kết quả Cổng trả về có thể là JSON hoặc luồng sự kiện; client tự bóc ra phần dữ liệu (`core/mcp.js:129`, `core/mcp.js:134`).
 - Tri thức nghiệp vụ nằm ở Cổng, không nằm ở prompt. Xem [Não AI](nao-ai.md).
 
 ## 4. Thêm gói mới
 
-Có hai đường. **Đường lõi là mô hình đích**; đường đang chạy là cách làm tạm cho tới khi lõi được nối vào máy chủ (xem [Kiến trúc](kien-truc.md) và [Tiến độ](tien-do.md)).
+Từ 07/11/2026 (T016) chỉ còn **một** cách: thêm gói vào lõi. Thư mục `lib/` đã bị xoá hẳn nên
+đường "làm tạm" cũ không còn tồn tại (xem [Kiến trúc](kien-truc.md) và [Tiến độ](tien-do.md)).
 
-### 4.1. Đường lõi — mô hình đích
+### 4.1. Thêm gói mới vào lõi
 
 1. Tạo thư mục `packs/<id>/`, trong đó có tệp index.js xuất một đối tượng gói mặc định.
 2. Khai báo các trường theo hợp đồng gói (`specs/001-nen-tang-chung/contracts/pack.md:8`):
@@ -75,9 +76,9 @@ Có hai đường. **Đường lõi là mô hình đích**; đường đang ch�
 3. Hàm `handle` trả về `replies`, `evidence`, `jobs`, `handoff`, `labels`, `interests`. Gói **không** tự gửi tin (`specs/001-nen-tang-chung/contracts/pack.md:21`).
 4. Không cần đăng ký thủ công: lõi tự nạp mọi thư mục con có tệp index.js (`core/registry.js:9`).
 
-### 4.2. Đường đang chạy — cách làm tạm
+### 4.2. Thêm gói con trong gói hải quan
 
-Thêm một mục vào mảng `PACKAGES` trong `packs/hs/packages.js:142`, mỗi mục có số, tên, công cụ Cổng, mẫu đầu vào và hàm chạy gói.
+Thêm một mục vào mảng `PACKAGES` trong `packs/hs/packages.js:142`, mỗi mục có số, tên, công cụ Cổng, mẫu đầu vào và hàm chạy gói. Gói con được liệt kê cho khách qua `menuText` (`packs/hs/packages.js:424`).
 
 ### 4.3. Ràng buộc chung
 

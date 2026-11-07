@@ -3,7 +3,7 @@
 //   node scripts/set-webhook.mjs info
 //   node scripts/set-webhook.mjs delete
 // Cần biến môi trường ZALO_BOT_TOKEN (và ZALO_WEBHOOK_SECRET cho "set").
-import { createZaloClient } from '../lib/zalo.js';
+import { createZaloClient } from '../channels/zalo-bot.js';
 
 const [cmd = 'info', url] = process.argv.slice(2);
 const zalo = createZaloClient({ token: process.env.ZALO_BOT_TOKEN, baseUrl: process.env.ZALO_API_BASE || undefined });
