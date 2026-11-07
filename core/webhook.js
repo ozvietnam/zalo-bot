@@ -14,7 +14,8 @@ const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'applic
 
 /**
  * @param {object} o
- * @param {(key:string, fn:()=>Promise<any>)=>Promise<any>} [o.runTask]  mặc định chạy thẳng; T019 sẽ tiêm `createQueue().run`.
+ * @param {(key:string, fn:()=>Promise<any>)=>Promise<any>} [o.runTask]  mặc định chạy thẳng;
+ *   `server.js` truyền `runTask: (key, fn) => queue.run(key, fn)` (T019 — hàng đợi tuần tự theo convId).
  */
 export function createWebhookHandler({ config, channel, engine, store, health, now = () => new Date(), runTask = (key, fn) => fn(), debug = false, log = console } = {}) {
   // Lỗi không lường được ở BẤT KỲ đâu trong handler: log rồi 500. Không để lọt ra ngoài thành
@@ -70,16 +71,23 @@ export function createWebhookHandler({ config, channel, engine, store, health, n
           json(res, 200, { ok: true });   // đã bền hoá (pending) mới ack
           if (!moi) return;   // trùng khoá: lượt này đã có người nhận, không xử lý lại
           const key = convIdOf({ chatId: u.chatId, userId: u.userId, isGroup: isGroup(u) });
-          // `Promise.resolve().then(...)` chứ không `Promise.resolve(runTask(...))`: cách sau gọi
-          // runTask TRƯỚC khi bọc, nên lỗi đồng bộ thoát khỏi callback 'end' → uncaughtException →
-          // bot chết sau khi đã ack 200 = tin mất. T019 tiêm `queue.run` vào đúng chỗ này, nên chỗ
-          // này phải bắt được cả lỗi đồng bộ của nó, không chỉ promise bị từ chối.
+          // `Promise.resolve().then(() => runTask(...))` chứ không `Promise.resolve(runTask(...))`.
+          // Lý do: cách đúng đưa lỗi của việc (kể cả lỗi ĐỒNG BỘ) vào .catch RIÊNG ở dòng 93 —
+          // đó là đường lỗi CỦA VIỆC, không phải đường `loi500` dành cho lỗi không lường được
+          // của handler. (`queue.run` của T019 KHÔNG ném lỗi đồng bộ ra ngoài: `fn` chạy bên trong
+          // `truoc.then(() => fn())` nên lỗi luôn thành promise bị từ chối.)
+          // Cách sai gọi runTask NGAY trong thân callback 'end', nên lỗi đồng bộ của nó rơi vào
+          // try/catch của callback (dòng 44 và 94) → bị gán NHẦM nhãn "lỗi không lường được" → gọi
+          // res.end() LẦN HAI trên phản hồi đã trả 200. Tệ hơn: chuỗi promise phía sau KHÔNG
+          // được tạo, nên lỗi của việc không còn đường đi riêng. Bất kỳ `runTask` nào ném lỗi ĐỒNG BỘ
+          // (kể cả hàm bọc của hàng đợi, nếu ai đó viết sai) đều rơi vào đây ⇒ lượt sau cùng cuộc trò chuyện không bao giờ chạy (specs/001-nen-tang-chung/tasks.md:343).
           // KHÔNG phải để "flush ack trước": `.then` là microtask, chạy xong TRƯỚC khi vòng lặp sự
           // kiện ghi socket ra ngoài, nên phần đồng bộ của engine.process (`store.tx` insert+claim,
           // `chats/convs.upsertSeen`) VẪN nằm trước lúc khách nhận ack. Đo thật với engine.process
           // có 400 ms đồng bộ, thời điểm KHÁCH nhận ack: `.then` 436 ms · `setImmediate` 409 ms ·
-          // `setTimeout(0)` 5 ms. Tức `setImmediate` cũng không cứu. Đưa phần đồng bộ ra khỏi
-          // đường ack là việc riêng (ghi-chu.md), ngoài phạm vi T018.
+          // `setTimeout(0)` 5 ms. Tức `setImmediate` cũng không cứu. Đưa phần đồng bộ của engine
+          // ra khỏi đường ack là việc RIÊNG (ghi ở T021 — việc nền bền,
+          // specs/001-nen-tang-chung/tasks.md), ngoài phạm vi T019.
           Promise.resolve().then(() => runTask(key, () => engine.process(u)))
             .then((x) => { if (debug || x?.skipped) log.log('[bot] kết quả:', JSON.stringify(x)); })
             .catch((e) => log.error('[webhook]', redact(e?.message)));

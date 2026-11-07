@@ -14,6 +14,7 @@ import { createGate } from './core/gate.js';
 import { createEngine } from './core/engine.js';
 import { createHealthPayload } from './core/health.js';
 import { createWebhookHandler } from './core/webhook.js';
+import { createQueue } from './core/queue.js';
 import { availablePackages } from './packs/hs/packages.js';
 import { createVision } from './packs/hs/vision.js';
 import { createBrain } from './packs/hs/brain.js';
@@ -78,8 +79,11 @@ const engine = createEngine({ config: { ...config, botNames }, store, channel, m
 gate.recover();   // hồi dòng outbox còn 'queued' (tiến trình cũ chết giữa chừng) — Điều VII
 // HTTP: /health + webhook
 // store + now: handler ghi inbox (pending) TRƯỚC khi trả 200, lỗi db thì 503 để Zalo gửi lại (T018, Điều VII).
+// queue: một lượt mỗi người (khoá = convId) — không để hai tin của cùng người chạy chồng (T019).
+const queue = createQueue();
 const server = http.createServer(createWebhookHandler({
   config, channel, engine, store, now,
+  runTask: (key, fn) => queue.run(key, fn),
   health: () => createHealthPayload({ mode: config.mode, startedAt: STARTED_AT, version: VERSION }),
   debug: DEBUG,
   log: console,
