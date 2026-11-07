@@ -367,7 +367,15 @@ test('chỉ core/gate.js gọi sendText', async () => {
 
 **Interfaces — Consumes:** `Store.jobs`, `createGate`, `registry` · **Produces:** `createJobs({ store, mcp, registry, gate, now }) -> { add(chatId, sessionKey, pack, job), tick() -> Promise<number> }`
 
-- [ ] **Step 1: Test đỏ**
+> Khi làm (07/11) đã lệch hai chỗ so với dòng trên, ghi lý do tại đây:
+> (1) `add(turn, sessionKey, pack, job)` nhận cả `turn` thay vì `chatId`, vì T037/T038 (làm sau dòng này) chuyển
+> mọi khoá sang `conv_id` theo người và bắt tin ra trong nhóm gắn `@tên` — `chatId` một mình thì mất `convId`,
+> `isGroup`, `userName`, `userId`. Cùng lý do với ghi chú T019 ở `tasks.md:337`.
+> (2) Thêm `recover()`: `jobs.due` chỉ lấy dòng `waiting`, nên tiến trình chết lúc đang hỏi Cổng để lại dòng
+> `polling` treo vĩnh viễn → khách không bao giờ nhận kết quả đã hứa (trái Điều II, Điều VII). `recover()` chạy
+> một lần lúc khởi động, cùng khuôn `gate.recover()`.
+
+- [x] **Step 1: Test đỏ**
 ```js
 test('DANG_XU_LY 2 lần rồi XONG → khách nhận 1 tin job_result, idem j:<chat>:<maLuot>', …)
 test('khởi động lại giữa chừng (createJobs mới trên cùng db) → vẫn giao đúng 1 lần', …)
@@ -375,7 +383,7 @@ test('xong lúc 23:30 VN → outbox defer tới 07:00, gửi đúng 1 lần sau 
 test('quá 30 phút → expired, khách nhận câu "gõ: kết quả <maLuot>"', …)
 test('hỏi lại theo nhịp 6 s, 12 s, 24 s… tối đa 60 s', …)
 ```
-- [ ] **Step 2:** FAIL · **Step 3:** `tick`: `jobs.due(now)` → `mcp.callTool(result_tool, {maLuot})` → còn chạy thì dời `next_poll_at`; xong thì `pack.onJobResult` → `gate.send({kind:'job_result', idemKey:'j:…'})` → `status=done`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): durable background jobs"`
+- [x] **Step 2:** FAIL · **Step 3:** `tick`: `jobs.due(now)` → `mcp.callTool(result_tool, {maLuot})` → còn chạy thì dời `next_poll_at`; xong thì `pack.onJobResult` → `gate.send({kind:'job_result', idemKey:'j:…'})` → `status=done`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): durable background jobs"`
 
 ---
 

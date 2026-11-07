@@ -42,7 +42,7 @@ Zalo ──polling──► channels/zalo-polling.js:34 ─┘        │       
 - `server.js` chỉ nối dây: `loadConfig` (`server.js:30`), `openStore` (`server.js:38`), `createChannel` (`server.js:40`), `createMcpClient` (`server.js:41`), `createGate` (`server.js:60`), `createRegistry` (`server.js:72`), `createEngine` (`server.js:76`). Gói được nạp theo đường dẫn tương đối tới **tệp mã nguồn** (`server.js:72`), nên việc nạp gói không phụ thuộc thư mục làm việc.
 - `core/engine.js` xử lý một lượt: ghi `inbox` rồi claim nguyên tử (`core/engine.js:65-68`), chọn gói (`core/engine.js:114`), chạy gói (`core/engine.js:118`), rồi gửi từng câu qua cửa (`core/engine.js:122`, lời gọi cửa ở `core/engine.js:49`).
 - Chỉ một tệp được gọi `channel.sendText`: `core/gate.js:79`. Điều này bị khoá bằng test `test/core/one-gate.test.mjs:167`.
-- Việc nền chạy ở `core/engine-jobs.js:25`; kết quả quay lại cửa ở `core/engine-jobs.js:60`.
+- Việc nền chạy ở `core/jobs.js:55`; kết quả quay lại cửa ở `core/jobs.js:89`.
 - Tin hoãn hoặc gửi lỗi được quét lại ở `core/gate.js:176`; tin dở dang lúc khởi động lại được bàn giao ở `core/gate.js:198` (gọi từ `server.js:77`).
 
 ## Bảng "sự vật → tệp"
@@ -51,7 +51,8 @@ Zalo ──polling──► channels/zalo-polling.js:34 ─┘        │       
 |---|---|
 | Điểm vào, nối dây | `server.js` |
 | Tiếp nhận tin ở chế độ polling | `channels/zalo-polling.js` |
-| Một lượt khách (lõi) | `core/engine.js`, `core/engine-ctx.js`, `core/engine-jobs.js` |
+| Một lượt khách (lõi) | `core/engine.js`, `core/engine-ctx.js` |
+| Việc nền bền (lõi) | `core/jobs.js` |
 | Cửa gửi (quyết định + thi hành) | `core/gate.js`, `core/gate-decide.js` |
 | Lưu trữ SQLite | `core/store.js`, `core/store/schema.js` |
 | Chọn gói | `core/registry.js` |

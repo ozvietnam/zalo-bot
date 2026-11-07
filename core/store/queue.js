@@ -76,6 +76,7 @@ export function jobsTable(db) {
   const claimJob = db.prepare("UPDATE jobs SET status = 'polling' WHERE id = ? AND status = 'waiting'");
   const due = db.prepare("SELECT * FROM jobs WHERE status = 'waiting' AND next_poll_at <= ? ORDER BY next_poll_at, id");
   const next = db.prepare("SELECT MIN(next_poll_at) AS t FROM jobs WHERE status = 'waiting'");
+  const polling = db.prepare("SELECT * FROM jobs WHERE status = 'polling' ORDER BY id");
   return {
     add(j) {
       try {
@@ -91,6 +92,8 @@ export function jobsTable(db) {
     claim: (id) => Number(claimJob.run(id).changes) === 1,
     /** Mốc hỏi sớm nhất của việc đang 'waiting', hoặc null. */
     nextDue: () => next.get()?.t ?? null,
+    /** Dòng còn 'polling': lúc khởi động đều là của tiến trình đã chết giữa lượt hỏi (T021 jobs.recover). */
+    polling: () => polling.all().map(jobOut),
     /** Phòng còn việc nền nợ: đang 'waiting'/'polling', hoặc 'done' từ sinceIso trở lại. */
     openFor: (convId, sinceIso) => open.get(convId, sinceIso) !== undefined,
     update: (id, patch) => patchRow(db, 'jobs', 'id', id, patch, JOB_COLS, ['context']),
