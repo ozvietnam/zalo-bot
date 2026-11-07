@@ -1,14 +1,8 @@
 # Tiến độ
 
-<<<<<<< HEAD
-> Cập nhật: 2026-11-07 · commit: ef2b48f
-
-Trang này ghi **trạng thái thật**, đối chiếu với **code** ở commit `ef2b48f`, không tin tài liệu.
-=======
 > Cập nhật: 2026-11-07 · commit: 6e94671
 
 Trang này ghi **trạng thái thật**, đối chiếu với **code** ở commit `6e94671`, không tin tài liệu.
->>>>>>> origin/main
 Nguyên tắc: mỗi việc T0xx ghi rõ **xong / dở / chưa làm**, kèm bằng chứng `tệp:dòng`.
 Chỗ nào chưa kiểm được thì ghi "chưa xác minh".
 Code T038 (gắn tên trong nhóm) còn ở working tree, chưa có commit riêng — xem [Nhật ký](log.md).
@@ -102,23 +96,10 @@ Sau khi 001 đạt Success Criteria, thứ tự giữa các spec khác là `docs
 
 Ghi cả hai phía. Không tự chọn bên nào đúng.
 
-<<<<<<< HEAD
-1. **Danh sách việc chưa tick ô nào, dù code đã xong T001–T015.**
-   - Tài liệu nói: mọi bước trong `specs/001-nen-tang-chung/tasks.md` vẫn là `- [ ]` (chưa đánh dấu).
-   - Code thật nói: `docs/sdd/001-ledger.md:10-37` ghi T001–T015 hoàn tất, và `core/` có đủ các tệp tương ứng.
-2. **`npm run audit` trỏ tới tệp không tồn tại.**
-=======
 1. **Danh sách việc gần như chưa tick ô nào, dù code đã xong T001–T015, T037 và T038.**
    - Tài liệu nói: gần như mọi bước trong `specs/001-nen-tang-chung/tasks.md` vẫn là `- [ ]` (chưa đánh dấu).
    - Code thật nói: `docs/sdd/001-ledger.md:10-37` ghi T001–T015 hoàn tất, và `core/` có đủ các tệp tương ứng. Đã tick ô Step 1 cho T037 (`specs/001-nen-tang-chung/tasks.md:293`) sau khi khoá `conv_id` xong, và cho T038 (`specs/001-nen-tang-chung/tasks.md:300`).
-2. **Hiến pháp Điều II chưa phản ánh quyết định ngày 06/11.**
-   - Tài liệu nói: `.specify/memory/constitution.md:17` — phòng "chỉ trở về `bot` khi nhân viên ra lệnh rõ ràng"; `.specify/memory/constitution.md:77` ghi "Last Amended: 2026-11-04".
-   - Nghịch thêm: `specs/001-nen-tang-chung/tasks.md:380` (T022) yêu cầu "không có hàm nào tự đưa `human → bot` theo thời gian" — trái với quyết định mới.
-3. **`docs/ROADMAP.md` chưa phản ánh "spec 003 làm trước 002".**
-   - Tài liệu nói: `docs/ROADMAP.md:22` — "Các spec 002, 003, 004, 006 chưa xếp thứ tự".
-   - Code/tài liệu khác: không tìm thấy chỗ nào trong repo ghi 003 trước 002.
-4. **`npm run audit` trỏ tới tệp không tồn tại.**
->>>>>>> origin/main
+2. **`npm run audit` trỏ tới tệp không tồn tại.**
    - Tài liệu/lệnh nói: `package.json:15` khai `"audit": "node scripts/audit.mjs"`.
    - Code thật nói: không có tệp *scripts/audit.mjs* trong repo → chạy lệnh sẽ lỗi.
 3. **README dạy làm gói theo đường cũ.**
