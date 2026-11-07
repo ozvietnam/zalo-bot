@@ -23,6 +23,7 @@ Wiki viết bằng tiếng Việt, câu ngắn. Thuật ngữ tiếng Anh đư�
 | [Nền tảng Zalo](nen-tang-zalo.md) | Kỹ thuật, vận hành | Zalo Bot Platform: webhook, polling, giới hạn kỹ thuật. |
 | [Triển khai và vận hành](trien-khai-van-hanh.md) | Vận hành | Cài đặt, biến môi trường, chạy 24/7, giám sát. |
 | [Kiểm thử](kiem-thu.md) | Kỹ thuật | Cách chạy test, bộ eval, cổng kiểm wiki. |
+| [Quan hệ với VPS 201](quan-he-vps-201.md) | Mọi người | Repo này nối với máy CSKH hiện tại ra sao, đường chuyển kênh |
 | [Tiến độ](tien-do.md) | Mọi người | Trạng thái thật từng việc T0xx, mâu thuẫn tài liệu ↔ code. |
 | [Sự cố và bài học](su-co-bai-hoc.md) | Vận hành, kỹ thuật | Sự cố đã gặp, cách xử lý, cách phòng tái diễn. |
 | [Thuật ngữ](thuat-ngu.md) | Mọi người | Từ vựng dùng trong wiki và trong mã nguồn. |
