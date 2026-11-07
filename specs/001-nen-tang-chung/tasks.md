@@ -377,7 +377,7 @@ test('hỏi lại theo nhịp 6 s, 12 s, 24 s… tối đa 60 s', …)
 
 **Interfaces — Produces:** `createHandoff({ store, gate, config, now }) -> { stateOf(chatId), toHuman(chatId, by, reason), toBot(chatId, by), block(chatId, by), open(chatId, reason, turn), forward(chatId, turn), command(turn) }`
 
-- [ ] **Step 1: Test đỏ**: `toHuman` rồi `toBot` → mỗi lần một audit `state-change`; không có hàm nào tự đưa `human → bot` theo thời gian (test: `advance('30d')` rồi `stateOf` vẫn `human`); `block` rồi khách nhắn → `stateOf === 'blocked'`.
+- [ ] **Step 1: Test đỏ**: `toHuman` rồi `toBot` → mỗi lần một audit `state-change`; phòng `human` tự trở về `bot` sau khoảng lặng lâu (mặc định khoảng 2 giờ) và ghi audit `state-change` lý do `idle-timeout`, `state_by = 'system'` (test: `advance('1h')` vẫn `human`; `advance('2h')` thì `bot` và không có tin nào gửi ra); `block` rồi khách nhắn → `stateOf === 'blocked'`.
 - [ ] **Step 2:** FAIL · **Step 3:** viết trên `Store.chats` + `Store.audit`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(handoff): chat state machine"`
 
 ### T023 [US2] [P] Nhận ý "gặp người" và "người hay máy"

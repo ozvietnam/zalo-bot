@@ -1,6 +1,6 @@
 # An toàn
 
-> Cập nhật: 2026-11-07 · commit: 64a728a
+> Cập nhật: 2026-11-07 · commit: ef2b48f
 
 Trang này đối chiếu 9 điều hiến pháp với code thật. Mỗi điều có hai phần rõ ràng: **đã có code ở đâu** và **chưa có code ở đâu**.
 
@@ -49,7 +49,7 @@ Tự kiểm bằng một lệnh: chỉ có `core/gate.js:64` gọi `channel.send
 
 ## Điều II — Người trước máy
 
-**Yêu cầu.** Phòng chat ở trạng thái `human` thì bot im hoàn toàn; phòng chỉ trở về `bot` khi nhân viên ra lệnh rõ ràng (`.specify/memory/constitution.md:16`, `.specify/memory/constitution.md:17`).
+**Yêu cầu.** Phòng chat ở trạng thái `human` thì bot im hoàn toàn; phòng trở về `bot` khi nhân viên ra lệnh rõ ràng, hoặc tự trở về sau khoảng lặng lâu (mặc định khoảng 2 giờ), và tự trở về chỉ đổi trạng thái phòng, không gửi tin (`.specify/memory/constitution.md:16`, `.specify/memory/constitution.md:17`).
 
 **Đã có code (lõi).**
 
@@ -63,7 +63,7 @@ Tự kiểm bằng một lệnh: chỉ có `core/gate.js:64` gọi `channel.send
 - Chưa có tệp *core/handoff.js*, tức chưa có mã chuyển trạng thái phòng sang `human` và không có mã trả phòng về `bot`. Cột `state` mới chỉ là khung.
 - Lõi không có nhánh bàn giao phòng: `core/engine.js:110` chọn gói rồi chạy, không có bước "nhường phòng cho nhân viên".
 - Đường đang chạy không có khái niệm phòng do người; bot trả lời mọi tin trong nhóm được nhắc tên.
-- Quyết định ngày 06/11 về việc phòng tự trở về bot sau một khoảng lặng dài chưa có trong hiến pháp (`.specify/memory/constitution.md:17` vẫn ghi "chỉ trở về khi nhân viên ra lệnh rõ ràng") và chưa có code.
+- Quyết định ngày 06/11 về việc phòng tự trở về bot sau một khoảng lặng dài **đã có trong hiến pháp** (`.specify/memory/constitution.md:17`, phiên bản 2.0.0) nhưng **chưa có code** — thuộc việc T022 (`specs/001-nen-tang-chung/tasks.md:380`), chưa làm.
 
 ## Điều III — Số tiền do code tra
 

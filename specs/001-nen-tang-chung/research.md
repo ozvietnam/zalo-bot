@@ -68,7 +68,7 @@ Mỗi dòng là một sự cố đo được bằng log hoặc db. Cột cuối 
 | Giờ yên | 23:00–07:00 giờ VN | Luật đang áp trên 201 |
 | "Trả lời trực tiếp" | tin ra trong 10 phút kể từ tin khách | Ngoài khoảng này coi là tin chủ động |
 | Phiếu chờ người quá hạn | 15 phút → nhắc một lần trong bản tin gộp | Mắt canh "khách chờ > 15 phút" trên 201 |
-| Phòng `human` tự về `bot` | Không tự về | Hiến pháp II, anh Thắng chốt 04/11 |
+| Phòng `human` tự về `bot` | Tự về sau khoảng lặng lâu, mặc định khoảng 2 giờ | Hiến pháp II, anh Thắng chốt 04/11; đổi 06/11 |
 | Giữ tin nhắn | Tới khi bị xoá theo yêu cầu (`/xoa-du-lieu`) | Anh chọn lưu toàn bộ |
 | Giữ audit | 90 ngày | Anh chọn |
 | Số của OZ không ghi làm số khách | `COMPANY_PHONES` (vd 0916366669, 0966992369) | 201: số trong bài giới thiệu Page bị khách dán lại ở hàng chục phòng |

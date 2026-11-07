@@ -1,6 +1,6 @@
 # Nhật ký wiki
 
-> Cập nhật: 2026-11-07 · commit: 64a728a
+> Cập nhật: 2026-11-07 · commit: ef2b48f
 
 Nhật ký thay đổi của bộ wiki trong docs/wiki. Mỗi dòng ghi: ngày, commit của mã nguồn
 đã đọc khi viết, và những trang bị thay đổi hoặc thêm mới.
@@ -11,6 +11,20 @@ Quy ước:
 - Ghi rõ **vì sao** đổi, không chỉ ghi "sửa lỗi".
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
+
+## 2026-11-07 — Phản ánh hai quyết định ngày 06/11 của chủ repo
+
+- **Commit mã nguồn đã đọc:** `ef2b48f` (code không đổi trong đợt này; chỉ sửa tài liệu).
+- **Lý do:** phản ánh hai quyết định của chủ repo ngày 06/11 mà repo chưa có:
+  hiến pháp Điều II cho phép phòng `human` tự trở về `bot` sau khoảng lặng lâu,
+  và thứ tự làm spec 003 trước 002.
+- **Ngoài wiki:** hiến pháp lên phiên bản 2.0.0 và thêm mục lịch sử sửa đổi
+  (`.specify/memory/constitution.md`); `specs/001-nen-tang-chung/spec.md`,
+  `specs/001-nen-tang-chung/tasks.md`, `specs/001-nen-tang-chung/data-model.md`,
+  `specs/001-nen-tang-chung/research.md` khớp Điều II mới; `docs/ROADMAP.md` thêm "003 trước 002".
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md`, `docs/wiki/an-toan.md`, `docs/wiki/su-co-bai-hoc.md`.
+- **Chưa có code:** luật tự trở về sau khoảng lặng thuộc việc T022, chưa viết; đường đang chạy không đổi gì.
+- **Kiểm tra:** `npm test`, `npm run eval`, `node scripts/kiem-wiki.mjs --nghiem` đều đạt.
 
 ## 2026-11-07 — Đưa wiki thành cửa vào; sửa trích dẫn
 
