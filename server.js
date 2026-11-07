@@ -13,6 +13,7 @@ import { loadPacks, createRegistry } from './core/registry.js';
 import { createGate } from './core/gate.js';
 import { createEngine } from './core/engine.js';
 import { createHealthPayload } from './core/health.js';
+import { createWebhookHandler } from './core/webhook.js';
 import { availablePackages } from './packs/hs/packages.js';
 import { createVision } from './packs/hs/vision.js';
 import { createBrain } from './packs/hs/brain.js';
@@ -76,25 +77,13 @@ console.log(`[bot] đã nạp ${goi.length} gói: ${goi.map((p) => p.id).join(',
 const engine = createEngine({ config: { ...config, botNames }, store, channel, mcp, vision, brain, editor, registry, gate, now, log: console, missLog });
 gate.recover();   // hồi dòng outbox còn 'queued' (tiến trình cũ chết giữa chừng) — Điều VII
 // HTTP: /health + webhook
-const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
-const server = http.createServer((req, res) => {
-  if (req.method === 'GET' && (req.url === '/health' || req.url === '/')) {
-    return json(res, 200, createHealthPayload({ mode: config.mode, startedAt: STARTED_AT, version: VERSION }));
-  }
-  if (config.mode !== 'webhook' || req.method !== 'POST' || req.url.split('?')[0] !== config.webhookPath) return json(res, 404, { ok: false });
-  if (!channel.verifyWebhook(req)) return json(res, 403, { ok: false });
-  let body = '';
-  req.on('data', (c) => { body += c; if (body.length > 1_000_000) req.destroy(); });
-  req.on('end', () => {
-    let payload;
-    try { payload = JSON.parse(body || '{}'); } catch { return json(res, 400, { ok: false }); }
-    json(res, 200, { ok: true });   // trả 200 ngay để Zalo không gửi lại; xử lý chạy nền
-    if (DEBUG) console.log('[debug] webhook:', body.slice(0, 800));
-    engine.process(payload)
-      .then((x) => { if (DEBUG || x?.skipped) console.log('[bot] kết quả:', JSON.stringify(x)); })
-      .catch((e) => console.error('[webhook]', e.message));
-  });
-});
+// store + now: handler ghi inbox (pending) TRƯỚC khi trả 200, lỗi db thì 503 để Zalo gửi lại (T018, Điều VII).
+const server = http.createServer(createWebhookHandler({
+  config, channel, engine, store, now,
+  health: () => createHealthPayload({ mode: config.mode, startedAt: STARTED_AT, version: VERSION }),
+  debug: DEBUG,
+  log: console,
+}));
 // bộ quét nền: drain() hỏi việc nền + quét outbox (đã có cờ chống chạy chồng trong engine/gate)
 setInterval(() => { engine.drain().catch((e) => console.error('[quet]', e.message)); }, 5000);
 

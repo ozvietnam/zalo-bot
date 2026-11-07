@@ -230,7 +230,7 @@ Các việc vận hành khi bot không trả lời, theo thứ tự nên làm:
 2. Xem log khởi động: dòng `[bot] đăng nhập` báo lỗi nghĩa là token sai
    (`server.js:57`); dòng `[bot] KHÔNG nạp được gói nào` báo kiểm lại thư mục
    `packs/` (`server.js:74`); dòng `[mcp] chưa kết nối được Cổng OZ` báo kiểm lại URL và
-   token Cổng (`server.js:112`).
+   token Cổng (`server.js:101`).
 3. Nếu bot không nhận được tin trong nhóm: kiểm tra bot đã được mời vào nhóm và
    trưởng nhóm đã xác nhận (`README.md:92`).
 4. Nếu dùng polling mà bot im: kiểm tra chương trình đã dừng vì còn webhook
