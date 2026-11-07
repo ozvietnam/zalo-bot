@@ -503,7 +503,7 @@ test('gói trả handoff:{reason} → phòng human, phiếu mở với reason c�
 **Interfaces — Consumes:** `Store.customers` (T006), `normVi` (T007), `config.companyPhones` (T005)
 **Produces:** `extractPhone(text, companyPhones) -> string|null` · `createCustomers({ store, config, now }) -> { touch(turn), addLabels(chatId, labels, source), removeLabel(chatId, label, by), addInterests(chatId, items), setNote(chatId, text, by), summary(chatId) -> string, erase(chatId) }`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 assert.equal(extractPhone('số em 0912 345 678 nhé', new Set()), '0912345678');
 assert.equal(extractPhone('+84 912.345.678', new Set()), '0912345678');
@@ -514,7 +514,7 @@ c.addLabels('c1', ['khoa-hoc'], 'staff:u9'); c.removeLabel('c1', 'khoa-hoc', 'au
 c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'auto') // → chỉ 1 mục
 // interests giữ 20 mục mới nhất; summary() có tên, SĐT, nhãn, 3 món gần nhất, số lượt
 ```
-- [ ] **Step 2:** FAIL · **Step 3:** SĐT: chuỗi 10 số bắt đầu `0[35789]` sau khi bỏ `.`/`-`/khoảng trắng, hoặc `+84`/`84` + 9 số; số liền khối 10 số mà khách đang ở gói hs thì không coi là SĐT nếu trùng định dạng mã HS (`firstHs8` khớp). · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): customer profile and rule-based labels"`
+- [x] **Step 2:** FAIL · **Step 3:** SĐT: chuỗi 10 số bắt đầu `0[35789]` sau khi bỏ `.`/`-`/khoảng trắng, hoặc `+84`/`84` + 9 số; số liền khối 10 số mà khách đang ở gói hs thì không coi là SĐT nếu trùng định dạng mã HS (`firstHs8` khớp). · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): customer profile and rule-based labels"`
 
 ### T035 [US7] Cắm hồ sơ vào engine, phiếu và ctx gói
 

@@ -47,7 +47,7 @@ danh sách việc `specs/001-nen-tang-chung/tasks.md:563`.
 | T031 | CI | Xong | `.github/workflows/ci.yml:17` chạy `npm test`, `.github/workflows/ci.yml:18` chạy `npm run eval`, `.github/workflows/ci.yml:27` chạy cổng kiểm wiki |
 | T032 | README + kiểm tay quickstart | Dở | phần "thêm gói mới" đã trỏ sang `packs/hs/packages.js` (`README.md:33`); phần quickstart và mô hình lõi/gói/kênh chưa viết lại đầy đủ |
 | T033 | Ghi mọi tin vào `messages` | Xong (lõi) | `core/engine.js:106` ghi tin khách, `core/gate.js:98` ghi tin bot khi đã gửi |
-| T034 | *core/customers.js* (hồ sơ + nhãn) | Chưa | không có tệp *core/customers.js*; bảng `customers` đã có ở `core/store/schema.js:41` |
+| T034 | *core/customers.js* (hồ sơ + nhãn) | **Xong** | tệp mới `core/customers.js`: `createCustomers` ở `core/customers.js:102`, `extractPhone` ở `core/customers.js:63`, `looksLikeHsCode` ở `core/customers.js:31`; hồ sơ khóa theo **người** (`conv_id`, FR-030) ở `core/store/records.js:34`; nhãn tự động + bảo vệ nhãn của nhân viên ở `core/customers.js:122` (gắn) và `core/customers.js:148` (gỡ); test `test/core/customers.test.mjs` (32 test, ví dụ `test/core/customers.test.mjs:23` cho `extractPhone`, `test/core/customers.test.mjs:136` cho `touch`); `npm test` 395/395, `npm run eval` 9/9, `node scripts/kiem-wiki.mjs` → "wiki: ĐẠT (16 trang)" |
 | T035 | Cắm hồ sơ khách vào engine | Chưa | `core/engine.js` không gọi hồ sơ khách |
 | T036 | Lệnh hồ sơ + *core/backup.js* (sao lưu) | Chưa | không có tệp *core/backup.js* |
 | T037 | Khoá theo `conv_id` trong nhóm | Xong | `core/conv.js:1` (convIdOf), `core/gate.js:22` (effectiveState), `test/core/conv.test.mjs:1` (test conv đủ trường hợp) |
