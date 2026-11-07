@@ -1,6 +1,6 @@
 # Luồng tin nhắn
 
-> Cập nhật: 2026-11-07 · commit: 64a728a
+> Cập nhật: 2026-11-07 · commit: 1316cfe
 
 Một tin khách đi qua những hàm nào, từ lúc vào tới lúc gửi đi. Có **hai đường**; đường A đang chạy, đường B là lõi mới.
 
@@ -57,7 +57,7 @@ Trước khi chạy polling, bot kiểm tra xem bot thật đang có webhook kh�
 ## Nhánh nhóm
 
 - Nhóm được nhận biết khi `chat_type` có chữ "group", hoặc khi `userId` khác `chatId` (`lib/bot.js:11`).
-- Trong nhóm, bot **không bắt buộc** phải được nhắc tên: nó bỏ phần nhắc tên ở đầu/cuối tin rồi vẫn trả lời (`lib/bot.js:17`). Ở đường lõi, việc bỏ nhắc tên áp dụng cho cả chú thích ảnh (`core/engine.js:89`).
+- Trong nhóm, bot **không bắt buộc** phải được nhắc tên: nó bỏ phần nhắc tên ở đầu/cuối tin rồi vẫn trả lời (`lib/bot.js:17`). Ở đường lõi, việc bỏ nhắc tên áp dụng cho cả chú thích ảnh (`core/engine.js:91`).
 - Câu trả lời trong nhóm được ghi kèm tên người hỏi (`lib/bot.js:112`).
 - Tin không phải chữ trong nhóm thì bỏ qua, không trả lời (`lib/bot.js:116`).
 
@@ -77,24 +77,24 @@ Trước khi chạy polling, bot kiểm tra xem bot thật đang có webhook kh�
 ```
 update ─► core/engine.js:58  process
             ├─ core/engine.js:65-68  ghi inbox + claim nguyên tử
-            ├─ core/engine.js:73  chats.upsertSeen
-            ├─ core/engine.js:74  kiểm ALLOW_USERS
-            ├─ core/engine.js:83  giới hạn lượt
-            ├─ core/engine.js:96  audit inbound (đã che bí mật)
-            ├─ core/engine.js:102 ghi tin khách vào messages
-            ├─ core/engine.js:104 câu chào kết ──► im
-            ├─ core/engine.js:110 registry.pick  (chọn gói)
-            ├─ core/engine.js:114 pack.handle
-            ├─ core/engine.js:118 gửi từng câu qua cửa (core/engine.js:50)
-            └─ core/engine.js:124 ghi việc nền vào jobs
+            ├─ core/engine.js:73-75  convId + chats/convs.upsertSeen
+            ├─ core/engine.js:76  kiểm ALLOW_USERS
+            ├─ core/engine.js:85  giới hạn lượt
+            ├─ core/engine.js:98  audit inbound (đã che bí mật)
+            ├─ core/engine.js:104 ghi tin khách vào messages
+            ├─ core/engine.js:106 câu chào kết ──► im
+            ├─ core/engine.js:112 registry.pick  (chọn gói)
+            ├─ core/engine.js:116 pack.handle
+            ├─ core/engine.js:120 gửi từng câu qua cửa (core/engine.js:49)
+            └─ core/engine.js:126 ghi việc nền vào jobs
 ```
 
 Ba đường nữa chạy nền:
 
-- **Việc nền**: `core/engine.js:156` gọi `core/engine-jobs.js:24`, hỏi kết quả ở `core/engine-jobs.js:44`, dựng câu ở `core/engine-jobs.js:51`, gửi qua cửa ở `core/engine-jobs.js:55`.
-- **Quét tin hoãn / tin lỗi**: `core/gate.js:147` lấy tin đến hạn rồi chạy lại quyết định.
-- **Khởi động lại**: `core/gate.js:169` chuyển tin dở dang sang trạng thái để quét gửi tiếp.
+- **Việc nền**: `core/engine.js:160` gọi `core/engine-jobs.js:24`, hỏi kết quả ở `core/engine-jobs.js:44`, dựng câu ở `core/engine-jobs.js:51`, gửi qua cửa ở `core/engine-jobs.js:55`.
+- **Quét tin hoãn / tin lỗi**: `core/gate.js:169` lấy tin đến hạn rồi chạy lại quyết định.
+- **Khởi động lại**: `core/gate.js:191` chuyển tin dở dang sang trạng thái để quét gửi tiếp.
 
-Khác biệt lớn nhất so với đường A: mọi tin ra đều đi qua `core/gate.js:64` (một cửa gửi), và có bản ghi audit cho từng lượt.
+Khác biệt lớn nhất so với đường A: mọi tin ra đều đi qua `core/gate.js:79` (một cửa gửi), và có bản ghi audit cho từng lượt.
 
 Liên quan: [Kiến trúc](kien-truc.md), [Dữ liệu](du-lieu.md), [An toàn](an-toan.md).

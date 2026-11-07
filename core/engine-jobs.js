@@ -11,10 +11,10 @@ const stateOf = (r) => r?.trangThai || r?.data?.trangThai;
 const backoff = (attempts) => Math.min(FIRST_POLL_MS * 2 ** attempts, MAX_POLL_MS);
 
 /** Dòng jobs mới cho một job gói trả trong lượt. context lưu cả phần lõi cần để gửi lại (tên @ trong nhóm). */
-export function jobRow({ chatId, sessionKey, pack, job, turn, nowMs }) {
+export function jobRow({ chatId, convId, sessionKey, pack, job, turn, nowMs }) {
   const iso = (ms) => new Date(ms).toISOString();
   return {
-    chat_id: chatId, session_key: sessionKey, pack, ma_luot: job.maLuot, result_tool: job.resultTool,
+    chat_id: chatId, conv_id: convId, session_key: sessionKey, pack, ma_luot: job.maLuot, result_tool: job.resultTool,
     context: { data: job.context ?? null, turnId: turn.turnId, isGroup: turn.isGroup, userName: turn.userName ?? null },
     status: 'waiting', attempts: 0, next_poll_at: iso(nowMs + FIRST_POLL_MS), expires_at: iso(nowMs + JOB_TTL_MS), created_at: iso(nowMs),
   };
@@ -33,9 +33,9 @@ export async function pollDueJobs({ store, mcp, registry, gate, now, log, tools,
     const c = row.context ?? {};
     const turnId = `job:${row.id}`;
     const pack = all.find((p) => p.id === row.pack);
-    const ctx = buildCtx({ store, mcp, tools: await tools(), vision, brain, editor, now, log, chatId: row.chat_id, turnId, sessionKey: row.session_key, ttlMs, ghiTruot });
+    const ctx = buildCtx({ store, mcp, tools: await tools(), vision, brain, editor, now, log, chatId: row.chat_id, convId: row.conv_id, turnId, sessionKey: row.session_key, ttlMs, ghiTruot });
     const job = { id: row.id, chatId: row.chat_id, maLuot: row.ma_luot, resultTool: row.result_tool, context: c.data ?? null };
-    const audit = (type, data) => store.audit.add({ at: now().toISOString(), turn_id: turnId, chat_id: row.chat_id, type, data });
+    const audit = (type, data) => store.audit.add({ at: now().toISOString(), turn_id: turnId, conv_id: row.conv_id ?? null, chat_id: row.chat_id, type, data });
     const expired = nowDate.getTime() >= Date.parse(row.expires_at);
     try {
       if (!pack?.onJobResult) throw new Error(`gói ${row.pack} không có onJobResult`);
@@ -51,9 +51,9 @@ export async function pollDueJobs({ store, mcp, registry, gate, now, log, tools,
       const res = await pack.onJobResult(job, result, ctx);
       const sent = [];
       for (const [i, r] of (res?.replies ?? []).entries()) {
-        const idemKey = i === 0 ? `j:${row.chat_id}:${row.ma_luot}` : `j:${row.chat_id}:${row.ma_luot}:${i}`;
+        const idemKey = i === 0 ? `j:${row.conv_id}:${row.ma_luot}` : `j:${row.conv_id}:${row.ma_luot}:${i}`;
         const g = await gate.send({
-          idemKey, chatId: row.chat_id, turnId, kind: 'job_result', text: addressOf(c, r.text),
+          idemKey, chatId: row.chat_id, convId: row.conv_id, isGroup: c.isGroup === true, turnId, kind: 'job_result', text: addressOf(c, r.text),
           pack: { id: pack.id, moneyCheck: pack.moneyCheck === true }, evidence: res.evidence ?? [],
         });
         sent.push({ idemKey, decision: g.decision, reason: g.reason, status: g.status });

@@ -3,7 +3,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { migrate } from './store/schema.js';
 import { inboxTable, outboxTable, jobsTable } from './store/queue.js';
-import { chatsTable, sessionsTable, ticketsTable, metaTable } from './store/state.js';
+import { chatsTable, convsTable, sessionsTable, ticketsTable, metaTable } from './store/state.js';
 import { auditTable, messagesTable, customersTable } from './store/records.js';
 
 export function openStore(path = ':memory:') {
@@ -33,6 +33,7 @@ export function openStore(path = ':memory:') {
   return {
     inbox: inboxTable(db),
     chats: chatsTable(db),
+    convs: convsTable(db),
     sessions: sessionsTable(db),
     outbox: outboxTable(db),
     jobs: jobsTable(db),

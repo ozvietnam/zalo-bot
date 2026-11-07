@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { redact } from './redact.js';
 import { isCloser } from './text.js';
 import { isGroup, stripMention } from './mention.js';
+import { convIdOf } from './conv.js';
 import { createToolCache, buildCtx, sessionApi } from './engine-ctx.js';
 import { pollDueJobs, jobRow } from './engine-jobs.js';
 
@@ -16,8 +17,6 @@ const sha1 = (s) => createHash('sha1').update(String(s ?? '')).digest('hex');
 const json = (v) => { try { return JSON.stringify(v) ?? 'null'; } catch { return '{}'; } };
 /** Trong nhóm mọi tin ra bắt đầu "@<tên>\n" như lib/bot.js. */
 const addressOf = (who, text) => (who.isGroup && who.userName ? `@${who.userName}\n${text}` : text);
-/** Khoá phiên: chatId (1-1) hoặc chatId:userId (nhóm). T037 đổi thành convId (cùng giá trị). */
-export const sessionKeyOf = (u, group) => (group ? `${u.chatId}:${u.userId}` : u.chatId);
 
 /**
  * @param {object} o
@@ -43,12 +42,13 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
     return arr.length > ratePerMin;
   }
 
-  const audit = (type, chatId, turnId, data) => store.audit.add({ at: now().toISOString(), turn_id: turnId, chat_id: chatId, type, data });
+  const audit = (type, chatId, convId, turnId, data) => store.audit.add({ at: now().toISOString(), turn_id: turnId, chat_id: chatId, conv_id: convId ?? null, type, data });
 
-  /** Gửi một câu trả lời cho lượt qua cửa (idem r:<chat>:<turn>:<i>; câu báo lỗi chung dùng i = 'err'). */
+  /** Gửi một câu trả lời cho lượt qua cửa (idem r:<conv>:<turn>:<i>; câu báo lỗi chung dùng i = 'err'). */
   function reply(turn, text, i, { kind = 'reply', pack = null, evidence = [] } = {}) {
     return gate.send({
-      idemKey: `r:${turn.chatId}:${turn.turnId}:${i}`, chatId: turn.chatId, turnId: turn.turnId, kind,
+      idemKey: `r:${turn.convId}:${turn.turnId}:${i}`, chatId: turn.chatId, convId: turn.convId, isGroup: turn.isGroup,
+      turnId: turn.turnId, kind,
       text: addressOf(turn, text), inReplyToAt: turn.receivedAt, pack: pack ? { id: pack.id, moneyCheck: pack.moneyCheck === true } : null, evidence,
     });
   }
@@ -70,10 +70,12 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
     const done = (r) => { store.inbox.markDone(key, now().toISOString()); return { ...r, turnId: key }; };
 
     const group = isGroup(u);
+    const convId = convIdOf({ chatId: u.chatId, userId: u.userId, isGroup: group });
     store.chats.upsertSeen(u.chatId, group ? 'group' : 'user', group ? null : u.userName ?? null, nowIso);
+    store.convs.upsertSeen(convId, u.chatId, u.userId ?? null, u.userName ?? null, nowIso);
     if (allow.size && !allow.has(u.userId) && !allow.has(u.chatId)) return done({ skipped: 'not-allowed' });
 
-    const base = { turnId: key, chatId: u.chatId, userId: u.userId ?? null, userName: u.userName ?? null, isGroup: group, receivedAt: nowIso };
+    const base = { turnId: key, chatId: u.chatId, convId, userId: u.userId ?? null, userName: u.userName ?? null, isGroup: group, receivedAt: nowIso };
     const isPhoto = /image|photo/i.test(u.event || '') && Boolean(u.photoUrl);
     if (!isPhoto && (u.event !== 'message.text.received' || !u.text)) {
       if (group) return done({ skipped: 'group-non-text' });
@@ -93,22 +95,22 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
     let ctx = null;
     try {
       const said = isPhoto ? `[ảnh] ${turn.photoUrl}${caption ? ` ${caption}` : ''}` : text;
-      audit('inbound', turn.chatId, key, { event: u.event, isGroup: group, userId: turn.userId, sha1: sha1(said), head: redact(said).slice(0, 500) });
+      audit('inbound', turn.chatId, turn.convId, key, { event: u.event, isGroup: group, userId: turn.userId, sha1: sha1(said), head: redact(said).slice(0, 500) });
 
-      const sessionKey = sessionKeyOf(u, group);
+      const sessionKey = convId;
       const session = sessionApi({ store, key: sessionKey, ttlMs, now });
       session.touch();
-      const last = store.messages.recent(turn.chatId, 1)[0];
-      store.messages.add({ chat_id: turn.chatId, turn_id: key, speaker: 'khach', speaker_id: turn.userId, text: said, at: nowIso });
+      const last = store.messages.recent(turn.convId, 1)[0];
+      store.messages.add({ conv_id: turn.convId, chat_id: turn.chatId, turn_id: key, speaker: 'khach', speaker_id: turn.userId, text: said, at: nowIso });
       // Chào kết ("cảm ơn ạ") ngay sau câu bot: im. Đang chờ xác nhận ảnh thì "ok" là câu trả lời, phải tới gói.
       if (!isPhoto && isCloser(text) && last?.speaker === 'bot' && !session.get().choXacNhanAnh) {
-        audit('outbound', turn.chatId, key, { skipped: 'closer', results: [] });
+        audit('outbound', turn.chatId, turn.convId, key, { skipped: 'closer', results: [] });
         return done({ skipped: 'closer' });
       }
 
-      ctx = buildCtx({ store, mcp, tools: await tools(), vision, brain, editor, now, log, chatId: turn.chatId, turnId: key, sessionKey, ttlMs, ghiTruot });
+      ctx = buildCtx({ store, mcp, tools: await tools(), vision, brain, editor, now, log, chatId: turn.chatId, convId: turn.convId, turnId: key, sessionKey, ttlMs, ghiTruot });
       pack = registry.pick(turn, ctx);
-      audit('route', turn.chatId, key, { pack: pack?.id ?? null });
+      audit('route', turn.chatId, turn.convId, key, { pack: pack?.id ?? null });
       if (!pack) return done({ skipped: 'no-pack' });
       Promise.resolve().then(() => channel.typing?.(turn.chatId)).catch(() => {});
       const res = (await pack.handle(turn, ctx)) ?? {};
@@ -116,20 +118,20 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
       const results = [];
       for (const [i, r] of (res.replies ?? []).entries()) {
         const g = await reply(turn, r.text, i, { pack, evidence });
-        results.push({ idemKey: `r:${turn.chatId}:${key}:${i}`, decision: g.decision, reason: g.reason, status: g.status });
+        results.push({ idemKey: `r:${turn.convId}:${key}:${i}`, decision: g.decision, reason: g.reason, status: g.status });
       }
       const t = now().getTime();
       let jobs = 0;
       for (const job of res.jobs ?? []) {
-        if (store.jobs.add(jobRow({ chatId: turn.chatId, sessionKey, pack: pack.id, job, turn, nowMs: t })) !== null) jobs++;
+        if (store.jobs.add(jobRow({ chatId: turn.chatId, convId: turn.convId, sessionKey, pack: pack.id, job, turn, nowMs: t })) !== null) jobs++;
       }
-      audit('outbound', turn.chatId, key, { pack: pack.id, results, jobs });
+      audit('outbound', turn.chatId, turn.convId, key, { pack: pack.id, results, jobs });
       log.info?.(`[engine] gói ${pack.id} chat=${String(turn.chatId).slice(-4)} tin=${results.length}`);
       return done({ handled: pack.id, pack: pack.id });
     } catch (e) {
       const message = redact(e?.message);
       log.error?.(`[engine] lỗi lượt (gói ${pack?.id ?? '-'}): ${message}`);
-      try { audit('error', turn.chatId, key, { stage: 'turn', pack: pack?.id ?? null, message: message.slice(0, 500) }); } catch { /* db hỏng: vẫn báo khách */ }
+      try { audit('error', turn.chatId, turn.convId, key, { stage: 'turn', pack: pack?.id ?? null, message: message.slice(0, 500) }); } catch { /* db hỏng: vẫn báo khách */ }
       try {
         const footer = pack?.footer?.(ctx ?? {}) || hsFooter(ctx ?? {});
         await reply(turn, footer ? `${GENERIC_ERROR_TEXT}\n\n${footer}` : GENERIC_ERROR_TEXT, 'err', { pack });

@@ -290,7 +290,7 @@ test('ALLOW_USERS và rate limit 10/phút giữ như cũ', …)
 
 **Interfaces — Produces:** `convIdOf(update) -> string` (`chat_id` hoặc `chat_id:user_id` khi nhóm) trong `core/conv.js` · `Store.convs.{get, upsertSeen, setState}` · mọi `msg` gửi qua cửa có `convId`; facts của cửa (`chatState`, `recentBotTexts`, `sentTodayChat`, `hasOpenJob`) tính theo `convId`; thêm fact `sentTodayGroup` + luật `cap:group` (`CAP_GROUP_DAY=200`) và `chatState` cấp nhóm (`blocked` ở `chats` chặn mọi conv của nhóm)
 
-- [ ] **Step 1: Test đỏ**: nhóm `g1`, A và B: A chạm trần 8 tin → B vẫn gửi được; 30 người gửi cùng câu "8413.70.90" trong 5 phút → 30 tin ra (không `similar`); `convs.setState('g1:B','human')` → tin cho A `send`, cho B `reject chat-human`; `chats` `g1` `blocked` → cả A và B `reject chat-blocked`; idemKey dạng `r:<convId>:<turn>:<i>`; nhóm chạm `CAP_GROUP_DAY` → `defer cap:group`.
+- [x] **Step 1: Test đỏ**: nhóm `g1`, A và B: A chạm trần 8 tin → B vẫn gửi được; 30 người gửi cùng câu "8413.70.90" trong 5 phút → 30 tin ra (không `similar`); `convs.setState('g1:B','human')` → tin cho A `send`, cho B `reject chat-human`; `chats` `g1` `blocked` → cả A và B `reject chat-blocked`; idemKey dạng `r:<convId>:<turn>:<i>`; nhóm chạm `CAP_GROUP_DAY` → `defer cap:group`.
 - [ ] **Step 2:** FAIL · **Step 3:** sửa lược đồ v1 (chưa có db thật), thêm cột + chỉ mục `(conv_id, …)`, đổi truy vấn; engine tính `convId`, khoá phiên = `convId` (thay `chat:user` hiện tại, cùng giá trị). · **Step 4:** `npm test` PASS · **Step 5:** `git commit -m "feat(core): per-person conversations in group chats"`
 
 ### T038 [US8] Gắn đúng tên trong nhóm, tách người trùng tên, hàng đợi theo người

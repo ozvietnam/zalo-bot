@@ -18,16 +18,30 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
   const nowDate = () => now();
   const safe = (fn, ...args) => { try { fn(...args); } catch (e) { log('callback error', redact(e?.message)); } };
 
-  function facts(chatId, nowIso, extra = {}) {
+  /** Trạng thái hiệu dụng của cửa: chats chặn cấp nhóm → convs (theo người) → chats (chat 1-1) → 'bot'. */
+  function effectiveState(m) {
+    const chat = store.chats.get(m.chatId);
+    if (chat?.state === 'blocked') return 'blocked';            // chặn cấp nhóm (FR-032)
+    const conv = store.convs.get(m.convId);
+    if (conv?.state && conv.state !== 'bot') return conv.state;  // human/blocked theo người
+    if (m.convId === m.chatId && chat?.state) return chat.state; // chat 1-1: khoá cũ
+    return 'bot';
+  }
+
+  /** facts theo cuộc trò chuyện (convId); m = { chatId, convId, isGroup }. */
+  function facts(m, nowIso, extra = {}) {
     const t = Date.parse(nowIso);
     const dayStart = vnDayStartUtc(nowIso);
+    const isGroup = m.isGroup === true;
     return {
-      chatState: store.chats.get(chatId)?.state ?? 'bot',
+      chatState: effectiveState(m),
       idemExists: false,
-      hasOpenJob: store.jobs.openFor(chatId, iso(t - R.directReplyMs)),
-      recentBotTexts: store.outbox.recentBotTexts(chatId, iso(t - 15 * MIN), 4),
-      sentTodayChat: store.outbox.countSent(chatId, dayStart),
+      hasOpenJob: store.jobs.openFor(m.convId, iso(t - R.directReplyMs)),
+      recentBotTexts: store.outbox.recentBotTexts(m.convId, iso(t - 15 * MIN), 4),
+      sentTodayChat: store.outbox.countSent(m.convId, dayStart),
+      sentTodayGroup: isGroup ? store.outbox.countSentChat(m.chatId, dayStart) : 0,
       sentTodayAll: store.outbox.countSent(null, dayStart),
+      isGroup,
       now: nowIso,
       ...extra,
     };
@@ -36,20 +50,21 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
   // Defer không có notBefore (cap:*): 07:00 VN sau nửa đêm VN kế tiếp, để bộ quét có mốc và khỏi đụng giờ yên.
   const notBeforeOf = (d, nowIso) => d.notBefore ?? (d.decision === 'defer' ? nextMorning(iso(Date.parse(vnDayStartUtc(nowIso)) + DAY)) : null);
 
-  function audit(type, chatId, turnId, data, at) {
-    store.audit.add({ at, turn_id: turnId ?? null, chat_id: chatId, type, data });
+  function audit(type, chatId, convId, turnId, data, at) {
+    store.audit.add({ at, turn_id: turnId ?? null, conv_id: convId ?? null, chat_id: chatId, type, data });
   }
 
   function auditGate(m, d, at) {
     const data = { idemKey: m.idemKey, decision: d.decision, reason: d.reason, kind: m.kind };
     if (m.kind === 'staff_relay') data.leakCheck = 'skipped';
-    audit('gate', m.chatId, m.turnId, data, at);
+    audit('gate', m.chatId, m.convId, m.turnId, data, at);
   }
 
-  function signal(chatId, d) {
+  /** Báo: leak/trần ngày cả bot → cảnh báo theo phòng; trần ngày của cuộc trò chuyện/tiền → phiếu theo conv. */
+  function signal(chatId, convId, d) {
     const { decision, reason } = d;
-    if ((decision === 'reject' && reason.startsWith('leak:')) || (decision === 'defer' && reason === 'cap:all')) safe(onAlert, chatId, reason);
-    else if ((decision === 'defer' && reason === 'cap:chat') || (decision === 'reject' && reason.startsWith('money:'))) safe(onTicket, chatId, reason);
+    if ((decision === 'reject' && reason.startsWith('leak:')) || (decision === 'defer' && (reason === 'cap:all' || reason === 'cap:group'))) safe(onAlert, chatId, reason);
+    else if ((decision === 'defer' && reason === 'cap:chat') || (decision === 'reject' && reason.startsWith('money:'))) safe(onTicket, convId, reason);
   }
 
   /** Gửi các phần còn thiếu của một dòng outbox. Không ném; trả status cuối. */
@@ -71,7 +86,7 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
       const attempts = (o.attempts ?? 0) + 1;
       const retry = attempts <= RETRY_MIN.length ? iso(t.getTime() + RETRY_MIN[attempts - 1] * MIN) : null;
       store.outbox.update(id, { status: 'failed', attempts, next_retry_at: retry });
-      audit('error', o.chat_id, o.turn_id, { idemKey: o.idem_key, attempts, message: redact(err?.message) }, t.toISOString());
+      audit('error', o.chat_id, o.conv_id ?? o.chat_id, o.turn_id, { idemKey: o.idem_key, attempts, message: redact(err?.message) }, t.toISOString());
       if (attempts > RETRY_MIN.length) safe(onAlert, o.chat_id, 'send-failed');
       return 'failed';
     }
@@ -80,7 +95,7 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
       store.outbox.update(id, { status: 'sent', sent_at: at, next_retry_at: null });
       if (o.kind !== 'ticket' && o.kind !== 'digest') {
         store.messages.add({
-          chat_id: o.chat_id, turn_id: o.turn_id, speaker: o.kind === 'staff_relay' ? 'nhan-vien' : 'bot',
+          conv_id: o.conv_id ?? o.chat_id, chat_id: o.chat_id, turn_id: o.turn_id, speaker: o.kind === 'staff_relay' ? 'nhan-vien' : 'bot',
           speaker_id: extra.staffId ?? null, text: o.text, outbox_id: id, at,
         });
       }
@@ -90,10 +105,14 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
 
   async function send(msg) {
     const nowIso = nowDate().toISOString();
-    const f = facts(msg.chatId, nowIso, { idemExists: store.outbox.hasIdem(msg.idemKey) });
-    const d = decide(msg, f, R);
+    // Cửa fallback: không có convId thì lấy chatId (chat 1-1 hoặc người gọi cũ).
+    const convId = msg.convId ?? msg.chatId;
+    const isGroup = msg.isGroup === true || convId !== msg.chatId;
+    const m = { ...msg, convId, isGroup };
+    const f = facts({ chatId: msg.chatId, convId, isGroup }, nowIso, { idemExists: store.outbox.hasIdem(msg.idemKey) });
+    const d = decide(m, f, R);
     const dup = () => {
-      auditGate(msg, { decision: 'drop', reason: 'duplicate-idem' }, nowIso);
+      auditGate(m, { decision: 'drop', reason: 'duplicate-idem' }, nowIso);
       return { id: null, decision: 'drop', reason: 'duplicate-idem', status: 'dropped' };
     };
     if (d.reason === 'duplicate-idem') return dup();
@@ -103,11 +122,12 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
       inReplyToAt: msg.inReplyToAt ?? null,
       debt: f.hasOpenJob,
       staffId: msg.staffId ?? null,
+      isGroup,
     };
     let id;
     try {
       id = store.outbox.insert({
-        idem_key: msg.idemKey, chat_id: msg.chatId, turn_id: msg.turnId, kind: msg.kind, text: msg.text,
+        idem_key: msg.idemKey, conv_id: convId, chat_id: msg.chatId, turn_id: msg.turnId, kind: msg.kind, text: msg.text,
         decision: d.decision, reason: d.reason, status: STATUS[d.decision], not_before: notBeforeOf(d, nowIso),
         created_at: nowIso, ctx,
       });
@@ -115,8 +135,8 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
       if (/^DUPLICATE_IDEM/.test(e?.message)) return dup();
       throw e;
     }
-    auditGate(msg, d, nowIso);
-    signal(msg.chatId, d);
+    auditGate(m, d, nowIso);
+    signal(msg.chatId, convId, d);
     let status = STATUS[d.decision];
     if (d.decision === 'send') {
       try { status = await deliver(id); } catch (e) { log('deliver error', redact(e?.message)); status = store.outbox.get(id).status; } // dòng 'queued' sẽ được recover() xử lý
@@ -128,15 +148,17 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
    *  chỉ bỏ bước idem vì là chính dòng này. Bối cảnh (pack, số trong evidence, mốc trả lời, nợ việc nền, staffId) lấy từ ctx. */
   async function sweepRow(o, nowIso) {
     const c = o.ctx ?? {};
-    const m = { idemKey: o.idem_key, chatId: o.chat_id, turnId: o.turn_id, kind: o.kind, text: o.text,
+    const convId = o.conv_id ?? o.chat_id;
+    const isGroup = c.isGroup === true || convId !== o.chat_id;
+    const m = { idemKey: o.idem_key, chatId: o.chat_id, convId, isGroup, turnId: o.turn_id, kind: o.kind, text: o.text,
       inReplyToAt: c.inReplyToAt ?? null, pack: c.pack ?? undefined, evidence: c.evidenceNumbers ?? [] };
-    const f = facts(o.chat_id, nowIso);
+    const f = facts({ chatId: o.chat_id, convId, isGroup }, nowIso);
     f.hasOpenJob = Boolean(c.debt) || f.hasOpenJob;
     const d = decide(m, f, R);
     auditGate(m, d, nowIso);
-    if (d.reason !== o.reason) signal(o.chat_id, d);
+    if (d.reason !== o.reason) signal(o.chat_id, convId, d);
     // Tin đã lỗi gửi mà nay bị chặn vì quá muộn: khách chưa nhận được câu trả lời → người theo dõi.
-    if (o.status === 'failed' && d.reason === 'proactive-no-debt') safe(onTicket, o.chat_id, 'send-failed'); // đổi lý do mới báo; hoãn lại cùng lý do thì im
+    if (o.status === 'failed' && d.reason === 'proactive-no-debt') safe(onTicket, o.conv_id ?? o.chat_id, 'send-failed'); // đổi lý do mới báo; hoãn lại cùng lý do thì im
     const status = STATUS[d.decision];
     store.outbox.update(o.id, { decision: d.decision, reason: d.reason, status, not_before: notBeforeOf(d, nowIso) });
     return d.decision === 'send' ? deliver(o.id) : status;
@@ -171,7 +193,7 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
     const rows = store.outbox.queued();
     for (const o of rows) {
       store.outbox.update(o.id, { status: 'failed', next_retry_at: nowIso });
-      audit('error', o.chat_id, o.turn_id, { idemKey: o.idem_key, reason: 'crash-mid-send', parts_sent: o.parts_sent ?? 0 }, nowIso);
+      audit('error', o.chat_id, o.conv_id ?? o.chat_id, o.turn_id, { idemKey: o.idem_key, reason: 'crash-mid-send', parts_sent: o.parts_sent ?? 0 }, nowIso);
       if ((o.parts_sent ?? 0) > 0) safe(onAlert, o.chat_id, 'crash-mid-send');
     }
     return rows.length;

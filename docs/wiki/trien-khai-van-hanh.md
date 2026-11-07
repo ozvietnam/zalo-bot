@@ -1,6 +1,6 @@
 # Triển khai và vận hành
 
-> Cập nhật: 2026-11-07 · commit: 64a728a
+> Cập nhật: 2026-11-07 · commit: 1316cfe
 
 Trang này nói cách cài, chạy, theo dõi và khôi phục bot. Mọi nhận định về code kèm
 `tệp:dòng` để mở ra kiểm.
@@ -127,10 +127,11 @@ Chúng sẽ có tác dụng khi lõi được nối vào chương trình chính 
 | `DATA_DIR` | Thư mục dữ liệu SQLite, mặc định `./data` | `core/config.js:55` |
 | `STAFF_USERS` | Người dùng nội bộ được dùng lệnh nội bộ | `core/config.js:53` |
 | `STAFF_CHAT_ID` | Phòng nhận phiếu, cảnh báo và bản tin | `core/config.js:54` |
-| `CAP_CHAT_DAY` | Trần tin bot chủ động mỗi phòng mỗi ngày | `core/config.js:57` |
-| `CAP_ALL_DAY` | Trần tin bot toàn hệ thống mỗi ngày | `core/config.js:58` |
-| `SESSION_TTL_MS` | Thời gian giữ phiên hội thoại | `core/config.js:59` |
-| `BANNED_PATTERNS` | Mẫu regex cấm lộ ra khách, ngăn bằng dấu chấm phẩy | `core/config.js:60` |
+| `CAP_CHAT_DAY` | Trần tin bot chủ động mỗi người (cuộc trò chuyện) mỗi ngày | `core/config.js:57` |
+| `CAP_GROUP_DAY` | Trần tin bot chủ động mỗi nhóm mỗi ngày | `core/config.js:58` |
+| `CAP_ALL_DAY` | Trần tin bot toàn hệ thống mỗi ngày | `core/config.js:59` |
+| `SESSION_TTL_MS` | Thời gian giữ phiên hội thoại | `core/config.js:60` |
+| `BANNED_PATTERNS` | Mẫu regex cấm lộ ra khách, ngăn bằng dấu chấm phẩy | `core/config.js:61` |
 | `COMPANY_PHONES` | Số điện thoại công ty, bot không coi là số khách | `core/config.js:56` |
 
 ### Vận hành và giám sát
@@ -204,17 +205,18 @@ có dữ liệu. Trạng thái chi tiết: [Tiến độ](tien-do.md).
 
 ### Cảnh báo của lõi
 
-Trong lõi mới, cửa gửi gọi callback cảnh báo khi: tin có dấu hiệu lộ bí mật bị từ
-chối, vượt trần toàn hệ thống, hoặc số tiền không có căn cứ (`core/gate.js:49-53`).
-Khi gửi lỗi quá số lần thử thì cũng gọi cảnh báo (`core/gate.js:75`). Cơ chế này
-chưa được nối vào chương trình chính.
+Trong lõi mới, cửa gửi gọi callback cảnh báo `onAlert` khi: tin có dấu hiệu lộ bí
+mật bị từ chối, vượt trần toàn hệ thống, hoặc vượt trần của nhóm; và gọi callback
+tạo phiếu `onTicket` khi vượt trần của cuộc trò chuyện hoặc số tiền không có căn cứ
+(`core/gate.js:64`). Khi gửi lỗi quá số lần thử thì cũng gọi cảnh báo
+(`core/gate.js:90`). Cơ chế này chưa được nối vào chương trình chính.
 
 ## 6. Khôi phục sau sự cố
 
 Cửa gửi có hàm `recover()`: đổi các dòng `outbox` còn `queued` sang `failed` để bộ
 quét thử lại từ đoạn đã gửi, và ghi một bản ghi audit lý do `crash-mid-send`
-(`core/gate.js:169-177`). Nếu đã gửi được một phần thì còn gọi cảnh báo
-(`core/gate.js:175`).
+(`core/gate.js:191-199`). Nếu đã gửi được một phần thì còn gọi cảnh báo
+(`core/gate.js:197`).
 
 **Hiện chưa ai gọi `recover()` khi khởi động.** Hàm này chỉ được gọi trong test
 (`test/core/gate-send.test.mjs:439`); `server.js` không import `core/gate.js`

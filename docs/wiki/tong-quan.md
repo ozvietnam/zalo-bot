@@ -1,6 +1,6 @@
 # Tổng quan
 
-> Cập nhật: 2026-11-07 · commit: 64a728a
+> Cập nhật: 2026-11-07 · commit: 1316cfe
 
 Bot Zalo của OZ Việt Nam: khách nhắn Zalo, bot tra cứu **hải quan** (mã HS, thuế, thủ tục, nhãn hiệu…) qua **Cổng OZ** rồi trả lời.
 
@@ -47,7 +47,7 @@ Chi tiết từng gói, cách gọi Cổng OZ và cách thêm gói mới: xem [G
 |---|---|---|
 | Tệp | `server.js` → `lib/bot.js` | `core/engine.js` + `core/gate.js` + `core/store.js` |
 | Trạng thái | Đang được `server.js` nối (`server.js:7`) | Đã có code nhưng **chưa nối** vào `server.js` |
-| Gửi tin | Gọi thẳng `zalo.sendText`, chưa qua cửa | Chỉ qua `core/gate.js:64` |
+| Gửi tin | Gọi thẳng `zalo.sendText`, chưa qua cửa | Chỉ qua `core/gate.js:79` |
 | Lưu trữ | Trong bộ nhớ (RAM) | SQLite bền |
 
 Đây là điểm lệch lớn nhất giữa tài liệu và code — xem [Tiến độ](tien-do.md) và [Kiến trúc](kien-truc.md).

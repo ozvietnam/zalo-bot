@@ -19,6 +19,7 @@
  * @typedef {object} Turn  Một lượt khách, lõi đưa vào gói, chỉ đọc.
  * @property {string} turnId  = updateKey
  * @property {string} chatId
+ * @property {string} convId  khoá cuộc trò chuyện: chatId (1-1) hoặc chatId:userId (nhóm)
  * @property {string} userId
  * @property {string} userName
  * @property {boolean} isGroup
