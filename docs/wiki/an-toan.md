@@ -1,6 +1,6 @@
 # An toàn
 
-> Cập nhật: 2026-11-07 · commit: 64a728a
+> Cập nhật: 2026-11-07 · commit: ef2b48f
 
 Trang này đối chiếu 9 điều hiến pháp với code thật. Mỗi điều có hai phần rõ ràng: **đã có code ở đâu** và **chưa có code ở đâu**.
 
@@ -27,7 +27,7 @@ Tự kiểm bằng một lệnh: chỉ có `core/gate.js:64` gọi `channel.send
 | VI | Đơn giản, không phụ thuộc | có | có |
 | VII | Sai thì dừng | có phần | có phần |
 | VIII | Trung thực với khách | có phần | có phần |
-| IX | Bí mật không bao giờ lộ | có phần | **không** |
+| IX | Bí mật không bao giờ lộ | có phần | có phần |
 
 ## Điều I — Một cửa gửi
 
@@ -180,22 +180,22 @@ Tự kiểm bằng một lệnh: chỉ có `core/gate.js:64` gọi `channel.send
 - Cửa chặn trước khi gửi: `core/gate-decide.js:106` trả quyết định từ chối với lý do dạng `leak-...`.
 - Lõi ghi log đã che: `core/engine.js:130` và `core/engine-ctx.js:33`.
 - Gói hải quan không kèm lỗi gốc cho khách: `packs/hs/index.js:91` trả câu báo chung, chi tiết lỗi chỉ vào log ở `packs/hs/index.js:90`.
+- Đường đang chạy cũng không kèm lỗi gốc cho khách khi lỗi Cổng: `lib/bot.js:214` trả câu báo chung, chi tiết lỗi chỉ vào log ở `lib/bot.js:213`.
+- Test khoá ba nhánh lỗi của đường đang chạy trong `test/core/loi-goc-khach.test.mjs`: nhánh chạy gói ở `test/core/loi-goc-khach.test.mjs:101-110`, nhánh mở lại lượt (`ket-qua`) ở `test/core/loi-goc-khach.test.mjs:112-123`, nhánh đọc ảnh ở `test/core/loi-goc-khach.test.mjs:125-135`. Cả ba ca kiểm tin khách không chứa mảnh lỗi gốc (hàm kiểm ở `test/core/loi-goc-khach.test.mjs:76-84`, danh sách mảnh ở `test/core/loi-goc-khach.test.mjs:24` và `test/core/loi-goc-khach.test.mjs:28`). Hai nhánh gói và mở lại lượt kiểm đúng câu báo chuẩn Cổng (nguyên văn ở `test/core/loi-goc-khach.test.mjs:31`, assert ở `test/core/loi-goc-khach.test.mjs:108` và `test/core/loi-goc-khach.test.mjs:121`), nhánh ảnh kiểm đúng câu báo lỗi ảnh (`test/core/loi-goc-khach.test.mjs:133`).
 - Lọc chữ lỗi hệ thống lẫn vào kết quả Cổng: `packs/hs/render.js:119`, thay bằng câu cố định ở `packs/hs/render.js:129`.
 - Số điện thoại của công ty được đọc từ cấu hình để loại khỏi tin nhắn: `core/config.js:56`.
 
 **Chưa có code.**
 
 - Che bí mật chưa che số điện thoại cá nhân, nhận xét đã ghi ở `docs/sdd/T015-review.md:78`. Tin vào vẫn lưu 500 ký tự đầu trong bản ghi audit.
-- Đường đang chạy vẫn kèm lỗi gốc cho khách: `lib/bot.js:214` in 120 ký tự đầu của thông báo lỗi vào câu báo. Đây là vi phạm rõ ràng của điều IX.
-- Đường đang chạy ghi log lỗi gốc không che: `lib/bot.js:45` và `lib/bot.js:131`.
+- Đường đang chạy ghi log lỗi gốc không che: `lib/bot.js:45`, `lib/bot.js:131` và `lib/bot.js:213`.
 
 ## Rủi ro đang mở, xếp theo mức độ
 
 1. Đường đang chạy không có cửa gửi: vi phạm điều I, VII và IX cùng lúc.
-2. Câu báo lỗi của đường đang chạy kèm lỗi gốc: vi phạm điều IX.
-3. Chưa có mã nhường phòng cho người: vi phạm điều II.
-4. Cờ kiểm số tiền chưa gói nào bật: điều III mới chỉ có ở lớp cửa.
-5. Lõi mới chưa gọi `recover` lúc khởi động: điều VII chưa trọn.
+2. Chưa có mã nhường phòng cho người: vi phạm điều II.
+3. Cờ kiểm số tiền chưa gói nào bật: điều III mới chỉ có ở lớp cửa.
+4. Lõi mới chưa gọi `recover` lúc khởi động: điều VII chưa trọn.
 
 ## Cách người đọc tự kiểm
 
