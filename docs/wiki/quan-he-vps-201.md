@@ -19,7 +19,8 @@ VPS 201 là máy chăm sóc khách Fanpage và Zalo của OZ, chạy Hermes Agen
 
 - Fanpage đang ở chế độ chỉ quan sát từ 19/10/2026 theo quyết định của chủ repo. Từ 30/10 tới 07/11 máy gửi 0 tin; tin trả lời đến từ nhân viên và mẫu tự động của Page.
 - Zalo 1-1 của nhân viên ảo: tin cuối ngày 29/09/2026.
-- Máy vẫn ghi tin khách vào cơ sở dữ liệu và chạy một ca rà soát mỗi 30 phút. Ca này không gửi khách.
+- Máy vẫn quét inbox và ghi tin khách vào cơ sở dữ liệu, bằng nguồn LLM miễn phí.
+- Ngày 07/11/2026 chủ repo cho tắt MiniMax trên máy này: ca rà soát 30 phút, vòng tự kiểm thử, việc danh bạ, video Zalo và vòng nội dung Fanpage đã dừng. Các chức năng giám sát này chờ spec 007.
 - Hai bot Zalo riêng còn chạy trên 201: OZ Kế toán và OZ Nguồn Hàng. Chúng không đi qua lõi này.
 
 ## Đường chuyển
