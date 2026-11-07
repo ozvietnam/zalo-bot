@@ -75,8 +75,8 @@ const registry = createRegistry(await loadPacks(join(import.meta.dirname, 'packs
 const goi = registry.available(null, { isStaff: true });
 if (!goi.length) console.error('[bot] KHÔNG nạp được gói nào — kiểm tra thư mục packs/');
 console.log(`[bot] đã nạp ${goi.length} gói: ${goi.map((p) => p.id).join(', ')}`);
-const engine = createEngine({ config: { ...config, botNames }, store, channel, mcp, vision, brain, editor, registry, gate, now, log: console, missLog });
-gate.recover();   // hồi dòng outbox còn 'queued' (tiến trình cũ chết giữa chừng) — Điều VII
+const engine = createEngine({ config: { ...config, botNames }, store, channel, mcp, vision, brain, editor, registry, gate, now, log: console, missLog, onAlert: (chatId, reason) => console.warn(`[canh-bao] chat=${chatId} lý do=${reason}`) });
+gate.recover(); engine.jobs.recover();   // hồi outbox 'queued' và jobs 'polling' của tiến trình cũ đã chết giữa chừng — Điều VII
 // HTTP: /health + webhook
 // store + now: handler ghi inbox (pending) TRƯỚC khi trả 200, lỗi db thì 503 để Zalo gửi lại (T018, Điều VII).
 // queue: một lượt mỗi người (khoá = convId) — không để hai tin của cùng người chạy chồng (T019).

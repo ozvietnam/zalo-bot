@@ -81,8 +81,8 @@ tránh xoá nhầm webhook production (`channels/zalo-bot.js:54`, `channels/zalo
 
 ## Ba đường chạy nền
 
-- **Việc nền**: `core/engine.js:162` gọi `core/engine-jobs.js:25`, hỏi kết quả ở `core/engine-jobs.js:45`,
-  dựng câu ở `core/engine-jobs.js:52`, gửi qua cửa ở `core/engine-jobs.js:60`.
+- **Việc nền**: `core/engine.js:164` gọi `core/jobs.js:55`, hỏi kết quả ở `core/jobs.js:74`,
+  dựng câu ở `core/jobs.js:81`, gửi qua cửa ở `core/jobs.js:89`.
 - **Quét tin hoãn / tin lỗi**: `core/gate.js:176` lấy tin đến hạn rồi chạy lại quyết định (`core/gate.js:156`).
 - **Khởi động lại**: `core/gate.js:198` chuyển tin dở dang sang trạng thái để quét gửi tiếp; `server.js:77` gọi hàm này
   lúc khởi động.
