@@ -11,7 +11,7 @@ Zalo POST /webhook/zalo
   │
   ├─ server.js:62  kiểm ZALO_MODE + đường dẫn  ── sai ──► 404
   ├─ server.js:63  so secret header (safeEqual)    ── sai ──► 403
-  ├─ server.js:67  JSON.parse body                ── hỏng ─► 400
+  ├─ server.js:69  JSON.parse body                ── hỏng ─► 400
   ├─ server.js:71  trả 200 NGAY (Zalo không gửi lại)
   └─ server.js:73  bot.handleUpdate(payload)  (chạy nền)
         ├─ lib/bot.js:107  parseUpdate            (ra update chuẩn hoá)

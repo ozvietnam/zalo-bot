@@ -2,9 +2,14 @@
 
 Repo bot Zalo dùng chung cho toàn công ty OZ Việt Nam. Người và agent (Claude Code, Codex, Cursor…) đều theo đúng quy trình dưới đây.
 
+## Giao thức phiên làm việc
+
+- **Đầu phiên:** đọc `docs/wiki/index.md` (bản đồ tri thức) rồi `docs/wiki/tien-do.md` (tiến độ thật) trước khi làm việc.
+- **Cuối phiên:** nếu đã đổi hành vi hoặc trạng thái một việc thì cập nhật trang wiki liên quan và ghi vào `docs/wiki/log.md`.
+
 ## Đọc trước khi làm bất cứ việc gì
 - **`docs/wiki/index.md`**: bản đồ tri thức của repo (kiến trúc, luồng, vận hành, tiến độ thật). Đổi hành vi thì cập nhật wiki cùng PR.
-0. **`docs/TIEP-TUC.md`**: trạng thái mới nhất, việc làm tiếp, việc đang chờ.
+0. **`docs/TIEP-TUC.md`**: nhật ký phiên cũ — **đã cũ**, không phải tiến độ thật. Tiến độ thật và việc làm tiếp nằm ở `docs/wiki/tien-do.md`.
 1. `.specify/memory/constitution.md`: 9 nguyên tắc không thương lượng. Vi phạm là lỗi chặn merge.
 2. `docs/ROADMAP.md`: spec nào đang làm, spec nào chưa được làm.
 3. Thư mục spec đang làm, ví dụ `specs/001-nen-tang-chung/`: `spec.md` → `plan.md` → `tasks.md`.
