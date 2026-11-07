@@ -318,8 +318,8 @@ test('chỉ core/gate.js gọi sendText', async () => {
 
 **Files:** Create `packs/echo/index.js`, `packs/echo/test/echo.test.mjs`
 
-- [ ] **Step 1: Test đỏ**: nhân viên gõ `/echo xin chào` → reply `xin chào`; khách gõ `/echo xin chào` → gói không được chọn.
-- [ ] **Step 2:** FAIL · **Step 3:** viết gói `audience:'staff'`, `priority: 100`, `match: t => /^\/echo\b/.test(t.text)`. · **Step 4:** PASS và `git diff --stat main -- core/` không có dòng nào do việc này · **Step 5:** `git commit -m "feat(echo): sample staff pack"`
+- [x] **Step 1: Test đỏ**: nhân viên gõ `/echo xin chào` → reply `xin chào`; khách gõ `/echo xin chào` → gói không được chọn.
+- [x] **Step 2:** FAIL · **Step 3:** viết gói `audience:'staff'`, `priority: 100`, `match: t => /^\/echo\b/.test(t.text)`. · **Step 4:** PASS và `git diff --stat main -- core/` không có dòng nào do việc này · **Step 5:** `git commit -m "feat(echo): sample staff pack"`
 
 ---
 
