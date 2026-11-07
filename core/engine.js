@@ -10,7 +10,7 @@ import { pollDueJobs, jobRow } from './engine-jobs.js';
 
 export const NON_TEXT_TEXT = 'Bot đọc tin nhắn chữ và ảnh. Gõ "menu" để xem các gói tra cứu.';
 export const RATE_LIMIT_TEXT = 'Bạn gửi hơi nhanh, đợi khoảng 1 phút rồi thử lại nhé.';
-export const GENERIC_ERROR_TEXT = '⚠️ Cổng tra cứu OZ đang lỗi tạm thời. Bạn thử lại sau ít phút nhé.';
+export const GENERIC_ERROR_TEXT = '{orange}⚠️ Cổng tra cứu OZ đang lỗi tạm thời{/orange}. Bạn thử lại sau ít phút nhé.';
 
 const toSet = (v) => new Set([...(v ?? [])].filter(Boolean));
 const sha1 = (s) => createHash('sha1').update(String(s ?? '')).digest('hex');

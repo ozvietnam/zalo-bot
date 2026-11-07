@@ -1,6 +1,6 @@
 # Wiki tri thức — bot Zalo hải quan OZ
 
-> Cập nhật: 2026-11-07 · commit: 64a728a
+> Cập nhật: 2026-11-07 · commit: 0842386
 
 Wiki mô tả bot Zalo tra cứu hải quan của OZ Việt Nam: bot nói chuyện với khách trên Zalo,
 gọi công cụ hải quan qua Cổng OZ, rồi trả lời. Mỗi nhận định trong wiki đều kèm
@@ -14,7 +14,7 @@ Wiki viết bằng tiếng Việt, câu ngắn. Thuật ngữ tiếng Anh đư�
 | Trang | Dành cho | Nội dung |
 |---|---|---|
 | [Tổng quan](tong-quan.md) | Mọi người | Bot này làm gì, chạy ở đâu, giới hạn rõ ràng. |
-| [Kiến trúc](kien-truc.md) | Kỹ thuật | Các lớp: kênh, lõi, gói, não AI, cổng OZ. Hai đường xử lý trong repo. |
+| [Kiến trúc](kien-truc.md) | Kỹ thuật | Các lớp: kênh, lõi, gói, não AI, cổng OZ. Một đường xử lý duy nhất trong repo. |
 | [Luồng tin nhắn](luong-tin-nhan.md) | Kỹ thuật | Tin khách đi qua đâu, tin bot đi ra đâu. |
 | [Gói nghiệp vụ](goi-nghiep-vu.md) | Nghiệp vụ, kỹ thuật | 7 gói hải quan, điều kiện và công cụ từng gói. |
 | [Não AI](nao-ai.md) | Kỹ thuật | Não định tuyến, não biên tập, khoá dự phòng. |

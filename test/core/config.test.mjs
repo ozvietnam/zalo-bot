@@ -52,3 +52,8 @@ test('danh sách, regex, số điện thoại', () => {
   assert.deepEqual([...cfg.companyPhones], ['0985559918', '0912345678', '0987654321']);
   assert.equal(cfg.capChatDay, 3);
 });
+
+test('ZALO_MODE không phân biệt hoa thường', () => {
+  assert.equal(loadConfig({ ...min, ZALO_MODE: 'Polling' }).mode, 'polling');
+  assert.equal(loadConfig({ ...min, ZALO_MODE: 'WEBHOOK' }).mode, 'webhook');
+});

@@ -1,6 +1,6 @@
 # Nhật ký wiki
 
-> Cập nhật: 2026-11-07 · commit: 6e94671
+> Cập nhật: 2026-11-07 · commit: 0842386
 
 Nhật ký thay đổi của bộ wiki trong docs/wiki. Mỗi dòng ghi: ngày, commit của mã nguồn
 đã đọc khi viết, và những trang bị thay đổi hoặc thêm mới.
@@ -11,6 +11,68 @@ Quy ước:
 - Ghi rõ **vì sao** đổi, không chỉ ghi "sửa lỗi".
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
+
+## 2026-11-07 — Vá lỗi do kiểm thử phát hiện sau T016: nạp gói theo tệp mã nguồn, câu báo lỗi có màu
+
+- **Commit mã nguồn đã đọc:** `0842386` (trên đó là `5a78ff1`); cả hai nằm sau `6a9cf5e` (T016).
+- **Trang wiki đã sửa:** `docs/wiki/an-toan.md`, `docs/wiki/du-lieu.md`, `docs/wiki/goi-nghiep-vu.md`,
+  `docs/wiki/index.md`, `docs/wiki/kiem-thu.md`, `docs/wiki/kien-truc.md`, `docs/wiki/log.md`,
+  `docs/wiki/luong-tin-nhan.md`, `docs/wiki/nao-ai.md`, `docs/wiki/nen-tang-zalo.md`,
+  `docs/wiki/quan-he-vps-201.md`, `docs/wiki/su-co-bai-hoc.md`, `docs/wiki/thuat-ngu.md`,
+  `docs/wiki/tien-do.md`, `docs/wiki/tong-quan.md`, `docs/wiki/trien-khai-van-hanh.md`.
+- **Vì sao:** đây **không** phải việc mới mà là **vá lỗi do vai kiểm thử phát hiện sau khi T016 đã nối xong**,
+  nên wiki phải đối chiếu lại chứ không chỉ thêm mục mới. Cụ thể:
+  (1) `5a78ff1` — `server.js` nạp gói bằng đường dẫn tương đối `packs/`, tức phụ thuộc thư mục làm
+  việc; nay dùng `join(import.meta.dirname, 'packs')` nên việc nạp gói không phụ thuộc thư mục làm
+  việc (`server.js:72`), và thêm cảnh báo **to** khi không nạp được gói nào thay vì im lặng
+  (`server.js:74`). (2) `0842386` — câu báo lỗi chung của lõi mất thẻ màu `{orange}` so với đường cũ;
+  đã khôi phục nguyên văn (`core/engine.js:13`).
+- **Sửa cả nội dung, không chỉ số dòng:** (1) Vì hai commit trên làm dòng trong `server.js` dịch
+  (dòng `VERSION` gộp vào dòng 25; các dòng 27–73 lùi 1; khối dựng engine gộp còn một dòng ở
+  `server.js:76`), mọi trích dẫn
+  `server.js:N` trong wiki đã đối chiếu lại với tệp thật. (2) Bốn test mới trong
+  `test/core/one-gate.test.mjs` và `test/core/engine.test.mjs` làm số test tăng từ 270 lên 274; số
+  liệu trong trang tiến độ và trang kiểm thử đã cập nhật, khối output được chép nguyên văn từ lần
+  chạy mới. (3) Trang kiến trúc, trang não AI và trang triển khai vận hành được thêm ghi chú về việc
+  nạp gói không phụ thuộc thư mục làm việc và về câu báo lỗi có thẻ màu `{orange}`.
+- **Lưu ý về cổng kiểm:** `scripts/kiem-wiki.mjs` chỉ bắt trích dẫn **vượt quá độ dài tệp**, không bắt
+  trích dẫn lệch dòng; vì vậy phần lớn việc trong đợt này là đối chiếu tay theo tệp thật.
+- **Kiểm tra:** `npm test` 274 test xanh và `npm run eval` 7/7 đạt tại commit `0842386`;
+  `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.
+
+## 2026-11-07 — Xong T016: nối `server.js` vào lõi `core/`, xoá thư mục `lib/`
+
+- **Commit mã nguồn đã đọc:** `0842386` (T016 xong ở `6a9cf5e`; vá lỗi ở `5a78ff1` và `0842386`).
+- **Trang wiki đã sửa:** `docs/wiki/an-toan.md`, `docs/wiki/du-lieu.md`, `docs/wiki/goi-nghiep-vu.md`,
+  `docs/wiki/index.md`, `docs/wiki/kiem-thu.md`, `docs/wiki/kien-truc.md`, `docs/wiki/log.md`,
+  `docs/wiki/luong-tin-nhan.md`, `docs/wiki/nao-ai.md`, `docs/wiki/nen-tang-zalo.md`,
+  `docs/wiki/quan-he-vps-201.md`, `docs/wiki/su-co-bai-hoc.md`, `docs/wiki/thuat-ngu.md`,
+  `docs/wiki/tien-do.md`, `docs/wiki/tong-quan.md`, `docs/wiki/trien-khai-van-hanh.md`, `README.md`.
+- **Vì sao:** T016 nối lõi `core/` vào chương trình chính và xoá hẳn thư mục `lib/`. Trước đó repo
+  có **hai** đường xử lý: đường cũ ở `lib/` và đường lõi ở `core/`, mà nhiều trang wiki vẫn mô tả
+  theo kiểu "đường đang chạy" / "lõi mới chưa nối". Nay chỉ còn **một** đường: `server.js` nối
+  thẳng vào lõi (`server.js:76`), gọi `gate.recover()` lúc khởi động (`server.js:77`), và chỉ
+  `core/gate.js:79` gọi `channel.sendText` trong toàn bộ tệp sản xuất — nguyên tắc này được khoá
+  bằng test `test/core/one-gate.test.mjs:167`. Vì vậy các trang phải viết lại phần mô tả: bỏ mô
+  hình hai đường, bỏ mục "đường đang chạy (RAM)" trong trang dữ liệu, bỏ câu "lõi dùng chung hiện
+  chưa có tác dụng" trong trang triển khai (nay mọi biến môi trường đều ảnh hưởng khách thật),
+  và đổi số dòng mọi trích dẫn trỏ vào tệp đã bị xoá (mcp, bot, truot và tinh-hieu trong thư mục
+  lib cũ) sang tệp thay thế (`core/mcp.js`, `core/mention.js`, `core/engine.js`,
+  `packs/hs/miss-log.js`, `scripts/giam-sat/tinh-hieu.js`).
+- **Sửa cả nội dung, không chỉ số dòng:** (1) Trang an toàn: điều I nay **đã có** test khoá
+  (`test/core/one-gate.test.mjs:167`), mục "chưa có tệp test" bị bỏ; điều VII ghi `recover()`
+  được gọi thật tại `server.js:77`. (2) Trang kiểm thử: bỏ giới hạn cũ "chưa có test bảo chứng
+  một cửa gửi" — nay đã có; cập nhật số tệp test và số test đạt. (3) Trang nền tảng Zalo §10: mô tả
+  cũ nói đường cũ trả khách **120 ký tự đầu lỗi gốc** — đối chiếu lịch sử code cho thấy đường cũ
+  từng trả kèm lỗi gốc, nhưng lỗi đó đã được vá trước khi thư mục bị xoá; đã viết lại cho đúng
+  thứ tự thời gian, không ghi "chưa xác minh" cho điều đã đọc code. (4) Trang triển khai và vận hành: giám sát nay đọc `bot.db` có dữ liệu thật nên mục
+  "mâu thuẫn vận hành" đổi thành "dữ liệu giám sát giờ phản ánh hoạt động thật". (5) Trang tiến độ:
+  T016 chuyển sang **Xong** kèm bằng chứng; các ghi chú cũ nói lõi chưa nối được ghi lại là lịch sử.
+  (6) Ba trang còn sót: trang não AI sửa lại số dòng `server.js` và câu "não AI hiện chỉ nối ở đường đang
+  chạy" — nay não **đã** được nối vào lõi đang chạy; trang quan hệ VPS 201 bỏ `lib/` khỏi danh sách mã;
+  trang sự cố và bài học đổi câu "hai đường xử lý" thành "một đường xử lý".
+- **Kiểm tra:** `npm test` 274 test xanh và `npm run eval` 7/7 đạt tại commit `0842386`
+  (lần chạy gần nhất trong phiên sửa wiki này); `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.
 
 ## 2026-11-07 — Phản ánh hai quyết định ngày 06/11 của chủ repo
 
@@ -58,7 +120,7 @@ Quy ước:
 
 ## 2026-11-07 — Vá câu báo lỗi gửi khách (issue #23), sửa trang an toàn
 
-- **Commit mã nguồn đã đọc:** `ef2b48f`. Lưu ý: thay đổi code của issue #23 (sửa `lib/bot.js:214`,
+- **Commit mã nguồn đã đọc:** `ef2b48f`. Lưu ý: thay đổi code của issue #23 (sửa tệp lib/bot.js, dòng trả câu báo kèm lỗi gốc,
   thêm `test/core/loi-goc-khach.test.mjs`) còn nằm ở working tree, **chưa có commit riêng**.
 - **Trang wiki đã sửa:** `docs/wiki/an-toan.md`, `docs/wiki/kiem-thu.md`, `docs/wiki/log.md`.
 - **Vì sao:** đường đang chạy trước đây kèm lỗi gốc vào câu báo gửi khách (in 120 ký tự đầu của
@@ -66,7 +128,7 @@ Quy ước:
   (`.specify/memory/constitution.md:50`). Sau khi sửa, câu báo gửi khách không còn kèm lỗi gốc,
   chi tiết chỉ vào log. Trang an toàn được cập nhật cho khớp: chuyển nhận định "không kèm lỗi gốc"
   của đường đang chạy từ "Chưa có code" sang "Đã có code" (kèm test khoá), bổ sung dòng log
-  `lib/bot.js:213` vào khoảng trống log chưa che, đổi ô Điều IX trong bảng tổng quan thành
+  trong lib/bot.js vào khoảng trống log chưa che, đổi ô Điều IX trong bảng tổng quan thành
   "có phần", và bỏ mục rủi ro "Câu báo lỗi của đường đang chạy kèm lỗi gốc". Trang kiểm thử
   cập nhật số liệu cho khớp sau khi thêm test: 23 tệp test (17 trong `test/core/`), `npm test`
   226/226 đạt, thêm tệp test mới vào bảng `test/core/` và cập nhật mục "Kết quả chạy gần nhất".

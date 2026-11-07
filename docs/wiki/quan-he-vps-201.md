@@ -1,8 +1,8 @@
 # Quan hệ với VPS 201
 
-> Cập nhật: 2026-11-07 · commit: 77ab8c3
+> Cập nhật: 2026-11-07 · commit: 0842386
 
-VPS 201 là máy chăm sóc khách Fanpage và Zalo của OZ, chạy Hermes Agent (khung agent) và Python từ 22/09/2026 (`specs/001-nen-tang-chung/research.md:5`). Repo này là lõi được viết lại từ bài học ở máy đó. Hai bên chưa nối nhau lúc chạy: mã trong `core/`, `lib/`, `channels/`, `packs/` không gọi tới 201.
+VPS 201 là máy chăm sóc khách Fanpage và Zalo của OZ, chạy Hermes Agent (khung agent) và Python từ 22/09/2026 (`specs/001-nen-tang-chung/research.md:5`). Repo này là lõi được viết lại từ bài học ở máy đó. Hai bên chưa nối nhau lúc chạy: mã trong `core/`, `channels/`, `packs/` không gọi tới 201.
 
 ## Bốn mối nối
 

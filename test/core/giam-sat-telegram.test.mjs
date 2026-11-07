@@ -1,7 +1,7 @@
 // Test Telegram integration — spec 007 mở rộng
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dungBanTin } from '../../lib/giam-sat/telegram.js';
+import { dungBanTin } from '../../scripts/giam-sat/telegram.js';
 
 test('dungBanTin: 0 phát hiện → bản tin ✅ sạch', () => {
   const t = dungBanTin({ ngay: '2026-11-06', phatHien: [], ketQua: { moi: [], comment: [], boViGioiHan: [] } });

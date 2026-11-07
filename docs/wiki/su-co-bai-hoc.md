@@ -1,6 +1,6 @@
 # Sự cố và bài học
 
-> Cập nhật: 2026-11-07 · commit: ef2b48f
+> Cập nhật: 2026-11-07 · commit: 0842386
 
 Trang này gom sự cố đã xảy ra thật và bài học rút ra. Nguồn chỉ gồm ba nơi trong repo: bảng sự cố vận hành ở `specs/001-nen-tang-chung/research.md:8`, sổ bàn giao triển khai ở `docs/sdd/001-ledger.md:1`, và các biên bản review trong `docs/sdd/`.
 
@@ -55,7 +55,7 @@ Các lỗi dưới đây do review nội bộ phát hiện trước khi merge, k
 | Dữ liệu sai bị báo nhầm là trùng | Thêm việc nền thiếu trường bắt buộc trả về "không thêm được" như thể là trùng | Câu chèn "bỏ qua nếu trùng" nuốt cả lỗi ràng buộc | Chỉ bỏ qua khi đúng xung đột khoá, còn lỗi khác phải ném ra | `docs/sdd/T006-review.md:29` |
 | Tệp cấu hình lọt vào ảnh Docker | Ảnh chứa cả tệp cấu hình biến thể vì chỉ loại trừ một tệp | Danh sách loại trừ chưa khớp với danh sách bỏ qua trong git | Ảnh phải sạch bí mật: loại trừ cả nhóm tệp cấu hình | `docs/sdd/T001-review.md:26` |
 | Menu gói bị lặp | Hợp đồng gói nói lõi sẽ gắn dòng menu, nhưng gói đã tự gắn sẵn, nên câu trả lời có hai menu | Hợp đồng và code gói không khớp về ai chịu trách nhiệm gắn footer | Hợp đồng phải nói rõ ai gắn footer, và phải có test đếm số lần | `docs/sdd/T014-review.md:19` |
-| Hai kiểu gửi tin cùng tồn tại | Lớp kênh cũ vẫn tự chia nhỏ tin rồi gửi, song song với cửa gửi mới | Lớp cũ giữ lại để test cũ chạy được, chưa dọn ở bước nối lõi | Đường cũ và đường mới cùng tồn tại là nguồn rủi ro lớn nhất | `docs/sdd/B3-review.md:25` |
+| Hai kiểu gửi tin cùng tồn tại | Lớp kênh cũ vẫn tự chia nhỏ tin rồi gửi, song song với cửa gửi mới | Lớp cũ giữ lại để test cũ chạy được, chưa dọn ở bước nối lõi | Đường cũ và đường mới cùng tồn tại là nguồn rủi ro lớn nhất (T016 đã dọn xong) | `docs/sdd/B3-review.md:25` |
 | Commit tài liệu cuốn file của người khác | Một commit tài liệu không chỉ đụng tệp của mình mà còn cuốn tệp đang làm dở của người khác | Lệnh stage dùng chế độ "stage tất cả" thay vì chỉ đường dẫn cần thiết | Khi nhiều người làm song song, chỉ stage đúng đường dẫn của mình | `docs/sdd/001-ledger.md:35` |
 | Vận hành chưa dùng được một số lệnh | Lệnh kiểm tra bị hoãn tới cuối vì tệp chưa có, PR phải giữ ở trạng thái nháp | Sửa chức năng còn dở dang để kịp mở pull request | Làm xong cả lệnh vận hành thì mới nói "xong" | `docs/sdd/001-ledger.md:39` |
 
@@ -75,4 +75,4 @@ Các lỗi dưới đây do review nội bộ phát hiện trước khi merge, k
 - Sổ bàn giao triển khai spec 001: `docs/sdd/001-ledger.md:1`.
 - Các biên bản review: `docs/sdd/B1-review.md:1`, `docs/sdd/B2-review.md:1`, `docs/sdd/B3-review.md:1`, `docs/sdd/T001-review.md:1`, `docs/sdd/T006-review.md:1`, `docs/sdd/T008-review.md:1`, `docs/sdd/T014-review.md:1`, `docs/sdd/T015-review.md:1`.
 - Trạng thái công việc hiện tại: [Tiến độ](tien-do.md).
-- Bố cục hệ thống để hiểu vì sao có hai đường xử lý: [Kiến trúc](kien-truc.md).
+- Bố cục hệ thống để hiểu vì sao hiện chỉ còn một đường xử lý: [Kiến trúc](kien-truc.md).

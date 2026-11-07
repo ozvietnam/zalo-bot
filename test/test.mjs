@@ -2,12 +2,12 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { splitText, parseUpdate, safeEqual } from '../channels/zalo-bot.js';
-import { createMcpClient, parseSse, unwrapToolResult } from '../lib/mcp.js';
-import { route, autoPick } from '../lib/router.js';
-import { PACKAGES, availablePackages, menuText, pickHs } from '../lib/packages.js';
-import { parseLabeled, firstHs8, soHieuList, countryCode } from '../lib/input.js';
-import { renderResult, renderGeneric } from '../lib/render.js';
-import { plain } from '../lib/style.js';
+import { createMcpClient, parseSse, unwrapToolResult } from '../core/mcp.js';
+import { route, autoPick } from '../packs/hs/router.js';
+import { PACKAGES, availablePackages, menuText, pickHs } from '../packs/hs/packages.js';
+import { parseLabeled, firstHs8, soHieuList, countryCode } from '../packs/hs/input.js';
+import { renderResult, renderGeneric } from '../packs/hs/render.js';
+import { plain } from '../packs/hs/style.js';
 import { createBot } from './helpers/legacy-bot.mjs';
 import { stripMention, isGroup } from '../core/mention.js';
 
@@ -465,7 +465,7 @@ await t('render: điều kiện đi cùng dòng BLOCKING; nhắc phạm vi CBPG 
 });
 
 await t('sổ trượt: ghi JSONL theo ngày giờ VN, đếm theo loại', async () => {
-  const { createMissLog } = await import('../lib/truot.js');
+  const { createMissLog } = await import('../packs/hs/miss-log.js');
   const fs = await import('node:fs/promises'); const os = await import('node:os'); const path = await import('node:path');
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'truot-'));
   const sl = createMissLog({ thuMuc: dir, log: {}, now: () => new Date('2026-11-04T18:30:00Z') });   // 01:30 ngày 05/11 giờ VN

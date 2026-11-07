@@ -34,7 +34,7 @@ function patterns(env, k) {
 export function loadConfig(env = process.env) {
   const zaloToken = str(env, 'ZALO_BOT_TOKEN');
   if (!zaloToken) throw new Error('ZALO_BOT_TOKEN là bắt buộc');
-  const mode = str(env, 'ZALO_MODE', 'webhook');
+  const mode = str(env, 'ZALO_MODE', 'webhook').toLowerCase();
   if (!MODES.includes(mode)) throw new Error(`ZALO_MODE phải là ${MODES.join(' | ')} (nhận "${mode}")`);
 
   return Object.freeze({

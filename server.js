@@ -1,141 +1,119 @@
-// server.js — chạy bot ở 1 trong 2 chế độ:
-//   ZALO_MODE=webhook (mặc định): HTTP server nhận POST từ Zalo tại ZALO_WEBHOOK_PATH.
-//   ZALO_MODE=polling: tự gọi getUpdates (chạy được trên máy không có tên miền công khai).
+// server.js — chỉ nối dây: config → store → channel → engine → http/poll (spec 001, T016).
+// Mọi tin ra khách đi qua core/gate.js (Hiến pháp Điều I). File này KHÔNG gửi tin trực tiếp.
+// ZALO_MODE=webhook (mặc định): HTTP nhận POST tại ZALO_WEBHOOK_PATH. ZALO_MODE=polling: tự gọi getUpdates.
 import http from 'node:http';
-import { createZaloClient, safeEqual, kiemTruocPolling } from './lib/zalo.js';
-import { createMcpClient } from './lib/mcp.js';
-import { createBot } from './lib/bot.js';
-import { availablePackages } from './lib/packages.js';
-import { createVision } from './lib/vision.js';
-import { createBrain } from './lib/brain.js';
-import { createEditor } from './lib/editor.js';
-import { createLlm2 } from './packs/hs/llm2.js';
-import { createMissLog } from './lib/truot.js';
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { loadConfig } from './core/config.js';
+import { openStore } from './core/store.js';
+import { createChannel } from './channels/zalo-bot.js';
+import { batDauPolling } from './channels/zalo-polling.js';
+import { createMcpClient } from './core/mcp.js';
+import { loadPacks, createRegistry } from './core/registry.js';
+import { createGate } from './core/gate.js';
+import { createEngine } from './core/engine.js';
 import { createHealthPayload } from './core/health.js';
+import { availablePackages } from './packs/hs/packages.js';
+import { createVision } from './packs/hs/vision.js';
+import { createBrain } from './packs/hs/brain.js';
+import { createEditor } from './packs/hs/editor.js';
+import { createLlm2 } from './packs/hs/llm2.js';
+import { createMissLog } from './packs/hs/miss-log.js';
 
 const env = process.env;
-const MODE = (env.ZALO_MODE || 'webhook').toLowerCase();
-const PORT = Number(env.PORT) || 3000;
-const PATH = env.ZALO_WEBHOOK_PATH || '/webhook/zalo';
-const SECRET = env.ZALO_WEBHOOK_SECRET || '';
 const DEBUG = /^(1|true|yes)$/i.test(env.DEBUG || '');
-// Thời điểm khởi động container + version: để xác minh production đã build lại với code mới.
-const STARTED_AT = new Date();
-const VERSION = env.APP_VERSION || env.SOURCE_COMMIT || '';
+const STARTED_AT = new Date(), VERSION = env.APP_VERSION || env.SOURCE_COMMIT || '';
+const now = () => new Date();
 
-const zalo = createZaloClient({ token: env.ZALO_BOT_TOKEN, baseUrl: env.ZALO_API_BASE || undefined });
-// Nguồn dữ liệu: Cổng OZ (MCP). Bot tự đọc danh sách công cụ, công cụ mới trên Cổng không cần sửa bot.
-const mcp = createMcpClient({
-  url: env.OZ_MCP_URL || 'https://mcp.uythacnhapkhau.com/mcp',
-  token: env.OZ_MCP_TOKEN || '',
-  authHeader: env.OZ_MCP_AUTH_HEADER || 'Authorization',
-});
-// Tên bot để bỏ "@Tên bot" khi được nhắc trong nhóm: lấy từ getMe, thêm tay qua BOT_NAMES nếu cần.
-const botNames = (env.BOT_NAMES || '').split(',').map((s) => s.trim()).filter(Boolean);
-// Khoá dự phòng (cổng LLM chuẩn OpenAI bất kỳ): dùng khi Gemini lỗi/quá tải/quá giờ. Thiếu 1 trong 3 biến = tắt.
-const duPhong = createLlm2({ baseUrl: env.LLM2_BASE_URL || '', apiKey: env.LLM2_API_KEY || '', model: env.LLM2_MODEL || '',
-  timeoutMs: Number(env.LLM2_TIMEOUT_MS) || undefined });
-// LLM_CHINH=llm2: não định tuyến + biên tập hỏi khoá llm2 trước, Gemini chỉ cứu khi llm2 lỗi. Mặc định gemini.
+let config;
+try {
+  config = loadConfig(env);
+} catch (e) {
+  console.error(`[bot] cấu hình lỗi: ${e.message}`);
+  process.exit(1);
+}
+
+// store + kênh + Cổng OZ
+mkdirSync(config.dataDir, { recursive: true });
+const store = openStore(join(config.dataDir, 'bot.db'));
+const baseUrl = env.ZALO_API_BASE || undefined;
+const channel = createChannel({ token: config.zaloToken, baseUrl, secret: config.webhookSecret });
+const mcp = createMcpClient({ url: config.mcpUrl, token: config.mcpToken, authHeader: config.mcpAuthHeader });
+
+// não / biên tập / đọc ảnh / sổ trượt từ (giữ nguyên hành vi server cũ)
+const duPhong = createLlm2({ baseUrl: env.LLM2_BASE_URL || '', apiKey: env.LLM2_API_KEY || '', model: env.LLM2_MODEL || '', timeoutMs: Number(env.LLM2_TIMEOUT_MS) || undefined });
 const uuTien = /^llm2$/i.test((env.LLM_CHINH || '').trim()) && duPhong ? 'llm2' : 'gemini';
-// Não hiểu câu hỏi (Gemini function calling) cho chế độ Tự động: dùng chung khoá đọc ảnh; GEMINI_BRAIN=0 để tắt.
-const brain = createBrain({ apiKey: env.GEMINI_API_KEY || '', model: env.GEMINI_BRAIN_MODEL || undefined, duPhong, uuTien,
-  off: /^(0|false|no|off)$/i.test(env.GEMINI_BRAIN || '') });
-// Não biên tập: kết quả phân loại dài → bản chốt ngắn (code kiểm từng con số khớp gốc); GEMINI_EDITOR=0 để tắt.
-const editor = createEditor({ apiKey: env.GEMINI_API_KEY || '', model: env.GEMINI_EDITOR_MODEL || undefined, duPhong, uuTien,
-  off: /^(0|false|no|off)$/i.test(env.GEMINI_EDITOR || '') });
-const bot = createBot({
-  zalo, mcp, botNames, brain, editor,
-  // Sổ ghi lượt "trượt từ vựng" (gói 1 cần hỏi thêm, tiền lệ 0 kết quả, khách gõ lại) — TRUOT_DIR=off để tắt.
-  missLog: /^(off|0|false)$/i.test(env.TRUOT_DIR || '') ? null : createMissLog({ thuMuc: env.TRUOT_DIR || 'du-lieu-truot' }),
-  // Đọc thông số từ ảnh (Gemini, Google AI Studio). Để trống GEMINI_API_KEY = tắt.
-  vision: createVision({ apiKey: env.GEMINI_API_KEY || '', model: env.GEMINI_MODEL || undefined }),
-  rateLimitPerMin: Number(env.RATE_LIMIT_PER_MIN) || 10,
-  allowUsers: (env.ALLOW_USERS || '').split(',').map((s) => s.trim()),
+const brain = createBrain({ apiKey: config.geminiKey, model: env.GEMINI_BRAIN_MODEL || undefined, duPhong, uuTien, off: /^(0|false|no|off)$/i.test(env.GEMINI_BRAIN || '') });
+const editor = createEditor({ apiKey: config.geminiKey, model: env.GEMINI_EDITOR_MODEL || undefined, duPhong, uuTien, off: /^(0|false|no|off)$/i.test(env.GEMINI_EDITOR || '') });
+const vision = createVision({ apiKey: config.geminiKey, model: env.GEMINI_MODEL || config.geminiModel });
+const missLog = /^(off|0|false)$/i.test(env.TRUOT_DIR || '') ? null : createMissLog({ thuMuc: env.TRUOT_DIR || 'du-lieu-truot' });
+
+// tên bot: lấy từ getMe TRƯỚC khi tạo engine (engine chép mảng lúc khởi tạo)
+const botNames = [...config.botNames];
+try {
+  const me = await channel.getMe();
+  for (const n of [me?.display_name, me?.account_name, me?.name]) if (n && !botNames.includes(n)) botNames.push(n);
+  console.log(`[bot] đăng nhập: ${me?.display_name || me?.account_name || 'ok'}`);
+} catch (e) { console.error('[bot] getMe lỗi — kiểm tra ZALO_BOT_TOKEN:', e.message); }
+
+// cửa gửi duy nhất (Điều I)
+const gate = createGate({
+  store, channel,
+  rules: { capChatDay: config.capChatDay, capGroupDay: config.capGroupDay, capAllDay: config.capAllDay,
+    similarity: 0.8, directReplyMs: 600_000, quietHours: true, bannedPatterns: config.bannedPatterns },
+  now,
+  // T024 chưa làm hệ thống phiếu/cảnh báo cho nhân viên: tạm ghi log (kèm chat/conv + lý do).
+  onAlert: (chatId, reason) => console.warn(`[canh-bao] chat=${chatId} lý do=${reason}`),
+  onTicket: (convId, reason) => console.warn(`[phieu] conv=${convId} lý do=${reason}`),
+  log: (...a) => console.error('[gate]', ...a),
 });
 
+// engine: một lượt (inbox → gói → cửa → audit); gói nạp theo đường dẫn tương đối tới TỆP MÃ NGUỒN (không phụ thuộc cwd)
+const registry = createRegistry(await loadPacks(join(import.meta.dirname, 'packs')));
+const goi = registry.available(null, { isStaff: true });
+if (!goi.length) console.error('[bot] KHÔNG nạp được gói nào — kiểm tra thư mục packs/');
+console.log(`[bot] đã nạp ${goi.length} gói: ${goi.map((p) => p.id).join(', ')}`);
+const engine = createEngine({ config: { ...config, botNames }, store, channel, mcp, vision, brain, editor, registry, gate, now, log: console, missLog });
+gate.recover();   // hồi dòng outbox còn 'queued' (tiến trình cũ chết giữa chừng) — Điều VII
+// HTTP: /health + webhook
 const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
-
 const server = http.createServer((req, res) => {
   if (req.method === 'GET' && (req.url === '/health' || req.url === '/')) {
-    return json(res, 200, createHealthPayload({ mode: MODE, startedAt: STARTED_AT, version: VERSION }));
+    return json(res, 200, createHealthPayload({ mode: config.mode, startedAt: STARTED_AT, version: VERSION }));
   }
-  if (MODE !== 'webhook' || req.method !== 'POST' || req.url.split('?')[0] !== PATH) return json(res, 404, { ok: false });
-  if (!SECRET || !safeEqual(req.headers['x-bot-api-secret-token'], SECRET)) return json(res, 403, { ok: false });
-
+  if (config.mode !== 'webhook' || req.method !== 'POST' || req.url.split('?')[0] !== config.webhookPath) return json(res, 404, { ok: false });
+  if (!channel.verifyWebhook(req)) return json(res, 403, { ok: false });
   let body = '';
   req.on('data', (c) => { body += c; if (body.length > 1_000_000) req.destroy(); });
   req.on('end', () => {
     let payload;
     try { payload = JSON.parse(body || '{}'); } catch { return json(res, 400, { ok: false }); }
-    // Trả 200 ngay để Zalo không gửi lại; xử lý (có thể mất vài chục giây với suggest) chạy nền.
-    json(res, 200, { ok: true });
+    json(res, 200, { ok: true });   // trả 200 ngay để Zalo không gửi lại; xử lý chạy nền
     if (DEBUG) console.log('[debug] webhook:', body.slice(0, 800));
-    bot.handleUpdate(payload)
+    engine.process(payload)
       .then((x) => { if (DEBUG || x?.skipped) console.log('[bot] kết quả:', JSON.stringify(x)); })
       .catch((e) => console.error('[webhook]', e.message));
   });
 });
+// bộ quét nền: drain() hỏi việc nền + quét outbox (đã có cờ chống chạy chồng trong engine/gate)
+setInterval(() => { engine.drain().catch((e) => console.error('[quet]', e.message)); }, 5000);
 
-async function pollLoop() {
-  try { await zalo.deleteWebhook(); } catch { /* chưa đặt webhook */ }
-  console.log(`[polling] bắt đầu getUpdates${DEBUG ? ' (DEBUG bật)' : ''}`);
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const MIN_GAP = Number(env.POLL_GAP_MS) || 1500;   // nghỉ tối thiểu giữa 2 lần getUpdates
-  let backoff = 0;                                     // tăng dần khi bị 429 / lỗi
-  for (;;) {
-    const t0 = Date.now();
-    try {
-      const r = await zalo.getUpdates(30);
-      const list = Array.isArray(r) ? r : r ? [r] : [];
-      if (DEBUG) console.log(`[debug] getUpdates ${new Date().toLocaleTimeString()}:`, JSON.stringify(r ?? null).slice(0, 800));
-      for (const u of list) bot.handleUpdate(u)
-        .then((x) => { if (DEBUG || x?.skipped) console.log('[bot] kết quả:', JSON.stringify(x)); })
-        .catch((e) => console.error('[polling]', e.message));
-      if (backoff) console.log('[polling] kết nối lại bình thường');
-      backoff = 0;
-    } catch (e) {
-      if (DEBUG) console.log(`[debug] getUpdates lỗi: ${e.name}: ${e.message}`);
-      if (/timeout|408/i.test(e.message)) {
-        backoff = 0;                                   // hết 30 s không có tin: bình thường
-      } else {
-        backoff = Math.min(backoff ? backoff * 2 : (e.status === 429 ? 10000 : 3000), 120000);
-        console.error(`[polling] ${e.message} — thử lại sau ${Math.round(backoff / 1000)} s`);
-      }
-    }
-    const wait = Math.max(backoff, MIN_GAP - (Date.now() - t0));
-    if (wait > 0) await sleep(wait);
-  }
-}
-
-server.listen(PORT, '0.0.0.0', async () => {
+server.listen(config.port, '0.0.0.0', async () => {
+  console.log(`[bot] chế độ ${config.mode}, cổng ${config.port}${config.mode === 'webhook' ? `, đường dẫn ${config.webhookPath}` : ''}`);
+  if (config.mode === 'webhook' && config.webhookSecret.length < 8) console.error('[bot] ZALO_WEBHOOK_SECRET phải dài 8–256 ký tự');
   try {
-    const me = await zalo.getMe();
-    for (const n of [me?.display_name, me?.account_name, me?.name]) if (n && !botNames.includes(n)) botNames.push(n);
-    console.log(`[bot] đăng nhập: ${me?.display_name || me?.account_name || 'ok'}`);
-  } catch (e) { console.error('[bot] getMe lỗi — kiểm tra ZALO_BOT_TOKEN:', e.message); }
-  try {
-    const t = await bot.tools();
+    const t = await engine.tools();
     if (t) {
       console.log(`[mcp] Cổng OZ có ${t.size} công cụ; gói khả dụng: ${availablePackages(t).map((p) => p.so).join(', ')}`);
-      console.log(`[bot] đọc ảnh: ${env.GEMINI_API_KEY ? 'BẬT (Gemini)' : 'tắt (chưa có GEMINI_API_KEY)'}`);
-      console.log(`[bot] não hiểu câu hỏi (chế độ Tự động): ${brain ? `BẬT (${env.GEMINI_BRAIN_MODEL || 'gemini-flash-lite-latest'})` : 'tắt'}`);
-      console.log(`[bot] não biên tập kết quả: ${editor ? `BẬT (${env.GEMINI_EDITOR_MODEL || 'gemini-flash-latest'})` : 'tắt'}`);
+      console.log(`[bot] đọc ảnh: ${vision ? 'BẬT (Gemini)' : 'tắt (chưa có GEMINI_API_KEY)'}`);
+      console.log(`[bot] não hiểu câu hỏi (chế độ Tự động): ${brain ? `BẬT (${env.GEMINI_BRAIN_MODEL || 'gemini-flash-lite-latest'})` : 'tắt'} · não biên tập kết quả: ${editor ? `BẬT (${env.GEMINI_EDITOR_MODEL || 'gemini-flash-latest'})` : 'tắt'}`);
       console.log(`[bot] khoá llm2: ${duPhong ? `BẬT (${duPhong.model})` : 'tắt (chưa đủ LLM2_BASE_URL / LLM2_API_KEY / LLM2_MODEL)'}`);
-      console.log(`[bot] mô hình chính: ${uuTien === 'llm2' ? `${duPhong.model} (Gemini dự phòng)` : `Gemini${duPhong ? ` (${duPhong.model} dự phòng)` : ''}`}`);
     } else {
       console.error('[mcp] chưa kết nối được Cổng OZ — kiểm tra OZ_MCP_URL / OZ_MCP_TOKEN (bot vẫn chạy, sẽ thử lại khi có tin)');
     }
   } catch (e) { console.error('[mcp]', e.message); }
-  console.log(`[bot] chế độ ${MODE}, cổng ${PORT}${MODE === 'webhook' ? `, đường dẫn ${PATH}` : ''}`);
-  if (MODE === 'webhook' && SECRET.length < 8) console.error('[bot] ZALO_WEBHOOK_SECRET phải dài 8–256 ký tự');
-  if (MODE === 'polling') {
-    // Không xoá webhook của bot thật: đang có webhook thì dừng hẳn (ZALO_FORCE_POLLING=1 để cố ý chiếm bot).
-    const g = await kiemTruocPolling(zalo, { force: /^(1|true|yes)$/i.test(env.ZALO_FORCE_POLLING || '') });
-    if (!g.ok) {
-      console.error(`[polling] DỪNG: ${g.lyDo}`);
-      process.exit(1);
-    }
-    if (g.url) console.warn(`[polling] ZALO_FORCE_POLLING bật: sẽ xoá webhook ${g.url} — nhớ đặt lại: npm run webhook:set -- ${g.url}`);
-    pollLoop();
+  if (config.mode === 'polling') {
+    const g = await batDauPolling({ token: config.zaloToken, baseUrl, engine, env, debug: DEBUG });
+    if (!g.ok) process.exit(1);
   }
 });

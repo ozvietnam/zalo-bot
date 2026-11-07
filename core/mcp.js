@@ -1,4 +1,5 @@
-// lib/mcp.js — MCP client tối giản (Streamable HTTP, JSON-RPC 2.0) cho Cổng OZ: mcp.uythacnhapkhau.com/mcp
+// core/mcp.js — MCP client tối giản (Streamable HTTP, JSON-RPC 2.0) cho Cổng OZ: mcp.uythacnhapkhau.com/mcp
+// Hạ tầng dùng chung cho MỌI gói: createEngine tiêm vào như `mcp` và bọc audit. Thuộc lõi, không phải gói.
 // - initialize → lưu Mcp-Session-Id → notifications/initialized
 // - tools/list (cache), tools/call → bóc nội dung text, parse JSON nếu được
 // - Phản hồi có thể là application/json hoặc text/event-stream (SSE)

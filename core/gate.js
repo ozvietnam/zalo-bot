@@ -109,6 +109,13 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
     const convId = msg.convId ?? msg.chatId;
     const isGroup = msg.isGroup === true || convId !== msg.chatId;
     const m = { ...msg, convId, isGroup };
+    // Tin rỗng: chặn TRƯỚC khi đọc facts (hasIdem cần idemKey hợp lệ) để không ném lỗi bind SQLite.
+    // 'empty' lấy từ decide (nguồn duy nhất của lý do) nên không nhân bản chuỗi.
+    const pre = decide(m, { now: nowIso }, R);
+    if (pre.reason === 'empty') {
+      auditGate(m, pre, nowIso);
+      return { id: null, decision: pre.decision, reason: pre.reason, status: STATUS[pre.decision] };
+    }
     const f = facts({ chatId: msg.chatId, convId, isGroup }, nowIso, { idemExists: store.outbox.hasIdem(msg.idemKey) });
     const d = decide(m, f, R);
     const dup = () => {

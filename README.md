@@ -30,8 +30,8 @@ Cuối mỗi tin trả lời luôn có dòng menu gói; gõ số để chuyển 
 - Ngay sau khi phân loại, gõ **"2"** hoặc **"3"** là chạy luôn với mã + tên hàng vừa tra (không phải gõ lại theo mẫu).
 - Gói nhớ theo từng người (trong nhóm: từng người một) trong 2 giờ. Gói 1 xong, gói 2/3/4 dùng lại mã vừa phân loại.
 - Công việc chạy nền (phân loại, kiểm sâu): bot **không gửi câu chờ**, xong thì tự gửi kết quả. Lâu quá thì gõ `kết quả <mã lượt>`.
-- Thêm gói mới: thêm một mục vào `PACKAGES` trong `lib/packages.js`. Công cụ mới chưa có mẫu hiển thị riêng vẫn hiện
-  được nhờ bộ dựng chung trong `lib/render.js`.
+- Thêm gói mới: thêm một mục vào `PACKAGES` trong `packs/hs/packages.js`. Công cụ mới chưa có mẫu hiển thị riêng vẫn hiện
+  được nhờ bộ dựng chung trong `packs/hs/render.js`.
 
 ## Não hiểu câu hỏi (AI)
 
@@ -67,10 +67,10 @@ Bot dùng `text_styles` của Zalo Bot API (in đậm, màu, cỡ chữ) — nê
 không phải text thuần.
 
 - Mọi nội dung giao diện viết bằng thẻ: `{b}đậm{/b}`, `{red}…{/red}`, `{orange}…{/orange}`, `{green}…{/green}`, `{yellow}…{/yellow}`.
-- `lib/style.js` bỏ thẻ và dịch sang `text_styles` (offset tính theo **UTF-16 code unit** như Zalo yêu cầu — emoji tính 2 đơn vị).
+- `packs/hs/style.js` bỏ thẻ và dịch sang `text_styles` (offset tính theo **UTF-16 code unit** như Zalo yêu cầu — emoji tính 2 đơn vị).
 - Thẻ lạ / thẻ không khớp / dữ liệu MCP chứa `{` `}` → **giữ nguyên chữ**, không mất dữ liệu.
 - Tin >2000 ký tự được chia đoạn, mỗi đoạn giữ đúng định dạng; thẻ bị cắt dở được cân bằng trước khi gửi.
-- Thêm màu mới: mở `CODES` trong `lib/style.js` (mã màu Zalo: `c_db342e` đỏ, `c_f27806` cam, `c_f7b503` vàng, `c_15a85f` xanh).
+- Thêm màu mới: mở `CODES` trong `packs/hs/style.js` (mã màu Zalo: `c_db342e` đỏ, `c_f27806` cam, `c_f7b503` vàng, `c_15a85f` xanh).
 
 ## 1. Tạo bot Zalo
 

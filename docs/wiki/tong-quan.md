@@ -1,6 +1,6 @@
 # Tổng quan
 
-> Cập nhật: 2026-11-07 · commit: 1316cfe
+> Cập nhật: 2026-11-07 · commit: 0842386
 
 Bot Zalo của OZ Việt Nam: khách nhắn Zalo, bot tra cứu **hải quan** (mã HS, thuế, thủ tục, nhãn hiệu…) qua **Cổng OZ** rồi trả lời.
 
@@ -9,7 +9,7 @@ Bot Zalo của OZ Việt Nam: khách nhắn Zalo, bot tra cứu **hải quan** (
 - Nhận tin nhắn chữ và ảnh của khách trên Zalo, tự chọn gói tra cứu phù hợp.
 - Gọi **Cổng OZ** qua giao thức **MCP** (Model Context Protocol) để tra dữ liệu. Số liệu do Cổng OZ trả; não biên tập chỉ được rút gọn khi mọi con số trong bản rút gọn đều có sẵn ở bản gốc (`packs/hs/editor.js:21`).
 - Có **não AI** (Gemini, có khoá dự phòng; hỏng cả hai thì rơi về luật so khớp) hiểu câu hỏi và biên tập kết quả cho gọn (`packs/hs/brain.js:5`, `packs/hs/brain.js:200`).
-- Có **cửa gửi duy nhất** (một chỗ quyết định gửi/bỏ/hoãn/từ chối mọi tin đi) ở đường lõi.
+- Có **cửa gửi duy nhất** (một chỗ quyết định gửi/bỏ/hoãn/từ chối mọi tin đi) ở `core/gate.js:79`.
 
 ## Cho ai
 
@@ -37,20 +37,23 @@ Chi tiết từng gói, cách gọi Cổng OZ và cách thêm gói mới: xem [G
 ## Đang chạy ra sao
 
 - **Điểm vào** là một tiến trình `server.js`, khởi động bằng `node server.js` (`package.json:12`).
-- **Hai chế độ nhận tin** (`server.js:17`): `ZALO_MODE=webhook` (mặc định, Zalo đẩy tin về) hoặc `ZALO_MODE=polling` (bot tự gọi `getUpdates`).
+- **Hai chế độ nhận tin** (`core/config.js:37`, kiểm ở `core/config.js:38`): `ZALO_MODE=webhook` (mặc định, Zalo đẩy tin về) hoặc `ZALO_MODE=polling` (bot tự gọi `getUpdates`).
 - **Nối tới Zalo** qua kênh `channels/zalo-bot.js`, gốc API `https://bot-api.zaloplatforms.com` (`channels/zalo-bot.js:10`).
-- **Nối tới Cổng OZ** qua client MCP trong `lib/mcp.js:7`.
+- **Nối tới Cổng OZ** qua client MCP trong `core/mcp.js:7`.
 
-### Hai đường xử lý (quan trọng)
+### Một đường xử lý duy nhất
 
-| | Đường A (đang chạy) | Đường B (lõi mới) |
-|---|---|---|
-| Tệp | `server.js` → `lib/bot.js` | `core/engine.js` + `core/gate.js` + `core/store.js` |
-| Trạng thái | Đang được `server.js` nối (`server.js:7`) | Đã có code nhưng **chưa nối** vào `server.js` |
-| Gửi tin | Gọi thẳng `zalo.sendText`, chưa qua cửa | Chỉ qua `core/gate.js:79` |
-| Lưu trữ | Trong bộ nhớ (RAM) | SQLite bền |
+Từ 07/11/2026 (T016) bot chỉ có **một** đường xử lý: `server.js` nối thẳng vào lõi `core/`.
+Thư mục `lib/` đã bị xoá hẳn, nên không còn đường nào tự gọi kênh để gửi tin.
 
-Đây là điểm lệch lớn nhất giữa tài liệu và code — xem [Tiến độ](tien-do.md) và [Kiến trúc](kien-truc.md).
+| Mắt xích | Tệp |
+|---|---|
+| Tiếp nhận tin | `server.js:93` (webhook), `channels/zalo-polling.js:34` (polling) |
+| Lõi xử lý một lượt | `core/engine.js:58` |
+| Cửa gửi duy nhất | `core/gate.js:79` |
+| Lưu trữ | SQLite bền, `core/store.js:9` |
+
+Cách đi chi tiết từng bước: xem [Luồng tin nhắn](luong-tin-nhan.md) và [Kiến trúc](kien-truc.md).
 
 ## Trạng thái hiện tại
 

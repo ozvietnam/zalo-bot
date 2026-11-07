@@ -1,5 +1,5 @@
 # Não AI
-> Cập nhật: 2026-11-07 · commit: 64a728a
+> Cập nhật: 2026-11-07 · commit: 0842386
 
 "Não" là tên gọi cho lớp AI (trí tuệ nhân tạo) đọc hiểu câu của khách. Trong repo có ba lớp não:
 
@@ -94,7 +94,7 @@ Khi Gemini lỗi, quá tải hoặc quá giờ, hai lớp não tự chuyển san
 ### Thứ tự thử
 
 - Có khoá dự phòng thì não thử **một** mẫu Gemini rồi chuyển, không thử hai mẫu để khách khỏi chờ thêm một lượt quá giờ (`packs/hs/brain.js:126`, `packs/hs/brain.js:128`).
-- `LLM_CHINH=llm2` thì đảo vai: khoá dự phòng chạy chính, Gemini chỉ cứu khi khoá dự phòng lỗi (`packs/hs/brain.js:123`, `server.js:39`).
+- `LLM_CHINH=llm2` thì đảo vai: khoá dự phòng chạy chính, Gemini chỉ cứu khi khoá dự phòng lỗi (`packs/hs/brain.js:123`, `server.js:45`).
 - Không có `GEMINI_API_KEY` nhưng có dự phòng thì hai não chạy thẳng bằng dự phòng. Đọc ảnh vẫn chỉ dùng Gemini.
 - Cùng luật an toàn cho cả hai nhà cung cấp: mã tự đoán bị loại, ngưỡng độ tin cậy, kiểm từng con số của bản chốt.
 
@@ -106,21 +106,21 @@ Khi Gemini lỗi, quá tải hoặc quá giờ, hai lớp não tự chuyển san
 | `GEMINI_MODEL` | `gemini-flash-latest` | Mẫu đọc thông số từ ảnh | `.env.example:22` |
 | `GEMINI_BRAIN_MODEL` | `gemini-flash-lite-latest` | Mẫu não định tuyến | `.env.example:25` |
 | `GEMINI_EDITOR_MODEL` | `gemini-flash-latest` | Mẫu não biên tập | `.env.example:27` |
-| `GEMINI_BRAIN` | — | Đặt `0` để tắt não định tuyến | `server.js:42` |
-| `GEMINI_EDITOR` | — | Đặt `0` để tắt não biên tập | `server.js:45` |
+| `GEMINI_BRAIN` | — | Đặt `0` để tắt não định tuyến | `server.js:46` |
+| `GEMINI_EDITOR` | — | Đặt `0` để tắt não biên tập | `server.js:47` |
 | `LLM2_BASE_URL` | — | Phần địa chỉ **trước** `/chat/completions` | `.env.example:32` |
 | `LLM2_API_KEY` | — | Khoá của cổng dự phòng | `.env.example:33` |
 | `LLM2_MODEL` | — | Tên mẫu của cổng dự phòng | `.env.example:34` |
 | `LLM2_TIMEOUT_MS` | 20000 | Thời gian chờ mỗi lượt dự phòng | `.env.example:36` |
 | `LLM_CHINH` | — | Đặt `llm2` để khoá dự phòng làm mô hình chính | `.env.example:39` |
 
-Biến được nối ở tệp khởi động: não định tuyến (`server.js:41`), não biên tập (`server.js:44`), khoá dự phòng (`server.js:36`).
+Biến được nối ở tệp khởi động: não định tuyến (`server.js:46`), não biên tập (`server.js:47`), khoá dự phòng (`server.js:44`).
 
-Lưu ý: cấu hình của lõi mới (`core/config.js`) chưa có các khoá não AI; não AI hiện chỉ nối ở đường đang chạy. Xem [Kiến trúc](kien-truc.md).
+Lưu ý: từ 07/11/2026 (T016) não AI **đã** được nối vào lõi đang chạy. `server.js:46` và `server.js:47` tạo não rồi truyền vào engine (`server.js:76`); lõi đưa não xuống gói qua `buildCtx` (`core/engine-ctx.js:80`), và gói hải quan gọi nó ở `packs/hs/index.js:49`. Khoá Gemini đọc từ cấu hình lõi (`core/config.js:49`). Xem [Kiến trúc](kien-truc.md).
 
-## 5. Bảng "khi nào rơi về đường cũ"
+## 5. Bảng "khi nào rơi về luật từ khoá"
 
-"Đường cũ" ở đây là bộ dò từ khoá bằng quy tắc, tức `autoPick` trong bộ định tuyến. Não rơi về đó khi:
+"Đường cũ" ở đây là bộ dò từ khoá bằng quy tắc, tức `autoPick` trong bộ định tuyến — không phải đường chạy cũ đã bị xoá. Não rơi về đó khi:
 
 | Điều kiện | Nơi xử lý |
 |---|---|
@@ -136,7 +136,7 @@ Lưu ý: cấu hình của lõi mới (`core/config.js`) chưa có các khoá n�
 | Bản gốc dưới 80 ký tự → không biên tập | `packs/hs/editor.js:35` |
 | Cổng đang hỏi khách bổ sung dữ kiện → gửi nguyên văn, không biên tập | `packs/hs/packages.js:243` |
 
-Điểm mấu chốt: não **không bao giờ** làm bot chết. Mọi lỗi đều trở thành `null` để nơi gọi rơi về đường cũ (`packs/hs/brain.js:117`).
+Điểm mấu chốt: não **không bao giờ** làm bot chết. Mọi lỗi đều trở thành `null` để nơi gọi rơi về luật từ khoá (`packs/hs/brain.js:117`).
 
 ## 6. Xem thêm
 
