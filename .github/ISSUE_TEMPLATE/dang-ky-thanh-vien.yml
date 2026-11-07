@@ -1,0 +1,22 @@
+name: Đăng ký thành viên
+description: Xin tham gia phát triển cùng văn phòng
+labels: ["dang-ky"]
+body:
+  - type: input
+    id: ten
+    attributes:
+      label: Bạn là ai
+      description: Tên và bộ phận hoặc đơn vị. Không ghi số điện thoại ở đây vì repo công khai.
+    validations:
+      required: true
+  - type: textarea
+    id: lam-gi
+    attributes:
+      label: Muốn làm phần nào
+      description: Ví dụ gói nghiệp vụ, kênh mới, kiểm thử, tài liệu.
+    validations:
+      required: true
+  - type: textarea
+    id: kinh-nghiem
+    attributes:
+      label: Kinh nghiệm liên quan

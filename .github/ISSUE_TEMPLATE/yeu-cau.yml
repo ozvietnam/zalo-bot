@@ -1,0 +1,23 @@
+name: Yêu cầu tính năng
+description: Gửi yêu cầu cho văn phòng làm
+labels: ["yeu-cau"]
+body:
+  - type: textarea
+    id: can-gi
+    attributes:
+      label: Cần gì, cho ai
+      description: Viết như nói với đồng nghiệp. Ai dùng, gặp vấn đề gì, muốn được gì.
+    validations:
+      required: true
+  - type: textarea
+    id: nghiem-thu
+    attributes:
+      label: Làm xong thì kiểm bằng cách nào
+      description: Ví dụ một câu hỏi của khách và câu trả lời mong đợi.
+    validations:
+      required: true
+  - type: textarea
+    id: them
+    attributes:
+      label: Thông tin thêm
+      description: Không dán khoá, mật khẩu, số điện thoại hay tin nhắn thật của khách. Repo này công khai.
