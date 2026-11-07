@@ -71,13 +71,14 @@ Hệ quả thực tế: các luật của lõi **bắt đầu có tác dụng v�
 và lịch sử hội thoại bền (`core/store/schema.js:38`).
 Phần còn thiếu của hiến pháp (nhường phòng cho người, phiếu/cảnh báo tới nhóm nhân viên) xem [An toàn](an-toan.md).
 
-## 3. Spec 007, 008, 009
+## 3. Spec 007, 008, 009, 010
 
 | Spec | Trạng thái | Bằng chứng |
 |---|---|---|
 | 007 — Agent giám sát | Spec còn Draft nhưng **code đã có gần xong** | `specs/007-giam-sat-nang-cap/spec.md:7`; đo 9 tín hiệu ở `scripts/giam-sat/tinh-hieu.js:37`, mở issue đúng repo ở `scripts/giam-sat/issue.js:51`, báo Telegram ở `scripts/giam-sat/telegram.js:10`, chạy lệnh ở `scripts/giam-sat.mjs:2` |
 | 008 — Cổng AI Studio | **Chỉ có spec** | `specs/008-cong-ai-studio/spec.md:7` (Draft); chưa có mã nguồn trong repo này, dự kiến tách repo riêng |
 | 009 — Agent tra cứu hải quan | **Chỉ có spec** | `specs/009-agent-tra-cuu/spec.md:7` (Draft); não hiện tại ở `packs/hs/brain.js` chỉ chọn một gói, chưa phải vòng lặp gọi nhiều công cụ |
+| 010 — Giao việc cho thợ ngoài (Antigravity, Muse Code) | **Chỉ có spec, ghi là nghiên cứu** | `specs/010-giao-viec-antigravity/spec.md:7` (Nghiên cứu — chưa code); chưa có mã nguồn: không có tệp *scripts/mcp-tho.mjs*, không có *.agents/hooks.json*, `.gitignore` chưa có `.agy-logs/` và `.worktrees/`; thẻ còn 5 câu NEEDS CLARIFICATION chờ chủ repo chốt |
 
 ## 4. Việc nên làm tiếp theo
 
@@ -141,6 +142,11 @@ hiến pháp lên **2.0.0** (`.specify/memory/constitution.md:77`), có mục l�
 
 - Không có vướng về tiền hay pháp lý trong việc ghi wiki này.
 - PR sửa hiến pháp Điều II và đổi thứ tự 003/002 đã soạn xong, chờ chủ repo duyệt.
+- Thẻ 010 (giao việc cho thợ ngoài) có **5 câu chờ chủ repo chốt**, trong đó 3 câu về tiền và dữ liệu:
+  chọn nhà cung cấp và mức gói nào trước; xác thực bằng gói thuê bao đã mua hay bằng API key trả theo token;
+  và có bật `useG1Credits` khi hết hạn mức hay dừng. Riêng Muse Code có hai cờ **bắt buộc phải tắt tường minh**
+  (chế độ góp dữ liệu huấn luyện, và biến API key ghi đè đăng nhập gói thuê bao).
+  Xem `specs/010-giao-viec-antigravity/spec.md` mục Assumptions.
 - Ngoài hai quyết định trên, `docs/TIEP-TUC.md:59-64` còn liệt kê các việc đang chờ chủ repo chốt:
   số profile Chrome cho spec 008, cách vào máy văn phòng và VPS, danh sách nhóm Zalo nhân viên
   cùng `STAFF_CHAT_ID`/`STAFF_USERS` (cần trước T024), và cách đọc log Cổng OZ cho spec 007.
