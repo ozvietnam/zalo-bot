@@ -357,9 +357,74 @@ test('chỉ core/gate.js gọi sendText', async () => {
 
 **Interfaces — Produces:** `engine.recover() -> Promise<number>` (số tin `pending` đã xử lý)
 
-- [ ] **Step 1: Test đỏ**: db có 2 dòng `pending` (khác phòng) + 1 `done` → `recover()` trả 2, kênh nhận đúng 2 câu trả lời; chạy `recover()` lần nữa → 0 và kênh không nhận thêm.
+- [x] **Step 1: Test đỏ**: db có 2 dòng `pending` (khác phòng) + 1 `done` → `recover()` trả 2, kênh nhận đúng 2 câu trả lời; chạy `recover()` lần nữa → 0 và kênh không nhận thêm.
   Thêm `test/core/stress.test.mjs` cho SC-001: 1.000 update giả (100 phòng, 10 % gửi lại cùng `message_id`), ép "khởi động lại" 3 lần (đóng engine, mở lại cùng tệp db, `recover()`) → mỗi `updateKey` có đúng một bộ tin ra; không `updateKey` nào thiếu tin ra.
-- [ ] **Step 2:** FAIL · **Step 3:** lúc khởi động gọi **`gate.recover()` trước** (đưa outbox `queued` → `failed` để bộ quét gửi tiếp phần còn thiếu; review B2 N-1), rồi `engine.recover()` đọc `inbox.pending()` theo `received_at`, đẩy qua `queue`. Test thêm: outbox có 1 dòng `queued` `parts_sent=1` → sau khởi động + sweep, kênh nhận đúng các phần còn thiếu. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): recover pending inbox on boot"`
+- [x] **Step 2:** FAIL · **Step 3:** lúc khởi động gọi **`gate.recover()` trước** (đưa outbox `queued` → `failed` để bộ quét gửi tiếp phần còn thiếu; review B2 N-1), rồi `engine.recover()` đọc `inbox.pending()` theo `received_at`, đẩy qua `queue`. Test thêm: outbox có 1 dòng `queued` `parts_sent=1` → sau khởi động + sweep, kênh nhận đúng các phần còn thiếu. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): recover pending inbox on boot"`
+
+> **Đã làm (ghi nhận 2026-11-07).** `engine.recover()` ở `core/engine.js:185` (trả `Promise<number>`), thêm
+> `inbox.requeueProcessing()` ở `core/store/queue.js:29`, nối ở `server.js:83` + `server.js:86` (`gate.recover()`
+> trước, rồi `engine.recover()`). Test: `test/core/recover.test.mjs` (17 test) + `test/core/stress.test.mjs` (SC-001).
+>
+> **Mốc giờ của lượt phát lại — quyết định về HÀNH VI, không chỉ là chi tiết kỹ thuật.**
+> Lượt phát lại mang mốc khách nhắn **thật** (`inbox.received_at`) qua `process(u, { replayedAt })`
+> (`core/engine.js:68`), không đóng dấu `now()`. Bản đầu đóng dấu `now()` và đó là lỗi chặn merge: cửa
+> coi mọi tin phát lại là "trả lời trực tiếp" (`core/gate-decide.js:27-31`) nên **bỏ qua giờ yên** —
+> khách nhắn 22:50 VN, bot lên lại 01:00 VN thì nhắn khách lúc 1 giờ sáng (vi phạm "Ràng buộc kỹ thuật"
+> của hiến pháp, FR-005, và Điều II đúng dạng sự cố #4 ở `research.md:13`). Khe này mở ra khi thời gian
+> khởi động lại vượt `directReplyMs` = 10 phút: crash-loop có backoff, VPS sập đêm, deploy kẹt.
+>
+> Giữ mốc thật thì sinh ra căng thẳng ngược: tin cũ thành "tin chủ động" và bị
+> `reject proactive-no-debt`, khách **không nhận được trả lời** — ngược SC-001 ("số tin mất = 0"), mà
+> đường reject đó cũng không mở phiếu (`signal()` ở `core/gate.js:66` chỉ báo với `leak:`/`money:`/`cap:`).
+> **Chốt:** tin khách **chưa ai trả lời** là một **món nợ với khách**, khác hẳn ca FR-015 (khách im mà
+> máy tự nhắn — sự cố #5). Nên `reply()` khai `debt: true` cho lượt phát lại (`core/engine.js:57`) và cửa
+> nhận cờ đó vào `hasOpenJob` (`core/gate.js:123`), dùng đúng vốn từ `ctx.debt` đã có khi quét
+> (`core/gate.js:167`). Kết quả: ban ngày trả lời ngay; trong giờ yên **hoãn tới 07:00** rồi giao —
+> không nhắn đêm, cũng không mất tin. Khoá bằng 4 test ở `test/core/recover.test.mjs:241` và chốt
+> "không tin CŨ nào bay trong giờ yên" ở `test/core/stress.test.mjs:183`.
+>
+> Điều IV (bản ghi đúng sự thật): lượt phát lại ghi `messages.at` = lúc khách nhắn thật
+> (`core/engine.js:126`), `convs/chats.last_inbound_at` cũng vậy; dòng audit giữ `at` = lúc **ghi sổ**
+> (đúng sự thật) và mang thêm `receivedAt` + `replayed` để tra lại được (`core/engine.js:120`). Thứ tự
+> `messages` còn là đầu vào luật "chào kết" (`core/engine.js:128`), nên ghi sai mốc là sai cả luật đó.
+>
+> **Ba điểm lệch so với chữ đặc tả, đều có lý do:**
+> 1. `data-model.md:18` ghi "`processing` quá 5 phút coi như `pending`". Code **không chờ 5 phút**: lúc khởi
+>    động mọi dòng `processing` đều mồ côi (hiến pháp cho một tiến trình, một tệp db), nên trả về `pending`
+>    ngay. Chờ 5 phút sẽ **mất tin** khi container khởi động lại trong vòng 5 phút → phá SC-001.
+>    Nếu có hai tiến trình chồng nhau thì idempotency của cửa (`r:<conv>:<turn>:<i>`) vẫn chặn tin trùng.
+> 2. `recover()` còn nhặt cả dòng `processing`, không chỉ `inbox.pending()` như Step 3 ghi — vì dòng
+>    `processing` mới là dòng chết **giữa lượt**, đúng ca mà T020 sinh ra để chữa.
+> 3. Thêm luật: dòng `raw` không dựng lại được Update (JSON hỏng, kênh không hiểu, thiếu `chatId`,
+>    `updateKey` lệch khoá đã lưu) → `markFailed`. Không có luật này thì `recover()` nhặt lại dòng hỏng
+>    **mãi mãi** ở mọi lần khởi động. `updateKey` lệch đáng ngại nhất: `process()` sẽ ghi một dòng inbox
+>    **khác** và dòng cũ treo lại — đã khoá bằng test dùng `channels/zalo-bot.js` thật, cả ca có và không có
+>    `message_id` (`updateKey = sha1(raw)`).
+>
+> Cùng PR: `eval/run.mjs:85` cho bước `restart` gọi `gate.recover()` + `engine.recover()` như `server.js`,
+> trước đó bước này chỉ mở lại db nên eval không còn giống đường thật.
+>
+> **Bộ chặn tốc độ không áp cho lượt phát lại (`core/engine.js:105`) — lỗ do chính bản vá này mở ra.**
+> `limited()` (`core/engine.js:38-45`) là cửa sổ 60 giây theo `now()` trong bộ nhớ. Đường thường không bao
+> giờ gộp nhiều giờ lưu lượng vào một cửa sổ đó, nhưng `recover()` chạy **cả tồn đọng ở cùng một mốc
+> `now()`**: từ tin thứ `rateLimitPerMin`+1 (mặc định 11) của **cùng một người** trở đi, mọi lượt bị coi là
+> "gửi quá nhanh". Hậu quả đã tái hiện với 14 tin rải trên 2 giờ (ca VPS sập đêm): 10 lượt được trả lời,
+> lượt 11 nhận câu "Bạn gửi hơi nhanh…", lượt 12–14 bị cửa `drop similar:1.00` vì trùng chính câu đó, mà
+> **cả 14 dòng inbox vẫn `markDone`** → 4 câu hỏi thật mất vĩnh viễn. Phá SC-001 và FR-016, tức đúng phần
+> cốt lõi của T020. Thêm một hệ quả về Điều VIII: câu "gửi hơi nhanh" sinh ra lúc phát lại cũng mang
+> `debt: true`, nên trong giờ yên nó được **hoãn tới 07:00 rồi giao** — khách nhận một câu vô nghĩa sáng
+> hôm sau thay cho câu trả lời.
+> **Chốt:** lượt phát lại **không đo và cũng không ghi vào** cửa sổ 60 giây. Không ghi là có chủ ý: nếu ghi
+> thì tin **mới** vào ngay sau `recover()` sẽ bị chặn oan. Bộ chặn giữ nguyên tác dụng trên đường thường —
+> khoá bằng chốt chặn ngược ở `test/core/recover.test.mjs:339` (khách spam thật 11 tin trong một phút sau
+> khi recover xong → vẫn nhận đúng một câu nhắc).
+>
+> **`recover()` chỉ đếm lượt CHẠY ĐƯỢC (`core/engine.js:206`).** Trước đó `n++` nằm **trước** `try`, nên
+> trả cả dòng mà `runTask` ném lỗi và không xử lý được — lệch chữ interface của T020
+> (dòng 358: "số tin `pending` **đã xử lý**"), khai khống theo Điều VIII, và che mất ca "nhặt lại mãi mà
+> không lượt nào xong". Test `test/core/recover.test.mjs:136` nay chốt 1 chứ không phải 2.
+>
+> **Kiểm đã chạy:** `npm test` 350/350 xanh · `npm run eval` 7/7 · `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.
 
 ### T021 [US3] `core/jobs.js`: việc nền bền
 

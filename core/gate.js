@@ -117,6 +117,10 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
       return { id: null, decision: pre.decision, reason: pre.reason, status: STATUS[pre.decision] };
     }
     const f = facts({ chatId: msg.chatId, convId, isGroup }, nowIso, { idemExists: store.outbox.hasIdem(msg.idemKey) });
+    // Món nợ do người gọi khai: lượt phát lại lúc khởi động là tin khách CHƯA AI trả lời, nên phòng đang
+    // được nợ một câu — khác hẳn ca FR-015 (khách im mà máy tự nhắn). Cùng vốn từ với ctx.debt khi quét
+    // (dòng f.hasOpenJob ở sweepRow), nên tin hoãn tới sáng vẫn còn nợ và vẫn được giao.
+    f.hasOpenJob = msg.debt === true || f.hasOpenJob;
     const d = decide(m, f, R);
     const dup = () => {
       auditGate(m, { decision: 'drop', reason: 'duplicate-idem' }, nowIso);

@@ -15,6 +15,7 @@ import { createEngine } from './core/engine.js';
 import { createHealthPayload } from './core/health.js';
 import { createWebhookHandler } from './core/webhook.js';
 import { createQueue } from './core/queue.js';
+import { redact } from './core/redact.js';
 import { availablePackages } from './packs/hs/packages.js';
 import { createVision } from './packs/hs/vision.js';
 import { createBrain } from './packs/hs/brain.js';
@@ -75,12 +76,16 @@ const registry = createRegistry(await loadPacks(join(import.meta.dirname, 'packs
 const goi = registry.available(null, { isStaff: true });
 if (!goi.length) console.error('[bot] KHÔNG nạp được gói nào — kiểm tra thư mục packs/');
 console.log(`[bot] đã nạp ${goi.length} gói: ${goi.map((p) => p.id).join(', ')}`);
-const engine = createEngine({ config: { ...config, botNames }, store, channel, mcp, vision, brain, editor, registry, gate, now, log: console, missLog });
-gate.recover();   // hồi dòng outbox còn 'queued' (tiến trình cũ chết giữa chừng) — Điều VII
-// HTTP: /health + webhook
-// store + now: handler ghi inbox (pending) TRƯỚC khi trả 200, lỗi db thì 503 để Zalo gửi lại (T018, Điều VII).
 // queue: một lượt mỗi người (khoá = convId) — không để hai tin của cùng người chạy chồng (T019).
 const queue = createQueue();
+const engine = createEngine({ config: { ...config, botNames }, store, channel, mcp, vision, brain, editor, registry, gate, now, log: console, missLog, runTask: (key, fn) => queue.run(key, fn) });
+// Khôi phục khi khởi động (T020, Điều VII). Thứ tự BẮT BUỘC (contracts/send-gate.md:52):
+gate.recover();   // 1. outbox còn 'queued' → 'failed' để bộ quét gửi tiếp CÁC PHẦN CÒN THIẾU
+// 2. inbox còn 'pending'/'processing' → chạy lại lượt (webhook đã ack 200, Zalo không gửi lại nữa).
+// KHÔNG chặn server.listen: đợi xử lý hết mới mở cổng thì /health và webhook chết đói, Zalo gửi lại vô ích.
+engine.recover().catch((e) => console.error('[bot] recover lỗi:', redact(e?.message)));
+// HTTP: /health + webhook
+// store + now: handler ghi inbox (pending) TRƯỚC khi trả 200, lỗi db thì 503 để Zalo gửi lại (T018, Điều VII).
 const server = http.createServer(createWebhookHandler({
   config, channel, engine, store, now,
   runTask: (key, fn) => queue.run(key, fn),

@@ -8,6 +8,8 @@ export function inboxTable(db) {
   const done = db.prepare("UPDATE inbox SET status = 'done', done_at = ? WHERE update_key = ?");
   const failed = db.prepare("UPDATE inbox SET status = 'failed', done_at = ?, error = ? WHERE update_key = ?");
   const claim = db.prepare("UPDATE inbox SET status = 'processing', claimed_at = ? WHERE update_key = ? AND status = 'pending'");
+  const processing = db.prepare("SELECT * FROM inbox WHERE status = 'processing' ORDER BY received_at, rowid");
+  const unclaim = db.prepare("UPDATE inbox SET status = 'pending', claimed_at = NULL WHERE update_key = ? AND status = 'processing'");
   return {
     insertIgnore(r) {
       try {
@@ -20,8 +22,11 @@ export function inboxTable(db) {
     },
     get: (key) => byKey.get(key) ?? null,
     pending: () => pending.all(),
-    /** pending → processing nguyên tử; chỉ người gọi nhận true mới được chạy gói. (T020: processing quá 5 phút coi như pending.) */
+    /** pending → processing nguyên tử; chỉ người gọi nhận true mới được chạy gói. */
     claim: (key, at) => Number(claim.run(at, key).changes) === 1,
+    /** T020, chỉ gọi LÚC KHỞI ĐỘNG: mọi dòng 'processing' là mồ côi (một tiến trình, một tệp db — hiến pháp
+     *  "Ràng buộc kỹ thuật"), nên trả hết về 'pending' để engine.recover() nhặt. Trả số dòng đã trả về. */
+    requeueProcessing: () => processing.all().filter((r) => Number(unclaim.run(r.update_key).changes) === 1).length,
     markDone: (key, at) => { done.run(at, key); },
     markFailed: (key, err, at) => { failed.run(at, String(err ?? ''), key); },
   };
