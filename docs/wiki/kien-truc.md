@@ -1,6 +1,6 @@
 # Kiến trúc
 
-> Cập nhật: 2026-11-07 · commit: 64a728a
+> Cập nhật: 2026-11-07 · commit: 1316cfe
 
 Repo có **hai lớp chồng nhau**: lõi mới trong `core/` và đường cũ trong `lib/` vẫn đang chạy. Trang này nói rõ hai đường, chỗ nào đang dùng.
 
@@ -21,8 +21,8 @@ Repo có **hai lớp chồng nhau**: lõi mới trong `core/` và đường cũ 
 ## Các lớp
 
 1. **Kênh** (`channels/zalo-bot.js`) — biết Zalo, không biết nghiệp vụ. Có hai lớp: `createChannel` theo contract lõi (`channels/zalo-bot.js:13`) và `createZaloClient` là đường cũ (`channels/zalo-bot.js:69`).
-2. **Lõi** (`core/`) — không biết gói làm gì. `createEngine` xử lý một lượt khách (`core/engine.js:26`); `createGate` là cửa gửi (`core/gate.js:15`); hàm quyết định thuần nằm riêng ở `core/gate-decide.js:68`; `openStore` mở SQLite (`core/store.js:9`); `createRegistry` nạp và chọn gói (`core/registry.js:34`).
-3. **Gói** (`packs/`) — biết nghiệp vụ, không gửi tin. Gói khai báo ở `packs/hs/index.js:96`, trả về `replies` / `jobs` theo hợp đồng `core/types.js:52` (kèm `handoff`, `labels`, `interests`), không tự gọi kênh.
+2. **Lõi** (`core/`) — không biết gói làm gì. `createEngine` xử lý một lượt khách (`core/engine.js:25`); `createGate` là cửa gửi (`core/gate.js:15`); hàm quyết định thuần nằm riêng ở `core/gate-decide.js:69`; `openStore` mở SQLite (`core/store.js:9`); `createRegistry` nạp và chọn gói (`core/registry.js:34`).
+3. **Gói** (`packs/`) — biết nghiệp vụ, không gửi tin. Gói khai báo ở `packs/hs/index.js:96`, trả về `replies` / `jobs` theo hợp đồng `core/types.js:53` (kèm `handoff`, `labels`, `interests`), không tự gọi kênh.
 4. **Cổng OZ (MCP)** (`lib/mcp.js`) — client JSON-RPC 2.0 qua Streamable HTTP; `callTool` ở `lib/mcp.js:105`.
 5. **Não AI** (`packs/hs/brain.js`, `packs/hs/editor.js`, `packs/hs/llm2.js`) — hiểu câu hỏi, biên tập kết quả, có khoá dự phòng.
 
@@ -53,10 +53,10 @@ update ─► core/engine.js ─► registry.pick ─► pack.handle
              └────── jobs/outbox ◄── sweep ◄───┘
 ```
 
-- `core/engine.js` xử lý một lượt: ghi `inbox` rồi claim nguyên tử (`core/engine.js:65-68`), chọn gói (`core/engine.js:110`), chạy gói (`core/engine.js:114`), rồi gửi từng câu qua cửa (`core/engine.js:118`, lời gọi cửa ở `core/engine.js:50`).
-- Chỉ một tệp được gọi `channel.sendText`: `core/gate.js:64`.
+- `core/engine.js` xử lý một lượt: ghi `inbox` rồi claim nguyên tử (`core/engine.js:65-68`), chọn gói (`core/engine.js:112`), chạy gói (`core/engine.js:116`), rồi gửi từng câu qua cửa (`core/engine.js:120`, lời gọi cửa ở `core/engine.js:49`).
+- Chỉ một tệp được gọi `channel.sendText`: `core/gate.js:79`.
 - Việc nền chạy ở `core/engine-jobs.js:24`; kết quả quay lại cửa ở `core/engine-jobs.js:55`.
-- Tin hoãn hoặc gửi lỗi được quét lại ở `core/gate.js:147`; tin dở dang lúc khởi động lại được bàn giao ở `core/gate.js:169`.
+- Tin hoãn hoặc gửi lỗi được quét lại ở `core/gate.js:169`; tin dở dang lúc khởi động lại được bàn giao ở `core/gate.js:191`.
 - Ai đang dùng đường B: **chỉ test, eval và script giám sát** — `server.js` không import `core/engine.js`, `core/store.js` hay `core/gate.js`.
 
 ### Kết luận

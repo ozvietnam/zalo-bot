@@ -1,8 +1,8 @@
 # Tiến độ
 
-> Cập nhật: 2026-11-07 · commit: 64a728a
+> Cập nhật: 2026-11-07 · commit: 1316cfe
 
-Trang này ghi **trạng thái thật**, đối chiếu với **code** ở commit `64a728a`, không tin tài liệu.
+Trang này ghi **trạng thái thật**, đối chiếu với **code** ở commit `1316cfe`, không tin tài liệu.
 Nguyên tắc: mỗi việc T0xx ghi rõ **xong / dở / chưa làm**, kèm bằng chứng `tệp:dòng`.
 Chỗ nào chưa kiểm được thì ghi "chưa xác minh".
 
@@ -18,48 +18,49 @@ danh sách việc `specs/001-nen-tang-chung/tasks.md:563`.
 | T003 | `core/time.js` (giờ VN) | Xong | `core/time.js`, `test/core/time.test.mjs` |
 | T004 | `core/redact.js` (che bí mật) | Xong | `core/redact.js`, `test/core/redact.test.mjs` |
 | T005 | `core/config.js` (cấu hình) | Xong | `core/config.js:34`, `test/core/config.test.mjs` |
-| T006 | `core/store.js` (SQLite) | Xong | `core/store.js:9`, `core/store/schema.js:5-48` (10 bảng) |
+| T006 | `core/store.js` (SQLite) | Xong | `core/store.js:9`, `core/store/schema.js:10-44` (11 bảng) |
 | T007 | `core/text.js` (chuẩn hoá tiếng Việt) | Xong | `core/text.js`, `test/core/text.test.mjs` |
 | T008 | `gate.decide()` (hàm thuần) | Xong | `core/gate-decide.js:6`, `test/core/gate-decide.test.mjs` |
-| T009 | `gate.send()` (chia phần, idempotent) | Xong | `core/gate.js:91`, `core/gate.js:56`, `test/core/gate-send.test.mjs` |
-| T010 | `gate.sweep()` (tin hoãn, thử lại) | Xong | `core/gate.js:147`, `core/gate.js:129` |
+| T009 | `gate.send()` (chia phần, idempotent) | Xong | `core/gate.js:106`, `core/gate.js:74`, `test/core/gate-send.test.mjs` |
+| T010 | `gate.sweep()` (tin hoãn, thử lại) | Xong | `core/gate.js:169`, `core/gate.js:149` |
 | T011 | `core/types.js` (kiểu dùng chung) | Xong | `core/types.js` |
 | T012 | `channels/zalo-bot.js` (adapter kênh) | Xong | `channels/zalo-bot.js:13`, `test/core/channel.test.mjs` |
 | T013 | `core/registry.js` (chọn gói) | Xong | `core/registry.js:9`, `core/registry.js:34`, `test/core/registry.test.mjs` |
 | T014 | Chuyển 7 gói hải quan sang `packs/hs/` | Xong | `packs/hs/packages.js:142`, `packs/hs/index.js:96`, `docs/sdd/001-ledger.md:30` (36 lượt đối chiếu khớp) |
-| T015 | `core/engine.js` (một lượt) | Xong | `core/engine.js:26`, `core/engine.js:58`, `docs/sdd/001-ledger.md:37` |
+| T015 | `core/engine.js` (một lượt) | Xong | `core/engine.js:25`, `core/engine.js:58`, `docs/sdd/001-ledger.md:37` |
 | T016 | Nối `server.js`, xoá `lib/`, khoá một cửa gửi | **Chưa** | `server.js:7` vẫn nối `lib/bot.js`; `lib/bot.js:112` tự gọi `zalo.sendText` |
 | T017 | Gói mẫu `packs/echo/` | Chưa | thư mục `packs/` chỉ có `hs/` |
 | T018 | Webhook ghi `inbox` trước khi trả 200 | Chưa | `server.js:71` trả 200 rồi xử lý tại chỗ, không ghi bảng `inbox` |
 | T019 | *core/queue.js* (hàng đợi theo phòng) | Chưa | không có tệp *core/queue.js*; `core/store/queue.js` là tầng lưu trữ, không phải hàng đợi |
-| T020 | Khôi phục khi khởi động | Dở | có `core/gate.js:169` (`recover`) nhưng `core/engine.js` không có `recover`; thiếu tệp *test/core/recover.test.mjs* |
+| T020 | Khôi phục khi khởi động | Dở | có `core/gate.js:191` (`recover`) nhưng `core/engine.js` không có `recover`; thiếu tệp *test/core/recover.test.mjs* |
 | T021 | *core/jobs.js* (việc nền bền) | Chưa | không có tệp *core/jobs.js*; bộ hỏi việc nền nằm trong `core/engine-jobs.js` |
 | T022 | *core/handoff.js* (trạng thái phòng) | Chưa | không có tệp *core/handoff.js* |
 | T023 | *core/intents.js* (gặp người / người hay máy) | Chưa | không có tệp *core/intents.js* |
-| T024 | Phiếu vào nhóm nhân viên + gộp tin | Chưa | bảng `tickets` đã có sẵn ở `core/store/schema.js:25`, nhưng phần phiếu chưa làm |
+| T024 | Phiếu vào nhóm nhân viên + gộp tin | Chưa | bảng `tickets` đã có sẵn ở `core/store/schema.js:32`, nhưng phần phiếu chưa làm |
 | T025 | Lệnh nhân viên | Chưa | không có tệp *core/handoff.js* |
-| T026 | Cắm handoff vào engine | Chưa | `core/engine.js` không có nhánh handoff (luồng ở `core/engine.js:109-128` chỉ có chọn gói rồi trả lời) |
+| T026 | Cắm handoff vào engine | Chưa | `core/engine.js` không có nhánh handoff (luồng ở `core/engine.js:111-128` chỉ có chọn gói rồi trả lời) |
 | T027 | `/health` và `/metrics` | Dở | `core/health.js:3` chỉ trả `{ok, mode, startedAt, version}`; chưa có `/metrics` |
 | T028 | Bản tin gộp 08:00 và 17:00 | Chưa | không có tệp *core/ops.js* |
 | T029 | Lệnh npm run audit | Chưa | `package.json:15` khai lệnh trỏ tới tệp *scripts/audit.mjs* **không tồn tại** |
 | T030 | `eval/run.mjs` + 9 kịch bản | Dở | `eval/run.mjs:1` đã có; thư mục `eval/fixtures/` mới có 7 kịch bản, thiếu `human-room`, `is-bot`, `ho-so-khach` |
 | T031 | CI | Xong | `.github/workflows/ci.yml:17` chạy `npm test`, `.github/workflows/ci.yml:18` chạy `npm run eval`, `.github/workflows/ci.yml:27` chạy cổng kiểm wiki |
 | T032 | README + kiểm tay quickstart | Dở | `README.md:33` còn dạy "thêm gói mới: thêm một mục vào `PACKAGES` trong `lib/packages.js`" — đường cũ |
-| T033 | Ghi mọi tin vào `messages` | Xong (lõi) | `core/engine.js:102` ghi tin khách, `core/gate.js:82` ghi tin bot khi đã gửi |
-| T034 | *core/customers.js* (hồ sơ + nhãn) | Chưa | không có tệp *core/customers.js*; bảng `customers` đã có ở `core/store/schema.js:34` |
+| T033 | Ghi mọi tin vào `messages` | Xong (lõi) | `core/engine.js:104` ghi tin khách, `core/gate.js:97` ghi tin bot khi đã gửi |
+| T034 | *core/customers.js* (hồ sơ + nhãn) | Chưa | không có tệp *core/customers.js*; bảng `customers` đã có ở `core/store/schema.js:41` |
 | T035 | Cắm hồ sơ khách vào engine | Chưa | `core/engine.js` không gọi hồ sơ khách |
 | T036 | Lệnh hồ sơ + *core/backup.js* (sao lưu) | Chưa | không có tệp *core/backup.js* |
-| T037 | Khoá theo `conv_id` trong nhóm | Dở | trên `main` không có tệp *core/conv.js*; `docs/sdd/001-ledger.md:40` ghi T037 mới được giao, nhánh `wip/t037-conv` (commit `85bd51a`) còn dở, test chưa qua |
+| T037 | Khoá theo `conv_id` trong nhóm | Xong | `core/conv.js:1` (convIdOf), `core/gate.js:22` (effectiveState), `test/core/conv.test.mjs:1` (test conv đủ trường hợp) |
 | T038 | Gắn tên trong nhóm, hàng đợi theo người | Chưa | không có tệp *test/core/group-tag.test.mjs* |
 
 ## 2. Kết luận trạng thái spec 001
 
 Lõi `core/` đã xong phần nền: T001–T015, tức là có engine một lượt, cửa gửi, lưu bền SQLite,
 chọn gói, adapter kênh và 7 gói hải quan. Có bằng chứng ghi trong sổ làm việc `docs/sdd/001-ledger.md:10-37`.
+Ngoài ra T037 đã xong: khoá chuyển sang `conv_id` (mỗi người một cuộc trò chuyện trong nhóm), xem `core/conv.js:10`.
 
 **Việc chuyển giao T016 chưa làm.** `server.js:7` vẫn nối `lib/bot.js`, và `lib/bot.js:112`
 gọi thẳng `zalo.sendText` — tức bot đang chạy **không đi qua cửa gửi** của lõi.
-Trong lõi mới, chỉ một chỗ gọi kênh: `core/gate.js:64`.
+Trong lõi mới, chỉ một chỗ gọi kênh: `core/gate.js:79`.
 
 Hệ quả thực tế: nhiều tính năng của lõi (giờ yên, trần tin theo ngày, chống trùng nội dung,
 audit, lịch sử hội thoại) hiện **chưa có tác dụng với khách thật**, vì đường đang chạy là đường cũ.
@@ -80,7 +81,7 @@ T001–T015 → **T037–T038** → T016–T026 → T033–T036 → T027–T032.
 
 Bám theo trạng thái code hiện tại:
 
-1. **T037–T038** (đang dở) — hoàn tất khoá theo người trong nhóm.
+1. **T038** (chưa làm) — gắn đúng tên trong nhóm, tách người trùng tên, hàng đợi theo người. T037 (khoá theo `conv_id`) đã xong.
 2. **T016** — nối `server.js` vào lõi `core/`, xoá `lib/`, khoá "một cửa gửi". Đây là bước bật lại an toàn cho khách.
 3. **T018–T021** — webhook ghi `inbox` trước, hàng đợi theo phòng, khôi phục khi khởi động, việc nền bền.
 4. **T022–T026** — người cầm phòng (handoff) và lệnh nhân viên.
@@ -94,9 +95,9 @@ Sau khi 001 đạt Success Criteria, thứ tự giữa các spec khác là `docs
 
 Ghi cả hai phía. Không tự chọn bên nào đúng.
 
-1. **Danh sách việc chưa tick ô nào, dù code đã xong T001–T015.**
-   - Tài liệu nói: mọi bước trong `specs/001-nen-tang-chung/tasks.md` vẫn là `- [ ]` (chưa đánh dấu).
-   - Code thật nói: `docs/sdd/001-ledger.md:10-37` ghi T001–T015 hoàn tất, và `core/` có đủ các tệp tương ứng.
+1. **Danh sách việc gần như chưa tick ô nào, dù code đã xong T001–T015 và T037.**
+   - Tài liệu nói: gần như mọi bước trong `specs/001-nen-tang-chung/tasks.md` vẫn là `- [ ]` (chưa đánh dấu).
+   - Code thật nói: `docs/sdd/001-ledger.md:10-37` ghi T001–T015 hoàn tất, và `core/` có đủ các tệp tương ứng. Riêng T037 đã tick ô Step 1 (`specs/001-nen-tang-chung/tasks.md:293`) sau khi khoá `conv_id` xong.
 2. **Hiến pháp Điều II chưa phản ánh quyết định ngày 06/11.**
    - Tài liệu nói: `.specify/memory/constitution.md:17` — phòng "chỉ trở về `bot` khi nhân viên ra lệnh rõ ràng"; `.specify/memory/constitution.md:77` ghi "Last Amended: 2026-11-04".
    - Nghịch thêm: `specs/001-nen-tang-chung/tasks.md:380` (T022) yêu cầu "không có hàm nào tự đưa `human → bot` theo thời gian" — trái với quyết định mới.

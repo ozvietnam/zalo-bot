@@ -1,6 +1,6 @@
 # Thuật ngữ
 
-> Cập nhật: 2026-11-07 · commit: 64a728a
+> Cập nhật: 2026-11-07 · commit: 1316cfe
 
 Trang này giải nghĩa các từ tiếng Anh và từ viết tắt dùng trong mã nguồn, trong
 tài liệu và trong wiki này. Mục cuối là các từ do chính repo đặt ra, không phải
@@ -23,8 +23,13 @@ webhook thì không chạy polling, vì xoá webhook làm bot thật ngừng nh�
 (`channels/zalo-bot.js:49`).
 
 **Chat / phòng chat** — nơi khách và bot nói chuyện. Mỗi chat có một `chat_id`
-dùng làm khoá. Trạng thái phòng là `bot` (máy trả lời) hoặc `human` (nhân viên
-đã cầm phòng, bot phải im) (`core/store/schema.js:11`).
+dùng làm khoá. Trạng thái cấp phòng là `bot` (máy trả lời) hoặc `human` (nhân viên
+đã cầm phòng, bot phải im) (`core/store/schema.js:15`).
+
+**Conv / cuộc trò chuyện** — khoá theo **người**: chat 1-1 thì `conv_id = chat_id`,
+trong nhóm thì `conv_id = chat_id:user_id` (`core/conv.js:10`). Trạng thái
+`bot`/`human`/`blocked` theo từng người nằm ở bảng `convs`
+(`core/store/schema.js:17`).
 
 **Text styles** (định dạng chữ) — cách làm chữ đậm, nghiêng, màu trong tin Zalo.
 Repo không dùng markdown mà dùng thẻ riêng `{b}…{/b}` rồi đổi thành mảng
@@ -87,7 +92,7 @@ một bản ghi audit (`.specify/memory/constitution.md:27`).
 **Send gate** (cửa gửi) — nơi duy nhất được phép quyết định gửi, bỏ, hoãn hoặc
 từ chối một tin. Hợp đồng ở `specs/001-nen-tang-chung/contracts/send-gate.md`.
 Trong lõi mới, `core/gate.js` là tệp duy nhất gọi `channel.sendText`
-(`core/gate.js:64`).
+(`core/gate.js:79`).
 
 **Decision** (quyết định) — kết quả của cửa: `send`, `drop`, `defer` hoặc
 `reject` (`core/gate.js:13`).
@@ -106,11 +111,11 @@ dữ liệu (`core/store.js:9`).
 
 **Inbox** (hộp thư đến) — bảng lưu tin khách vừa nhận, trạng thái
 `pending` → `processing` → `done`, dùng để chống chạy trùng
-(`core/store/schema.js:7`).
+(`core/store/schema.js:11`).
 
 **Outbox** (hộp thư ra) — bảng lưu tin chờ gửi cùng quyết định của cửa, trạng
 thái gửi và số phần đã gửi. `idem_key` là khoá duy nhất chống gửi trùng
-(`core/store/schema.js:15`).
+(`core/store/schema.js:22`).
 
 **Idempotency** (tính chống trùng) — gọi lại cùng một việc thì kết quả không
 đổi và không gửi trùng tin. Ở đây là khoá `idem_key` trong outbox; cùng một
@@ -118,20 +123,20 @@ khoá, cửa trả `drop` với lý do `duplicate-idem`
 (`specs/001-nen-tang-chung/contracts/send-gate.md`).
 
 **Job** (việc nền) — việc chạy lâu, kết quả về sau qua tin `job_result`. Lưu bền
-trong bảng `jobs` (`core/store/schema.js:20`).
+trong bảng `jobs` (`core/store/schema.js:27`).
 
 **Handoff** (bàn giao) — chuyển phòng chat từ máy sang người nhân viên, hoặc
 ngược lại. *Chưa có mã nguồn trong repo*, mới chỉ có trong đặc tả.
 
 **Ticket** (phiếu) — phiếu giao việc cho nhân viên trong nhóm nhân viên, ví dụ
-"khách cần người gọi". Bảng `tickets` đã có sẵn (`core/store/schema.js:25`),
+"khách cần người gọi". Bảng `tickets` đã có sẵn (`core/store/schema.js:32`),
 nhưng phần tạo phiếu từ gói chưa làm.
 
 **Audit** (bản ghi kiểm toán) — dòng ghi lại mỗi lượt: tin vào, gói đã chọn, công
-cụ đã gọi, quyết định của cửa, tin ra. Bảng `audit` (`core/store/schema.js:28`).
+cụ đã gọi, quyết định của cửa, tin ra. Bảng `audit` (`core/store/schema.js:35`).
 
 **Session** (phiên) — trạng thái nhớ của một phòng, có thời hạn sống (TTL).
-Lưu trong bảng `sessions` (`core/store/schema.js:13`).
+Lưu trong bảng `sessions` (`core/store/schema.js:20`).
 
 **Quiet hours** (giờ yên) — khung 23:00–07:00 giờ VN, tin chủ động bị hoãn tới
 sáng; trả lời trực tiếp tin khách vừa gửi vẫn đi
@@ -139,10 +144,10 @@ sáng; trả lời trực tiếp tin khách vừa gửi vẫn đi
 
 **Proactive** (chủ động) — tin bot tự gửi khi khách không vừa nhắn: kết quả việc
 nền, thông báo. Cửa phân biệt chủ động với trả lời trực tiếp
-(`core/gate-decide.js:26`).
+(`core/gate-decide.js:27`).
 
-**Cap** (trần) — giới hạn số tin gửi: 8 tin mỗi phòng mỗi ngày và 300 tin mỗi
-ngày toàn hệ thống (`core/gate-decide.js:7-8`).
+**Cap** (trần) — giới hạn số tin gửi: 8 tin mỗi người mỗi ngày, 200 tin mỗi
+ngày mỗi nhóm và 300 tin mỗi ngày toàn hệ thống (`core/gate-decide.js:7-9`).
 
 **Redact** (che bí mật) — thay token, khoá, số tài khoản bằng dấu che trước khi
 ghi log hoặc gửi tin (`core/redact.js:16`).
@@ -163,7 +168,7 @@ cần mạng và không tốn token (`eval/README.md:3`).
 ở đây là `node:sqlite` có sẵn (`test/core/smoke.test.mjs:5`).
 
 **TTL** (thời hạn sống) — số mili giây một bản ghi còn dùng được. TTL phiên mặc
-định 2 giờ (`core/config.js:59`).
+định 2 giờ (`core/config.js:60`).
 
 **UTC** — múi giờ lưu trữ. Repo lưu UTC dạng ISO 8601 và hiển thị theo giờ Việt
 Nam (`.specify/memory/constitution.md:54`).
@@ -225,7 +230,7 @@ ngày một tệp JSONL, **không lưu mã chat hay mã người dùng** (`lib/t
 *Dùng trong tài liệu và log, không phải thuật ngữ chuẩn.*
 
 - `bot` / `human` — trạng thái phòng chat: máy trả lời, hoặc nhân viên đã cầm phòng và bot phải im (`.specify/memory/constitution.md:16`).
-- `reply`, `notice`, `job_result`, `staff_relay`, `ticket`, `digest` — các loại tin mà cửa gửi phân biệt. `staff_relay`, `ticket` và `digest` không bao giờ chủ động (`core/gate-decide.js:15`).
+- `reply`, `notice`, `job_result`, `staff_relay`, `ticket`, `digest` — các loại tin mà cửa gửi phân biệt. `staff_relay`, `ticket` và `digest` không bao giờ chủ động (`core/gate-decide.js:16`).
 - `sent`, `queued`, `dropped`, `deferred`, `rejected`, `failed` — trạng thái của một dòng trong outbox (`core/gate.js:13`).
 - `pending` → `processing` → `done` — vòng đời của một lượt trong bảng `inbox`.
 - `skip` — một lượt bị bỏ qua: trùng, không thuộc danh sách người dùng, vượt giới hạn tần suất, khách chỉ nói lời cảm ơn. Lý do cụ thể nằm trong audit.

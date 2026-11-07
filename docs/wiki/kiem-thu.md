@@ -1,10 +1,10 @@
 # Kiểm thử
 
-> Cập nhật: 2026-11-07 · commit: ef2b48f
+> Cập nhật: 2026-11-07 · commit: 1316cfe
 
 Trang này nói: repo có những cổng kiểm nào, chạy lệnh gì, bộ test nằm ở đâu, và
 bộ kiểm thử còn thiếu gì. Kết quả chạy ghi trong mục "Kết quả chạy gần nhất" là của
-ngày 07/11/2026 trên commit `ef2b48f` cộng thay đổi issue #23 còn nằm ở working tree.
+ngày 07/11/2026 trên commit `1316cfe` (sau T037 — khoá theo `conv_id`).
 
 ## Ba cổng kiểm
 
@@ -27,7 +27,7 @@ Lệnh khác trong `package.json`:
 
 ## Cấu trúc bộ test
 
-Có **23 tệp test** chạy bằng `node --test` (17 tệp trong `test/core/`, 6 tệp trong
+Có **24 tệp test** chạy bằng `node --test` (18 tệp trong `test/core/`, 6 tệp trong
 `packs/hs/test/`), cộng 1 bộ test riêng trong `test/test.mjs`.
 
 ### `test/core/` — test của lõi mới
@@ -39,6 +39,7 @@ Có **23 tệp test** chạy bằng `node --test` (17 tệp trong `test/core/`, 
 | `test/core/engine.test.mjs` | Một lượt khách: audit, chống trùng, phiên, nhịp việc nền, câu báo lỗi chung, giới hạn tần suất |
 | `test/core/gate-send.test.mjs` | Cửa gửi: ghi outbox trước khi gửi, chống trùng, chia tin, hoãn giờ yên, trần, quét lại, thử lại |
 | `test/core/gate-decide.test.mjs` | Bảng quyết định thuần của cửa (`decide`), theo đúng thứ tự điều kiện |
+| `test/core/conv.test.mjs` | Khoá theo `conv_id` (T037): `convIdOf` cho chat 1-1 và nhóm (`test/core/conv.test.mjs:18`), trần ngày theo người và trần ngày của nhóm (`test/core/conv.test.mjs:138`), trạng thái theo người so với chặn cả nhóm (`test/core/conv.test.mjs:160`), phiếu và việc nền theo `conv_id` (`test/core/conv.test.mjs:261`) |
 | `test/core/channel.test.mjs` | Adapter Zalo: chuẩn hoá update, khoá webhook, gửi tin, chặn polling khi đang có webhook |
 | `test/core/registry.test.mjs` | Nạp và chọn gói theo thư mục, độ ưu tiên, điều kiện công cụ |
 | `test/core/config.test.mjs` | Nạp cấu hình từ biến môi trường, ném lỗi khi giá trị sai |
@@ -157,13 +158,13 @@ với `main` (`.specify/memory/constitution.md:67`).
 
 ## Kết quả chạy gần nhất
 
-Ngày 07/11/2026, chạy tại thư mục gốc repo trên commit `ef2b48f` cộng thay đổi
-issue #23 còn nằm ở working tree (thêm `test/core/loi-goc-khach.test.mjs`):
+Ngày 07/11/2026, chạy tại thư mục gốc repo trên commit `1316cfe` (sau T037 — khoá
+theo `conv_id`, thêm `test/core/conv.test.mjs`):
 
 ```
 npm test
-  # tests 226
-  # pass 226
+  # tests 249
+  # pass 249
   # fail 0
   # skipped 0
   # todo 0
@@ -178,17 +179,20 @@ npm run eval
   ✓ retry-webhook
   ✓ silent-customer
   eval: 7/7 kịch bản đạt
+
+node scripts/kiem-wiki.mjs --nghiem
+  wiki: ĐẠT (16 trang).
 ```
 
-Tổng phần `node --test` là 226 test đạt, 0 trượt. Phần `test/test.mjs` in thêm
-"34 test đạt". Cộng lại 260 test. Lệnh `npm run eval` đạt 7/7 kịch bản.
+Tổng phần `node --test` là 249 test đạt, 0 trượt. Phần `test/test.mjs` in thêm
+"34 test đạt". Cộng lại 283 test. Lệnh `npm run eval` đạt 7/7 kịch bản.
 
 ## Giới hạn của bộ kiểm thử
 
 Các điểm này đọc từ code, không phải suy đoán:
 
 - **Chưa có test bảo chứng "một cửa gửi" trên toàn repo.** Trong lõi mới, chỉ
-  `core/gate.js:64` gọi `channel.sendText`. Nhưng đường đang chạy ở `lib/bot.js:112`
+  `core/gate.js:79` gọi `channel.sendText`. Nhưng đường đang chạy ở `lib/bot.js:112`
   vẫn gọi thẳng `zalo.sendText`, và không có tệp test nào quét mã nguồn để khẳng
   định điều đó. Khẳng định "chỉ một nơi gửi tin" hiện chỉ đúng trong `core/`.
 - **Chưa có bộ test cho việc nền bền và hàng đợi theo phòng.** Việc nền mới có
