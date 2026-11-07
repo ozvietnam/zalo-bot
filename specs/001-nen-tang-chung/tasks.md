@@ -297,7 +297,7 @@ test('ALLOW_USERS và rate limit 10/phút giữ như cũ', …)
 
 **Files:** Modify `core/engine*.js`, `core/queue.js` (nếu đã có; chưa có thì ghi chú cho T019) · Create `test/core/group-tag.test.mjs`
 
-- [ ] **Step 1: Test đỏ**: trong nhóm, mọi reply bắt đầu `@<tên>\n`; A và C trùng tên `Nguyễn Văn A` (user_id `...7f`, `...2c`) đều từng nhắn trong nhóm → tên gắn là `@Nguyễn Văn A ·7f` và `@Nguyễn Văn A ·2c`; tên không trùng thì không có hậu tố; fixture 3 người xen kẽ 12 tin (US8 Independent Test) → mỗi người chỉ nhận câu của mình; việc nền của A không chặn B (hàng đợi khoá `convId`).
+- [x] **Step 1: Test đỏ**: trong nhóm, mọi reply bắt đầu `@<tên>\n`; A và C trùng tên `Nguyễn Văn A` (user_id `...7f`, `...2c`) đều từng nhắn trong nhóm → tên gắn là `@Nguyễn Văn A ·7f` và `@Nguyễn Văn A ·2c`; tên không trùng thì không có hậu tố; fixture 3 người xen kẽ 12 tin (US8 Independent Test) → mỗi người chỉ nhận câu của mình; việc nền của A không chặn B (hàng đợi khoá `convId`).
 - [ ] **Step 2:** FAIL · **Step 3:** danh sách tên đã thấy trong nhóm lấy từ `convs` theo `chat_id`; nếu kênh có `capabilities.replyTo` thì gửi kèm `reply_to` (chưa có tài liệu chính thức cho Zalo Bot Platform ở nhóm, mặc định `false`). · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): unambiguous name tags in group chats"`
 
 ### T016 [US4] Nối `server.js`, xoá `lib/`, khoá "một cửa gửi"
@@ -333,6 +333,8 @@ test('chỉ core/gate.js gọi sendText', async () => {
 - [ ] **Step 2:** FAIL · **Step 3:** handler: `verifyWebhook` → `parse` → `insertIgnore` → trả 200 → `queue.run(chatId, () => engine.process(update))` nếu vừa chèn mới. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(server): inbox-first webhook ack"`
 
 ### T019 [US3] [P] `core/queue.js`
+
+> Ghi chú từ T038: khoá hàng đợi phải là `convId` (theo người), KHÔNG phải `chatId` (theo phòng) — đối chiếu T038 (`tasks.md:298`) và FR-030 (`spec.md:240`).
 
 **Files:** Create `core/queue.js`, `test/core/queue.test.mjs`
 

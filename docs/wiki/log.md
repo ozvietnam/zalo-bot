@@ -1,6 +1,6 @@
 # Nhật ký wiki
 
-> Cập nhật: 2026-11-07 · commit: 1316cfe
+> Cập nhật: 2026-11-07 · commit: 6e94671
 
 Nhật ký thay đổi của bộ wiki trong docs/wiki. Mỗi dòng ghi: ngày, commit của mã nguồn
 đã đọc khi viết, và những trang bị thay đổi hoặc thêm mới.
@@ -11,6 +11,15 @@ Quy ước:
 - Ghi rõ **vì sao** đổi, không chỉ ghi "sửa lỗi".
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
+
+## 2026-11-07 — Xong T038 (issue #27): gắn đúng tên trong nhóm, tách người trùng tên
+
+- **Commit mã nguồn đã đọc:** `6e94671`. Lưu ý: code T038 còn ở working tree, **chưa có commit riêng**.
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md`, `docs/wiki/luong-tin-nhan.md`, `docs/wiki/log.md`.
+- **Ngoài wiki:** `specs/001-nen-tang-chung/tasks.md` (tick ô Step 1 của T038, thêm ghi chú cho T019).
+- **Vì sao:** T038 gắn tên người nhận ở đầu mọi tin ra trong nhóm; người trùng tên trong nhóm được phân biệt bằng hậu tố 2 ký tự cuối `userId` (FR-031, `core/mention.js:29`). Lõi tính `namePrefix` khi xử lý lượt (`core/engine.js:79`) và gắn lại tên lúc gửi kết quả việc nền (`core/engine-jobs.js:54`). Bảng `convs` thêm `listByChat` để lấy danh sách người đã từng nhắn trong nhóm (`core/store/state.js:35`). Test nằm ở `test/core/group-tag.test.mjs`.
+- **Kiểm tra:** `npm test` 254/254 đạt (cộng 34 test cũ ở `test/test.mjs`), `npm run eval` 7/7
+  kịch bản đạt, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
 
 ## 2026-11-07 — Xong T037 (issue #26): cuộc trò chuyện riêng trong nhóm, khoá `conv_id`
 

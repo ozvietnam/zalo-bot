@@ -23,6 +23,7 @@ export function convsTable(db) {
   const state = db.prepare(`INSERT INTO convs (conv_id, chat_id, state, state_by, state_reason, state_at) VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT (conv_id) DO UPDATE SET state = excluded.state, state_by = excluded.state_by,
       state_reason = excluded.state_reason, state_at = excluded.state_at`);
+  const byChat = db.prepare('SELECT conv_id, chat_id, user_id, display_name FROM convs WHERE chat_id = ? AND user_id IS NOT NULL ORDER BY conv_id');
   return {
     get: (convId) => get.get(convId) ?? null,
     /** Gặp lại người: cập nhật ai/ở đâu/lúc nào, KHÔNG đụng state. */
@@ -30,6 +31,8 @@ export function convsTable(db) {
     /** Chuyển trạng thái; conv chưa có thì tạo dòng (chat_id = phòng; không biết thì dùng conv_id).
      *  Dòng đã có thì KHÔNG đụng chat_id (đọc lại chat_id đúng sẵn có). */
     setState: (convId, chatId, st, by, reason, at) => { state.run(convId, chatId ?? convId, st, by ?? null, reason ?? null, at); },
+    /** Danh sách người đã từng nhắn trong một nhóm (để gắn tên, phân biệt tên trùng — FR-031). */
+    listByChat: (chatId) => byChat.all(chatId).map((r) => ({ userId: r.user_id, displayName: r.display_name })),
   };
 }
 

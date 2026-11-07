@@ -2,6 +2,7 @@
 // jobs.due(now) → jobs.claim (waiting → polling, nguyên tử) → callTool(result_tool, {maLuot}) → còn DANG_XU_LY thì dời 6→12→24→…→60 s; xong/hết hạn → onJobResult → cửa.
 import { redact } from './redact.js';
 import { buildCtx } from './engine-ctx.js';
+import { groupNameTag } from './mention.js';
 
 export const FIRST_POLL_MS = 6_000;
 export const MAX_POLL_MS = 60_000;
@@ -15,13 +16,13 @@ export function jobRow({ chatId, convId, sessionKey, pack, job, turn, nowMs }) {
   const iso = (ms) => new Date(ms).toISOString();
   return {
     chat_id: chatId, conv_id: convId, session_key: sessionKey, pack, ma_luot: job.maLuot, result_tool: job.resultTool,
-    context: { data: job.context ?? null, turnId: turn.turnId, isGroup: turn.isGroup, userName: turn.userName ?? null },
+    context: { data: job.context ?? null, turnId: turn.turnId, isGroup: turn.isGroup, userName: turn.userName ?? null, userId: turn.userId ?? null },
     status: 'waiting', attempts: 0, next_poll_at: iso(nowMs + FIRST_POLL_MS), expires_at: iso(nowMs + JOB_TTL_MS), created_at: iso(nowMs),
   };
 }
 
 /** Hỏi mọi việc đến hạn một lượt. Trả số việc đã xử lý (0 = không có việc). */
-export async function pollDueJobs({ store, mcp, registry, gate, now, log, tools, vision, brain = null, editor = null, ttlMs, addressOf, ghiTruot = null }) {
+export async function pollDueJobs({ store, mcp, registry, gate, now, log, tools, vision, brain = null, editor = null, ttlMs, ghiTruot = null }) {
   const nowDate = now();
   const nowIso = nowDate.toISOString();
   const rows = store.jobs.due(nowIso);
@@ -49,11 +50,15 @@ export async function pollDueJobs({ store, mcp, registry, gate, now, log, tools,
         }
       }
       const res = await pack.onJobResult(job, result, ctx);
+      // Tên gắn lúc gửi: người trùng tên trong nhóm có hậu tố 2 ký tự cuối userId (FR-031).
+      const prefix = c.isGroup === true
+        ? groupNameTag({ isGroup: true, userName: c.userName, userId: c.userId, members: store.convs.listByChat(row.chat_id) })
+        : '';
       const sent = [];
       for (const [i, r] of (res?.replies ?? []).entries()) {
         const idemKey = i === 0 ? `j:${row.conv_id}:${row.ma_luot}` : `j:${row.conv_id}:${row.ma_luot}:${i}`;
         const g = await gate.send({
-          idemKey, chatId: row.chat_id, convId: row.conv_id, isGroup: c.isGroup === true, turnId, kind: 'job_result', text: addressOf(c, r.text),
+          idemKey, chatId: row.chat_id, convId: row.conv_id, isGroup: c.isGroup === true, turnId, kind: 'job_result', text: prefix + r.text,
           pack: { id: pack.id, moneyCheck: pack.moneyCheck === true }, evidence: res.evidence ?? [],
         });
         sent.push({ idemKey, decision: g.decision, reason: g.reason, status: g.status });
