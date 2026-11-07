@@ -329,8 +329,8 @@ test('chỉ core/gate.js gọi sendText', async () => {
 
 **Files:** Modify `server.js` · Create `test/core/webhook.test.mjs`
 
-- [ ] **Step 1: Test đỏ** (HTTP thật, cổng 0): POST đúng secret → 200 và `inbox` có 1 dòng `pending`; POST lại cùng update → 200, vẫn 1 dòng; secret sai → 403; `store.inbox.insertIgnore` ném lỗi → 503; 50 POST đồng thời → p95 < 200 ms.
-- [ ] **Step 2:** FAIL · **Step 3:** handler: `verifyWebhook` → `parse` → `insertIgnore` → trả 200 → `queue.run(chatId, () => engine.process(update))` nếu vừa chèn mới. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(server): inbox-first webhook ack"`
+- [x] **Step 1: Test đỏ** (HTTP thật, cổng 0): POST đúng secret → 200 và `inbox` có 1 dòng `pending`; POST lại cùng update → 200, vẫn 1 dòng; secret sai → 403; `store.inbox.insertIgnore` ném lỗi → 503; 50 POST đồng thời → p95 < 200 ms.
+- [x] **Step 2:** FAIL · **Step 3:** handler: `verifyWebhook` → `parse` → `insertIgnore` → trả 200 → `queue.run(chatId, () => engine.process(update))` nếu vừa chèn mới. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(server): inbox-first webhook ack"`
 
 ### T019 [US3] [P] `core/queue.js`
 
@@ -340,8 +340,16 @@ test('chỉ core/gate.js gọi sendText', async () => {
 
 **Interfaces — Produces:** `createQueue() -> { run(key, fn) -> Promise, size() -> number }`
 
-- [ ] **Step 1: Test đỏ**: cùng key, `fn1` chờ 50 ms rồi ghi `1`, `fn2` ghi `2` → thứ tự `[1, 2]`; khác key chạy song song (tổng < 80 ms); `fn1` ném lỗi thì `fn2` vẫn chạy; xong hết thì `size() === 0` (không rò bộ nhớ).
-- [ ] **Step 2:** FAIL · **Step 3:** `Map<key, Promise>` nối chuỗi, xoá key khi chuỗi rỗng. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): per-chat serial queue"`
+- [x] **Step 1: Test đỏ**: cùng key, `fn1` chờ 50 ms rồi ghi `1`, `fn2` ghi `2` → thứ tự `[1, 2]`; khác key chạy song song (tổng < 80 ms); `fn1` ném lỗi thì `fn2` vẫn chạy; xong hết thì `size() === 0` (không rò bộ nhớ).
+- [x] **Step 2:** FAIL · **Step 3:** `Map<key, Promise>` nối chuỗi, xoá key khi chuỗi rỗng. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): per-chat serial queue"`
+
+> **Đã làm (ghi nhận 2026-11-07).** Tạo `core/queue.js` (`createQueue()` → `{ run, size }`) và `test/core/queue.test.mjs` (7 test); nối vào `server.js` qua `runTask: (key, fn) => queue.run(key, fn)`. Khoá là `convId` (theo người), xem ghi chú T038 ở đầu mục này — nên commit thật là `feat(core): per-conversation serial queue`, **khác** chữ `per-chat` ở Step 5.
+>
+> **Hai điểm lệch so với chữ đặc tả, đều có lý do:**
+> 1. Step 1 ghi "khác key chạy song song (tổng < 80 ms)". Test đo bằng **số lượt chạy đồng thời** (`maxDong === 2`) thay vì đo đồng hồ. Lý do: đo thật cho thấy ngưỡng 80 ms đỏ **11/12 lần** khi máy tải nặng (có lần đo 99 ms) → CI đỏ ngẫu nhiên. Cách đo mới không bao giờ đỏ vì chậm máy mà vẫn bắt được hàng đợi tuần tự toàn cục.
+> 2. Thêm test bảo vệ điều kiện dọn khoá `chuoi.get(key) === duoi`. Lý do: bỏ điều kiện này thì lượt thứ 3 cùng khoá **chạy chồng** lượt thứ 2 — phá đúng thứ T019 sinh ra; QA đã tái hiện được.
+>
+> **Kiểm đã chạy:** `npm test` 332/332 xanh · `npm run eval` 7/7 · `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.
 
 ### T020 [US3] Khôi phục khi khởi động
 
@@ -359,7 +367,15 @@ test('chỉ core/gate.js gọi sendText', async () => {
 
 **Interfaces — Consumes:** `Store.jobs`, `createGate`, `registry` · **Produces:** `createJobs({ store, mcp, registry, gate, now }) -> { add(chatId, sessionKey, pack, job), tick() -> Promise<number> }`
 
-- [ ] **Step 1: Test đỏ**
+> Khi làm (07/11) đã lệch hai chỗ so với dòng trên, ghi lý do tại đây:
+> (1) `add(turn, sessionKey, pack, job)` nhận cả `turn` thay vì `chatId`, vì T037/T038 (làm sau dòng này) chuyển
+> mọi khoá sang `conv_id` theo người và bắt tin ra trong nhóm gắn `@tên` — `chatId` một mình thì mất `convId`,
+> `isGroup`, `userName`, `userId`. Cùng lý do với ghi chú T019 ở `tasks.md:337`.
+> (2) Thêm `recover()`: `jobs.due` chỉ lấy dòng `waiting`, nên tiến trình chết lúc đang hỏi Cổng để lại dòng
+> `polling` treo vĩnh viễn → khách không bao giờ nhận kết quả đã hứa (trái Điều II, Điều VII). `recover()` chạy
+> một lần lúc khởi động, cùng khuôn `gate.recover()`.
+
+- [x] **Step 1: Test đỏ**
 ```js
 test('DANG_XU_LY 2 lần rồi XONG → khách nhận 1 tin job_result, idem j:<chat>:<maLuot>', …)
 test('khởi động lại giữa chừng (createJobs mới trên cùng db) → vẫn giao đúng 1 lần', …)
@@ -367,7 +383,7 @@ test('xong lúc 23:30 VN → outbox defer tới 07:00, gửi đúng 1 lần sau 
 test('quá 30 phút → expired, khách nhận câu "gõ: kết quả <maLuot>"', …)
 test('hỏi lại theo nhịp 6 s, 12 s, 24 s… tối đa 60 s', …)
 ```
-- [ ] **Step 2:** FAIL · **Step 3:** `tick`: `jobs.due(now)` → `mcp.callTool(result_tool, {maLuot})` → còn chạy thì dời `next_poll_at`; xong thì `pack.onJobResult` → `gate.send({kind:'job_result', idemKey:'j:…'})` → `status=done`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): durable background jobs"`
+- [x] **Step 2:** FAIL · **Step 3:** `tick`: `jobs.due(now)` → `mcp.callTool(result_tool, {maLuot})` → còn chạy thì dời `next_poll_at`; xong thì `pack.onJobResult` → `gate.send({kind:'job_result', idemKey:'j:…'})` → `status=done`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): durable background jobs"`
 
 ---
 
@@ -554,7 +570,7 @@ c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'au
 
 ### T039 [US1] Cửa sổ chống trùng tách theo loại tin
 
-**Files:** Modify `core/gate-decide.js`, `core/gate.js`, `core/store/queue.js`, `core/engine-jobs.js` · Modify `test/core/gate-decide.test.mjs`, `test/core/gate-send.test.mjs`, `test/core/store.test.mjs`, `test/core/conv.test.mjs`, `test/core/engine.test.mjs`
+**Files:** Modify `core/gate-decide.js`, `core/gate.js`, `core/store/queue.js`, `core/jobs.js` · Modify `test/core/gate-decide.test.mjs`, `test/core/gate-send.test.mjs`, `test/core/store.test.mjs`, `test/core/conv.test.mjs`, `test/core/engine.test.mjs`
 
 **Interfaces — Produces:** `DEFAULT_RULES.dupDirectMs = 60_000` và `DEFAULT_RULES.dupWindowMs = 900_000` · hàm riêng `isDirectReply(msg, nowMs, rules)` (không phải `isProactive` của bước 3a) trong `core/gate-decide.js` · `Store.outbox.recentBotMsgs(convId, sinceIso, limit) -> [{ text, at }]` (thay `recentBotTexts` → `string[]`) · `job_result` mang `inReplyToAt` = mốc tin khách của lượt (`context.receivedAt` của dòng `jobs`)
 

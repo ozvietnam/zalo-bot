@@ -53,8 +53,10 @@ chỉ có một phiếu đang mở (`core/store/schema.js:53`). Năm chỉ mục
 
 - Mỗi việc nền có `ma_luot` (mã lượt phía Cổng OZ) và `result_tool` (tên công cụ để hỏi kết quả).
 - Ràng buộc UNIQUE trên `(pack, ma_luot)` nên không ghi trùng việc (`core/store/schema.js:31`).
-- Bộ quét hỏi theo nhịp 6 giây rồi 12, 24, 48, tối đa 60 giây (`core/engine-jobs.js:7`, `core/engine-jobs.js:8`, `core/engine-jobs.js:12`);
-  việc quá 30 phút thì hết hạn (`core/engine-jobs.js:9`).
+- Bộ quét hỏi theo nhịp 6 giây rồi 12, 24, 48, tối đa 60 giây (`core/jobs.js:17`, `core/jobs.js:18`, `core/jobs.js:22`);
+  việc quá 30 phút thì hết hạn (`core/jobs.js:19`).
+- Việc đang hỏi Cổng được đánh dấu `polling`; tiến trình chết lúc đó thì lần khởi động sau đưa về `waiting`
+  để hỏi lại (`core/jobs.js:117`, gọi từ `server.js:78`).
 
 ## Nơi lưu dữ liệu
 

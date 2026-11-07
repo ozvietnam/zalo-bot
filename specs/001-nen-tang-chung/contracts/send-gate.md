@@ -17,7 +17,7 @@ send(msg) -> Promise<{ id, decision, reason, status }>
 | `chatId`, `turnId`, `kind`, `text` | bắt buộc | `kind ∈ reply | notice | job_result | staff_relay | ticket | digest` |
 | `convId` | tuỳ chọn | khoá cuộc trò chuyện: 1-1 thì `chatId`, nhóm thì `chatId:userId`. Cửa fallback `msg.convId ?? msg.chatId` (thiếu thì coi như chat 1-1) |
 | `isGroup` | tuỳ chọn | cửa tự suy `msg.isGroup === true \|\| convId !== chatId`; truyền tường minh cũng được |
-| `inReplyToAt` | với `reply`/`notice`/`job_result` | thời điểm tin khách được trả lời. `job_result` lấy từ `context.receivedAt` của dòng `jobs` (`core/engine-jobs.js:21`, `core/engine-jobs.js:64`); dòng cũ không có trường đó → `null` → coi là tin chủ động |
+| `inReplyToAt` | với `reply`/`notice`/`job_result` | thời điểm tin khách được trả lời. `job_result` lấy từ `context.receivedAt` của dòng `jobs` (`core/jobs.js`, `core/jobs.js`); dòng cũ không có trường đó → `null` → coi là tin chủ động |
 | `pack` | | để áp `moneyCheck` |
 | `evidence` | | mảng kết quả công cụ + lời khách của lượt |
 
@@ -45,7 +45,7 @@ Hợp đồng tầng lưu trữ: `store.outbox.recentBotMsgs(convId, sinceIso, l
 ### Hai khái niệm "chủ động" — đọc kỹ, dễ hiểu sai nhất
 - **Bước 3a/3b (nợ việc nền, giờ yên)**: `job_result` **luôn** là tin chủ động, không có ngoại lệ. Nó luôn chịu luật `proactive-no-debt` và luật giờ yên (hiến pháp Điều II: khách im thì máy im) — kể cả khi nó trả lời đúng câu khách vừa hỏi.
 - **Bước 7 (chống trùng)**: phân loại **riêng**, bằng hàm `isDirectReply` (`core/gate-decide.js:29`), **không** dùng định nghĩa chủ động của bước 3a. Ở đây `job_result` **có mốc tin khách** (`inReplyToAt`) còn trong 10 phút thì tính là **trả lời trực tiếp** → đi cửa sổ ngắn 60 giây; không có mốc (hoặc mốc đã cũ) thì mới là tin chủ động → cửa sổ dài 15 phút. Lý do: việc nền chỉ trả lời **trễ**, nên chờ Cổng OZ phân loại vài phút là chuyện thường.
-- `job_result` lấy mốc tin khách ở đâu: `core/engine-jobs.js` ghi `receivedAt` vào `context` của dòng `jobs`, rồi truyền sang `gate.send({ …, inReplyToAt })`. Dòng `jobs` cũ (trước thay đổi này) không có trường đó → `inReplyToAt = null` → vẫn là tin chủ động, giữ hành vi cũ.
+- `job_result` lấy mốc tin khách ở đâu: `core/jobs.js` ghi `receivedAt` vào `context` của dòng `jobs`, rồi truyền sang `gate.send({ …, inReplyToAt })`. Dòng `jobs` cũ (trước thay đổi này) không có trường đó → `inReplyToAt = null` → vẫn là tin chủ động, giữ hành vi cũ.
 
 Số thứ tự trong bảng này **lệch một bậc** so với chú thích trong code: code gộp ba luật trần ngày vào khối `// 4, 5` (`core/gate-decide.js:102`) và đánh số luật chống trùng là **6** (`core/gate-decide.js:108`), còn bảng này tách `cap:chat`/`cap:group`/`cap:all` thành 4/5/6 nên luật chống trùng là **7**. Thứ tự kiểm thực tế không đổi.
 
