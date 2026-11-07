@@ -1,6 +1,6 @@
 # Luồng tin nhắn
 
-> Cập nhật: 2026-11-07 · commit: 1316cfe
+> Cập nhật: 2026-11-07 · commit: 6e94671
 
 Một tin khách đi qua những hàm nào, từ lúc vào tới lúc gửi đi. Có **hai đường**; đường A đang chạy, đường B là lõi mới.
 
@@ -58,7 +58,7 @@ Trước khi chạy polling, bot kiểm tra xem bot thật đang có webhook kh�
 
 - Nhóm được nhận biết khi `chat_type` có chữ "group", hoặc khi `userId` khác `chatId` (`lib/bot.js:11`).
 - Trong nhóm, bot **không bắt buộc** phải được nhắc tên: nó bỏ phần nhắc tên ở đầu/cuối tin rồi vẫn trả lời (`lib/bot.js:17`). Ở đường lõi, việc bỏ nhắc tên áp dụng cho cả chú thích ảnh (`core/engine.js:91`).
-- Câu trả lời trong nhóm được ghi kèm tên người hỏi (`lib/bot.js:112`).
+- Câu trả lời trong nhóm được ghi kèm tên người hỏi (`lib/bot.js:112`). Ở đường lõi, người trùng tên trong nhóm được phân biệt bằng hậu tố 2 ký tự cuối `userId` (`core/mention.js:29`); phần này còn ở working tree, chưa có commit riêng.
 - Tin không phải chữ trong nhóm thì bỏ qua, không trả lời (`lib/bot.js:116`).
 
 ## Nhánh lỗi

@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto';
 import { redact } from './redact.js';
 import { isCloser } from './text.js';
-import { isGroup, stripMention } from './mention.js';
+import { isGroup, stripMention, groupNameTag } from './mention.js';
 import { convIdOf } from './conv.js';
 import { createToolCache, buildCtx, sessionApi } from './engine-ctx.js';
 import { pollDueJobs, jobRow } from './engine-jobs.js';
@@ -15,8 +15,8 @@ export const GENERIC_ERROR_TEXT = '⚠️ Cổng tra cứu OZ đang lỗi tạm 
 const toSet = (v) => new Set([...(v ?? [])].filter(Boolean));
 const sha1 = (s) => createHash('sha1').update(String(s ?? '')).digest('hex');
 const json = (v) => { try { return JSON.stringify(v) ?? 'null'; } catch { return '{}'; } };
-/** Trong nhóm mọi tin ra bắt đầu "@<tên>\n" như lib/bot.js. */
-const addressOf = (who, text) => (who.isGroup && who.userName ? `@${who.userName}\n${text}` : text);
+/** Trong nhóm mọi tin ra bắt đầu "@<tên>\n"; tên trùng trong nhóm có hậu tố 2 ký tự userId (FR-031). */
+const addressOf = (who, text) => (who.namePrefix ? who.namePrefix + text : text);
 
 /**
  * @param {object} o
@@ -75,7 +75,9 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
     store.convs.upsertSeen(convId, u.chatId, u.userId ?? null, u.userName ?? null, nowIso);
     if (allow.size && !allow.has(u.userId) && !allow.has(u.chatId)) return done({ skipped: 'not-allowed' });
 
-    const base = { turnId: key, chatId: u.chatId, convId, userId: u.userId ?? null, userName: u.userName ?? null, isGroup: group, receivedAt: nowIso };
+    // Tên gắn ở nhóm: người trùng tên trong nhóm có hậu tố 2 ký tự cuối userId (FR-031).
+    const namePrefix = group ? groupNameTag({ isGroup: true, userName: u.userName, userId: u.userId, members: store.convs.listByChat(u.chatId) }) : '';
+    const base = { turnId: key, chatId: u.chatId, convId, userId: u.userId ?? null, userName: u.userName ?? null, isGroup: group, receivedAt: nowIso, namePrefix };
     const isPhoto = /image|photo/i.test(u.event || '') && Boolean(u.photoUrl);
     if (!isPhoto && (u.event !== 'message.text.received' || !u.text)) {
       if (group) return done({ skipped: 'group-non-text' });
@@ -157,7 +159,7 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
 
   async function drainLoop() {
     for (let guard = 0; guard < 10_000; guard++) {
-      const n = await pollDueJobs({ store, mcp, registry, gate, now, log, tools, vision, brain, editor, ttlMs, addressOf, ghiTruot });
+      const n = await pollDueJobs({ store, mcp, registry, gate, now, log, tools, vision, brain, editor, ttlMs, ghiTruot });
       const m = await gate.sweep();
       if (n + m > 0) continue;
       const next = advance ? store.jobs.nextDue() : null;
