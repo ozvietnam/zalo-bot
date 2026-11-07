@@ -1,10 +1,10 @@
 # Kiểm thử
 
-> Cập nhật: 2026-11-07 · commit: 64a728a
+> Cập nhật: 2026-11-07 · commit: ef2b48f
 
 Trang này nói: repo có những cổng kiểm nào, chạy lệnh gì, bộ test nằm ở đâu, và
 bộ kiểm thử còn thiếu gì. Kết quả chạy ghi trong mục "Kết quả chạy gần nhất" là của
-ngày 07/11/2026 trên commit `64a728a`.
+ngày 07/11/2026 trên commit `ef2b48f` cộng thay đổi issue #23 còn nằm ở working tree.
 
 ## Ba cổng kiểm
 
@@ -27,7 +27,7 @@ Lệnh khác trong `package.json`:
 
 ## Cấu trúc bộ test
 
-Có **22 tệp test** chạy bằng `node --test` (16 tệp trong `test/core/`, 6 tệp trong
+Có **23 tệp test** chạy bằng `node --test` (17 tệp trong `test/core/`, 6 tệp trong
 `packs/hs/test/`), cộng 1 bộ test riêng trong `test/test.mjs`.
 
 ### `test/core/` — test của lõi mới
@@ -45,6 +45,7 @@ Có **22 tệp test** chạy bằng `node --test` (16 tệp trong `test/core/`, 
 | `test/core/time.test.mjs` | Giờ VN không phụ thuộc múi giờ máy, khung giờ yên |
 | `test/core/text.test.mjs` | Chuẩn hoá tiếng Việt, so trùng, đọc số tiền, tách tin |
 | `test/core/redact.test.mjs` | Che bí mật và phát hiện đường dẫn nội bộ trong tin gửi |
+| `test/core/loi-goc-khach.test.mjs` | Khách không thấy lỗi gốc khi Cổng OZ lỗi, 3 ca: nhánh chạy gói (`test/core/loi-goc-khach.test.mjs:101`), nhánh mở lại lượt `ket-qua` (`test/core/loi-goc-khach.test.mjs:112`), nhánh đọc ảnh (`test/core/loi-goc-khach.test.mjs:125`); không lộ đường dẫn nội bộ hay khoá (`test/core/loi-goc-khach.test.mjs:24`), phải có câu báo chuẩn (`test/core/loi-goc-khach.test.mjs:108`) |
 | `test/core/health.test.mjs` | Nội dung trả lời `/health` (`test/core/health.test.mjs:1`) |
 | `test/core/eval-run.test.mjs` | Bản thân bộ chạy eval: thư mục rỗng → `eval: 0/0`; kịch bản sai → thoát 1 và in tên kịch bản (`test/core/eval-run.test.mjs:12`, `test/core/eval-run.test.mjs:21`) |
 | `test/core/fakes.test.mjs` | Bản thân bộ đồ giả dùng chung |
@@ -156,12 +157,13 @@ với `main` (`.specify/memory/constitution.md:67`).
 
 ## Kết quả chạy gần nhất
 
-Ngày 07/11/2026, trên commit `64a728a`, chạy tại thư mục gốc repo:
+Ngày 07/11/2026, chạy tại thư mục gốc repo trên commit `ef2b48f` cộng thay đổi
+issue #23 còn nằm ở working tree (thêm `test/core/loi-goc-khach.test.mjs`):
 
 ```
 npm test
-  # tests 223
-  # pass 223
+  # tests 226
+  # pass 226
   # fail 0
   # skipped 0
   # todo 0
@@ -178,8 +180,8 @@ npm run eval
   eval: 7/7 kịch bản đạt
 ```
 
-Tổng phần `node --test` là 223 test đạt, 0 trượt. Phần `test/test.mjs` in thêm
-"34 test đạt". Cộng lại 257 test. Lệnh `npm run eval` đạt 7/7 kịch bản.
+Tổng phần `node --test` là 226 test đạt, 0 trượt. Phần `test/test.mjs` in thêm
+"34 test đạt". Cộng lại 260 test. Lệnh `npm run eval` đạt 7/7 kịch bản.
 
 ## Giới hạn của bộ kiểm thử
 
