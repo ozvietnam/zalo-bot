@@ -1,3 +1,5 @@
+> ⚠️ Tài liệu này đã cũ — tiến độ thật và việc làm tiếp nằm ở `docs/wiki/tien-do.md`.
+
 # Tiếp tục: trạng thái cuối phiên 04/11/2026 18:20
 
 > **CẬP NHẬT PHIÊN 05/11/2026 (buổi chiều–tối, agent ZCode)** — đọc phần này trước, phần dưới là của phiên trước.
