@@ -31,6 +31,12 @@ export function vnStamp(d) {
   return `${s.slice(0, 10)} ${s.slice(11, 19)}`;
 }
 
+/** 'HH:MM DD/MM' theo giờ VN, để HIỂN THỊ cho người đọc (phiếu, bản tin). Không dùng giờ máy. */
+export function vnGioNgay(d) {
+  const s = shifted(d).toISOString();
+  return `${s.slice(11, 16)} ${s.slice(8, 10)}/${s.slice(5, 7)}`;
+}
+
 /** Mốc `hour`:00 VN kế tiếp, nghiêm ngặt sau d, dạng ISO UTC. */
 export function nextMorning(d, hour = 7) {
   const t = new Date(d).getTime();

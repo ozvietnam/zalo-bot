@@ -46,11 +46,24 @@ export function outboxTable(db) {
   const ins = db.prepare(`INSERT INTO outbox (idem_key, conv_id, chat_id, turn_id, kind, text, decision, reason, status, not_before, parts_sent, attempts, next_retry_at, created_at, sent_at, ctx)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const has = db.prepare('SELECT 1 FROM outbox WHERE idem_key = ?');
+  // Dòng MỚI NHẤT mà cửa đã nhận gửi, tìm theo TIỀN TỐ khoá idem. Khoá idem là thứ bền duy nhất còn
+  // lại sau khi một tiến trình chết giữa lúc gửi, nên người gọi đặt khoá theo quy ước
+  // "việc:khoảng-đã-làm" thì đọc lại được "lần trước đã làm tới đâu" (T024 dùng cho mốc gộp tin).
+  // Chỉ lấy `decision = 'send'`: dòng đó cửa đã nhận trách nhiệm giao (`gate.sweep` thử lại từ
+  // `parts_sent`), còn dòng bị cửa bỏ thì KHÔNG bao giờ đi ra nên không được tính là đã làm.
+  const lastSend = db.prepare(`SELECT * FROM outbox WHERE idem_key LIKE ? ESCAPE '\\' AND decision = 'send'
+    ORDER BY id DESC LIMIT 1`);
   const recent = db.prepare(`SELECT text, sent_at FROM outbox WHERE conv_id = ? AND status = 'sent' AND kind IN ('reply','notice','job_result')
     AND sent_at >= ? ORDER BY sent_at DESC, id DESC LIMIT ?`);
-  const cntConv = db.prepare("SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND conv_id = ? AND sent_at >= ?");
-  const cntChat = db.prepare("SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND chat_id = ? AND sent_at >= ?");
-  const cntAll = db.prepare("SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND sent_at >= ?");
+  // Trần tin/ngày là ngân sách tin TỚI KHÁCH, nên không đếm tin NỘI BỘ: `ticket` đi vào nhóm nhân
+  // viên và `digest` là bản tin cho người vận hành — khách không nhận. Hai loại đó tự được miễn trần
+  // (`CAPPED` ở `core/gate-decide.js:106`) nên không tự chặn mình, nhưng nếu đếm thì mỗi phiếu và mỗi
+  // tin gộp lại ăn một suất của khách: `CAP_ALL_DAY=300` hụt dần theo số phiếu trong ngày.
+  // `staff_relay` VẪN đếm: lời nhân viên được chuyển tới chính khách, có tiêu tốn ngân sách đó.
+  const CAP_KINDS = "kind NOT IN ('ticket','digest')";
+  const cntConv = db.prepare(`SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND ${CAP_KINDS} AND conv_id = ? AND sent_at >= ?`);
+  const cntChat = db.prepare(`SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND ${CAP_KINDS} AND chat_id = ? AND sent_at >= ?`);
+  const cntAll = db.prepare(`SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND ${CAP_KINDS} AND sent_at >= ?`);
   const queued = db.prepare("SELECT * FROM outbox WHERE status = 'queued' ORDER BY id");
   const byId = db.prepare('SELECT * FROM outbox WHERE id = ?');
   const due = db.prepare(`SELECT * FROM outbox WHERE (status = 'deferred' AND not_before <= ?1)
@@ -71,6 +84,12 @@ export function outboxTable(db) {
     queued: () => queued.all().map(outOut),
     get: (id) => outOut(byId.get(id)),
     hasIdem: (key) => has.get(key) !== undefined,
+    /**
+     * Dòng MỚI NHẤT mà cửa đã nhận gửi (`decision = 'send'`) có khoá idem bắt đầu bằng `prefix`,
+     * hoặc null. Dùng khi người gọi đặt khoá theo quy ước "việc:khoảng-đã-làm": sau khi tiến trình
+     * chết giữa lúc gửi, dòng outbox là bản ghi bền duy nhất trả lời được "lần trước đã chở tới đâu".
+     */
+    lastSentByIdemPrefix: (prefix) => outOut(lastSend.get(`${String(prefix).replace(/[\\%_]/g, '\\$&')}%`) ?? null),
     /** Tin bot gần đây kèm mốc gửi, để cửa tự lọc cửa sổ chống trùng theo loại tin (gate-decide bước 6). */
     recentBotMsgs: (convId, sinceIso, limit) => recent.all(convId, sinceIso, limit).map((r) => ({ text: r.text, at: r.sent_at })),
     countSent: (convId, sinceIso) => (convId === null || convId === undefined ? cntAll.get(sinceIso) : cntConv.get(convId, sinceIso)).n,

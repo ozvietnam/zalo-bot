@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { vnHour, isQuietHours, nextMorning, vnDateKey, vnDayStartUtc, vnStamp } from '../../core/time.js';
+import { vnHour, isQuietHours, nextMorning, vnDateKey, vnDayStartUtc, vnStamp, vnGioNgay } from '../../core/time.js';
 
 test('giờ VN không phụ thuộc TZ của máy', () => {
   const saved = process.env.TZ;
@@ -23,6 +23,22 @@ test('giờ VN không phụ thuộc TZ của máy', () => {
       assert.equal(vnStamp(new Date('2026-11-07T03:00:00.000Z')), '2026-11-07 10:00:00');
       assert.equal(vnStamp(new Date('2026-11-04T16:30:00Z')), '2026-11-04 23:30:00');
       assert.equal(vnStamp(new Date('2026-11-04T17:00:00Z')), '2026-11-05 00:00:00');
+    }
+  } finally {
+    if (saved === undefined) delete process.env.TZ; else process.env.TZ = saved;
+  }
+});
+
+test('vnGioNgay: giờ hiển thị là giờ VN, không phụ thuộc TZ của máy', () => {
+  const saved = process.env.TZ;
+  try {
+    for (const tz of ['UTC', 'Asia/Tokyo', 'America/New_York']) {
+      process.env.TZ = tz;
+      assert.equal(vnGioNgay('2026-11-04T03:00:00.000Z'), '10:00 04/11');
+      assert.equal(vnGioNgay('2026-11-04T16:30:00.000Z'), '23:30 04/11');
+      assert.equal(vnGioNgay('2026-11-04T03:05:00.000Z'), '10:05 04/11');
+      // Qua nửa đêm giờ VN thì NGÀY cũng phải nhảy theo giờ VN, không theo UTC.
+      assert.equal(vnGioNgay('2026-11-04T17:30:00.000Z'), '00:30 05/11');
     }
   } finally {
     if (saved === undefined) delete process.env.TZ; else process.env.TZ = saved;

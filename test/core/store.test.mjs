@@ -153,6 +153,36 @@ test('outbox', () => {
   assert.equal(s.outbox.countSent('c', T), 3);
   assert.equal(s.outbox.countSent(null, T), 4);
   assert.equal(s.outbox.countSent(null, at(3)), 2);
+
+  // Trần tin/ngày là ngân sách tin TỚI KHÁCH: `ticket` (vào nhóm nhân viên) và `digest` (bản tin cho
+  // người vận hành) không được trừ vào đó, nếu không mỗi phiếu lại ăn một suất của khách.
+  s.outbox.insert(ob({ idem_key: 'k6', text: 'phiếu', kind: 'ticket', status: 'sent', sent_at: at(6) }));
+  s.outbox.insert(ob({ idem_key: 'k7', text: 'bản tin', kind: 'digest', status: 'sent', sent_at: at(7) }));
+  assert.equal(s.outbox.countSent('c', T), 3, 'phiếu và bản tin không tính vào trần theo phòng');
+  assert.equal(s.outbox.countSent(null, T), 4, 'cũng không tính vào trần toàn bot');
+  assert.equal(s.outbox.countSentChat('c', T), 3);
+});
+
+// Khoá idem là bản ghi BỀN duy nhất còn lại sau khi một tiến trình chết giữa lúc gửi. Người gọi đặt
+// khoá theo quy ước "việc:khoảng-đã-làm" (T024: `p:<id>:f:<mốc cũ>:t:<mốc mới>`) thì đọc lại được
+// "lần trước đã chở tới đâu" — nên hàm này phải chỉ trả dòng cửa THẬT SỰ nhận gửi.
+test('outbox.lastSentByIdemPrefix: dòng send mới nhất theo tiền tố, bỏ dòng cửa đã bỏ', () => {
+  const s = openStore();
+  assert.equal(s.outbox.lastSentByIdemPrefix('p:1:f:'), null);
+  s.outbox.insert(ob({ idem_key: 'p:1:f:A:t:B', text: 'gộp 1' }));
+  s.outbox.insert(ob({ idem_key: 'p:1:f:B:t:C', text: 'gộp 2' }));
+  s.outbox.insert(ob({ idem_key: 'p:2:f:A:t:Z', text: 'phiếu khác' }));
+  // Dòng cửa BỎ không được tính là đã làm: tin đó không bao giờ đi ra.
+  s.outbox.insert(ob({ idem_key: 'p:1:f:C:t:D', text: 'bị bỏ', decision: 'reject', status: 'rejected' }));
+  s.outbox.insert(ob({ idem_key: 'p:1:f:C:t:E', text: 'cũng bị bỏ', decision: 'drop', status: 'dropped' }));
+
+  assert.equal(s.outbox.lastSentByIdemPrefix('p:1:f:A:t:').idem_key, 'p:1:f:A:t:B');
+  assert.equal(s.outbox.lastSentByIdemPrefix('p:1:f:C:t:'), null, 'chỉ có dòng bị cửa bỏ thì coi như chưa làm');
+  assert.equal(s.outbox.lastSentByIdemPrefix('p:1:f:').idem_key, 'p:1:f:B:t:C', 'dòng mới nhất, không lẫn phiếu khác');
+  assert.equal(s.outbox.lastSentByIdemPrefix('p:2:f:').idem_key, 'p:2:f:A:t:Z');
+  // `_` và `%` của LIKE phải được escape, nếu không tiền tố nào cũng khớp mọi thứ.
+  assert.equal(s.outbox.lastSentByIdemPrefix('p:1:f%'), null);
+  assert.equal(s.outbox.lastSentByIdemPrefix('p_1:f:'), null);
 });
 
 test('outbox.due', () => {

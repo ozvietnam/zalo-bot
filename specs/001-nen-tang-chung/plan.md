@@ -80,7 +80,8 @@ core/
 ├── gate.js               # decide() thuần + send() thi hành + sweepOutbox()
 ├── queue.js              # hàng đợi theo chat_id
 ├── webhook.js            # handler HTTP /health + POST webhook — T018. Lý do: handler phải test được bằng HTTP thật cổng 0 (tasks.md:332) mà `server.js` chạy side-effect lúc import nên không import được trong test; thêm nữa `test/core/one-gate.test.mjs:141` chặn `server.js` quá 120 dòng. Cùng họ với `core/health.js`, không thêm dependency.
-├── handoff.js            # trạng thái phòng, phiếu, lệnh nhân viên
+├── handoff.js            # trạng thái phòng, lệnh nhân viên
+├── handoff-ticket.js     # phiếu vào nhóm nhân viên + gộp tin — T024. Lý do: gộp vào `handoff.js` thì tệp lên 320 dòng, quá hạn 300 của Điều VI; hai trách nhiệm cũng khác nhau (trạng thái phòng KHÔNG gửi tin, phiếu thì gửi qua cửa). Cùng lối `gate-decide.js` tách khỏi `gate.js` và `engine-ctx.js` tách khỏi `engine.js`; không thêm dependency, `createHandoff` vẫn là cửa vào duy nhất
 ├── jobs.js               # bộ hỏi kết quả việc nền
 ├── registry.js           # nạp packs/, lọc audience + requiresTools, chọn gói
 ├── engine.js             # một lượt: inbox → state → pack → gate → audit

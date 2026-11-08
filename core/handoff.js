@@ -7,6 +7,9 @@
 // block(convId, by, reason?)       → chặn một người (/chan)
 // touch(convId, by?)               → lệnh nhân viên chạm vào phòng mà không sinh tin: đếm lại khoảng lặng
 //
+// Phần PHIẾU của T024 (`open`, `forward`, `flushDue`) nằm ở `core/handoff-ticket.js` — mỗi tệp một
+// trách nhiệm, dưới 300 dòng (Điều VI). Tệp này nhận `gate` chỉ để chuyển tiếp xuống đó.
+//
 // Ba điều dễ sai, đã khoá bằng test ở `test/core/handoff-state.test.mjs`:
 //  1. Trạng thái theo người chỉ ghi vào `convs`. Cửa gửi đọc `chats` cho chat 1-1 (`core/gate.js:27`),
 //     nên 'human' nằm ở `chats` thì `/tra-bot` và tự về KHÔNG mở lại được phòng. `chats` chỉ giữ
@@ -15,31 +18,40 @@
 //     mở phiếu: sự cố #4 (`specs/001-nen-tang-chung/research.md:13`) là 22 tin bot chen ngang nhân viên
 //     vì hàng chờ tự nhận lại phòng sau 45 phút. Phiếu còn mở không chặn tự về; đóng phiếu không
 //     làm phòng về ngay.
-//  3. Tự về KHÔNG gửi tin nào — tệp này không nhận `channel` lẫn `gate`. Bot im tới tin khách kế tiếp.
+//  3. Tự về KHÔNG gửi tin nào. Phần trạng thái phòng không chạm tới `channel` lẫn `gate` (`gate` vào
+//     tệp này từ T024 nhưng chỉ để chuyển xuống phần phiếu). Bot im tới tin khách kế tiếp.
 import { redact } from './redact.js';
+import { createTickets, TICKET_FORWARD_MS } from './handoff-ticket.js';
 
 /** Khoảng lặng mặc định để phòng 'human' tự về 'bot': 2 giờ (anh Thắng chốt 06/11, research.md:71). */
 export const HUMAN_IDLE_MS = 7_200_000;
+
+export { TICKET_FORWARD_MS };
 
 const STATES = new Set(['bot', 'human', 'blocked']);
 
 /**
  * @param {object} o
  * @param {object} o.store                 `core/store.js`
- * @param {{ humanIdleMs?: number }} [o.config]
+ * @param {object} [o.gate]                cửa gửi duy nhất (`core/gate.js`) — phiếu là tin ra (Điều I)
+ * @param {{ humanIdleMs?: number, staffChatId?: string, bannedPatterns?: RegExp[] }} [o.config]
  * @param {() => Date} o.now
  */
-export function createHandoff({ store, config = {}, now, log = () => {} }) {
+export function createHandoff({ store, gate = null, config = {}, now, log = () => {} }) {
   const idleMs = config.humanIdleMs ?? HUMAN_IDLE_MS;
+  const staffChatId = config.staffChatId || '';
+  const banned = config.bannedPatterns ?? [];
 
   const nowIso = () => now().toISOString();
-  const ms = (iso) => {
-    const t = iso == null ? NaN : Date.parse(iso);
+  const ms = (s) => {
+    const t = s == null ? NaN : Date.parse(s);
     return Number.isNaN(t) ? null : t;
   };
 
   /** Phòng (chat_id) của một cuộc trò chuyện; dòng chưa có thì lấy từ người gọi, cuối cùng là chính convId. */
   const chatIdOf = (convId, row, hint) => row?.chat_id ?? hint ?? convId;
+
+  const phieu = createTickets({ store, gate, staffChatId, banned, now, chatIdOf, log });
 
   function audit(convId, chatId, from, to, by, reason) {
     store.audit.add({
@@ -108,6 +120,11 @@ export function createHandoff({ store, config = {}, now, log = () => {} }) {
 
   return {
     stateOf,
+    /** Phiếu cho nhóm nhân viên (T024) — mã ở `core/handoff-ticket.js`. */
+    open: phieu.open,
+    forward: phieu.forward,
+    flushDue: phieu.flushDue,
+    TICKET_FORWARD_MS,
     /** Người cầm phòng: khách xin gặp người, `/nhan`, `/tl`, hoặc gói yêu cầu chuyển người (FR-014). */
     toHuman: (convId, by, reason = 'handoff', o = {}) => setState(convId, 'human', by, reason, o),
     /** Nhân viên trả phòng (`/tra-bot`): mở lại cả phòng 'human' và 'blocked' (data-model.md:40). */

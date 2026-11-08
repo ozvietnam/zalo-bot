@@ -61,8 +61,14 @@ export function ticketsTable(db) {
   const ins = db.prepare("INSERT INTO tickets (conv_id, chat_id, reason, status, opened_at) VALUES (?, ?, ?, 'open', ?)");
   const list = db.prepare('SELECT * FROM tickets WHERE status = ? ORDER BY id');
   const cntOpen = db.prepare("SELECT COUNT(*) AS n FROM tickets WHERE status IN ('open','claimed')");
+  // Phiếu còn chờ người mà cửa sổ gộp đã hết (T024): `last_forward_at IS NULL` tính là đến hạn ngay
+  // (phiếu cũ trước khi có cột này), không thì so mốc.
+  const dueFwd = db.prepare(`SELECT * FROM tickets WHERE status IN ('open','claimed')
+    AND (last_forward_at IS NULL OR last_forward_at <= ?) ORDER BY id`);
   return {
     openFor: (convId) => openFor.get(convId) ?? null,
+    /** Phiếu đang chờ người có mốc gộp cuối ≤ `beforeIso` — tới lượt chuyển tin khách mới vào nhóm. */
+    dueForward: (beforeIso) => dueFwd.all(beforeIso),
     /** Mở phiếu cho một cuộc trò chuyện (conv_id = khoá phiếu); chat_id = nơi gửi (phòng/nhóm). */
     open(convId, chatId, reason, at) {
       const cur = openFor.get(convId);
