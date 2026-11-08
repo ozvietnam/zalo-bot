@@ -86,6 +86,7 @@ core/
 ├── registry.js           # nạp packs/, lọc audience + requiresTools, chọn gói
 ├── engine.js             # một lượt: inbox → state → pack → gate → audit
 ├── engine-ctx.js  engine-jobs.js   # ctx cho gói (MCP ghi audit, đệm công cụ, phiên, lịch sử) và bộ hỏi việc nền tối thiểu, tách cho engine.js < 300 dòng (T015; engine-jobs.js chuyển thành jobs.js ở T021)
+├── engine-handoff.js     # người trước máy trong một lượt (lệnh nhân viên, phòng ≠ bot thì im + phiếu, "gặp người"/"người hay máy", gói trả `handoff`) — T026. Lý do: cắm thẳng vào `engine.js` thì tệp lên quá 300 dòng (Điều VI); cùng lối `engine-ctx.js`. Tệp không tự gửi, câu cho khách đi qua `reply` của engine (tức `gate.send`)
 ├── mention.js            # stripMention + isGroup chuyển từ lib/bot.js, lõi bỏ "@Tên bot" ở text và caption (T015)
 ├── audit.js              # ghi + đọc audit
 ├── customers.js          # hồ sơ khách, nhãn theo luật, SĐT

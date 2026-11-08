@@ -659,7 +659,7 @@ test('lệnh từ người không thuộc STAFF_USERS hoặc ngoài STAFF_CHAT_I
 
 **Files:** Modify `core/engine.js` · Create `test/core/engine-handoff.test.mjs`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 test('phòng human: 10 tin khách → kênh nhận 0 tin tới khách, mcp.calls.length === 0, nhóm nhận 1 phiếu + ≤ 2 tin gộp', …)
 test('"cho em gặp nhân viên" → khách nhận REPLY_HANDOFF, phòng human, phiếu mở', …)
@@ -667,7 +667,7 @@ test('"bạn là người hay máy" → khách nhận REPLY_IS_BOT, phòng vẫn
 test('nhóm khách: /tl vào conv g1:B gửi vào nhóm với @tên của B; chỉ conv B sang human, A vẫn được bot trả lời; /chan-nhom chặn cả nhóm', …)
 test('gói trả handoff:{reason} → phòng human, phiếu mở với reason của gói', …)
 ```
-- [ ] **Step 2:** FAIL · **Step 3:** trong `process`: lệnh nhân viên → `handoff.command`; `stateOf ≠ bot` → `handoff.forward` rồi dừng; `asksIfBot` / `wantsHuman` trước `registry.pick`. · **Step 4:** `npm test` PASS · **Step 5:** `git commit -m "feat(core): human-first routing in engine"`
+- [x] **Step 2:** FAIL · **Step 3:** trong `process`: lệnh nhân viên → `handoff.command`; `stateOf ≠ bot` → `handoff.forward` rồi dừng; `asksIfBot` / `wantsHuman` trước `registry.pick`. · **Step 4:** `npm test` PASS · **Step 5:** `git commit -m "feat(core): human-first routing in engine"`
 
 ---
 

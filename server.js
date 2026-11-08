@@ -72,7 +72,7 @@ const gate = createGate({
   onTicket: (convId, reason) => handoff.open(convId, reason).catch((e) => console.error('[phieu]', `conv=…${String(convId).slice(-4)}`, e.message)),
   log: (...a) => console.error('[gate]', ...a),
 });
-// phiếu + trạng thái phòng (T022, T024). Cắm vào engine là T026; ở đây chỉ nối cửa ↔ phiếu.
+// phiếu + trạng thái phòng (T022, T024): MỘT bản dùng chung cho cửa (onTicket) và engine (T026) — cờ chống gộp trùng nằm trong bộ nhớ.
 handoff = createHandoff({ store, gate, config, now, log: (...a) => console.error('[handoff]', ...a) });
 // engine: một lượt (inbox → gói → cửa → audit); gói nạp theo đường dẫn tương đối tới TỆP MÃ NGUỒN (không phụ thuộc cwd)
 const registry = createRegistry(await loadPacks(join(import.meta.dirname, 'packs')));
@@ -80,7 +80,7 @@ const goi = registry.available(null, { isStaff: true });
 if (!goi.length) console.error('[bot] KHÔNG nạp được gói nào — kiểm tra thư mục packs/');
 console.log(`[bot] đã nạp ${goi.length} gói: ${goi.map((p) => p.id).join(', ')}`);
 const queue = createQueue();   // một lượt mỗi người (khoá = convId): hai tin của cùng người không chạy chồng (T019)
-const engine = createEngine({ config: { ...config, botNames }, store, channel, mcp, vision, brain, editor, registry, gate, now, log: console, missLog, onAlert: canhBao, runTask: (key, fn) => queue.run(key, fn) });
+const engine = createEngine({ config: { ...config, botNames }, store, channel, mcp, vision, brain, editor, registry, gate, handoff, now, log: console, missLog, onAlert: canhBao, runTask: (key, fn) => queue.run(key, fn) });
 // Khôi phục khi khởi động (T020, Điều VII), đúng thứ tự contracts/send-gate.md:52: outbox → jobs → inbox; bước inbox không chặn server.listen.
 gate.recover(); engine.jobs.recover();
 engine.recover().catch((e) => console.error('[bot] recover lỗi:', redact(e?.message)));
@@ -94,9 +94,9 @@ const server = http.createServer(createWebhookHandler({
   debug: DEBUG,
   log: console,
 }));
-// quét nền 5 giây: bản tin T028 TRƯỚC drain() (chặn bản tin cũ), việc nền + outbox, rồi đẩy tin gộp vào phiếu (T024).
+// quét nền 5 giây: bản tin T028 TRƯỚC drain() (chặn bản tin cũ); drain() = việc nền + outbox + đẩy tin gộp vào phiếu (T024, T026).
 const loi = (tag) => (e) => console.error(tag, e.message);
-setInterval(() => { ops.digest().catch(loi('[ban-tin]')); engine.drain().catch(loi('[quet]')); handoff.flushDue().catch(loi('[quet-phieu]')); }, 5000);
+setInterval(() => { ops.digest().catch(loi('[ban-tin]')); engine.drain().catch(loi('[quet]')); }, 5000);
 
 server.listen(config.port, '0.0.0.0', async () => {
   console.log(`[bot] chế độ ${config.mode}, cổng ${config.port}${config.mode === 'webhook' ? `, đường dẫn ${config.webhookPath}` : ''}`);
