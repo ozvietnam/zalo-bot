@@ -6,6 +6,7 @@
 // open(convId, reason, o)  → mở phiếu + gửi một tin vào nhóm (mã phiếu, tên khách, 5 tin gần nhất)
 // forward(convId)          → gộp tin khách mới, tối đa MỘT tin nhóm / phiếu / 5 phút
 // flushDue()               → bộ quét: phiếu hết cửa sổ gộp mà còn tin khách thì chuyển ngay
+// note(convId, o)          → lõi ghi chú vào phiếu (việc nền đã hứa mà phòng do người cầm — T026)
 //
 // Phiếu là tin RA nên đi qua đúng một cửa `core/gate.js` (Điều I); cửa không ghi `kind:'ticket'`
 // vào `messages` (dòng `if` ở `core/gate.js:97`) nên phiếu không lẫn vào lịch sử hội thoại của khách.
@@ -269,5 +270,17 @@ export function createTickets({ store, gate, staffChatId, banned, now, chatIdOf,
     }
   }
 
-  return { open, forward, flushDue };
+  /**
+   * Ghi chú của LÕI vào phiếu (T026): việc nền đã hứa với khách mà phòng đang do người cầm. Chưa có
+   * phiếu thì mở (`open` báo "phiếu mới" trước). `dong(ticket)` trả các dòng nội dung — do lõi/gói soạn,
+   * không phải lời khách, nên chỉ `redact`; `guiPhieu` vẫn che cả tin nếu còn dấu hiệu lộ.
+   * @returns {Promise<{ xong: boolean, sent: object|null, ticket: object }>}
+   */
+  async function note(convId, { loai, dong, idemKey, reason = 'viec-nen', chatId = null }) {
+    const { ticket } = await open(convId, reason, { chatId });
+    const lines = [`🎫 P${ticket.id} · ${loai}`, `Khách: ${nhanDang(convId, store.convs.get(convId))}`, ...dong(ticket).map((s) => redact(String(s)))];
+    return { ...(await guiPhieu(ticket, idemKey, lines.join('\n'), loai)), ticket };
+  }
+
+  return { open, forward, flushDue, note };
 }

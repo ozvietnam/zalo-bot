@@ -8,7 +8,7 @@
 // touch(convId, by?)               → lệnh nhân viên chạm vào phòng mà không sinh tin: đếm lại khoảng lặng
 // command(turn)                    → xử lý lệnh nhân viên (/tl, /nhan, /tra-bot, /chan, /chan-nhom, /cho) (T025)
 //
-// Phần PHIẾU của T024 (`open`, `forward`, `flushDue`) nằm ở `core/handoff-ticket.js` — mỗi tệp một
+// Phần PHIẾU của T024 (`open`, `forward`, `flushDue`, và `note` của T026) nằm ở `core/handoff-ticket.js` — mỗi tệp một
 // trách nhiệm, dưới 300 dòng (Điều VI). Tệp này nhận `gate` cho phần phiếu và lệnh nhân viên.
 //
 // Ba điều dễ sai, đã khoá bằng test ở `test/core/handoff-state.test.mjs`:
@@ -290,7 +290,7 @@ export function createHandoff({ store, gate = null, config = {}, now, log = () =
   }
 
   return {
-    stateOf, open: phieu.open, forward: phieu.forward, flushDue: phieu.flushDue, TICKET_FORWARD_MS,
+    stateOf, open: phieu.open, forward: phieu.forward, flushDue: phieu.flushDue, note: phieu.note, TICKET_FORWARD_MS,
     toHuman, toBot, block, touch, command, HUMAN_IDLE_MS: idleMs,
   };
 }
