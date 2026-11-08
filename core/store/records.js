@@ -38,10 +38,15 @@ export function messagesTable(db) {
   const recent = db.prepare('SELECT * FROM (SELECT * FROM messages WHERE conv_id = ? ORDER BY at DESC, id DESC LIMIT ?) ORDER BY at, id');
   // Mốc tin cuối của NGƯỜI (khách hoặc nhân viên), bỏ tin bot: dùng để đo khoảng lặng của phòng 'human' (T022).
   const lastPerson = db.prepare("SELECT MAX(at) AS at FROM messages WHERE conv_id = ? AND speaker <> 'bot'");
+  // Tin KHÁCH sau một mốc, để gộp vào phiếu (T024). So sánh `at > ?` nghiêm ngặt: tin đúng mốc gộp
+  // trước đã nằm trong phiếu, lấy lại là chuyển trùng.
+  const khachSince = db.prepare("SELECT * FROM messages WHERE conv_id = ? AND speaker = 'khach' AND at > ? ORDER BY at, id LIMIT ?");
   const del = db.prepare('DELETE FROM messages WHERE chat_id = ?');
   return {
     add: (m) => Number(ins.run(m.conv_id ?? m.chat_id, m.chat_id, m.turn_id ?? null, m.speaker, m.speaker_id ?? null, m.text ?? null, m.outbox_id ?? null, m.at).lastInsertRowid),
     recent: (convId, n) => recent.all(convId, n),
+    /** Tin khách nhắn SAU `sinceIso` (không tính đúng mốc), cũ trước mới sau — gộp tin vào phiếu. */
+    khachSince: (convId, sinceIso, limit = 50) => khachSince.all(convId, sinceIso, limit),
     /** ISO của tin cuối do người nói trong cuộc trò chuyện, hoặc null nếu chưa có. */
     lastPersonAt: (convId) => lastPerson.get(convId)?.at ?? null,
     deleteChat: (chatId) => Number(del.run(chatId).changes),

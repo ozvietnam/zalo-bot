@@ -461,10 +461,120 @@ assert.match(REPLY_IS_BOT, /trợ lý tự động của OZ/);
 
 ### T024 [US2] Phiếu vào nhóm nhân viên + gộp tin
 
-**Files:** Modify `core/handoff.js` · Create `test/core/handoff-ticket.test.mjs`
+**Files:** Modify `core/handoff.js` · Create `core/handoff-ticket.js`, `test/core/handoff-ticket.test.mjs`
 
-- [ ] **Step 1: Test đỏ**: `open` → nhóm `STAFF_CHAT_ID` nhận một tin `kind:'ticket'` có `P<id>`, tên khách, 5 tin gần nhất; phòng đã có phiếu `open` thì không mở phiếu thứ hai; khách nhắn 4 tin trong 3 phút → nhóm nhận thêm đúng 1 tin gộp lúc ≥ 5 phút; không có `STAFF_CHAT_ID` → phiếu chỉ vào db, không lỗi.
-- [ ] **Step 2:** FAIL · **Step 3:** viết; gộp bằng `tickets.last_forward_at`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(handoff): staff tickets with coalesced forwarding"`
+- [x] **Step 1: Test đỏ**: `open` → nhóm `STAFF_CHAT_ID` nhận một tin `kind:'ticket'` có `P<id>`, tên khách, 5 tin gần nhất; phòng đã có phiếu `open` thì không mở phiếu thứ hai; khách nhắn 4 tin trong 3 phút → nhóm nhận thêm đúng 1 tin gộp lúc ≥ 5 phút; không có `STAFF_CHAT_ID` → phiếu chỉ vào db, không lỗi.
+- [x] **Step 2:** FAIL · **Step 3:** viết; gộp bằng `tickets.last_forward_at`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(handoff): staff tickets with coalesced forwarding"`
+
+> Khi làm (08/11) đã lệch bảy chỗ so với dòng Interfaces của T022 (`tasks.md:396`), ghi lý do tại đây:
+> (1) `open(convId, reason, { chatId })` / `forward(convId)` nhận **`convId`**, không nhận `turn`: cửa gửi
+> gọi `onTicket(convId, reason)` (`core/gate.js:68`) chứ không đưa lượt nào, và mọi khoá đã sang
+> `conv_id` từ T037. Trong `open`, `chat_id` của phiếu **đọc từ `convs`** (`core/handoff-ticket.js:118`): trong
+> nhóm `convId` là `g1:B` còn nơi gửi tin là `g1`, lấy nhầm thì phiếu ghi `chat_id = convId` và T025 trả
+> lời vào một phòng không tồn tại. Hai test nhóm khoá chỗ này (gọi thẳng và qua `cap:chat` của cửa).
+> (2) `createHandoff` **nhận `gate`** từ việc này (ghi chú (3) của T022 đã hẹn trước): phiếu là tin ra nên
+> phải qua cửa duy nhất (Điều I). `server.js` dựng `handoff` sau `gate` và callback đọc biến lúc chạy.
+> (3) Thêm `flushDue()` + bộ quét 5 giây trong `server.js`: **tin cuối** trong cửa sổ gộp không có lượt
+> khách nào sau nó để đẩy đi, nên thiếu bộ quét thì tin đó không bao giờ tới nhóm nhân viên.
+> (4) Thêm `Store.messages.khachSince(convId, sinceIso, limit)` và `Store.tickets.dueForward(beforeIso)`:
+> gộp tin cần "tin khách sau mốc gộp cuối" và "phiếu đã hết cửa sổ". `khachSince` dùng `at > ?` nghiêm
+> ngặt — tin đúng bằng mốc đã nằm trong phiếu trước, lấy lại là gửi trùng.
+> (5) Thêm `vnStamp` vào `core/time.js`: phiếu hiển thị giờ VN cho người đọc, và phải không phụ thuộc
+> TZ của máy (test chạy qua `UTC`, `Asia/Tokyo`, `America/New_York`). (Bản đầu thêm cả `vnClock` nhưng
+> không chỗ nào trong mã gọi — mã chết, trái Điều VI; người soát bắt, đã bỏ.)
+> (6) `open` **không đổi** trạng thái phòng. Cửa mở phiếu cả khi `cap:chat` (hoãn vì trần tin/ngày) — lúc
+> đó bot vẫn được trả lời khách, chuyển sang `human` ở đây sẽ làm bot im sai. Chuyển phòng là việc của
+> T026 (ý "gặp người") và T025 (`/nhan`, `/tl`).
+> (7) Tệp mới `core/handoff-ticket.js` (ghi cả vào `plan.md:84`): gộp vào `core/handoff.js` thì tệp lên
+> 320 dòng, quá hạn 300 của Điều VI (nay 272 dòng sau vòng soát 4). Hai trách nhiệm cũng khác nhau — trạng thái phòng KHÔNG gửi tin
+> (ghi chú (3) của T022), phiếu thì gửi qua cửa. `createHandoff` vẫn là cửa vào duy nhất, chuyển tiếp
+> `open`/`forward`/`flushDue` ra ngoài nên người gọi không thấy thay đổi gì.
+> Che lời khách: `redact` + `findLeak` chạy **từng dòng** (`core/handoff-ticket.js:55`). Để cửa dò trên cả phiếu
+> thì một dòng bẩn làm mất cả cái phiếu — Điều IX chặn được nhưng nhân viên không biết khách đang chờ
+> (trái Điều II). Mọi khoảng trắng trong lời khách gộp về một dấu cách để khách không gõ được dòng
+> "Lý do: …" giả vào phiếu.
+>
+> Người soát (08/11) trả về hai lỗi chặn thuộc **Điều VII** ("mọi bước gửi đều idempotent"), đã sửa kèm
+> test đỏ cho từng lỗi, không sửa test cũ để cho qua:
+> (a) **Thiếu cờ chống chạy chồng.** `server.js:99` gọi `flushDue()` trong `setInterval` 5 giây mà không
+> nối await, còn `channel.sendText` chờ tới 40 giây (`channels/zalo-bot.js:73`). Mốc gộp chỉ dời sau khi
+> cửa trả về, nên nhịp sau đọc lại **mốc cũ** và gộp lại đúng những tin đó: nhóm nhân viên nhận hai tin
+> giống hệt. Khoá idem của tin gộp có mốc giờ nên mỗi lần một khoá, và `kind:'ticket'` thuộc
+> NEVER_PROACTIVE nên lưới Jaccard của cửa cũng bị bỏ qua — không có lưới nào đỡ. Thêm hai cờ:
+> `core/handoff-ticket.js:174` theo từng phiếu và `core/handoff-ticket.js:251` cho cả lượt quét, cùng
+> cách với `gate.sweep` (`core/gate.js:178`) và `engine.drain` (`core/engine.js:153`). Hai cờ này chỉ
+> bao ca chồng nhịp TRONG một tiến trình; ca tiến trình chết giữa lúc gửi là lỗ khác, thấy ở (c) dưới.
+> (b) **Dời mốc gộp vô điều kiện** kể cả khi `guiPhieu` bắt lỗi: phần tin khách trong cửa sổ đó **mất
+> hẳn** (`khachSince` lấy `at > mốc`), không ai thấy, không cảnh báo. Nay `guiPhieu` trả `{ xong, sent }`
+> và `forward` chỉ dời mốc khi `xong` (`core/handoff-ticket.js:239`) — phân biệt với ca "chưa cấu hình
+> nhóm" (cũng `sent === null` nhưng là đường hợp lệ, vẫn phải dời mốc, không thì bộ quét đọc lại cùng tin
+> mỗi 5 giây). Mỗi cờ và nhánh đã được kiểm bằng cách tắt riêng từng cái: tắt cái nào thì đúng test của
+> cái đó đỏ.
+>
+> Vòng soát 2 (08/11) trả về **cùng cơ chế mất tin, đường vào khác**: một tin gộp chỉ chở 20 tin
+> (`FORWARD_MAX`) nhưng mốc vẫn dời tới GIỜ HIỆN TẠI, nên tin thứ 21 trở đi bị `khachSince` (`at > mốc`)
+> loại vĩnh viễn — khách nhắn 30 tin sau khi bot nghỉ 3 giờ thì 10 tin không bao giờ tới nhóm, không
+> cảnh báo. Nhánh này trước đó **không có test nào khoá**, dù gộp tin là phần cốt lõi của FR-012. Nay
+> việc chọn tin và mốc mới tính cùng một chỗ (`cat` ở `core/handoff-ticket.js:155`): chưa tràn thì mốc là
+> giờ hiện tại (giữ nhịp một tin nhóm / phiếu / 5 phút), tràn thì mốc chỉ dời tới **tin cuối được chở**,
+> phiếu đến hạn ngay và nhịp quét sau chở tiếp phần dư.
+> Thêm một ca mà bản vá một dòng chưa bao: `at` **không duy nhất** — khách bấm gửi liên tiếp thì nhiều
+> tin trùng milli giây, nếu tin thứ 20 trùng mốc với tin bị cắt thì dời mốc tới đó loại luôn những tin
+> cùng mốc. Vì vậy bỏ cả nhóm trùng mốc với tin đầu tiên bị cắt sang lần sau. Riêng ca hơn 20 tin trong
+> CÙNG một milli giây thì không mốc nào tách được: chở 20 tin và **ghi log** để người vận hành thấy
+> (`core/handoff-ticket.js:163`), không bỏ tin trong im lặng; cách chữa gốc là mốc theo `messages.id`,
+> ghi ở `.van-phong/ghi-chu.md`. Engine xử lượt theo hàng chờ từng phòng nên ca này thực tế không xảy ra.
+> Kèm theo, hai khẳng định sai trong lời bình đã sửa: phần dư quá 20 tin **không** phải "flushDue sẽ
+> chuyển sau" một cách vô điều kiện (trước khi vá thì bị bỏ hẳn), và tiêu đề tin gộp nay ghi "còn nữa,
+> gửi tiếp sau" cho đúng việc thật sự xảy ra. Ba nhánh mới cũng kiểm bằng cách đột biến riêng từng cái.
+>
+> Vòng soát 3 (08/11) trả về **một lỗi chặn Điều VII mà hai vòng trước bỏ sót**, cộng hai điểm ghi điểm
+> đã sửa luôn:
+> (c) **Tin gộp không idempotent qua KHỞI ĐỘNG LẠI.** Khoá idem lấy mốc MỚI (`nowIso()`) nên mỗi lần một
+> khoá, còn mốc gộp chỉ dời ở bước cuối sau khi `channel.sendText` chờ tới 40 giây. Tiến trình chết trong
+> khe đó thì nhịp quét của tiến trình mới đọc lại mốc cũ, gộp đúng những tin đó, và `kind:'ticket'` thuộc
+> NEVER_PROACTIVE (`core/gate-decide.js:18`) nên cả lưới Jaccard cũng bỏ qua → nhóm nhận hai tin giống
+> hệt. Hai cờ `dangGui`/`dangQuet` **chỉ sống trong một tiến trình** nên không bao được ca này — đúng ca
+> Điều VII gọi tên (`.specify/memory/constitution.md:42`). Nay khoá tính từ **mốc gộp cũ** — thứ duy
+> nhất giống nhau giữa lần gửi đầu và lần chạy lại — và khoá idem bền trong `outbox.idem_key`
+> (UNIQUE, `core/store/schema.js:23`) nên sống qua khởi động lại. Vòng soát 4 cho thấy chỉ chặn gửi
+> trùng là chưa đủ: khoá nay phủ **cả khoảng tin đã chở** và lần chạy lại đọc dòng outbox cũ chứ không
+> gọi lại cửa, xem (f). Có test dựng đúng ca đó (cho `tickets.update` ném, rồi `gate.recover()` +
+> `flushDue()`); trước đó **không test nào** khoá nhánh này.
+> (d) Mốc mặc định khi `last_forward_at` NULL nay là `opened_at`, không phải chuỗi rỗng
+> (`core/handoff-ticket.js:195`): `tickets.dueForward` cố tình coi NULL là đến hạn ngay
+> (`core/store/state.js:66`), nên phiếu dựng tay (T025) sẽ quét cả lịch sử khách và gộp lại cả tin từ
+> trước lúc mở phiếu.
+> (e) Bộ đếm trần tin/ngày nay **không đếm tin nội bộ** `ticket` và `digest` (`core/store/queue.js:58`),
+> cho cùng phạm vi với `CAPPED` của cửa (`core/gate-decide.js:106`): phiếu đi vào nhóm nhân viên, khách
+> không nhận, nên không được trừ vào `CAP_ALL_DAY`. `staff_relay` vẫn đếm vì lời nhân viên tới chính
+> khách. Hai test của T011/T037 dùng `kind:'ticket'` làm đồ chèn để chạm trần — fixture không thực tế,
+> đã đổi sang `notice`, không đổi một khẳng định nào.
+>
+> Vòng soát 4 (08/11) trả về **vẫn cơ chế mất tin của (b) và vòng 2, vào bằng cửa thứ ba**, cộng một
+> điểm ghi điểm:
+> (f) **`guiPhieu` coi `drop`/`reject` của cửa là thành công**, nên `forward` dời mốc gộp dù không có gì
+> đi ra. Hai đường thật: cửa `reject` vì lộ/tiền, hoặc cửa `drop` vì trùng nội dung — tin đó **không bao
+> giờ** đi ra, mà mốc đã dời thì `khachSince` (`at > mốc`, `core/store/records.js:43`) loại vĩnh viễn
+> phần tin khách trong cửa sổ đó, lại thêm không log. Nặng hơn: trên đường khởi động lại ở (c), cửa bỏ
+> tin bằng `duplicate-idem` là **cố ý**, nhưng tập tin chở lại được tính lại lúc gửi, nên mọi tin khách
+> đến giữa lúc chết và lúc quét lại cũng mất — TIN A tới nhóm trước khi chết, TIN B nhắn sau 30 giây thì
+> soTin=2, mốc dời tới giờ hiện tại, TIN B không bao giờ tới nhóm.
+> Lời bình ở (b) khẳng định "chỉ dời mốc khi cửa nhận tin", nhưng mã chỉ phân biệt "cửa **ném**" với
+> "còn lại" — **khẳng định quá so với mã**. Nay vá hai lớp: `guiPhieu` chỉ trả `xong` khi
+> `decision === 'send'` (hoặc `duplicate-idem`, là đường hợp lệ nghĩa là đúng tin này đã đi ra lần
+> trước) và **ghi log** khi cửa bỏ phiếu (`core/handoff-ticket.js:104`); còn khoá idem của tin gộp nay
+> phủ **đúng khoảng tin đã chở**: `p:<id>:f:<mốc cũ>:t:<mốc mới>`. Vì khoá chứa cả mốc mới, `forward`
+> đọc dòng outbox của tiến trình trước bằng tiền tố (`core/handoff-ticket.js:219`) và dời mốc tới **đúng
+> chỗ lần đó đã chở**, không tới giờ hiện tại, cũng không gửi lại; nhịp quét sau chở phần tin mới. Nếu
+> chỉ kiểm `decision === 'send'` mà giữ khoá cũ thì mốc không bao giờ dời được và `dueForward` trả phiếu
+> đó mãi — nên phải làm cả hai.
+> (g) Để làm được (f) cần một hàm đọc mới `outbox.lastSentByIdemPrefix` (`core/store/queue.js:87`): dòng
+> `decision = 'send'` mới nhất theo tiền tố khoá idem (`_`/`%` của LIKE được escape; dòng cửa đã bỏ
+> không tính là đã làm). Có test tại chỗ định nghĩa (`test/core/store.test.mjs:169`) và ba test ca thật:
+> khách nhắn tiếp sau khi chết (TIN B phải tới nhóm, TIN A không gửi hai lần), cửa trả `reject`, cửa trả
+> `drop` — mỗi ca kiểm mốc **không** dời, có log, tin khách còn nguyên cho nhịp sau. Bốn đột biến, mỗi
+> cái làm đỏ đúng test của nó.
 
 ### T025 [US2] Lệnh nhân viên
 

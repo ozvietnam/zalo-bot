@@ -122,12 +122,16 @@ function gsetup({ rules, start = START } = {}) {
     idemKey: 'k1', chatId: 'g1', convId: 'g1:A', isGroup: true, turnId: 't1', kind: 'reply',
     text: 'Dạ mã 8413.70.90', inReplyToAt: clock.now().toISOString(), ...o,
   });
-  /** Nạp tin đã gửi (kind 'ticket' để không dính chống trùng nội dung). */
+  /**
+   * Nạp tin đã gửi cho khách, để chạm trần ngày. Phải là loại CÓ tính trần (`notice`): `ticket` và
+   * `digest` là tin nội bộ nên không vào bộ đếm trần (`core/store/queue.js:46`). Mỗi tin một nội
+   * dung khác nhau để không dính lưới chống trùng nội dung của cửa.
+   */
   const seed = (n, o = {}) => {
     for (let i = 0; i < n; i++) {
       store.outbox.insert({
         idem_key: `${o.key ?? 'seed'}:${i}`, conv_id: o.conv_id ?? 'g1:X', chat_id: o.chat_id ?? 'g1',
-        kind: 'ticket', text: `phiếu ${o.key ?? 'seed'} số ${i}`, decision: 'send', reason: 'ok',
+        kind: 'notice', text: `tin ${o.key ?? 'seed'} số ${i}`, decision: 'send', reason: 'ok',
         status: 'sent', created_at: START, sent_at: START,
       });
     }
