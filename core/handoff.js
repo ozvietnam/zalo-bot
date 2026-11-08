@@ -25,6 +25,8 @@ import { redact, findLeak } from './redact.js';
 import { groupNameTag, stripMention } from './mention.js';
 import { createTickets, TICKET_FORWARD_MS } from './handoff-ticket.js';
 import { createCustomers } from './customers.js';
+import { taoTraDich } from './handoff-dich.js';
+import { createHoSoCmds } from './handoff-hoso.js';
 
 /** Khoảng lặng mặc định để phòng 'human' tự về 'bot': 2 giờ (anh Thắng chốt 06/11, research.md:71). */
 export const HUMAN_IDLE_MS = 7_200_000;
@@ -32,7 +34,12 @@ export const HUMAN_IDLE_MS = 7_200_000;
 export { TICKET_FORWARD_MS };
 
 const STATES = new Set(['bot', 'human', 'blocked']);
-const CMD_RE = /^\/(tl|nhan|tra-bot|chan-nhom|chan|cho)(?:\s+([\s\S]*))?$/i;
+// Mọi lệnh nhân viên qua MỘT cửa nhận lệnh, để luật quyền (nhóm STAFF_CHAT_ID + STAFF_USERS) chỉ có
+// một bản. Thứ tự trong nhánh lựa chọn có nghĩa: tên dài phải đứng TRƯỚC tên là tiền tố của nó
+// (`chan-nhom` trước `chan`), nếu không `/chan-nhom g1` khớp thành `chan` với phần dư "-nhom g1".
+const CMD_RE = /^\/(tl|nhan|tra-bot|chan-nhom|chan|cho|ho-so|gan|go|ghi|xoa-du-lieu)(?:\s+([\s\S]*))?$/i;
+/** Lệnh hồ sơ (T036) — phần thân nằm ở `core/handoff-hoso.js`. */
+const HOSO_CMDS = new Set(['ho-so', 'gan', 'go', 'ghi', 'xoa-du-lieu']);
 const toSet = (v) => new Set((typeof v === 'string' ? v.split(',') : [...(v ?? [])]).map((s) => String(s).trim()).filter(Boolean));
 
 /**
@@ -62,6 +69,8 @@ export function createHandoff({ store, gate = null, config = {}, now, log = () =
   // Bản hồ sơ riêng: được, vì `createCustomers` chỉ đọc/ghi `store.customers` (xem `core/engine.js:46`).
   const hoSoKhach = createCustomers({ store, config, now });
   const phieu = createTickets({ store, gate, staffChatId, banned, now, chatIdOf, log, hoSo: (c) => hoSoKhach.summary(c) });
+  // Tra đích (`P<n>` hoặc `conv_id`) dùng chung cho mọi lệnh nhân viên — một bản duy nhất (T036).
+  const { resolveTarget } = taoTraDich({ store, chatIdOf });
 
   const audit = (convId, chatId, from, to, by, reason) => store.audit.add({
     at: nowIso(), turn_id: null, conv_id: convId, chat_id: chatId, type: 'state-change',
@@ -144,32 +153,6 @@ export function createHandoff({ store, gate = null, config = {}, now, log = () =
     return at;
   }
 
-  function findTicket(id) {
-    if (typeof store.tickets.get === 'function') return store.tickets.get(id);
-    for (const st of ['open', 'claimed', 'closed']) {
-      const found = store.tickets.list(st).find((t) => t.id === id);
-      if (found) return found;
-    }
-    return null;
-  }
-
-  function resolveTarget(rawMa) {
-    const s = String(rawMa ?? '').trim();
-    if (!s) return null;
-    const m = /^#?[Pp]?(\d+)$/.exec(s);
-    if (m) {
-      const ticket = findTicket(Number(m[1]));
-      if (!ticket) return null;
-      const row = store.convs.get(ticket.conv_id);
-      return { ticket, convId: ticket.conv_id, chatId: ticket.chat_id ?? chatIdOf(ticket.conv_id, row, null), row };
-    }
-    const ticket = store.tickets.openFor(s);
-    const row = store.convs.get(s);
-    if (!ticket && !row && !store.chats.get(s)) return null;
-    const convId = ticket?.conv_id ?? s;
-    return { ticket, convId, chatId: ticket?.chat_id ?? chatIdOf(convId, row, null), row: row ?? store.convs.get(convId) };
-  }
-
   async function guiNhom(idemKey, turnId, text) {
     if (!staffChatId || !gate) return null;
     const an = findLeak(text, banned) ? '⚠️ Nội dung phản hồi lệnh bị che vì có dấu hiệu lộ thông tin nội bộ.' : text;
@@ -180,7 +163,17 @@ export function createHandoff({ store, gate = null, config = {}, now, log = () =
   const auditCmd = (turnId, convId, chatId, data, type = 'staff-cmd') =>
     store.audit.add({ at: nowIso(), turn_id: turnId, conv_id: convId, chat_id: chatId, type, data });
 
-  /** Xử lý lệnh nhân viên (/tl, /nhan, /tra-bot, /chan, /chan-nhom, /cho) trong nhóm STAFF_CHAT_ID (T025). */
+  // Lệnh hồ sơ (T036) ở tệp riêng; nhận lại đúng đường gửi, tra đích và audit của tệp này nên luật
+  // quyền và luật che chỉ có MỘT bản.
+  const hoSoCmds = createHoSoCmds({
+    store, hoSoKhach, banned, resolveTarget, guiNhom, auditCmd, nowIso,
+    audit: (r) => store.audit.add(r),
+  });
+
+  /**
+   * Xử lý lệnh nhân viên trong nhóm STAFF_CHAT_ID: `/tl`, `/nhan`, `/tra-bot`, `/chan`, `/chan-nhom`,
+   * `/cho` (T025) và `/ho-so`, `/gan`, `/go`, `/ghi`, `/xoa-du-lieu` (T036).
+   */
   async function command(turn) {
     const raw = String(turn?.text ?? '').trim();
     const m = CMD_RE.exec(raw.startsWith('/') ? raw : stripMention(raw, botNames));
@@ -199,6 +192,11 @@ export function createHandoff({ store, gate = null, config = {}, now, log = () =
       return { matched: true, handled: false, ok: false, denied: true, cmd, reason };
     }
     if (userId && userName) store.convs.upsertSeen(`${staffChatId}:${userId}`, staffChatId, userId, userName, nowIso());
+
+    // Lệnh hồ sơ (T036): xét sau khi đã kiểm quyền, trước các lệnh phòng. Không đụng trạng thái phòng
+    // và không gọi `touch` — đọc/sửa sổ hồ sơ không phải là "nhân viên đang trả lời khách", nên không
+    // được đặt lại bộ đếm khoảng lặng 2 giờ của phòng 'human' (Điều II; sự cố #4 `research.md:13`).
+    if (HOSO_CMDS.has(cmd)) return hoSoCmds.command(`/${cmd}${rest ? ` ${rest}` : ''}`, { userId, turnId });
 
     if (cmd === 'cho') {
       const nowMs = now().getTime();

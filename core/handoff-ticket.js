@@ -12,6 +12,7 @@
 // vào `messages` (dòng `if` ở `core/gate.js:97`) nên phiếu không lẫn vào lịch sử hội thoại của khách.
 import { redact, findLeak } from './redact.js';
 import { vnGioNgay } from './time.js';
+import { taoDong } from './handoff-dong.js';
 
 /** Gộp tin khách vào phiếu: tối đa MỘT tin nhóm / phiếu / 5 phút (`data-model.md:116`). */
 export const TICKET_FORWARD_MS = 300_000;
@@ -20,10 +21,6 @@ export const TICKET_FORWARD_MS = 300_000;
 const TICKET_HISTORY = 5;
 /** Số tin khách tối đa trong một tin gộp: nhiều hơn thì cắt bớt, phần đầu là phần nhân viên cần. */
 const FORWARD_MAX = 20;
-/** Cắt mỗi dòng tin cho phiếu gọn mắt; cửa vẫn tự chia tin dài nếu cần. */
-const LINE_MAX = 200;
-
-const SPEAKER = { khach: 'khách', bot: 'bot', 'nhan-vien': 'nhân viên' };
 
 /**
  * @param {object} o
@@ -43,32 +40,9 @@ export function createTickets({ store, gate, staffChatId, banned, now, chatIdOf,
     return Number.isNaN(t) ? null : t;
   };
 
-  /**
-   * Một dòng chữ NGƯỜI NGOÀI gõ được (lời khách, tên khách, dòng hồ sơ). Hai việc bắt buộc:
-   *  - gộp khoảng trắng về MỘT dấu cách: lời khách còn `\n` sẽ sinh dòng giả trong phiếu (khách gõ
-   *    "Lý do: …" và nhân viên tưởng là dòng thật của phiếu);
-   *  - `redact` rồi `findLeak` TỪNG DÒNG: `redact` chỉ xoá dạng đã biết (Bearer, token dài), không bắt
-   *    đường dẫn máy chủ hay stack; để cửa dò trên CẢ phiếu thì một dòng bẩn làm mất cả cái phiếu —
-   *    Điều IX chặn được, nhưng nhân viên không biết khách đang chờ, trái Điều II.
-   */
-  function dongSach(s, nhan = 'dòng') {
-    const raw = redact(String(s ?? '')).replace(/\s+/g, ' ').trim();
-    if (!raw) return '';
-    return findLeak(raw, banned) ? `(${nhan} bị che: có dấu hiệu lộ thông tin nội bộ)` : raw;
-  }
-
-  /** Một dòng tin cho phiếu: `- <giờ VN> <ai>: <nội dung đã che>`, cắt cho gọn mắt. */
-  function dongTin(m) {
-    const who = SPEAKER[m.speaker] ?? m.speaker;
-    const body = dongSach(m.text);
-    const cut = body.length > LINE_MAX ? `${body.slice(0, LINE_MAX)}…` : body;
-    return `- ${vnGioNgay(m.at)} ${who}: ${cut || '(tin rỗng)'}`;
-  }
-
-  /** Tên khách để nhân viên nhận ra ai đang chờ; tên do khách đặt nên cũng phải che và gộp dòng. */
-  function nhanDang(convId, row) {
-    return `${dongSach(row?.display_name, 'tên') || '(chưa có tên)'} (${convId})`;
-  }
+  // Soạn dòng (che TỪNG DÒNG, giờ VN) nằm ở `core/handoff-dong.js` từ T036: `/ho-so` dùng chung đúng
+  // luật che này, nên không được chép lại ở đây.
+  const { dongTin, nhanDang, khoiSach } = taoDong({ banned });
 
   /** Tóm tắt hồ sơ khách trong phiếu mới (T035): nhân viên thấy luôn SĐT, nhãn, món khách đang hỏi,
    *  khỏi gõ `/ho-so` rồi chờ tin thứ hai (FR-012, Điều II). Hồ sơ lỗi (db khoá) thì phiếu VẪN đi —
@@ -78,7 +52,7 @@ export function createTickets({ store, gate, staffChatId, banned, now, chatIdOf,
     let text;
     try { text = hoSo(convId); }
     catch (e) { log('không đọc được hồ sơ khách cho phiếu', convId, redact(e?.message)); return []; }
-    return String(text ?? '').split('\n').map((d) => dongSach(d)).filter(Boolean);
+    return khoiSach(text);
   }
 
   /**

@@ -49,6 +49,13 @@ export function openStore(path = ':memory:') {
      * (vẫn đọc được trong WAL). Cố thử ghi trên đường /health sẽ vượt mốc 5 s của HEALTHCHECK.
      */
     ping: () => { try { db.prepare('SELECT 1 AS x').get(); return true; } catch { return false; } },
+    /**
+     * Sao nguyên db sang một tệp khác (`core/backup.js`, FR-028). Đường dẫn đi bằng THAM SỐ BUỘC, không
+     * nối vào chuỗi SQL: `VACUUM INTO '<path>'` với dấu nháy trong tên tệp là một câu SQL khác hẳn.
+     * Đây là đường DUY NHẤT ra ngoài cho `db` thô — `core/backup.js` không cần thấy handle db.
+     * Ném nếu tệp đích đã có (SQLite không ghi đè) hoặc db hỏng; người gọi tự xử.
+     */
+    vacuumInto: (path) => { db.prepare('VACUUM INTO ?').run(String(path)); },
     close: () => db.close(),
   };
 }

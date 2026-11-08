@@ -138,9 +138,12 @@ test('server.js không gọi hàm gửi tin của kênh trực tiếp (chỉ cor
   assert.deepEqual(hits, [], `server.js gọi gửi tin trực tiếp: ${hits.join(' | ')}`);
 });
 
-test('server.js không dài quá 120 dòng', () => {
+// Trần này canh "server.js CHỈ nối dây", không canh số module được nối: mỗi lần thêm một bộ phận nền
+// thì đúng 3 dòng (import + dựng + một lời gọi trong bộ quét). T036 nối `core/backup.js` nên trần lên
+// 125. Thấy trần này bị đẩy liên tục thì phải xem có logic nào đang lọt vào server.js, chứ không nới tiếp.
+test('server.js không dài quá 125 dòng', () => {
   const n = readServer().split('\n').length;
-  assert.ok(n <= 120, `server.js đang ${n} dòng (giới hạn 120)`);
+  assert.ok(n <= 125, `server.js đang ${n} dòng (giới hạn 125)`);
 });
 
 test('server.js nạp gói theo đường dẫn tương đối tới TỆP MÃ NGUỒN (không phụ thuộc cwd)', () => {
@@ -160,6 +163,17 @@ test('server.js có bộ quét nền setInterval mỗi 5000 ms', () => {
   const src = readServer();
   assert.match(src, /setInterval\(/);
   assert.match(src, /setInterval\([\s\S]*?,\s*5000\s*\)/);
+});
+
+// T036/FR-028: sao lưu db hằng ngày phải được NỐI, không chỉ tồn tại. `core/backup.js` tự bỏ qua khi
+// chưa tới 03:00 giờ VN hoặc hôm nay đã sao, nên nó đi chung bộ quét 5 giây — không thêm đồng hồ thứ hai.
+test('server.js nối bộ sao lưu db (core/backup.js) vào bộ quét nền', () => {
+  const src = readServer();
+  assert.match(src, /from\s+['"]\.\/core\/backup\.js['"]/, 'server.js phải import core/backup.js');
+  assert.match(src, /createBackup\(\s*\{[\s\S]*?dataDir/, 'createBackup phải nhận dataDir để biết chỗ đặt bản sao');
+  const quet = /setInterval\(([\s\S]*?),\s*5000\s*\)/.exec(src)?.[1] ?? '';
+  assert.match(quet, /backup\.run\(\)/, 'bộ quét 5 giây phải gọi backup.run()');
+  assert.match(quet, /backup\.run\(\)[\s\S]{0,40}catch\(/, 'backup.run() phải có .catch — lỗi đĩa không được làm chết bộ quét');
 });
 
 // ═══ Điều IX: mã phòng/cuộc trò chuyện là dữ liệu nhận dạng khách, log chỉ được ghi 4 ký tự cuối ═══
