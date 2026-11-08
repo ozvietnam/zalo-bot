@@ -554,8 +554,11 @@ c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'au
 
 **Files:** Create `scripts/audit.mjs`, `test/core/audit-cli.test.mjs`
 
-- [ ] **Step 1: Test đỏ**: chạy `node scripts/audit.mjs --db <tmp> --turn m1` (child_process) → stdout có các dòng `inbound`, `route hs`, `gate send ok`, `outbound` theo giờ VN; `--chat c1 --limit 5` in ≤ 5 lượt.
-- [ ] **Step 2:** FAIL · **Step 3:** viết. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(ops): audit CLI"`
+- [x] **Step 1: Test đỏ**: chạy `node scripts/audit.mjs --db <tmp> --turn m1` (child_process) → stdout có các dòng `inbound`, `route hs`, `gate send ok`, `outbound` theo giờ VN; `--chat c1 --limit 5` in ≤ 5 lượt.
+- [x] **Step 2:** FAIL
+- [x] **Step 3:** viết.
+- [x] **Step 4:** PASS
+- [x] **Step 5:** `git commit -m "feat(ops): audit CLI"`
 
 ---
 
