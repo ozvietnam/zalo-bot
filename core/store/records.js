@@ -36,10 +36,14 @@ export function auditTable(db) {
 export function messagesTable(db) {
   const ins = db.prepare('INSERT INTO messages (conv_id, chat_id, turn_id, speaker, speaker_id, text, outbox_id, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
   const recent = db.prepare('SELECT * FROM (SELECT * FROM messages WHERE conv_id = ? ORDER BY at DESC, id DESC LIMIT ?) ORDER BY at, id');
+  // Mốc tin cuối của NGƯỜI (khách hoặc nhân viên), bỏ tin bot: dùng để đo khoảng lặng của phòng 'human' (T022).
+  const lastPerson = db.prepare("SELECT MAX(at) AS at FROM messages WHERE conv_id = ? AND speaker <> 'bot'");
   const del = db.prepare('DELETE FROM messages WHERE chat_id = ?');
   return {
     add: (m) => Number(ins.run(m.conv_id ?? m.chat_id, m.chat_id, m.turn_id ?? null, m.speaker, m.speaker_id ?? null, m.text ?? null, m.outbox_id ?? null, m.at).lastInsertRowid),
     recent: (convId, n) => recent.all(convId, n),
+    /** ISO của tin cuối do người nói trong cuộc trò chuyện, hoặc null nếu chưa có. */
+    lastPersonAt: (convId) => lastPerson.get(convId)?.at ?? null,
     deleteChat: (chatId) => Number(del.run(chatId).changes),
   };
 }

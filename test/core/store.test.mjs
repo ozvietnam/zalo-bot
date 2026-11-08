@@ -221,6 +221,19 @@ test('messages', () => {
   assert.equal(s.messages.recent('d', 5).length, 1);
 });
 
+test('messages.lastPersonAt: mốc tin cuối của người, bỏ tin bot (T022)', () => {
+  const s = openStore();
+  assert.equal(s.messages.lastPersonAt('c'), null);
+  s.messages.add({ chat_id: 'c', speaker: 'khach', text: 'hỏi', at: at(0) });
+  assert.equal(s.messages.lastPersonAt('c'), at(0));
+  s.messages.add({ chat_id: 'c', speaker: 'nhan-vien', speaker_id: 'nv1', text: 'dạ', at: at(2) });
+  assert.equal(s.messages.lastPersonAt('c'), at(2));
+  s.messages.add({ chat_id: 'c', speaker: 'bot', text: 'bot nói sau', at: at(5) });
+  assert.equal(s.messages.lastPersonAt('c'), at(2)); // tin bot không phá khoảng lặng
+  s.messages.add({ chat_id: 'c2', speaker: 'khach', text: 'phòng khác', at: at(9) });
+  assert.equal(s.messages.lastPersonAt('c'), at(2)); // theo conv_id, không lẫn phòng khác
+});
+
 test('customers', () => {
   const s = openStore();
   assert.equal(s.customers.get('c'), null);
