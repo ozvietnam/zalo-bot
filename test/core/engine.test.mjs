@@ -248,6 +248,24 @@ test('drain: việc nền DANG_XU_LY → hỏi lại 6 s, 12 s → xong gửi jo
   assert.ok(store.outbox.hasIdem('j:c1:L-2'));
 });
 
+test('khách hỏi lại đúng câu cũ sau 3 phút trên đường việc nền → nhận kết quả thứ hai (issue #55)', async () => {
+  const KQ = 'Dạ mã HS là 8413.70.90, thuế NK 10%, VAT 8%';
+  let n = 0;
+  const jobPack = {
+    id: 'jp', audience: 'public', priority: 9, match: () => true,
+    async handle() { return { replies: [{ text: '⏳ Đang xử lý' }], jobs: [{ maLuot: `L${++n}`, resultTool: 'kq' }] }; },
+    async onJobResult() { return { replies: [{ text: KQ }], evidence: [] }; },
+  };
+  const { channel, clock, engine } = setup({ packs: [jobPack], script: { kq: () => ({ trangThai: 'XONG' }) } });
+  await engine.process(upd('phân loại máy bơm nước', { id: 'q1' }));
+  clock.advance('6s'); await engine.drain();
+  assert.equal(channel.sent.at(-1).text, KQ);
+  clock.advance('3m');
+  await engine.process(upd('phân loại máy bơm nước', { id: 'q2' }));
+  clock.advance('6s'); await engine.drain();
+  assert.deepEqual(channel.sent.filter((s) => s.text === KQ).map((s) => s.chatId), ['c1', 'c1']);
+});
+
 const tick = () => new Promise((r) => setTimeout(r, 5));
 
 test('cùng updateKey hai lượt chạy song song → gói chạy đúng 1 lần, 1 bộ trả lời, 1 việc nền (inbox.claim)', async () => {

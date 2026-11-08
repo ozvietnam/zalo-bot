@@ -6,7 +6,7 @@ import { isCloser } from './text.js';
 import { isGroup, stripMention, groupNameTag } from './mention.js';
 import { convIdOf } from './conv.js';
 import { createToolCache, buildCtx, sessionApi } from './engine-ctx.js';
-import { pollDueJobs, jobRow } from './engine-jobs.js';
+import { createJobs } from './jobs.js';
 
 export const NON_TEXT_TEXT = 'Bot đọc tin nhắn chữ và ảnh. Gõ "menu" để xem các gói tra cứu.';
 export const RATE_LIMIT_TEXT = 'Bạn gửi hơi nhanh, đợi khoảng 1 phút rồi thử lại nhé.';
@@ -21,10 +21,11 @@ const addressOf = (who, text) => (who.namePrefix ? who.namePrefix + text : text)
 /**
  * @param {object} o
  * @param {(ms:number)=>void} [o.advance]  chỉ đồng hồ ảo (createBot cũ): drain() nhảy tới mốc việc nền kế tiếp thay vì ngủ.
+ * @param {(chatId:string, reason:string)=>void} [o.onAlert]  báo người khi việc nền hứa rồi không giao được (Điều VII).
  * @param {(key:string, fn:()=>Promise<any>)=>Promise<any>} [o.runTask]  hàng đợi tuần tự theo người (T019);
  *   mặc định chạy thẳng. Chỉ `recover()` dùng — `process()` đã được người gọi đặt trong hàng đợi.
  */
-export function createEngine({ config = {}, store, channel, mcp, vision = null, brain = null, editor = null, registry, gate, now = () => new Date(), log = console, advance, missLog = null, runTask = (key, fn) => fn() } = {}) {
+export function createEngine({ config = {}, store, channel, mcp, vision = null, brain = null, editor = null, registry, gate, now = () => new Date(), log = console, advance, missLog = null, onAlert = () => {}, runTask = (key, fn) => fn() } = {}) {
   // Sổ ghi lượt "trượt từ vựng" (gói 1 cần hỏi thêm, tiền lệ 0 kết quả, khách gõ lại) — null = tắt.
   const ghiTruot = missLog ? (loai, info) => missLog.ghi(loai, info) : null;
   const ttlMs = config.sessionTtlMs ?? 7_200_000;
@@ -34,6 +35,8 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
   const names = [...(config.botNames ?? [])];
   const tools = createToolCache({ mcp, now, log });
   const hits = new Map();
+  // Việc nền bền (T021): lõi nợ khách kết quả đã hứa, hỏi Cổng tới khi xong rồi gửi qua cùng một cửa.
+  const jobs = createJobs({ store, mcp, registry, gate, now, log, tools, vision, brain, editor, ttlMs, ghiTruot, onAlert });
 
   function limited(uid) {
     const t = now().getTime();
@@ -142,12 +145,11 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
         const g = await reply(turn, r.text, i, { pack, evidence });
         results.push({ idemKey: `r:${turn.convId}:${key}:${i}`, decision: g.decision, reason: g.reason, status: g.status });
       }
-      const t = now().getTime();
-      let jobs = 0;
+      let soViec = 0;
       for (const job of res.jobs ?? []) {
-        if (store.jobs.add(jobRow({ chatId: turn.chatId, convId: turn.convId, sessionKey, pack: pack.id, job, turn, nowMs: t })) !== null) jobs++;
+        if (jobs.add(turn, sessionKey, pack.id, job) !== null) soViec++;
       }
-      audit('outbound', turn.chatId, turn.convId, key, { pack: pack.id, results, jobs });
+      audit('outbound', turn.chatId, turn.convId, key, { pack: pack.id, results, jobs: soViec });
       log.info?.(`[engine] gói ${pack.id} chat=${String(turn.chatId).slice(-4)} tin=${results.length}`);
       return done({ handled: pack.id, pack: pack.id });
     } catch (e) {
@@ -224,7 +226,7 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
 
   async function drainLoop() {
     for (let guard = 0; guard < 10_000; guard++) {
-      const n = await pollDueJobs({ store, mcp, registry, gate, now, log, tools, vision, brain, editor, ttlMs, ghiTruot });
+      const n = await jobs.tick();
       const m = await gate.sweep();
       if (n + m > 0) continue;
       const next = advance ? store.jobs.nextDue() : null;
@@ -234,5 +236,7 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
     throw new Error('drain: quá 10000 vòng');
   }
 
-  return { process, recover, drain, tools };
+  // jobs: server.js gọi jobs.recover() một lần lúc khởi động (dòng kẹt 'polling' của tiến trình đã chết).
+  // recover(): inbox còn 'pending'/'processing' lúc khởi động (T020), gọi SAU gate.recover() và jobs.recover().
+  return { process, recover, drain, tools, jobs };
 }

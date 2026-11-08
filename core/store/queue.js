@@ -10,6 +10,8 @@ export function inboxTable(db) {
   const claim = db.prepare("UPDATE inbox SET status = 'processing', claimed_at = ? WHERE update_key = ? AND status = 'pending'");
   const processing = db.prepare("SELECT * FROM inbox WHERE status = 'processing' ORDER BY received_at, rowid");
   const unclaim = db.prepare("UPDATE inbox SET status = 'pending', claimed_at = NULL WHERE update_key = ? AND status = 'processing'");
+  const cntPending = db.prepare("SELECT COUNT(*) AS n FROM inbox WHERE status IN ('pending','processing')");
+  const cntSince = db.prepare('SELECT COUNT(*) AS n FROM inbox WHERE received_at >= ?');
   return {
     insertIgnore(r) {
       try {
@@ -22,6 +24,10 @@ export function inboxTable(db) {
     },
     get: (key) => byKey.get(key) ?? null,
     pending: () => pending.all(),
+    /** Số tin đang chờ xử lý (pending) hoặc đang chạy (processing) — số liệu cho /health. */
+    countPending: () => cntPending.get().n,
+    /** Số lượt ĐÃ NHẬN kể từ `sinceIso` (mỗi lượt vào lõi một dòng inbox) — số liệu cho /metrics. */
+    countSince: (sinceIso) => cntSince.get(sinceIso).n,
     /** pending → processing nguyên tử; chỉ người gọi nhận true mới được chạy gói. */
     claim: (key, at) => Number(claim.run(at, key).changes) === 1,
     /** T020, chỉ gọi LÚC KHỞI ĐỘNG: mọi dòng 'processing' là mồ côi (một tiến trình, một tệp db — hiến pháp
@@ -40,7 +46,7 @@ export function outboxTable(db) {
   const ins = db.prepare(`INSERT INTO outbox (idem_key, conv_id, chat_id, turn_id, kind, text, decision, reason, status, not_before, parts_sent, attempts, next_retry_at, created_at, sent_at, ctx)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const has = db.prepare('SELECT 1 FROM outbox WHERE idem_key = ?');
-  const recent = db.prepare(`SELECT text FROM outbox WHERE conv_id = ? AND status = 'sent' AND kind IN ('reply','notice','job_result')
+  const recent = db.prepare(`SELECT text, sent_at FROM outbox WHERE conv_id = ? AND status = 'sent' AND kind IN ('reply','notice','job_result')
     AND sent_at >= ? ORDER BY sent_at DESC, id DESC LIMIT ?`);
   const cntConv = db.prepare("SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND conv_id = ? AND sent_at >= ?");
   const cntChat = db.prepare("SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND chat_id = ? AND sent_at >= ?");
@@ -49,6 +55,8 @@ export function outboxTable(db) {
   const byId = db.prepare('SELECT * FROM outbox WHERE id = ?');
   const due = db.prepare(`SELECT * FROM outbox WHERE (status = 'deferred' AND not_before <= ?1)
     OR (status = 'failed' AND attempts <= 3 AND (next_retry_at IS NULL OR next_retry_at <= ?1)) ORDER BY id`);
+  const cntDecision = db.prepare('SELECT decision, reason, COUNT(*) AS n FROM outbox WHERE created_at >= ? GROUP BY decision, reason');
+  const lastChat = db.prepare('SELECT * FROM outbox WHERE chat_id = ? ORDER BY created_at DESC, id DESC LIMIT 1');
   return {
     insert(m) {
       try {
@@ -63,11 +71,16 @@ export function outboxTable(db) {
     queued: () => queued.all().map(outOut),
     get: (id) => outOut(byId.get(id)),
     hasIdem: (key) => has.get(key) !== undefined,
-    recentBotTexts: (convId, sinceIso, limit) => recent.all(convId, sinceIso, limit).map((r) => r.text),
+    /** Tin bot gần đây kèm mốc gửi, để cửa tự lọc cửa sổ chống trùng theo loại tin (gate-decide bước 6). */
+    recentBotMsgs: (convId, sinceIso, limit) => recent.all(convId, sinceIso, limit).map((r) => ({ text: r.text, at: r.sent_at })),
     countSent: (convId, sinceIso) => (convId === null || convId === undefined ? cntAll.get(sinceIso) : cntConv.get(convId, sinceIso)).n,
     /** Đếm tin đã gửi theo phòng (cả nhóm, không tách theo người) — dùng cho trần ngày của nhóm. */
     countSentChat: (chatId, sinceIso) => cntChat.get(chatId, sinceIso).n,
     due: (nowIso) => due.all(nowIso).map(outOut),
+    /** Đếm theo quyết định của cửa từ lúc `sinceIso` — số liệu cho /metrics. */
+    countsByDecision: (sinceIso) => cntDecision.all(sinceIso),
+    /** Dòng outbox mới nhất của một phòng (để biết bot còn gửi được vào phòng đó không). */
+    lastForChat: (chatId) => outOut(lastChat.get(chatId)),
   };
 }
 
@@ -81,6 +94,8 @@ export function jobsTable(db) {
   const claimJob = db.prepare("UPDATE jobs SET status = 'polling' WHERE id = ? AND status = 'waiting'");
   const due = db.prepare("SELECT * FROM jobs WHERE status = 'waiting' AND next_poll_at <= ? ORDER BY next_poll_at, id");
   const next = db.prepare("SELECT MIN(next_poll_at) AS t FROM jobs WHERE status = 'waiting'");
+  const polling = db.prepare("SELECT * FROM jobs WHERE status = 'polling' ORDER BY id");
+  const cntWaiting = db.prepare("SELECT COUNT(*) AS n FROM jobs WHERE status = 'waiting'");
   return {
     add(j) {
       try {
@@ -96,8 +111,12 @@ export function jobsTable(db) {
     claim: (id) => Number(claimJob.run(id).changes) === 1,
     /** Mốc hỏi sớm nhất của việc đang 'waiting', hoặc null. */
     nextDue: () => next.get()?.t ?? null,
+    /** Dòng còn 'polling': lúc khởi động đều là của tiến trình đã chết giữa lượt hỏi (T021 jobs.recover). */
+    polling: () => polling.all().map(jobOut),
     /** Phòng còn việc nền nợ: đang 'waiting'/'polling', hoặc 'done' từ sinceIso trở lại. */
     openFor: (convId, sinceIso) => open.get(convId, sinceIso) !== undefined,
+    /** Số việc nền đang chờ — số liệu cho /metrics. */
+    countWaiting: () => cntWaiting.get().n,
     update: (id, patch) => patchRow(db, 'jobs', 'id', id, patch, JOB_COLS, ['context']),
   };
 }

@@ -12,7 +12,7 @@ import { createMcpClient } from './core/mcp.js';
 import { loadPacks, createRegistry } from './core/registry.js';
 import { createGate } from './core/gate.js';
 import { createEngine } from './core/engine.js';
-import { createHealthPayload } from './core/health.js';
+import { createOps } from './core/ops.js';
 import { createWebhookHandler } from './core/webhook.js';
 import { createQueue } from './core/queue.js';
 import { redact } from './core/redact.js';
@@ -66,8 +66,8 @@ const gate = createGate({
     similarity: 0.8, directReplyMs: 600_000, quietHours: true, bannedPatterns: config.bannedPatterns },
   now,
   // T024 chưa làm hệ thống phiếu/cảnh báo cho nhân viên: tạm ghi log (kèm chat/conv + lý do).
-  onAlert: (chatId, reason) => console.warn(`[canh-bao] chat=${chatId} lý do=${reason}`),
-  onTicket: (convId, reason) => console.warn(`[phieu] conv=${convId} lý do=${reason}`),
+  onAlert: (chatId, reason) => console.warn(`[canh-bao] chat=…${String(chatId).slice(-4)} lý do=${reason}`),
+  onTicket: (convId, reason) => console.warn(`[phieu] conv=…${String(convId).slice(-4)} lý do=${reason}`),
   log: (...a) => console.error('[gate]', ...a),
 });
 
@@ -78,18 +78,20 @@ if (!goi.length) console.error('[bot] KHÔNG nạp được gói nào — kiểm
 console.log(`[bot] đã nạp ${goi.length} gói: ${goi.map((p) => p.id).join(', ')}`);
 // queue: một lượt mỗi người (khoá = convId) — không để hai tin của cùng người chạy chồng (T019).
 const queue = createQueue();
-const engine = createEngine({ config: { ...config, botNames }, store, channel, mcp, vision, brain, editor, registry, gate, now, log: console, missLog, runTask: (key, fn) => queue.run(key, fn) });
-// Khôi phục khi khởi động (T020, Điều VII). Thứ tự BẮT BUỘC (contracts/send-gate.md:52):
-gate.recover();   // 1. outbox còn 'queued' → 'failed' để bộ quét gửi tiếp CÁC PHẦN CÒN THIẾU
-// 2. inbox còn 'pending'/'processing' → chạy lại lượt (webhook đã ack 200, Zalo không gửi lại nữa).
-// KHÔNG chặn server.listen: đợi xử lý hết mới mở cổng thì /health và webhook chết đói, Zalo gửi lại vô ích.
+const engine = createEngine({ config: { ...config, botNames }, store, channel, mcp, vision, brain, editor, registry, gate, now, log: console, missLog, onAlert: (chatId, reason) => console.warn(`[canh-bao] chat=…${String(chatId).slice(-4)} lý do=${reason}`), runTask: (key, fn) => queue.run(key, fn) });
+// Khôi phục khi khởi động (T020, Điều VII), thứ tự contracts/send-gate.md:52: outbox 'queued' → 'failed' (quét gửi tiếp phần thiếu),
+// jobs 'polling' mồ côi → hỏi lại, rồi inbox dở → chạy lại lượt (Zalo không gửi lại); bước cuối không chặn server.listen.
+gate.recover(); engine.jobs.recover();
 engine.recover().catch((e) => console.error('[bot] recover lỗi:', redact(e?.message)));
+// ops: /health và /metrics (T027) — chỉ đọc db và hỏi trạng thái ngoài, KHÔNG gửi tin.
+const ops = createOps({ store, mcp, channel, config, startedAt: STARTED_AT, version: VERSION, now, log: console });
 // HTTP: /health + webhook
 // store + now: handler ghi inbox (pending) TRƯỚC khi trả 200, lỗi db thì 503 để Zalo gửi lại (T018, Điều VII).
 const server = http.createServer(createWebhookHandler({
   config, channel, engine, store, now,
   runTask: (key, fn) => queue.run(key, fn),
-  health: () => createHealthPayload({ mode: config.mode, startedAt: STARTED_AT, version: VERSION }),
+  health: () => ops.health(),
+  metrics: (sinceIso) => ops.metrics(sinceIso),
   debug: DEBUG,
   log: console,
 }));

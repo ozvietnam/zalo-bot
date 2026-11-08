@@ -22,7 +22,7 @@ description: "Danh sách việc spec 001: khuôn spec-kit, mỗi việc viết t
 - Không thêm dependency vào `package.json`.
 - Mỗi tệp < 300 dòng; tệp `store` vượt thì tách `core/store/<bảng>.js`.
 - Thời gian lưu `new Date().toISOString()`; giờ VN tính bằng cộng 7 giờ trên UTC, **không** dùng giờ địa phương của máy.
-- Giờ yên `[23:00, 07:00)` giờ VN. Trần mặc định `CAP_CHAT_DAY=8`, `CAP_ALL_DAY=300`. Ngưỡng trùng `0.8`, cửa sổ `15 phút`, so với `4` tin gần nhất.
+- Giờ yên `[23:00, 07:00)` giờ VN. Trần mặc định `CAP_CHAT_DAY=8`, `CAP_ALL_DAY=300`. Ngưỡng trùng `0.8`, so với `4` tin gần nhất; cửa sổ chống trùng **tách theo loại tin**: `60 giây` cho tin **trả lời trực tiếp** (còn mốc tin khách trong `10 phút`), `15 phút` cho tin **chủ động** (issue #55).
 - "Trả lời trực tiếp" = tin ra trong `10 phút` kể từ tin khách.
 - Chỉ `core/gate.js` được gọi `channel.sendText`.
 - `npm test` không dùng mạng. 21 test trong `test/test.mjs` phải xanh từ T014 trở đi.
@@ -130,7 +130,7 @@ assert.equal(findLeak('gọi 0985559918', [/0985\D?559\D?918/]), 'banned');
 `inbox.{insertIgnore(row)->boolean, get(key)->row|null, pending()->row[], markDone(key, at), markFailed(key, err, at)}` ·
 `chats.{get(id)->row|null, upsertSeen(id, kind, title, at), setState(id, state, by, reason, at)}` ·
 `sessions.{get(key, ttlMs, now)->object, set(key, data, now)}` ·
-`outbox.{insert(msg)->id /*throws 'DUPLICATE_IDEM'*/, update(id, patch), hasIdem(key)->boolean, recentBotTexts(chatId, sinceIso, limit)->string[], countSent(chatId|null, sinceIso)->number, due(nowIso)->row[]}` ·
+`outbox.{insert(msg)->id /*throws 'DUPLICATE_IDEM'*/, update(id, patch), hasIdem(key)->boolean, recentBotMsgs(convId, sinceIso, limit)->[{text, at}], countSent(chatId|null, sinceIso)->number, due(nowIso)->row[]}` ·
 `jobs.{add(job)->id|null, due(nowIso)->row[], update(id, patch)}` ·
 `tickets.{openFor(chatId)->row|null, open(chatId, reason, at)->row, update(id, patch), list(status)->row[]}` ·
 `audit.{add(rec), byTurn(turnId)->row[], byChat(chatId, limit)->row[], prune(beforeIso)}` ·
@@ -194,7 +194,7 @@ expect({ hasOpenJob: true, now: '2026-11-04T16:30:00Z' }, { kind: 'job_result' }
 expect({ now: '2026-11-04T16:30:00Z' }, { kind: 'reply', inReplyToAt: '2026-11-04T16:28:00Z' }) → 'send'   // trả lời trực tiếp trong giờ yên
 expect({ sentTodayChat: 8 }) → { decision: 'defer', reason: 'cap:chat' }
 expect({ sentTodayAll: 300 }) → { decision: 'defer', reason: 'cap:all' }
-expect({ recentBotTexts: ['Dạ mã 8413.70.90 ạ'] }) → { decision: 'drop', reason: /^similar:0\.\d+$/ }
+expect({ recentBotTexts: ['Dạ mã 8413.70.90 ạ'] }) → { decision: 'drop', reason: /^similar:0\.\d+$/ }   // chuỗi trần = không có mốc → coi như trong cửa sổ (T039)
 expect({}, { text: 'xem /home/oz/a.log' }) → { decision: 'reject', reason: 'leak:path' }
 expect({}, { text: 'Cước 27.000đ/kg', pack: { moneyCheck: true }, evidence: [{ donGia: 25650 }] }) → { decision: 'reject', reason: 'money:27000' }
 expect({}, { text: 'Cước 25.650đ/kg', pack: { moneyCheck: true }, evidence: [{ donGia: 25650 }] }) → 'send'
@@ -361,32 +361,32 @@ test('chỉ core/gate.js gọi sendText', async () => {
   Thêm `test/core/stress.test.mjs` cho SC-001: 1.000 update giả (100 phòng, 10 % gửi lại cùng `message_id`), ép "khởi động lại" 3 lần (đóng engine, mở lại cùng tệp db, `recover()`) → mỗi `updateKey` có đúng một bộ tin ra; không `updateKey` nào thiếu tin ra.
 - [x] **Step 2:** FAIL · **Step 3:** lúc khởi động gọi **`gate.recover()` trước** (đưa outbox `queued` → `failed` để bộ quét gửi tiếp phần còn thiếu; review B2 N-1), rồi `engine.recover()` đọc `inbox.pending()` theo `received_at`, đẩy qua `queue`. Test thêm: outbox có 1 dòng `queued` `parts_sent=1` → sau khởi động + sweep, kênh nhận đúng các phần còn thiếu. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): recover pending inbox on boot"`
 
-> **Đã làm (ghi nhận 2026-11-07).** `engine.recover()` ở `core/engine.js:185` (trả `Promise<number>`), thêm
-> `inbox.requeueProcessing()` ở `core/store/queue.js:29`, nối ở `server.js:83` + `server.js:86` (`gate.recover()`
+> **Đã làm (ghi nhận 2026-11-07).** `engine.recover()` ở `core/engine.js:187` (trả `Promise<number>`), thêm
+> `inbox.requeueProcessing()` ở `core/store/queue.js:35`, nối ở `server.js:84` + `server.js:85` (`gate.recover()`
 > trước, rồi `engine.recover()`). Test: `test/core/recover.test.mjs` (17 test) + `test/core/stress.test.mjs` (SC-001).
 >
 > **Mốc giờ của lượt phát lại — quyết định về HÀNH VI, không chỉ là chi tiết kỹ thuật.**
 > Lượt phát lại mang mốc khách nhắn **thật** (`inbox.received_at`) qua `process(u, { replayedAt })`
-> (`core/engine.js:68`), không đóng dấu `now()`. Bản đầu đóng dấu `now()` và đó là lỗi chặn merge: cửa
-> coi mọi tin phát lại là "trả lời trực tiếp" (`core/gate-decide.js:27-31`) nên **bỏ qua giờ yên** —
+> (`core/engine.js:71`), không đóng dấu `now()`. Bản đầu đóng dấu `now()` và đó là lỗi chặn merge: cửa
+> coi mọi tin phát lại là "trả lời trực tiếp" (`core/gate-decide.js:36-40`) nên **bỏ qua giờ yên** —
 > khách nhắn 22:50 VN, bot lên lại 01:00 VN thì nhắn khách lúc 1 giờ sáng (vi phạm "Ràng buộc kỹ thuật"
 > của hiến pháp, FR-005, và Điều II đúng dạng sự cố #4 ở `research.md:13`). Khe này mở ra khi thời gian
 > khởi động lại vượt `directReplyMs` = 10 phút: crash-loop có backoff, VPS sập đêm, deploy kẹt.
 >
 > Giữ mốc thật thì sinh ra căng thẳng ngược: tin cũ thành "tin chủ động" và bị
 > `reject proactive-no-debt`, khách **không nhận được trả lời** — ngược SC-001 ("số tin mất = 0"), mà
-> đường reject đó cũng không mở phiếu (`signal()` ở `core/gate.js:66` chỉ báo với `leak:`/`money:`/`cap:`).
+> đường reject đó cũng không mở phiếu (`signal()` ở `core/gate.js:67` chỉ báo với `leak:`/`money:`/`cap:`).
 > **Chốt:** tin khách **chưa ai trả lời** là một **món nợ với khách**, khác hẳn ca FR-015 (khách im mà
-> máy tự nhắn — sự cố #5). Nên `reply()` khai `debt: true` cho lượt phát lại (`core/engine.js:57`) và cửa
-> nhận cờ đó vào `hasOpenJob` (`core/gate.js:123`), dùng đúng vốn từ `ctx.debt` đã có khi quét
-> (`core/gate.js:167`). Kết quả: ban ngày trả lời ngay; trong giờ yên **hoãn tới 07:00** rồi giao —
+> máy tự nhắn — sự cố #5). Nên `reply()` khai `debt: true` cho lượt phát lại (`core/engine.js:60`) và cửa
+> nhận cờ đó vào `hasOpenJob` (`core/gate.js:124`), dùng đúng vốn từ `ctx.debt` đã có khi quét
+> (`core/gate.js:168`). Kết quả: ban ngày trả lời ngay; trong giờ yên **hoãn tới 07:00** rồi giao —
 > không nhắn đêm, cũng không mất tin. Khoá bằng 4 test ở `test/core/recover.test.mjs:241` và chốt
 > "không tin CŨ nào bay trong giờ yên" ở `test/core/stress.test.mjs:183`.
 >
 > Điều IV (bản ghi đúng sự thật): lượt phát lại ghi `messages.at` = lúc khách nhắn thật
-> (`core/engine.js:126`), `convs/chats.last_inbound_at` cũng vậy; dòng audit giữ `at` = lúc **ghi sổ**
-> (đúng sự thật) và mang thêm `receivedAt` + `replayed` để tra lại được (`core/engine.js:120`). Thứ tự
-> `messages` còn là đầu vào luật "chào kết" (`core/engine.js:128`), nên ghi sai mốc là sai cả luật đó.
+> (`core/engine.js:129`), `convs/chats.last_inbound_at` cũng vậy; dòng audit giữ `at` = lúc **ghi sổ**
+> (đúng sự thật) và mang thêm `receivedAt` + `replayed` để tra lại được (`core/engine.js:123`). Thứ tự
+> `messages` còn là đầu vào luật "chào kết" (`core/engine.js:131`), nên ghi sai mốc là sai cả luật đó.
 >
 > **Ba điểm lệch so với chữ đặc tả, đều có lý do:**
 > 1. `data-model.md:18` ghi "`processing` quá 5 phút coi như `pending`". Code **không chờ 5 phút**: lúc khởi
@@ -404,8 +404,8 @@ test('chỉ core/gate.js gọi sendText', async () => {
 > Cùng PR: `eval/run.mjs:85` cho bước `restart` gọi `gate.recover()` + `engine.recover()` như `server.js`,
 > trước đó bước này chỉ mở lại db nên eval không còn giống đường thật.
 >
-> **Bộ chặn tốc độ không áp cho lượt phát lại (`core/engine.js:105`) — lỗ do chính bản vá này mở ra.**
-> `limited()` (`core/engine.js:38-45`) là cửa sổ 60 giây theo `now()` trong bộ nhớ. Đường thường không bao
+> **Bộ chặn tốc độ không áp cho lượt phát lại (`core/engine.js:108`) — lỗ do chính bản vá này mở ra.**
+> `limited()` (`core/engine.js:41-48`) là cửa sổ 60 giây theo `now()` trong bộ nhớ. Đường thường không bao
 > giờ gộp nhiều giờ lưu lượng vào một cửa sổ đó, nhưng `recover()` chạy **cả tồn đọng ở cùng một mốc
 > `now()`**: từ tin thứ `rateLimitPerMin`+1 (mặc định 11) của **cùng một người** trở đi, mọi lượt bị coi là
 > "gửi quá nhanh". Hậu quả đã tái hiện với 14 tin rải trên 2 giờ (ca VPS sập đêm): 10 lượt được trả lời,
@@ -419,7 +419,7 @@ test('chỉ core/gate.js gọi sendText', async () => {
 > khoá bằng chốt chặn ngược ở `test/core/recover.test.mjs:339` (khách spam thật 11 tin trong một phút sau
 > khi recover xong → vẫn nhận đúng một câu nhắc).
 >
-> **`recover()` chỉ đếm lượt CHẠY ĐƯỢC (`core/engine.js:206`).** Trước đó `n++` nằm **trước** `try`, nên
+> **`recover()` chỉ đếm lượt CHẠY ĐƯỢC (`core/engine.js:208`).** Trước đó `n++` nằm **trước** `try`, nên
 > trả cả dòng mà `runTask` ném lỗi và không xử lý được — lệch chữ interface của T020
 > (dòng 358: "số tin `pending` **đã xử lý**"), khai khống theo Điều VIII, và che mất ca "nhặt lại mãi mà
 > không lượt nào xong". Test `test/core/recover.test.mjs:136` nay chốt 1 chứ không phải 2.
@@ -432,7 +432,15 @@ test('chỉ core/gate.js gọi sendText', async () => {
 
 **Interfaces — Consumes:** `Store.jobs`, `createGate`, `registry` · **Produces:** `createJobs({ store, mcp, registry, gate, now }) -> { add(chatId, sessionKey, pack, job), tick() -> Promise<number> }`
 
-- [ ] **Step 1: Test đỏ**
+> Khi làm (07/11) đã lệch hai chỗ so với dòng trên, ghi lý do tại đây:
+> (1) `add(turn, sessionKey, pack, job)` nhận cả `turn` thay vì `chatId`, vì T037/T038 (làm sau dòng này) chuyển
+> mọi khoá sang `conv_id` theo người và bắt tin ra trong nhóm gắn `@tên` — `chatId` một mình thì mất `convId`,
+> `isGroup`, `userName`, `userId`. Cùng lý do với ghi chú T019 ở `tasks.md:337`.
+> (2) Thêm `recover()`: `jobs.due` chỉ lấy dòng `waiting`, nên tiến trình chết lúc đang hỏi Cổng để lại dòng
+> `polling` treo vĩnh viễn → khách không bao giờ nhận kết quả đã hứa (trái Điều II, Điều VII). `recover()` chạy
+> một lần lúc khởi động, cùng khuôn `gate.recover()`.
+
+- [x] **Step 1: Test đỏ**
 ```js
 test('DANG_XU_LY 2 lần rồi XONG → khách nhận 1 tin job_result, idem j:<chat>:<maLuot>', …)
 test('khởi động lại giữa chừng (createJobs mới trên cùng db) → vẫn giao đúng 1 lần', …)
@@ -440,7 +448,7 @@ test('xong lúc 23:30 VN → outbox defer tới 07:00, gửi đúng 1 lần sau 
 test('quá 30 phút → expired, khách nhận câu "gõ: kết quả <maLuot>"', …)
 test('hỏi lại theo nhịp 6 s, 12 s, 24 s… tối đa 60 s', …)
 ```
-- [ ] **Step 2:** FAIL · **Step 3:** `tick`: `jobs.due(now)` → `mcp.callTool(result_tool, {maLuot})` → còn chạy thì dời `next_poll_at`; xong thì `pack.onJobResult` → `gate.send({kind:'job_result', idemKey:'j:…'})` → `status=done`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): durable background jobs"`
+- [x] **Step 2:** FAIL · **Step 3:** `tick`: `jobs.due(now)` → `mcp.callTool(result_tool, {maLuot})` → còn chạy thì dời `next_poll_at`; xong thì `pack.onJobResult` → `gate.send({kind:'job_result', idemKey:'j:…'})` → `status=done`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): durable background jobs"`
 
 ---
 
@@ -452,8 +460,21 @@ test('hỏi lại theo nhịp 6 s, 12 s, 24 s… tối đa 60 s', …)
 
 **Interfaces — Produces:** `createHandoff({ store, gate, config, now }) -> { stateOf(chatId), toHuman(chatId, by, reason), toBot(chatId, by), block(chatId, by), open(chatId, reason, turn), forward(chatId, turn), command(turn) }`
 
-- [ ] **Step 1: Test đỏ**: `toHuman` rồi `toBot` → mỗi lần một audit `state-change`; phòng `human` tự trở về `bot` sau khoảng lặng lâu (mặc định khoảng 2 giờ) và ghi audit `state-change` lý do `idle-timeout`, `state_by = 'system'` (test: `advance('1h')` vẫn `human`; `advance('2h')` thì `bot` và không có tin nào gửi ra); `block` rồi khách nhắn → `stateOf === 'blocked'`.
-- [ ] **Step 2:** FAIL · **Step 3:** viết trên `Store.chats` + `Store.audit`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(handoff): chat state machine"`
+> Khi làm (07/11) đã lệch bốn chỗ so với dòng trên, ghi lý do tại đây:
+> (1) Khoá là `convId` (người), không phải `chatId`: T037/T038 (làm trước việc này) chuyển mọi khoá sang
+> `conv_id`, và cửa gửi đọc trạng thái theo `conv_id` (`core/gate.js:24`). Cùng lý do với ghi chú T019, T021.
+> (2) Trạng thái ghi vào **`Store.convs`**, không phải `Store.chats` như Step 3 viết. Cửa gửi đọc `chats`
+> cho chat 1-1 (`core/gate.js:27`) nhưng `chats` **không có đường về**: ghi `human` vào `chats` thì
+> `/tra-bot` (T025) và tự về đều không mở lại được phòng. `chats.state` chỉ còn giữ `blocked` cấp nhóm
+> (FR-032, `data-model.md:40`). `Store.audit` giữ nguyên.
+> (3) Chưa nhận `gate`: T022 không gửi tin nào (tự về "chỉ đổi trạng thái phòng" — Điều II). `gate` vào
+> ở T024 (phiếu) và T025 (lệnh `/tl`), cùng với `open`/`forward`/`command` — ba hàm đó thuộc hai việc sau.
+> (4) Thêm `touch(convId, by)`: bộ đếm khoảng lặng phải tính lại khi **lệnh nhân viên chạm vào phòng**
+> mà không sinh tin nào (ví dụ `/nhan` trên phòng đã `human`); không có hàm này thì phòng đang được
+> nhân viên theo dõi vẫn tự về sau 2 giờ.
+
+- [x] **Step 1: Test đỏ**: `toHuman` rồi `toBot` → mỗi lần một audit `state-change`; phòng `human` tự trở về `bot` sau khoảng lặng lâu (mặc định khoảng 2 giờ) và ghi audit `state-change` lý do `idle-timeout`, `state_by = 'system'` (test: `advance('1h')` vẫn `human`; `advance('2h')` thì `bot` và không có tin nào gửi ra); `block` rồi khách nhắn → `stateOf === 'blocked'`. Thêm: ngưỡng riêng `HUMAN_IDLE_MS`; bộ đếm tính lại theo tin khách / tin nhân viên / `touch`; tin bot không phá khoảng lặng; phiếu không liên quan (phiếu mở vẫn tự về, đóng phiếu không về ngay); `blocked` không tự về; không ghi `human` vào `chats`; sự cố #4 (`research.md:13`) — sau tin nhân viên, lặng 45 phút thì 22 tin bot vẫn bị cửa chặn `chat-human`.
+- [x] **Step 2:** FAIL · **Step 3:** viết trên `Store.convs` + `Store.audit` (xem ghi chú (2) ở trên). · **Step 4:** PASS · **Step 5:** `git commit -m "feat(handoff): chat state machine"`
 
 ### T023 [US2] [P] Nhận ý "gặp người" và "người hay máy"
 
@@ -461,7 +482,7 @@ test('hỏi lại theo nhịp 6 s, 12 s, 24 s… tối đa 60 s', …)
 
 **Interfaces — Produces:** `wantsHuman(text) -> boolean` · `asksIfBot(text) -> boolean` · hằng `REPLY_HANDOFF`, `REPLY_IS_BOT`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 for (const s of ['cho em gặp nhân viên', 'gọi lại cho anh', 'có ai trực không', 'muốn nói chuyện với người thật', 'tư vấn viên đâu'])
   assert.equal(wantsHuman(s), true);
@@ -471,7 +492,37 @@ for (const s of ['máy bơm nước ly tâm 1.5HP', 'nhân viên văn phòng dù
   { assert.equal(wantsHuman(s), false); assert.equal(asksIfBot(s), false); }
 assert.match(REPLY_IS_BOT, /trợ lý tự động của OZ/);
 ```
-- [ ] **Step 2:** FAIL · **Step 3:** regex trên `normVi`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): human-request and is-bot intents"`
+- [x] **Step 2:** FAIL · **Step 3:** regex trên `normVi`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): human-request and is-bot intents"`
+
+> Khi làm (07/11) ghi lại những điều phát hiện lúc viết regex, để T026 không phải dò lại:
+> (1) `normVi` bỏ dấu nên nhiều cặp từ trùng nhau: "gói" (đóng gói hàng) ↔ "gọi" (gọi điện),
+> "bột" ↔ "bot", "máy" ↔ "mày", và — nguy nhất vì gặp hằng ngày — tiểu từ lịch sự **"ạ" ↔ "à"** hỏi.
+> Né bằng ba lớp (`core/intents.js:6-19`): hệ từ "là/phải"; chủ ngữ (gọi thẳng bot "bạn/mày là bot"
+> thì đủ, chủ ngữ chỉ định "cái này/đây" trỏ vào hàng cũng được nên buộc thêm tiểu từ hỏi cuối câu);
+> và kiểm dấu thanh trên **bản gốc** trước khi chuẩn hoá (`core/intents.js:30` cho "ạ"/"à",
+> `core/intents.js:113` cho "gói"/"gọi"). Thiếu lớp thứ ba thì "dạ cái này là máy ạ" — câu tả hàng
+> thường ngày — bị nhận là hỏi danh tính, và ở T026 bot sẽ trả lời "em là trợ lý tự động" thay vì
+> phân loại hàng. Giới hạn còn lại: khách gõ **không dấu** "goi lai cho em" thì hai nghĩa trùng hoàn
+> toàn, luật chọn nghĩa "gọi lại" (mở phiếu cho nhân viên còn hơn bỏ lời khách).
+> (2) Tiểu từ hỏi phải ở **cuối câu**, và trong "có phải X không" thì X phải là **vị ngữ** của "phải".
+> Nếu chỉ cần từ khoá xuất hiện gần đó thì các câu nghiệp vụ rất thường gặp bị nhận sai:
+> "cái này là máy không chịu thuế", "có phải máy này chịu thuế không", "có phải máy không chịu thuế" (`core/intents.js:39`,
+> `core/intents.js:166`).
+> (3) `wantsHuman` và `asksIfBot` loại trừ nhau ở mệnh đề "người hay máy": mệnh đề đó là lời hỏi danh
+> tính, nếu để cả hai cùng `true` thì T026 sẽ chuyển phòng sang `human` ngay khi khách mới chỉ hỏi bot
+> là người hay máy — trái mô tả của T026 ở `tasks.md:448` ("phòng vẫn bot"). Nhưng chỉ loại **riêng
+> mệnh đề đó**, không thoát sớm trên cả câu: "hay" tiếng Việt còn nghĩa "thường hay", nên
+> "máy hay bị lỗi, cho em gặp nhân viên với" vẫn phải là lời xin gặp người (`core/intents.js:47`,
+> `core/intents.js:120`). Hướng bỏ sót lời khách nặng hơn hướng mở phiếu thừa: bỏ sót là trái FR-014.
+> (4) Chủ ngữ **ngôi thứ nhất** ("em/anh/chị/mình") phải nằm cùng nhóm với chủ ngữ chỉ định, tức là
+> buộc có tiểu từ hỏi. Khách dùng chính các từ đó để tả hàng của mình ("hàng của anh là máy ạ",
+> "lô của em là bột"), nên nếu cho nhóm này khỏi cần tiểu từ thì nó **đi vòng qua** đúng lớp "ạ"/"à"
+> ở (1) (`core/intents.js:148-149`). Hai cặp dấu nữa cùng loại: "chị" ↔ **"chỉ"** ("hàng này chỉ là
+> máy") và "đó" chỉ định/nhấn mạnh ("cái này là máy đó ạ") — "đó" vì vậy không tính là tiểu từ hỏi
+> (`core/intents.js:154`). (5) Lời xin gặp người **gián tiếp** (xin số, xin nối, "có ai hỗ trợ không")
+> cũng nhận, theo đúng nguyên tắc ở (3) (`core/intents.js:78`, `core/intents.js:83`); nhưng "nối" và
+> "số" **trần** thì không, vì trùng "nội/nơi/nói" và vì "số nhân viên" là đếm người còn "số máy" trong
+> tờ khai là số khung của hàng.
 
 ### T024 [US2] Phiếu vào nhóm nhân viên + gộp tin
 
@@ -530,7 +581,7 @@ test('gói trả handoff:{reason} → phòng human, phiếu mở với reason c�
 **Interfaces — Consumes:** `Store.customers` (T006), `normVi` (T007), `config.companyPhones` (T005)
 **Produces:** `extractPhone(text, companyPhones) -> string|null` · `createCustomers({ store, config, now }) -> { touch(turn), addLabels(chatId, labels, source), removeLabel(chatId, label, by), addInterests(chatId, items), setNote(chatId, text, by), summary(chatId) -> string, erase(chatId) }`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 assert.equal(extractPhone('số em 0912 345 678 nhé', new Set()), '0912345678');
 assert.equal(extractPhone('+84 912.345.678', new Set()), '0912345678');
@@ -541,7 +592,7 @@ c.addLabels('c1', ['khoa-hoc'], 'staff:u9'); c.removeLabel('c1', 'khoa-hoc', 'au
 c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'auto') // → chỉ 1 mục
 // interests giữ 20 mục mới nhất; summary() có tên, SĐT, nhãn, 3 món gần nhất, số lượt
 ```
-- [ ] **Step 2:** FAIL · **Step 3:** SĐT: chuỗi 10 số bắt đầu `0[35789]` sau khi bỏ `.`/`-`/khoảng trắng, hoặc `+84`/`84` + 9 số; số liền khối 10 số mà khách đang ở gói hs thì không coi là SĐT nếu trùng định dạng mã HS (`firstHs8` khớp). · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): customer profile and rule-based labels"`
+- [x] **Step 2:** FAIL · **Step 3:** SĐT: chuỗi 10 số bắt đầu `0[35789]` sau khi bỏ `.`/`-`/khoảng trắng, hoặc `+84`/`84` + 9 số; số liền khối 10 số mà khách đang ở gói hs thì không coi là SĐT nếu trùng định dạng mã HS (`firstHs8` khớp). · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): customer profile and rule-based labels"`
 
 ### T035 [US7] Cắm hồ sơ vào engine, phiếu và ctx gói
 
@@ -567,8 +618,11 @@ c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'au
 
 **Interfaces — Produces:** `health() -> {ok, db, mcp:{tools}, zalo, staff, inboxPending}` · `metrics(sinceIso) -> {turns, gate:{send,drop,defer,reject,byReason}, tickets:{open}, jobs:{waiting}}`
 
-- [ ] **Step 1: Test đỏ**: sau 3 lượt (1 send, 1 drop similar, 1 reject leak) → `metrics().gate.byReason` có `similar`, `leak:path`; db đóng → `health().ok === false` và HTTP 503.
-- [ ] **Step 2:** FAIL · **Step 3:** đếm từ `outbox`/`audit` bằng SQL. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(ops): health and metrics"`
+- [x] **Step 1: Test đỏ**: sau 3 lượt (1 send, 1 drop similar, 1 reject leak) → `metrics().gate.byReason` có `similar`, `leak:path`; db đóng → `health().ok === false` và HTTP 503.
+- [x] **Step 2:** FAIL (viết test đỏ trước, thấy đỏ rồi mới viết code).
+- [x] **Step 3:** tệp mới `core/ops.js` — `createOps` trả `{health, metrics}`; `health()` đo db bằng `store.ping()`, hỏi Cổng OZ và Zalo **song song** với mốc chặn 2,5 s (để `/health` luôn nằm trong 5 s của `HEALTHCHECK`), `ok` chỉ phụ thuộc db; `metrics()` đếm bằng SQL: `turns` đếm từ bảng `inbox` (lý do: `audit` ghi bản ghi `inbound` **sau** các nhánh chặn sớm của lõi nên bỏ sót lượt mà bot đã gửi tin), quyết định cửa đếm từ `outbox` (một tin = một dòng, quyết định cuối) cộng bù hai lý do chặn sớm không tạo dòng outbox (`empty`, `duplicate-idem`) từ `audit`; thêm index `received_at` cho `inbox`, `created_at` cho `outbox`, `(type, at)` cho `audit`.
+- [x] **Step 4:** PASS — `npm test` 448/448, `npm run eval` 9/9, `node scripts/kiem-wiki.mjs --nghiem` → "wiki: ĐẠT (16 trang)".
+- [ ] **Step 5:** `git commit -m "feat(ops): health and metrics"`
 
 ### T028 [US5] Bản tin gộp 08:00 và 17:00 giờ VN
 
@@ -623,6 +677,22 @@ c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'au
 
 ---
 
+## Phase 10: Nới luật chống trùng (issue #55)
+
+### T039 [US1] Cửa sổ chống trùng tách theo loại tin
+
+**Files:** Modify `core/gate-decide.js`, `core/gate.js`, `core/store/queue.js`, `core/jobs.js` · Modify `test/core/gate-decide.test.mjs`, `test/core/gate-send.test.mjs`, `test/core/store.test.mjs`, `test/core/conv.test.mjs`, `test/core/engine.test.mjs`
+
+**Interfaces — Produces:** `DEFAULT_RULES.dupDirectMs = 60_000` và `DEFAULT_RULES.dupWindowMs = 900_000` · hàm riêng `isDirectReply(msg, nowMs, rules)` (không phải `isProactive` của bước 3a) trong `core/gate-decide.js` · `Store.outbox.recentBotMsgs(convId, sinceIso, limit) -> [{ text, at }]` (thay `recentBotTexts` → `string[]`) · `job_result` mang `inReplyToAt` = mốc tin khách của lượt (`context.receivedAt` của dòng `jobs`)
+
+- [x] **Step 1: Test đỏ**: `test/core/gate-decide.test.mjs` — trùng chữ sau 20 giây (trả lời trực tiếp) → `drop similar`; trùng chữ sau 3 phút (trả lời trực tiếp) → `send`; tin chủ động trùng sau 3 phút → `drop`; tin chủ động trùng sau 16 phút → `send`; chuỗi trần không mốc → `drop` (tương thích ngược); mốc không đọc được (`null`/`'hom qua'`/`undefined`) → `drop`; `job_result` có mốc tin khách 3 phút → `send`; `job_result` không mốc → `drop`; `job_result` có mốc nhưng không nợ việc nền → `reject proactive-no-debt`; `job_result` có mốc, có nợ, trong giờ yên → `defer quiet-hours`; hai câu khác nhau trong 20 giây → `send`. `test/core/gate-send.test.mjs` — khách bấm gửi hai lần trong 20 giây → chỉ 1 tin ra; khách hỏi lại sau 3 phút → 2 tin ra; ba mã khác nhau liên tiếp → 3 tin ra; tin chủ động giống tin vừa gửi trong 15 phút → `drop`. `test/core/store.test.mjs` + `test/core/conv.test.mjs` — `recentBotMsgs` trả `[{ text, at }]`. `test/core/engine.test.mjs` — khách hỏi lại đúng câu sau 3 phút trên đường việc nền → nhận kết quả thứ hai.
+- [x] **Step 2:** FAIL (bản cũ bỏ tin trùng trong 15 phút bất kể loại tin → khách hỏi lại không được trả lời).
+- [x] **Step 3:** `core/gate-decide.js` thêm `dupDirectMs`/`dupWindowMs` và hàm `isDirectReply`; bước chống trùng chọn cửa sổ theo `isDirectReply` (60 giây cho trả lời trực tiếp, 15 phút cho chủ động), tin không có mốc đọc được thì coi như trong cửa sổ; `core/store/queue.js` đổi `recentBotTexts` → `recentBotMsgs` (kèm `sent_at`); `core/gate.js` đọc theo cửa sổ dài 15 phút rồi `decide` tự lọc; `core/engine-jobs.js` ghi `receivedAt` vào `context` của dòng `jobs` và truyền `inReplyToAt` khi gửi `job_result` (dòng cũ không có → `null`). `job_result` vẫn luôn chịu luật `proactive-no-debt` và luật giờ yên như trước.
+- [x] **Step 4:** PASS — `npm test` xanh.
+- [ ] **Step 5:** `git commit -m "feat(gate): split duplicate window by message kind"`
+
+---
+
 ## Dependencies & Execution Order
 
 - T001 → T002 → (T003, T004, T005, T007 song song) → T006 → T008 → T009 → T010
@@ -632,6 +702,7 @@ c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'au
 - T033 cần T026; T034 song song; T035 cần T033 + T034; T036 cần T035
 - T027 → T028; T029 song song; T030 cần T026 + T021 + T035; T031 sau T030
 - T032 cuối cùng
+- T039 đánh số sau T038; đã code xong 07/11/2026 (issue #55), chờ commit
 
 **MVP an toàn để bật lại cho khách** = xong Phase 1–6b (T001–T026, T033–T036): cửa gửi, gói hs trên lõi, bền vững, người cầm phòng, lịch sử và hồ sơ khách.
 

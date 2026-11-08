@@ -12,6 +12,39 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-07 — Thêm thẻ nghiên cứu 010: giao việc cho thợ ngoài (Antigravity, Muse Code)
+
+- **Commit mã nguồn đã đọc:** `0842386` (code không đổi trong đợt này; chỉ thêm thẻ spec và sửa tài liệu).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (mục 3 thêm dòng spec 010 và đổi tiêu đề mục thành
+  "Spec 007, 008, 009, 010"; mục 7 ghi 5 câu chờ chủ repo chốt), `docs/wiki/log.md`.
+- **Ngoài wiki:** thêm `specs/010-giao-viec-antigravity/spec.md` (thẻ nghiên cứu, chưa code);
+  `docs/ROADMAP.md` thêm một dòng cho spec 010 với trạng thái "nghiên cứu, chưa code".
+- **Vì sao:** anh Thắng yêu cầu nghiên cứu cách Claude Code giao việc cho thợ ngoài cho mượt, để dùng thêm
+  hạn mức của nhà cung cấp khác khi gói Anthropic Ultra hết hạn mức giữa phiên. Trong phiên, phạm vi được mở rộng
+  từ một nhà cung cấp (Antigravity CLI `agy` của Google) sang hai (thêm Muse Code `muse` của Meta). Hai bên dùng
+  **chung một hợp đồng giao việc** nên gộp một thẻ, đúng Điều VI. Tên thư mục giữ theo nhà cung cấp khảo sát đầu tiên
+  và có ghi chú ngay dưới tiêu đề thẻ.
+- **Chốt trong thẻ:** mặt tiếp xúc với Claude Code là **một MCP server stdio tự viết**, phơi một tool
+  `giao_viec_tho` có tham số chọn nhà cung cấp; bên dưới gọi chế độ không tương tác của từng bên. Đã loại ACP,
+  Remote Control và SDK của cả hai nhà cung cấp (thêm phụ thuộc, phá Điều VI), và chốt **không cài MCP server
+  của bên thứ ba** (Điều IX, VII, VI).
+- **Điểm nặng nhất:** cả hai nhà cung cấp đều có đường báo xong mà chưa xong. Antigravity: việc cần duyệt mà
+  headless không xin được thì bị "soft-denied" nhưng **vẫn exit 0**, không có trường nào trong kết quả báo điều đó.
+  Muse Code: chính tài liệu Meta cảnh báo agent có thể kết thúc lượt với exit 0 mà test vẫn đỏ, và bảo phải tự gác
+  bằng lệnh test riêng. Vì vậy cổng chấm quyết định phải là **hiện vật** (`git status --porcelain` trong worktree
+  riêng của việc) chứ không phải mã thoát — đúng Điều VII và Điều IV.
+- **Hai rủi ro riêng của Muse Code, ghi thành mục riêng trong thẻ:** biến API key **ghi đè** đăng nhập gói thuê bao
+  nên một biến lọt vào môi trường là âm thầm đổi túi tiền sang trả theo token; và chế độ góp dữ liệu huấn luyện
+  **bật mặc định** trên gói thuê bao. Thẻ buộc server phải xoá biến đó khỏi tiến trình con, in rõ đang tiêu túi tiền nào,
+  và luôn tắt chế độ góp dữ liệu — Điều IX.
+- **Ba điểm đã kiểm chứng, ghi lại để người sau không mắc lại:** `agy` **không** phơi ra MCP server (nó chỉ *tiêu thụ*
+  MCP; Muse Code cũng vậy), gói npm `antigravity-for-claude-code` **không tồn tại**, và Claude Code khai MCP bằng
+  tệp *.mcp.json* của repo hoặc lệnh `claude mcp add` chứ không bằng tệp cấu hình của Claude Desktop.
+- **Chưa đổi hành vi bot:** không sửa `core/`, `packs/`, `channels/`, `eval/`; đây là thẻ nghiên cứu về công cụ dev,
+  không nằm trong đường chạy của bot. Bảng "Khớp Hiến pháp" của thẻ kết luận **không cần sửa Hiến pháp**.
+- **Kiểm tra:** `node scripts/kiem-wiki.mjs` ĐẠT (16 trang); `npm test` 363 + 34 test xanh và `npm run eval` 9/9 đạt
+  tại commit `0842386` (không đổi code nên số test không đổi).
+
 ## 2026-11-07 — Vá lỗi do kiểm thử phát hiện sau T016: nạp gói theo tệp mã nguồn, câu báo lỗi có màu
 
 - **Commit mã nguồn đã đọc:** `0842386` (trên đó là `5a78ff1`); cả hai nằm sau `6a9cf5e` (T016).
@@ -92,7 +125,7 @@ Quy ước:
 - **Commit mã nguồn đã đọc:** `6e94671`. Lưu ý: code T038 còn ở working tree, **chưa có commit riêng**.
 - **Trang wiki đã sửa:** `docs/wiki/tien-do.md`, `docs/wiki/luong-tin-nhan.md`, `docs/wiki/log.md`.
 - **Ngoài wiki:** `specs/001-nen-tang-chung/tasks.md` (tick ô Step 1 của T038, thêm ghi chú cho T019).
-- **Vì sao:** T038 gắn tên người nhận ở đầu mọi tin ra trong nhóm; người trùng tên trong nhóm được phân biệt bằng hậu tố 2 ký tự cuối `userId` (FR-031, `core/mention.js:29`). Lõi tính `namePrefix` khi xử lý lượt (`core/engine.js:79`) và gắn lại tên lúc gửi kết quả việc nền (`core/engine-jobs.js:54`). Bảng `convs` thêm `listByChat` để lấy danh sách người đã từng nhắn trong nhóm (`core/store/state.js:35`). Test nằm ở `test/core/group-tag.test.mjs`.
+- **Vì sao:** T038 gắn tên người nhận ở đầu mọi tin ra trong nhóm; người trùng tên trong nhóm được phân biệt bằng hậu tố 2 ký tự cuối `userId` (FR-031, `core/mention.js:29`). Lõi tính `namePrefix` khi xử lý lượt (`core/engine.js:82`) và gắn lại tên lúc gửi kết quả việc nền (`core/jobs.js:84` — tệp này tên cũ là *core/engine-jobs.js*, tách ra ở T021). Bảng `convs` thêm `listByChat` để lấy danh sách người đã từng nhắn trong nhóm (`core/store/state.js:35`). Test nằm ở `test/core/group-tag.test.mjs`.
 - **Kiểm tra:** `npm test` 254/254 đạt (cộng 34 test cũ ở `test/test.mjs`), `npm run eval` 7/7
   kịch bản đạt, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
 

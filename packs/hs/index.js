@@ -9,7 +9,7 @@ import { photoFlow } from './flow-photo.js';
 import { loiAnhChoKhach } from './vision.js';
 import { openTurn, result } from './flow-turn.js';
 
-const JOB_TTL_MS = 30 * 60_000;   // lõi bỏ chờ việc nền sau 30 phút (core/engine-jobs.js); câu hết hạn ghi đúng số phút
+const JOB_TTL_MS = 30 * 60_000;   // lõi bỏ chờ việc nền sau 30 phút (core/jobs.js); câu hết hạn ghi đúng số phút
 
 const OK_RE = /^(ok|oke|okay|dung|chuan|xac nhan|dong y|yes|y|uh|u|vang)[.!]*$/;
 const ANH_RE = /(ten hang|thong so|model|thuong hieu|chat lieu)\s*:/;

@@ -60,6 +60,7 @@ export function ticketsTable(db) {
   const openFor = db.prepare("SELECT * FROM tickets WHERE conv_id = ? AND status IN ('open','claimed') ORDER BY id DESC LIMIT 1");
   const ins = db.prepare("INSERT INTO tickets (conv_id, chat_id, reason, status, opened_at) VALUES (?, ?, ?, 'open', ?)");
   const list = db.prepare('SELECT * FROM tickets WHERE status = ? ORDER BY id');
+  const cntOpen = db.prepare("SELECT COUNT(*) AS n FROM tickets WHERE status IN ('open','claimed')");
   return {
     openFor: (convId) => openFor.get(convId) ?? null,
     /** Mở phiếu cho một cuộc trò chuyện (conv_id = khoá phiếu); chat_id = nơi gửi (phòng/nhóm). */
@@ -75,6 +76,8 @@ export function ticketsTable(db) {
     },
     update: (id, patch) => patchRow(db, 'tickets', 'id', id, patch, TICKET_COLS),
     list: (status) => list.all(status),
+    /** Số phiếu đang chờ người (open) hoặc đã có người nhận (claimed) — số liệu cho /metrics. */
+    countOpen: () => cntOpen.get().n,
   };
 }
 

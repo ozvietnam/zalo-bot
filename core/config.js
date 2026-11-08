@@ -58,6 +58,9 @@ export function loadConfig(env = process.env) {
     capGroupDay: int(env, 'CAP_GROUP_DAY', 200, 0),
     capAllDay: int(env, 'CAP_ALL_DAY', 300, 0),
     sessionTtlMs: int(env, 'SESSION_TTL_MS', 7_200_000, 1),
+    // Khoảng lặng để phòng 'human' tự về 'bot' (Điều II). Biến riêng, KHÔNG dùng SESSION_TTL_MS: hết hạn
+    // phiên hội thoại và nhường phòng cho người là hai việc khác nhau, vận hành chỉnh độc lập.
+    humanIdleMs: int(env, 'HUMAN_IDLE_MS', 7_200_000, 1),
     bannedPatterns: Object.freeze(patterns(env, 'BANNED_PATTERNS')),
     botNames: Object.freeze(list(env, 'BOT_NAMES')),
   });

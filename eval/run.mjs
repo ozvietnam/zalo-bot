@@ -5,7 +5,7 @@
 //   {"step":"mcp","tool":"phan_loai_hs","returns":[r1, r2, …]}   lần gọi thứ n trả returns[n-1] (hết thì lặp phần tử cuối)
 //   {"step":"in","update":{"id":"m1","text":"…","chatId":"c1"},"drain":true}   khách nhắn; mặc định chạy việc nền tới khi xong
 //   {"step":"advance","by":"10m"} | {"step":"at","time":"2026-11-04T15:50:00Z"}   nhảy đồng hồ (UTC) rồi chạy việc đến hạn
-//   {"step":"restart"}     đóng lõi, mở lại cùng tệp SQLite rồi gate.recover() + engine.recover() như server.js
+//   {"step":"restart"}     đóng lõi, mở lại cùng tệp SQLite rồi gate.recover() + jobs.recover() + engine.recover() như server.js
 //   {"step":"expect","sentTo":"c1","count":1,"match":"8413","notMatch":"C:\\\\"}   đếm/so chữ mọi tin đã gửi tới phòng
 // Bước "staff" (lệnh nhân viên) chờ T025 — gặp thì kịch bản trượt với lý do rõ.
 //
@@ -68,8 +68,8 @@ export async function runScenario(steps, { start = START } = {}) {
     engine = createEngine({ store, channel, mcp, registry: createRegistry([hsPack]), gate, now: clock.now, log: silent,
       advance: (ms) => { if (ms > clock.now().getTime()) clock.set(ms); } });
   };
-  /** Khởi động lại ĐÚNG như server.js: mở lại db → gate.recover() → engine.recover() (T020). */
-  const boot = async () => { open(); gate.recover(); await engine.recover(); };
+  /** Khởi động lại ĐÚNG như server.js: mở lại db → gate.recover() → jobs.recover() → engine.recover() (T020). */
+  const boot = async () => { open(); gate.recover(); engine.jobs.recover(); await engine.recover(); };
   try {
     open();
     for (const [i, s] of steps.entries()) {

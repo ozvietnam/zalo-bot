@@ -43,6 +43,12 @@ export function openStore(path = ':memory:') {
     customers: customersTable(db),
     meta: metaTable(db),
     tx,
+    /**
+     * db còn mở không (dùng cho /health: db hỏng thì ok=false, không ném lỗi ra ngoài).
+     * CHỈ kiểm tra kết nối ĐỌC được — KHÔNG phát hiện được db bị khoá ghi bởi tiến trình khác
+     * (vẫn đọc được trong WAL). Cố thử ghi trên đường /health sẽ vượt mốc 5 s của HEALTHCHECK.
+     */
+    ping: () => { try { db.prepare('SELECT 1 AS x').get(); return true; } catch { return false; } },
     close: () => db.close(),
   };
 }

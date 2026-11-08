@@ -147,9 +147,9 @@ test('outbox', () => {
   s.outbox.insert(ob({ idem_key: 'k3', text: 'c', kind: 'staff_relay', status: 'sent', sent_at: at(3) }));
   s.outbox.insert(ob({ idem_key: 'k4', chat_id: 'd', text: 'd', status: 'sent', sent_at: at(4) }));
   s.outbox.insert(ob({ idem_key: 'k5', text: 'e', status: 'dropped' }));
-  assert.deepEqual(s.outbox.recentBotTexts('c', T, 10), ['b', 'a']);
-  assert.deepEqual(s.outbox.recentBotTexts('c', T, 1), ['b']);
-  assert.deepEqual(s.outbox.recentBotTexts('c', at(1.5), 10), ['b']);
+  assert.deepEqual(s.outbox.recentBotMsgs('c', T, 10), [{ text: 'b', at: at(2) }, { text: 'a', at: at(1) }]);
+  assert.deepEqual(s.outbox.recentBotMsgs('c', T, 1), [{ text: 'b', at: at(2) }]);
+  assert.deepEqual(s.outbox.recentBotMsgs('c', at(1.5), 10), [{ text: 'b', at: at(2) }]);
   assert.equal(s.outbox.countSent('c', T), 3);
   assert.equal(s.outbox.countSent(null, T), 4);
   assert.equal(s.outbox.countSent(null, at(3)), 2);
@@ -219,6 +219,19 @@ test('messages', () => {
   assert.equal(s.messages.deleteChat('c'), 4);
   assert.equal(s.messages.recent('c', 5).length, 0);
   assert.equal(s.messages.recent('d', 5).length, 1);
+});
+
+test('messages.lastPersonAt: mốc tin cuối của người, bỏ tin bot (T022)', () => {
+  const s = openStore();
+  assert.equal(s.messages.lastPersonAt('c'), null);
+  s.messages.add({ chat_id: 'c', speaker: 'khach', text: 'hỏi', at: at(0) });
+  assert.equal(s.messages.lastPersonAt('c'), at(0));
+  s.messages.add({ chat_id: 'c', speaker: 'nhan-vien', speaker_id: 'nv1', text: 'dạ', at: at(2) });
+  assert.equal(s.messages.lastPersonAt('c'), at(2));
+  s.messages.add({ chat_id: 'c', speaker: 'bot', text: 'bot nói sau', at: at(5) });
+  assert.equal(s.messages.lastPersonAt('c'), at(2)); // tin bot không phá khoảng lặng
+  s.messages.add({ chat_id: 'c2', speaker: 'khach', text: 'phòng khác', at: at(9) });
+  assert.equal(s.messages.lastPersonAt('c'), at(2)); // theo conv_id, không lẫn phòng khác
 });
 
 test('customers', () => {
