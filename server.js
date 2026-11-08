@@ -12,7 +12,7 @@ import { createMcpClient } from './core/mcp.js';
 import { loadPacks, createRegistry } from './core/registry.js';
 import { createGate } from './core/gate.js';
 import { createEngine } from './core/engine.js';
-import { createHealthPayload } from './core/health.js';
+import { createOps } from './core/ops.js';
 import { createWebhookHandler } from './core/webhook.js';
 import { createQueue } from './core/queue.js';
 import { availablePackages } from './packs/hs/packages.js';
@@ -77,6 +77,8 @@ if (!goi.length) console.error('[bot] KHÔNG nạp được gói nào — kiểm
 console.log(`[bot] đã nạp ${goi.length} gói: ${goi.map((p) => p.id).join(', ')}`);
 const engine = createEngine({ config: { ...config, botNames }, store, channel, mcp, vision, brain, editor, registry, gate, now, log: console, missLog, onAlert: (chatId, reason) => console.warn(`[canh-bao] chat=${chatId} lý do=${reason}`) });
 gate.recover(); engine.jobs.recover();   // hồi outbox 'queued' và jobs 'polling' của tiến trình cũ đã chết giữa chừng — Điều VII
+// ops: /health và /metrics (T027) — chỉ đọc db và hỏi trạng thái ngoài, KHÔNG gửi tin.
+const ops = createOps({ store, mcp, channel, config, startedAt: STARTED_AT, version: VERSION, now, log: console });
 // HTTP: /health + webhook
 // store + now: handler ghi inbox (pending) TRƯỚC khi trả 200, lỗi db thì 503 để Zalo gửi lại (T018, Điều VII).
 // queue: một lượt mỗi người (khoá = convId) — không để hai tin của cùng người chạy chồng (T019).
@@ -84,7 +86,8 @@ const queue = createQueue();
 const server = http.createServer(createWebhookHandler({
   config, channel, engine, store, now,
   runTask: (key, fn) => queue.run(key, fn),
-  health: () => createHealthPayload({ mode: config.mode, startedAt: STARTED_AT, version: VERSION }),
+  health: () => ops.health(),
+  metrics: (sinceIso) => ops.metrics(sinceIso),
   debug: DEBUG,
   log: console,
 }));

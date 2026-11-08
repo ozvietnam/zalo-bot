@@ -540,8 +540,11 @@ c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'au
 
 **Interfaces — Produces:** `health() -> {ok, db, mcp:{tools}, zalo, staff, inboxPending}` · `metrics(sinceIso) -> {turns, gate:{send,drop,defer,reject,byReason}, tickets:{open}, jobs:{waiting}}`
 
-- [ ] **Step 1: Test đỏ**: sau 3 lượt (1 send, 1 drop similar, 1 reject leak) → `metrics().gate.byReason` có `similar`, `leak:path`; db đóng → `health().ok === false` và HTTP 503.
-- [ ] **Step 2:** FAIL · **Step 3:** đếm từ `outbox`/`audit` bằng SQL. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(ops): health and metrics"`
+- [x] **Step 1: Test đỏ**: sau 3 lượt (1 send, 1 drop similar, 1 reject leak) → `metrics().gate.byReason` có `similar`, `leak:path`; db đóng → `health().ok === false` và HTTP 503.
+- [x] **Step 2:** FAIL (viết test đỏ trước, thấy đỏ rồi mới viết code).
+- [x] **Step 3:** tệp mới `core/ops.js` — `createOps` trả `{health, metrics}`; `health()` đo db bằng `store.ping()`, hỏi Cổng OZ và Zalo **song song** với mốc chặn 2,5 s (để `/health` luôn nằm trong 5 s của `HEALTHCHECK`), `ok` chỉ phụ thuộc db; `metrics()` đếm bằng SQL: `turns` đếm từ bảng `inbox` (lý do: `audit` ghi bản ghi `inbound` **sau** các nhánh chặn sớm của lõi nên bỏ sót lượt mà bot đã gửi tin), quyết định cửa đếm từ `outbox` (một tin = một dòng, quyết định cuối) cộng bù hai lý do chặn sớm không tạo dòng outbox (`empty`, `duplicate-idem`) từ `audit`; thêm index `received_at` cho `inbox`, `created_at` cho `outbox`, `(type, at)` cho `audit`.
+- [x] **Step 4:** PASS — `npm test` 448/448, `npm run eval` 9/9, `node scripts/kiem-wiki.mjs --nghiem` → "wiki: ĐẠT (16 trang)".
+- [ ] **Step 5:** `git commit -m "feat(ops): health and metrics"`
 
 ### T028 [US5] Bản tin gộp 08:00 và 17:00 giờ VN
 
