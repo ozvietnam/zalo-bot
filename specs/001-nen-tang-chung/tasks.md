@@ -362,7 +362,7 @@ test('chỉ core/gate.js gọi sendText', async () => {
 - [x] **Step 2:** FAIL · **Step 3:** lúc khởi động gọi **`gate.recover()` trước** (đưa outbox `queued` → `failed` để bộ quét gửi tiếp phần còn thiếu; review B2 N-1), rồi `engine.recover()` đọc `inbox.pending()` theo `received_at`, đẩy qua `queue`. Test thêm: outbox có 1 dòng `queued` `parts_sent=1` → sau khởi động + sweep, kênh nhận đúng các phần còn thiếu. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): recover pending inbox on boot"`
 
 > **Đã làm (ghi nhận 2026-11-07).** `engine.recover()` ở `core/engine.js:187` (trả `Promise<number>`), thêm
-> `inbox.requeueProcessing()` ở `core/store/queue.js:35`, nối ở `server.js:84` + `server.js:85` (`gate.recover()`
+> `inbox.requeueProcessing()` ở `core/store/queue.js:35`, nối ở `server.js:82` + `server.js:83` (`gate.recover()`
 > trước, rồi `engine.recover()`). Test: `test/core/recover.test.mjs` (17 test) + `test/core/stress.test.mjs` (SC-001).
 >
 > **Mốc giờ của lượt phát lại — quyết định về HÀNH VI, không chỉ là chi tiết kỹ thuật.**
@@ -628,8 +628,11 @@ c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'au
 
 **Files:** Modify `core/ops.js` · Create `test/core/digest.test.mjs`
 
-- [ ] **Step 1: Test đỏ**: đồng hồ giả chạy từ 07:59 tới 08:01 VN, sweep mỗi phút → nhóm nhận đúng 1 tin `kind:'digest'` (idem `d:2026-11-05:08`); có số lượt, lỗi, tin bị chặn theo lý do, phiếu chờ > 15 phút; khởi động lại lúc 08:00:30 không gửi lần hai.
-- [ ] **Step 2:** FAIL · **Step 3:** viết; idem bảo đảm một lần. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(ops): twice-daily staff digest"`
+- [x] **Step 1: Test đỏ**: đồng hồ giả chạy từ 07:59 tới 08:01 VN, sweep mỗi phút → nhóm nhận đúng 1 tin `kind:'digest'` (idem `d:2026-11-05:08`); có số lượt, lỗi, tin bị chặn theo lý do, phiếu chờ > 15 phút; khởi động lại lúc 08:00:30 không gửi lần hai.
+- [x] **Step 2:** FAIL
+- [x] **Step 3:** viết; idem bảo đảm một lần.
+- [x] **Step 4:** PASS
+- [x] **Step 5:** `git commit -m "feat(ops): twice-daily staff digest"`
 
 ### T029 [US5] [P] `npm run audit`
 

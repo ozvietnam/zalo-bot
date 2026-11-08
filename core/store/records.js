@@ -9,6 +9,7 @@ export function auditTable(db) {
   const byChat = db.prepare('SELECT * FROM audit WHERE chat_id = ? ORDER BY at DESC, id DESC LIMIT ?');
   const prune = db.prepare('DELETE FROM audit WHERE at < ?');
   const cntInvalidGate = db.prepare("SELECT COUNT(*) AS n FROM audit WHERE type = 'gate' AND at >= ? AND json_valid(data) = 0");
+  const cntType = db.prepare('SELECT COUNT(*) AS n FROM audit WHERE type = ? AND at >= ?');
   return {
     add: (r) => { ins.run(r.at, r.turn_id ?? null, r.conv_id ?? null, r.chat_id ?? null, r.type, toJson(r.data)); },
     byTurn: (turnId) => byTurn.all(turnId).map(auditOut),
@@ -30,6 +31,8 @@ export function auditTable(db) {
     },
     /** Số dòng audit loại 'gate' có JSON hỏng kể từ `sinceIso` — để vận hành biết mà không phải mở db. */
     countInvalidGate: (sinceIso) => cntInvalidGate.get(sinceIso).n,
+    /** Số dòng audit của MỘT loại kể từ `sinceIso` — dùng cho bản tin gộp (số lỗi trong kỳ). */
+    countByType: (sinceIso, type) => cntType.get(type, sinceIso).n,
   };
 }
 
