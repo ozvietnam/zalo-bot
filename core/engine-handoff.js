@@ -11,8 +11,10 @@ import { wantsHuman, asksIfBot, REPLY_HANDOFF, REPLY_IS_BOT } from './intents.js
  * @param {string} [o.staffChatId] nhóm nhân viên
  * @param {(type:string, chatId:string, convId:string|null, turnId:string, data:object)=>void} o.audit
  * @param {(turn:object, text:string, i:number|string, o?:object)=>Promise<object>} o.reply  gửi qua cửa
+ * @param {(convId:string, labels:string[])=>void} [o.ganNhan]  gắn nhãn tự động vào hồ sơ khách (T035);
+ *   không truyền thì bỏ qua — tệp này không dựng hồ sơ riêng, hồ sơ là việc của engine.
  */
-export function createHumanRoute({ store, handoff, staffChatId = '', audit, reply }) {
+export function createHumanRoute({ store, handoff, staffChatId = '', audit, reply, ganNhan = null }) {
   const staffChat = String(staffChatId || '').trim();
   const kq = (turn, i, g) => ({ idemKey: `r:${turn.convId}:${turn.turnId}:${i}`, decision: g?.decision, reason: g?.reason, status: g?.status });
 
@@ -52,8 +54,13 @@ export function createHumanRoute({ store, handoff, staffChatId = '', audit, repl
     return { skipped: `chat-${state}` };
   }
 
-  /** Chuyển người (FR-014): đổi trạng thái TRƯỚC rồi mới mở phiếu — phiếu lỗi thì bot vẫn im. */
-  async function chuyen(turn, by, reason) {
+  /**
+   * Chuyển người (FR-014): đổi trạng thái TRƯỚC rồi mới mở phiếu — phiếu lỗi thì bot vẫn im.
+   * Nhãn (T035) gắn trước `open`: phiếu mới in `summary()` của hồ sơ, nên nhãn gắn sau thì nhân viên
+   * đọc phiếu không thấy chính lý do phiếu được mở.
+   */
+  async function chuyen(turn, by, reason, nhan = null) {
+    if (nhan && ganNhan) ganNhan(turn.convId, [nhan]);
     if (handoff.stateOf(turn.convId) !== 'human') handoff.toHuman(turn.convId, by, reason, { chatId: turn.chatId });
     return handoff.open(turn.convId, reason, { chatId: turn.chatId });
   }
@@ -70,7 +77,9 @@ export function createHumanRoute({ store, handoff, staffChatId = '', audit, repl
     if (!muon) return null;
     audit('route', turn.chatId, turn.convId, turn.turnId, { pack: null, intent: muon });
     const g = await reply(turn, muon === 'wants-human' ? REPLY_HANDOFF : REPLY_IS_BOT, 0);
-    if (muon === 'wants-human') await chuyen(turn, 'khach', 'khach-xin-nguoi');
+    // Nhãn `xin-nguoi` (T035): khách đã từng xin gặp người. Khác `co-sdt` (hồ sơ tự gắn khi thấy số),
+    // nhãn này do lõi gắn vì chỉ lõi biết ý "gặp người" (`core/intents.js`).
+    if (muon === 'wants-human') await chuyen(turn, 'khach', 'khach-xin-nguoi', 'xin-nguoi');
     audit('outbound', turn.chatId, turn.convId, turn.turnId, { intent: muon, results: [kq(turn, 0, g)] });
     return { handled: muon };
   }

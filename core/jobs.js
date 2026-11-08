@@ -28,9 +28,12 @@ const iso = (ms) => new Date(ms).toISOString();
  * @param {object} o
  * @param {(chatId:string, reason:string)=>void} [o.onAlert] báo người khi việc hỏng (hứa mà không giao được — Điều VII).
  * @param {object} [o.handoff] `core/handoff.js` (`stateOf`, `note`) — engine luôn truyền; thiếu thì đọc thẳng `convs`.
+ * @param {(convId:string, res:object)=>void} [o.ghiHoSo] áp `labels`/`interests` của `onJobResult` vào hồ sơ
+ *   khách (T035). Gói 1 của hs trả mã HS Ở ĐÂY, không phải trong lượt khách (`packs/hs/packages.js:178`),
+ *   nên bỏ qua đường này là món quan tâm kèm mã HS không bao giờ vào hồ sơ.
  * @returns {{ add: Function, tick: () => Promise<number>, recover: () => number }}
  */
-export function createJobs({ store, mcp, registry, gate, now, log = console, tools, vision = null, brain = null, editor = null, ttlMs, ghiTruot = null, onAlert = () => {}, handoff = null }) {
+export function createJobs({ store, mcp, registry, gate, now, log = console, tools, vision = null, brain = null, editor = null, ttlMs, ghiTruot = null, onAlert = () => {}, handoff = null, ghiHoSo = null }) {
   const audit = (turnId, chatId, convId, type, data) => store.audit.add({ at: now().toISOString(), turn_id: turnId, conv_id: convId ?? null, chat_id: chatId, type, data });
   const canhBao = (chatId, reason) => { try { onAlert(chatId, reason); } catch (e) { log.error?.(`[jobs] onAlert lỗi: ${redact(e?.message)}`); } };
 
@@ -132,6 +135,10 @@ export function createJobs({ store, mcp, registry, gate, now, log = console, too
         }
         // result = null: gói tự soạn câu hết hạn (packs/hs/jobs.js:18). Lõi không soạn chữ cho khách.
         const res = await pack.onJobResult(job, result, ctx);
+        // Hồ sơ khách (T035): nhãn + món quan tâm của kết quả việc nền. Ghi NGAY khi gói trả, trước
+        // khi gửi: cửa có thể chặn tin (giờ yên, phòng sang 'human') nhưng điều khách HỎI vẫn đã xảy
+        // ra, nên hồ sơ phải ghi. KHÔNG đếm lượt ở đây — `turns` là số lượt KHÁCH nhắn (FR-025).
+        if (ghiHoSo) ghiHoSo(row.conv_id, res);
         // Tên gắn lúc gửi: người trùng tên trong nhóm có hậu tố 2 ký tự cuối userId (FR-031).
         const prefix = c.isGroup === true
           ? groupNameTag({ isGroup: true, userName: c.userName, userId: c.userId, members: store.convs.listByChat(row.chat_id) })

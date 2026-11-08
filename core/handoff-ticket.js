@@ -33,8 +33,9 @@ const SPEAKER = { khach: 'khách', bot: 'bot', 'nhan-vien': 'nhân viên' };
  * @param {RegExp[]} o.banned
  * @param {() => Date} o.now
  * @param {(convId: string, row: object|null, hint: string|null) => string} o.chatIdOf
+ * @param {(convId:string)=>string} [o.hoSo]  tóm tắt hồ sơ khách cho phiếu mới (T035, `summary` của `core/customers.js`); không truyền thì phiếu không có phần hồ sơ.
  */
-export function createTickets({ store, gate, staffChatId, banned, now, chatIdOf, log }) {
+export function createTickets({ store, gate, staffChatId, banned, now, chatIdOf, log, hoSo = null }) {
   const nowIso = () => now().toISOString();
   const iso = (t) => new Date(t).toISOString();
   const ms = (s) => {
@@ -43,25 +44,41 @@ export function createTickets({ store, gate, staffChatId, banned, now, chatIdOf,
   };
 
   /**
-   * Một dòng tin cho phiếu. Hai việc bắt buộc, mỗi việc chữa một lỗi khác nhau:
-   *  - gộp mọi khoảng trắng về MỘT dấu cách: lời khách có `\n` thì để nguyên sẽ sinh dòng giả
-   *    trong phiếu (khách gõ "Lý do: …" và nhân viên tưởng là dòng thật của phiếu);
-   *  - `redact` rồi `findLeak` TỪNG DÒNG: lời khách có thể chứa token/đường dẫn máy chủ. Nếu để
-   *    cửa dò trên cả phiếu thì một dòng bẩn làm MẤT cả cái phiếu (Điều IX chặn, nhưng nhân viên
-   *    không biết khách đang chờ → trái Điều II). Che riêng dòng đó, phần còn lại vẫn tới người.
+   * Một dòng chữ NGƯỜI NGOÀI gõ được (lời khách, tên khách, dòng hồ sơ). Hai việc bắt buộc:
+   *  - gộp khoảng trắng về MỘT dấu cách: lời khách còn `\n` sẽ sinh dòng giả trong phiếu (khách gõ
+   *    "Lý do: …" và nhân viên tưởng là dòng thật của phiếu);
+   *  - `redact` rồi `findLeak` TỪNG DÒNG: `redact` chỉ xoá dạng đã biết (Bearer, token dài), không bắt
+   *    đường dẫn máy chủ hay stack; để cửa dò trên CẢ phiếu thì một dòng bẩn làm mất cả cái phiếu —
+   *    Điều IX chặn được, nhưng nhân viên không biết khách đang chờ, trái Điều II.
    */
+  function dongSach(s, nhan = 'dòng') {
+    const raw = redact(String(s ?? '')).replace(/\s+/g, ' ').trim();
+    if (!raw) return '';
+    return findLeak(raw, banned) ? `(${nhan} bị che: có dấu hiệu lộ thông tin nội bộ)` : raw;
+  }
+
+  /** Một dòng tin cho phiếu: `- <giờ VN> <ai>: <nội dung đã che>`, cắt cho gọn mắt. */
   function dongTin(m) {
     const who = SPEAKER[m.speaker] ?? m.speaker;
-    const raw = redact(String(m.text ?? '')).replace(/\s+/g, ' ').trim();
-    const body = findLeak(raw, banned) ? '(dòng bị che: có dấu hiệu lộ thông tin nội bộ)' : raw;
+    const body = dongSach(m.text);
     const cut = body.length > LINE_MAX ? `${body.slice(0, LINE_MAX)}…` : body;
     return `- ${vnGioNgay(m.at)} ${who}: ${cut || '(tin rỗng)'}`;
   }
 
   /** Tên khách để nhân viên nhận ra ai đang chờ; tên do khách đặt nên cũng phải che và gộp dòng. */
   function nhanDang(convId, row) {
-    const ten = redact(String(row?.display_name ?? '')).replace(/\s+/g, ' ').trim();
-    return `${ten || '(chưa có tên)'} (${convId})`;
+    return `${dongSach(row?.display_name, 'tên') || '(chưa có tên)'} (${convId})`;
+  }
+
+  /** Tóm tắt hồ sơ khách trong phiếu mới (T035): nhân viên thấy luôn SĐT, nhãn, món khách đang hỏi,
+   *  khỏi gõ `/ho-so` rồi chờ tin thứ hai (FR-012, Điều II). Hồ sơ lỗi (db khoá) thì phiếu VẪN đi —
+   *  phiếu là việc của khách đang chờ, hồ sơ chỉ là sổ phụ. */
+  function dongHoSo(convId) {
+    if (!hoSo) return [];
+    let text;
+    try { text = hoSo(convId); }
+    catch (e) { log('không đọc được hồ sơ khách cho phiếu', convId, redact(e?.message)); return []; }
+    return String(text ?? '').split('\n').map((d) => dongSach(d)).filter(Boolean);
   }
 
   /**
@@ -84,9 +101,8 @@ export function createTickets({ store, gate, staffChatId, banned, now, chatIdOf,
       data: { ticketId: ticket.id, loai, reason: ticket.reason, staff: staffChatId ? 'configured' : 'unconfigured' },
     });
     if (!staffChatId || !gate) return { xong: true, sent: null };
-    // Lưới an toàn cuối: nếu bản gộp vẫn còn dấu hiệu lộ (dòng mở đầu, tên khách…) thì gửi bản
-    // tối giản — nhân viên vẫn biết có phiếu đang chờ và vào thẳng phòng khách mà đọc. Xem được
-    // nội dung đã che ngay trong nhóm thì phải chờ `/ho-so` (T036).
+    // Lưới an toàn cuối: bản gộp còn dấu hiệu lộ (dòng mở đầu…) thì gửi bản tối giản — nhân viên vẫn
+    // biết có phiếu đang chờ và vào thẳng phòng khách mà đọc. Chữ KHÁCH gõ đã che từng dòng ở trên.
     const an = findLeak(text, banned) ? `🎫 P${ticket.id} · ${loai}\nNội dung bị che vì có dấu hiệu lộ thông tin nội bộ.` : text;
     let sent;
     try {
@@ -130,15 +146,17 @@ export function createTickets({ store, gate, staffChatId, banned, now, chatIdOf,
     // Phiếu khác thắng cuộc đua (ux_tickets_open): coi như đã có, không báo lại.
     if (ticket.reason !== reason || ticket.opened_at !== at) return { ticket, daCo: true, sent: null };
 
+    // Đếm tin RIÊNG, không dò theo `lines.length`: phần hồ sơ (T035) ở giữa làm số dòng thay đổi.
+    const tin = store.messages.recent(convId, TICKET_HISTORY).map(dongTin);
     const lines = [
       `🎫 P${ticket.id} · phiếu mới`,
       `Khách: ${nhanDang(convId, row)}`,
       `Lý do: ${reason}`,
       `Mở lúc: ${vnGioNgay(at)} (giờ VN)`,
+      ...dongHoSo(convId),
       `${TICKET_HISTORY} tin gần nhất:`,
-      ...store.messages.recent(convId, TICKET_HISTORY).map(dongTin),
+      ...(tin.length ? tin : ['- (chưa có tin nào)']),
     ];
-    if (lines.length === 5) lines.push('- (chưa có tin nào)');
     const { sent } = await guiPhieu(ticket, `p:${ticket.id}:open`, lines.join('\n'), 'phiếu mới');
     return { ticket, daCo: false, sent };
   }
@@ -146,10 +164,9 @@ export function createTickets({ store, gate, staffChatId, banned, now, chatIdOf,
   /**
    * Chọn những tin đi trong MỘT tin gộp, và mốc gộp mới đi kèm. Hai thứ phải tính cùng nhau:
    *  - chưa tràn: mốc là GIỜ HIỆN TẠI (giữ nhịp tối đa một tin nhóm / phiếu / 5 phút);
-   *  - tràn `FORWARD_MAX`: mốc chỉ được dời tới tin CUỐI ĐƯỢC CHỞ. Dời tới giờ hiện tại là bỏ hẳn
-   *    phần dư, vì `khachSince` lấy `at > mốc` (`core/store/records.js:43`) — đúng kiểu mất tin của
-   *    ca cửa ném lỗi ở dưới, chỉ khác đường vào. Mốc cũ hơn 5 phút nên phiếu đến hạn ngay, nhịp
-   *    quét sau chở tiếp phần dư: nhóm nhận nhiều tin hơn nhưng không mất tin nào.
+   *  - tràn `FORWARD_MAX`: mốc chỉ được dời tới tin CUỐI ĐƯỢC CHỞ. Dời tới giờ hiện tại là bỏ hẳn phần
+   *    dư, vì `khachSince` lấy `at > mốc` (`core/store/records.js:43`). Mốc cũ hơn 5 phút nên phiếu đến
+   *    hạn ngay, nhịp quét sau chở tiếp: nhóm nhận nhiều tin hơn nhưng không mất tin nào.
    *  - `at` KHÔNG duy nhất: khách bấm gửi liên tiếp thì hai tin có thể cùng milli giây. Vì vậy phải
    *    bỏ luôn cả nhóm trùng mốc với tin đầu tiên bị cắt, không thì chính những tin đó bị loại.
    */
@@ -158,9 +175,8 @@ export function createTickets({ store, gate, staffChatId, banned, now, chatIdOf,
     const duAt = tin[FORWARD_MAX].at;                       // tin đầu tiên KHÔNG được chở
     const them = tin.slice(0, FORWARD_MAX).filter((m) => m.at !== duAt);
     if (them.length) return { them, mocMoi: them[them.length - 1].at };
-    // Hơn FORWARD_MAX tin khách trong CÙNG một milli giây: engine xử lượt theo hàng chờ từng phòng
-    // nên thực tế không xảy ra. Không có mốc nào tách được nhóm này, nên chở 20 tin và báo to để
-    // người vận hành biết phần dư cùng mốc bị bỏ (cách chữa gốc là mốc theo `messages.id`).
+    // Hơn FORWARD_MAX tin khách CÙNG một milli giây: engine xử lượt theo hàng chờ từng phòng nên thực
+    // tế không xảy ra. Không mốc nào tách được nhóm này → chở 20 tin và báo to (chữa gốc: `messages.id`).
     log('quá nhiều tin khách trùng mốc, phần dư cùng mốc bị bỏ', `P${ticket.id}`, duAt);
     return { them: tin.slice(0, FORWARD_MAX), mocMoi: duAt };
   }
@@ -196,11 +212,8 @@ export function createTickets({ store, gate, staffChatId, banned, now, chatIdOf,
     const mocTu = ticket.last_forward_at ?? ticket.opened_at ?? '';
     const tin = store.messages.khachSince(convId, mocTu, FORWARD_MAX + 1);
     if (!tin.length) return { ticket, soTin: 0, sent: null };
-    // TRÀN: một tin nhóm chỉ chở FORWARD_MAX tin, phần dư phải CHỜ lần gộp sau, nên mốc dời tới tin
-    // cuối được chở — KHÔNG tới giờ hiện tại, vì `khachSince` lấy `at > mốc` nên phần dư sẽ bị loại
-    // vĩnh viễn (cùng cách mất tin với ca cửa ném lỗi ở dưới, chỉ khác đường vào).
-    // `at` KHÔNG duy nhất: nhiều tin khách có thể trùng mốc milli giây, nên bỏ luôn cả nhóm trùng mốc
-    // với tin đầu tiên bị cắt, nếu không đúng những tin đó bị loại.
+    // TRÀN: `cat` chọn phần được chở VÀ mốc mới đi kèm — mốc phải dừng ở tin cuối được chở, không
+    // nhảy tới giờ hiện tại, nếu không phần dư bị `khachSince` (`at > mốc`) loại vĩnh viễn.
     const { them, mocMoi } = cat(tin, ticket);
     const at = mocMoi;
     const lines = [
