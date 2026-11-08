@@ -16,6 +16,7 @@ import { createEngine } from './core/engine.js';
 import { createOps } from './core/ops.js';
 import { createWebhookHandler } from './core/webhook.js';
 import { createQueue } from './core/queue.js';
+import { redact } from './core/redact.js';
 import { availablePackages } from './packs/hs/packages.js';
 import { createVision } from './packs/hs/vision.js';
 import { createBrain } from './packs/hs/brain.js';
@@ -59,17 +60,16 @@ try {
   console.log(`[bot] đăng nhập: ${me?.display_name || me?.account_name || 'ok'}`);
 } catch (e) { console.error('[bot] getMe lỗi — kiểm tra ZALO_BOT_TOKEN:', e.message); }
 
-// cửa gửi duy nhất (Điều I). Cửa và phiếu tham chiếu nhau (cửa báo phiếu qua `onTicket`; phiếu là tin
-// ra nên phải qua cửa) nên `handoff` dựng sau, callback đọc biến lúc chạy. onAlert (leak, trần cả bot)
-// chưa có đường vào nhóm nhân viên: T028.
+// cửa gửi duy nhất (Điều I). Cửa và phiếu tham chiếu nhau (cửa báo phiếu qua `onTicket`, phiếu là tin ra nên qua cửa)
+// nên `handoff` dựng sau, callback đọc biến lúc chạy. onAlert (leak, trần cả bot) chưa có đường vào nhóm nhân viên.
 let handoff;
-const canhBao = (chatId, reason) => console.warn(`[canh-bao] chat=${chatId} lý do=${reason}`);
+const canhBao = (chatId, reason) => console.warn(`[canh-bao] chat=…${String(chatId).slice(-4)} lý do=${reason}`);   // Điều IX
 const gate = createGate({
   store, channel, now,
   rules: { capChatDay: config.capChatDay, capGroupDay: config.capGroupDay, capAllDay: config.capAllDay,
     similarity: 0.8, directReplyMs: 600_000, quietHours: true, bannedPatterns: config.bannedPatterns },
   onAlert: canhBao,
-  onTicket: (convId, reason) => handoff.open(convId, reason).catch((e) => console.error('[phieu]', `conv=${convId}`, e.message)),
+  onTicket: (convId, reason) => handoff.open(convId, reason).catch((e) => console.error('[phieu]', `conv=…${String(convId).slice(-4)}`, e.message)),
   log: (...a) => console.error('[gate]', ...a),
 });
 // phiếu + trạng thái phòng (T022, T024). Cắm vào engine là T026; ở đây chỉ nối cửa ↔ phiếu.
@@ -79,12 +79,13 @@ const registry = createRegistry(await loadPacks(join(import.meta.dirname, 'packs
 const goi = registry.available(null, { isStaff: true });
 if (!goi.length) console.error('[bot] KHÔNG nạp được gói nào — kiểm tra thư mục packs/');
 console.log(`[bot] đã nạp ${goi.length} gói: ${goi.map((p) => p.id).join(', ')}`);
-const engine = createEngine({ config: { ...config, botNames }, store, channel, mcp, vision, brain, editor, registry, gate, now, log: console, missLog, onAlert: canhBao });
-gate.recover(); engine.jobs.recover();   // hồi outbox 'queued' + jobs 'polling' của tiến trình cũ chết giữa chừng — Điều VII
-const ops = createOps({ store, mcp, channel, config, startedAt: STARTED_AT, version: VERSION, now, log: console }); // /health, /metrics (T027): chỉ đọc, KHÔNG gửi tin
-// HTTP: /health + webhook. store + now: handler ghi inbox (pending) TRƯỚC khi trả 200, lỗi db thì
-// 503 để Zalo gửi lại (T018, Điều VII). queue: một lượt mỗi người (khoá = convId), không chạy chồng (T019).
-const queue = createQueue();
+const queue = createQueue();   // một lượt mỗi người (khoá = convId): hai tin của cùng người không chạy chồng (T019)
+const engine = createEngine({ config: { ...config, botNames }, store, channel, mcp, vision, brain, editor, registry, gate, now, log: console, missLog, onAlert: canhBao, runTask: (key, fn) => queue.run(key, fn) });
+// Khôi phục khi khởi động (T020, Điều VII), đúng thứ tự contracts/send-gate.md:52: outbox → jobs → inbox; bước inbox không chặn server.listen.
+gate.recover(); engine.jobs.recover();
+engine.recover().catch((e) => console.error('[bot] recover lỗi:', redact(e?.message)));
+const ops = createOps({ store, mcp, channel, config, startedAt: STARTED_AT, version: VERSION, now, log: console, gate });
+// HTTP (/health, /metrics, webhook): handler ghi inbox (pending) TRƯỚC khi trả 200, lỗi db thì 503 để Zalo gửi lại (T018, Điều VII).
 const server = http.createServer(createWebhookHandler({
   config, channel, engine, store, now,
   runTask: (key, fn) => queue.run(key, fn),
@@ -93,10 +94,9 @@ const server = http.createServer(createWebhookHandler({
   debug: DEBUG,
   log: console,
 }));
-// bộ quét nền: drain() hỏi việc nền + quét outbox (đã có cờ chống chạy chồng trong engine/gate); flushDue()
-// đẩy tin đã gộp khi hết cửa sổ 5 phút — tin cuối trong cửa sổ không có lượt khách nào sau nó để đẩy (T024).
+// quét nền 5 giây: bản tin T028 TRƯỚC drain() (chặn bản tin cũ), việc nền + outbox, rồi đẩy tin gộp vào phiếu (T024).
 const loi = (tag) => (e) => console.error(tag, e.message);
-setInterval(() => { engine.drain().catch(loi('[quet]')); handoff.flushDue().catch(loi('[quet-phieu]')); }, 5000);
+setInterval(() => { ops.digest().catch(loi('[ban-tin]')); engine.drain().catch(loi('[quet]')); handoff.flushDue().catch(loi('[quet-phieu]')); }, 5000);
 
 server.listen(config.port, '0.0.0.0', async () => {
   console.log(`[bot] chế độ ${config.mode}, cổng ${config.port}${config.mode === 'webhook' ? `, đường dẫn ${config.webhookPath}` : ''}`);

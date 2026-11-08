@@ -89,6 +89,7 @@ core/
 ├── mention.js            # stripMention + isGroup chuyển từ lib/bot.js, lõi bỏ "@Tên bot" ở text và caption (T015)
 ├── audit.js              # ghi + đọc audit
 ├── customers.js          # hồ sơ khách, nhãn theo luật, SĐT
+├── sdt.js                # ngữ pháp số điện thoại — nguồn DUY NHẤT cho hồ sơ khách (core/customers.js) và che log (scripts/audit.mjs) — T029. Lý do: (1) core/customers.js đã sát giới hạn 300 dòng (Điều VI hiến pháp); (2) lõi (ghi hồ sơ) và cửa ra log (che) phải dùng CHUNG một bộ luật SĐT — nếu mỗi bên tự viết regex thì hai bên trôi lệch nhau và SĐT lọt ra stdout của `npm run audit` (đã xảy ra ở T029 vòng 3–4).
 ├── backup.js             # VACUUM INTO mỗi ngày, giữ 7 bản
 └── ops.js                # /health, /metrics, bản tin gộp
 channels/
@@ -110,6 +111,7 @@ test/
 ├── test.mjs              # 21 test hiện có, chỉ sửa đường import
 ├── helpers/fakes.mjs     # Zalo giả, MCP giả, đồng hồ giả, db :memory:
 ├── helpers/legacy-bot.mjs  # createBot chữ ký cũ trên engine, CHỈ cho test.mjs (T015; nằm ở test/ để server.js không dùng nhầm luật nới)
+├── helpers/audit-fixture.mjs  # fixture db audit dùng chung cho các test CLI — dựng db bằng LÕI THẬT để test CLI không dùng dữ liệu bịa — T029. Lý do: dùng chung cho `test/core/audit-cli.test.mjs` + `test/core/audit-masking.test.mjs` để không lặp code fixture; KHÔNG phải tệp test (không kết thúc bằng `.test.mjs`) nên `npm test` không thu thập — lệnh `node --test "test/core/**/*.test.mjs"` chỉ gom tệp trong `test/core/`.
 └── core/*.test.mjs       # test của từng module lõi
 scripts/
 ├── set-webhook.mjs       # giữ nguyên

@@ -2,6 +2,11 @@
 // Ràng buộc hiến pháp Điều IX: tệp này KHÔNG ghi log/audit và KHÔNG gửi tin — chỉ lưu hồ sơ.
 // Số điện thoại chỉ được lấy từ chính lời khách gõ (FR-025), không suy ra từ dữ liệu khác.
 import { normVi } from './text.js';
+import { looksLikeHsCode, isDomestic, isInternational } from './sdt.js';
+
+// Ngữ pháp số điện thoại nằm ở core/sdt.js (nguồn DUY NHẤT cho cả hồ sơ
+// khách lẫn che log) — hồ sơ khách chỉ dùng lại, không tự định nghĩa.
+export { looksLikeHsCode };
 
 // Nhãn tự động khi khách đã để lại số điện thoại (data-model.md:159).
 const NHAN_CO_SDT = 'co-sdt';
@@ -20,37 +25,6 @@ function normCompanyPhone(raw) {
   if (d.length === 11 && d.startsWith('84')) return '0' + d.slice(2);
   return d;
 }
-
-/**
- * Mã HS có phải không? Mã HS dài 8 hoặc 10 số, không bắt đầu bằng `0`.
- * Nếu chuỗi có dấu tách thì nhóm số phải đúng dạng 4+2+2 (8 số) hoặc
- * 4+2+2+2 (10 số) — nhất quán với nhau, nếu không thì `8413.70.9090` (4+2+4)
- * sẽ bị coi là mã HS còn `8413.70.90.90` thì không.
- * Vì SĐT Việt Nam luôn bắt đầu bằng `0` nên luật này không loại nhầm SĐT thật.
- */
-export function looksLikeHsCode(digits) {
-  const raw = String(digits ?? '');
-  const d = digitsOf(raw);
-  if (d.length !== 8 && d.length !== 10) return false;
-  if (d.startsWith('0')) return false; // SĐT Việt Nam luôn bắt đầu bằng 0
-  const groups = raw.split(/[^\d]+/).filter(Boolean);
-  if (groups.length > 1) {
-    // Có dấu phân tách thì bắt buộc đúng nhóm 4+2+2 hoặc 4+2+2+2.
-    const shape = groups.map((g) => g.length).join('+');
-    if (shape !== '4+2+2' && shape !== '4+2+2+2') return false;
-  }
-  return true;
-}
-
-/** SĐT nội địa hợp lệ: `0` + 3|5|7|8|9 + 8 số. */
-const isDomestic = (d) => d.length === 10 && d[0] === '0' && '35789'.includes(d[1]);
-/**
- * SĐT quốc tế hợp lệ: `84` + 9 số (tổng 11 số) → chuẩn hoá thành `0` + 9 số.
- * Sau khi chuẩn hoá, số đó phải có dạng SĐT di động VN giống hệt dạng nội địa
- * (`0` + 3|5|7|8|9), nếu không thì bỏ qua (VD mã HS `8413.70.90.90` chỉ có 10 số nên
- * không phải dạng quốc tế hợp lệ).
- */
-const isInternational = (d) => d.length === 11 && d.startsWith('84') && '35789'.includes(d[2]);
 
 /**
  * Tìm số điện thoại đầu tiên trong câu.

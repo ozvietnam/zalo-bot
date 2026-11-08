@@ -10,7 +10,7 @@
 // Phiếu là tin RA nên đi qua đúng một cửa `core/gate.js` (Điều I); cửa không ghi `kind:'ticket'`
 // vào `messages` (dòng `if` ở `core/gate.js:97`) nên phiếu không lẫn vào lịch sử hội thoại của khách.
 import { redact, findLeak } from './redact.js';
-import { vnStamp } from './time.js';
+import { vnGioNgay } from './time.js';
 
 /** Gộp tin khách vào phiếu: tối đa MỘT tin nhóm / phiếu / 5 phút (`data-model.md:116`). */
 export const TICKET_FORWARD_MS = 300_000;
@@ -54,7 +54,7 @@ export function createTickets({ store, gate, staffChatId, banned, now, chatIdOf,
     const raw = redact(String(m.text ?? '')).replace(/\s+/g, ' ').trim();
     const body = findLeak(raw, banned) ? '(dòng bị che: có dấu hiệu lộ thông tin nội bộ)' : raw;
     const cut = body.length > LINE_MAX ? `${body.slice(0, LINE_MAX)}…` : body;
-    return `- ${vnStamp(m.at)} ${who}: ${cut || '(tin rỗng)'}`;
+    return `- ${vnGioNgay(m.at)} ${who}: ${cut || '(tin rỗng)'}`;
   }
 
   /** Tên khách để nhân viên nhận ra ai đang chờ; tên do khách đặt nên cũng phải che và gộp dòng. */
@@ -133,7 +133,7 @@ export function createTickets({ store, gate, staffChatId, banned, now, chatIdOf,
       `🎫 P${ticket.id} · phiếu mới`,
       `Khách: ${nhanDang(convId, row)}`,
       `Lý do: ${reason}`,
-      `Mở lúc: ${vnStamp(at)} (giờ VN)`,
+      `Mở lúc: ${vnGioNgay(at)} (giờ VN)`,
       `${TICKET_HISTORY} tin gần nhất:`,
       ...store.messages.recent(convId, TICKET_HISTORY).map(dongTin),
     ];

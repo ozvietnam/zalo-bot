@@ -25,8 +25,14 @@ export function vnDateKey(d) {
   return shifted(d).toISOString().slice(0, 10);
 }
 
-/** 'HH:MM DD/MM' theo giờ VN, để HIỂN THỊ cho người đọc (phiếu, bản tin). Không dùng giờ máy. */
+/** 'YYYY-MM-DD HH:mm:ss' giờ VN (UTC+7). */
 export function vnStamp(d) {
+  const s = shifted(d).toISOString();
+  return `${s.slice(0, 10)} ${s.slice(11, 19)}`;
+}
+
+/** 'HH:MM DD/MM' theo giờ VN, để HIỂN THỊ cho người đọc (phiếu, bản tin). Không dùng giờ máy. */
+export function vnGioNgay(d) {
   const s = shifted(d).toISOString();
   return `${s.slice(11, 16)} ${s.slice(8, 10)}/${s.slice(5, 7)}`;
 }

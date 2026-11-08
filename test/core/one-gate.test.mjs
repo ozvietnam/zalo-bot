@@ -162,6 +162,25 @@ test('server.js có bộ quét nền setInterval mỗi 5000 ms', () => {
   assert.match(src, /setInterval\([\s\S]*?,\s*5000\s*\)/);
 });
 
+// ═══ Điều IX: mã phòng/cuộc trò chuyện là dữ liệu nhận dạng khách, log chỉ được ghi 4 ký tự cuối ═══
+// Soát T021 (#33) bắt được `onAlert` của server.js ghi nguyên `chat_id` ra log, trong khi
+// core/engine.js:136 chỉ ghi `.slice(-4)`. Khoá lại cả hai lời gọi lại (onAlert và onTicket).
+
+test('server.js: onAlert/onTicket chỉ ghi 4 ký tự cuối mã phòng, không ghi mã đầy đủ (Điều IX)', () => {
+  const src = readServer();
+  // Lấy các dòng console.* có nhắc chat/conv trong phần nối cửa gửi.
+  const dong = src.split('\n')
+    .map((text, i) => ({ line: i + 1, text }))
+    .filter((h) => /console\.(warn|log|error)/.test(h.text) && /\b(chat|conv)=/.test(h.text));
+  assert.ok(dong.length >= 2, `phải có dòng log cho cảnh báo và phiếu: ${JSON.stringify(dong)}`);
+  for (const h of dong) {
+    assert.doesNotMatch(h.text, /\$\{\s*(chat|chatId|convId|conv)\s*\}/,
+      `server.js:${h.line} ghi nguyên mã phòng/cuộc trò chuyện ra log (Điều IX): ${h.text.trim()}`);
+  }
+  // Và phải có một chỗ duy nhất cắt đuôi, dùng cho cả hai.
+  assert.match(src, /slice\(\s*-4\s*\)/, 'server.js phải cắt còn 4 ký tự cuối như core/engine.js');
+});
+
 // ═══ T016: khoá "một cửa gửi" trên TOÀN BỘ tệp sản xuất (đệ quy, chỉ .js/.mjs) ═══
 
 test('chỉ core/gate.js gọi .sendText trong core/packs/channels/scripts + server.js', () => {
