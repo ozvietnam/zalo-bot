@@ -6,9 +6,10 @@
 // toBot(convId, by)                → nhân viên trả phòng (/tra-bot); mở lại cả phòng 'blocked'
 // block(convId, by, reason?)       → chặn một người (/chan)
 // touch(convId, by?)               → lệnh nhân viên chạm vào phòng mà không sinh tin: đếm lại khoảng lặng
+// command(turn)                    → xử lý lệnh nhân viên (/tl, /nhan, /tra-bot, /chan, /chan-nhom, /cho) (T025)
 //
 // Phần PHIẾU của T024 (`open`, `forward`, `flushDue`) nằm ở `core/handoff-ticket.js` — mỗi tệp một
-// trách nhiệm, dưới 300 dòng (Điều VI). Tệp này nhận `gate` chỉ để chuyển tiếp xuống đó.
+// trách nhiệm, dưới 300 dòng (Điều VI). Tệp này nhận `gate` cho phần phiếu và lệnh nhân viên.
 //
 // Ba điều dễ sai, đã khoá bằng test ở `test/core/handoff-state.test.mjs`:
 //  1. Trạng thái theo người chỉ ghi vào `convs`. Cửa gửi đọc `chats` cho chat 1-1 (`core/gate.js:27`),
@@ -20,7 +21,8 @@
 //     làm phòng về ngay.
 //  3. Tự về KHÔNG gửi tin nào. Phần trạng thái phòng không chạm tới `channel` lẫn `gate` (`gate` vào
 //     tệp này từ T024 nhưng chỉ để chuyển xuống phần phiếu). Bot im tới tin khách kế tiếp.
-import { redact } from './redact.js';
+import { redact, findLeak } from './redact.js';
+import { groupNameTag, stripMention } from './mention.js';
 import { createTickets, TICKET_FORWARD_MS } from './handoff-ticket.js';
 
 /** Khoảng lặng mặc định để phòng 'human' tự về 'bot': 2 giờ (anh Thắng chốt 06/11, research.md:71). */
@@ -29,36 +31,39 @@ export const HUMAN_IDLE_MS = 7_200_000;
 export { TICKET_FORWARD_MS };
 
 const STATES = new Set(['bot', 'human', 'blocked']);
+const CMD_RE = /^\/(tl|nhan|tra-bot|chan-nhom|chan|cho)(?:\s+([\s\S]*))?$/i;
+const toSet = (v) => new Set((typeof v === 'string' ? v.split(',') : [...(v ?? [])]).map((s) => String(s).trim()).filter(Boolean));
 
 /**
  * @param {object} o
  * @param {object} o.store                 `core/store.js`
  * @param {object} [o.gate]                cửa gửi duy nhất (`core/gate.js`) — phiếu là tin ra (Điều I)
- * @param {{ humanIdleMs?: number, staffChatId?: string, bannedPatterns?: RegExp[] }} [o.config]
+ * @param {{ humanIdleMs?: number, staffChatId?: string, staffUsers?: Iterable<string>|string, bannedPatterns?: RegExp[], botNames?: string[] }} [o.config]
  * @param {() => Date} o.now
  */
 export function createHandoff({ store, gate = null, config = {}, now, log = () => {} }) {
   const idleMs = config.humanIdleMs ?? HUMAN_IDLE_MS;
-  const staffChatId = config.staffChatId || '';
+  const staffChatId = String(config.staffChatId || '').trim();
+  const staffUsers = toSet(config.staffUsers);
   const banned = config.bannedPatterns ?? [];
+  const botNames = config.botNames ?? [];
+  let cmdSeq = 0;
 
   const nowIso = () => now().toISOString();
-  const ms = (s) => {
-    const t = s == null ? NaN : Date.parse(s);
-    return Number.isNaN(t) ? null : t;
+  const ms = (s) => { const t = s == null ? NaN : Date.parse(s); return Number.isNaN(t) ? null : t; };
+  const cleanName = (s) => {
+    const r = redact(String(s ?? '')).replace(/\s+/g, ' ').trim();
+    return findLeak(r, banned) ? '(đã che)' : r;
   };
 
   /** Phòng (chat_id) của một cuộc trò chuyện; dòng chưa có thì lấy từ người gọi, cuối cùng là chính convId. */
   const chatIdOf = (convId, row, hint) => row?.chat_id ?? hint ?? convId;
-
   const phieu = createTickets({ store, gate, staffChatId, banned, now, chatIdOf, log });
 
-  function audit(convId, chatId, from, to, by, reason) {
-    store.audit.add({
-      at: nowIso(), turn_id: null, conv_id: convId, chat_id: chatId, type: 'state-change',
-      data: { from, to, by: by ?? null, reason: reason ?? null },
-    });
-  }
+  const audit = (convId, chatId, from, to, by, reason) => store.audit.add({
+    at: nowIso(), turn_id: null, conv_id: convId, chat_id: chatId, type: 'state-change',
+    data: { from, to, by: by ?? null, reason: reason ?? null },
+  });
 
   /**
    * Mốc hoạt động cuối của phòng, lấy mốc MUỘN NHẤT trong ba nguồn:
@@ -69,9 +74,7 @@ export function createHandoff({ store, gate = null, config = {}, now, log = () =
    * Phiếu (`tickets`) không có mặt ở đây: khoảng lặng không phụ thuộc phiếu.
    */
   function lastActiveMs(convId, row) {
-    const mocs = [row?.state_at, row?.last_inbound_at, store.messages.lastPersonAt(convId)]
-      .map(ms)
-      .filter((t) => t !== null);
+    const mocs = [row?.state_at, row?.last_inbound_at, store.messages.lastPersonAt(convId)].map(ms).filter((t) => t !== null);
     return mocs.length ? Math.max(...mocs) : null;
   }
 
@@ -118,31 +121,176 @@ export function createHandoff({ store, gate = null, config = {}, now, log = () =
     return { convId, chatId: cid, from, to };
   }
 
+  /** Người cầm phòng: khách xin gặp người, `/nhan`, `/tl`, hoặc gói yêu cầu chuyển người (FR-014). */
+  const toHuman = (convId, by, reason = 'handoff', o = {}) => setState(convId, 'human', by, reason, o);
+  /** Nhân viên trả phòng (`/tra-bot`): mở lại cả phòng 'human' và 'blocked' (data-model.md:40). */
+  const toBot = (convId, by, o = {}) => setState(convId, 'bot', by, 'tra-bot', o);
+  /** Chặn một người (`/chan`, FR-032). Phòng 'blocked' KHÔNG tự về theo khoảng lặng. */
+  const block = (convId, by, reason = 'chan', o = {}) => setState(convId, 'blocked', by, reason, o);
+
+  /**
+   * Lệnh nhân viên chạm vào phòng mà không sinh tin nào (ví dụ `/nhan` trên phòng đã 'human'):
+   * đếm lại khoảng lặng, không đổi trạng thái, không ghi `state-change`.
+   */
+  function touch(convId, by = null, { chatId = null } = {}) {
+    const row = store.convs.get(convId);
+    const cid = chatIdOf(convId, row, chatId);
+    const at = nowIso();
+    store.convs.upsertSeen(convId, cid, row?.user_id ?? null, row?.display_name ?? null, at);
+    store.audit.add({ at, turn_id: null, conv_id: convId, chat_id: cid, type: 'handoff-touch', data: { by: by ?? null } });
+    return at;
+  }
+
+  function findTicket(id) {
+    if (typeof store.tickets.get === 'function') return store.tickets.get(id);
+    for (const st of ['open', 'claimed', 'closed']) {
+      const found = store.tickets.list(st).find((t) => t.id === id);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function resolveTarget(rawMa) {
+    const s = String(rawMa ?? '').trim();
+    if (!s) return null;
+    const m = /^#?[Pp]?(\d+)$/.exec(s);
+    if (m) {
+      const ticket = findTicket(Number(m[1]));
+      if (!ticket) return null;
+      const row = store.convs.get(ticket.conv_id);
+      return { ticket, convId: ticket.conv_id, chatId: ticket.chat_id ?? chatIdOf(ticket.conv_id, row, null), row };
+    }
+    const ticket = store.tickets.openFor(s);
+    const row = store.convs.get(s);
+    if (!ticket && !row && !store.chats.get(s)) return null;
+    const convId = ticket?.conv_id ?? s;
+    return { ticket, convId, chatId: ticket?.chat_id ?? chatIdOf(convId, row, null), row: row ?? store.convs.get(convId) };
+  }
+
+  async function guiNhom(idemKey, turnId, text) {
+    if (!staffChatId || !gate) return null;
+    const an = findLeak(text, banned) ? '⚠️ Nội dung phản hồi lệnh bị che vì có dấu hiệu lộ thông tin nội bộ.' : text;
+    try { return await gate.send({ idemKey, chatId: staffChatId, convId: staffChatId, turnId, kind: 'ticket', text: an }); }
+    catch (e) { log('không gửi được phản hồi lệnh nhân viên', redact(e?.message)); return null; }
+  }
+
+  const auditCmd = (turnId, convId, chatId, data, type = 'staff-cmd') =>
+    store.audit.add({ at: nowIso(), turn_id: turnId, conv_id: convId, chat_id: chatId, type, data });
+
+  /** Xử lý lệnh nhân viên (/tl, /nhan, /tra-bot, /chan, /chan-nhom, /cho) trong nhóm STAFF_CHAT_ID (T025). */
+  async function command(turn) {
+    const raw = String(turn?.text ?? '').trim();
+    const m = CMD_RE.exec(raw.startsWith('/') ? raw : stripMention(raw, botNames));
+    if (!m) return { matched: false, handled: false, ok: false };
+    const cmd = m[1].toLowerCase();
+    const rest = (m[2] ?? '').trim();
+    const userId = turn?.userId != null ? String(turn.userId).trim() : '';
+    const userName = cleanName(turn?.userName);
+    const fromChatId = turn?.chatId != null ? String(turn.chatId).trim() : '';
+    const turnId = turn?.turnId ?? turn?.updateKey ?? turn?.id ?? null;
+    const inStaffChat = Boolean(staffChatId) && fromChatId === staffChatId;
+    const isStaffUser = staffUsers.size > 0 ? Boolean(userId) && staffUsers.has(userId) && turn?.isStaff !== false : turn?.isStaff === true;
+    if (!inStaffChat || !isStaffUser) {
+      const reason = !isStaffUser ? 'not-staff-user' : 'not-staff-chat';
+      auditCmd(turnId, turn?.convId ?? (fromChatId || null), fromChatId || null, { cmd, userId: userId || null, chatId: fromChatId || null, reason }, 'staff-cmd:denied');
+      return { matched: true, handled: false, ok: false, denied: true, cmd, reason };
+    }
+    if (userId && userName) store.convs.upsertSeen(`${staffChatId}:${userId}`, staffChatId, userId, userName, nowIso());
+
+    if (cmd === 'cho') {
+      const nowMs = now().getTime();
+      const list = store.tickets.list('open').map((t) => {
+        const openMs = ms(t.opened_at);
+        const waitMinutes = openMs === null ? 0 : Math.max(0, Math.floor((nowMs - openMs) / 60_000));
+        const ten = cleanName(store.convs.get(t.conv_id)?.display_name) || t.conv_id;
+        return { id: t.id, code: `P${t.id}`, convId: t.conv_id, chatId: t.chat_id, reason: t.reason, openedAt: t.opened_at, waitMinutes, ten };
+      });
+      const text = list.length
+        ? [`📋 Hàng chờ (${list.length} phiếu open):`, ...list.map((x) => `- ${x.code} · ${x.ten} (${x.convId}) · ${x.reason} · chờ ${x.waitMinutes} phút`)].join('\n')
+        : '📋 Hàng chờ: 0 phiếu open.';
+      const sent = await guiNhom(`cmd:cho:${turnId ?? `auto-${++cmdSeq}`}`, turnId, text);
+      auditCmd(turnId, staffChatId, staffChatId, { cmd: 'cho', by: userId, openCount: list.length });
+      return { matched: true, handled: true, ok: true, cmd: 'cho', tickets: list, text, sent };
+    }
+
+    if (cmd === 'chan-nhom') {
+      if (!rest) return { matched: true, handled: true, ok: false, cmd, reason: 'invalid-args' };
+      const targetChatId = resolveTarget(rest)?.chatId ?? rest.split(/\s+/)[0];
+      const from = store.chats.get(targetChatId)?.state ?? 'bot';
+      store.tx(() => {
+        store.chats.setState(targetChatId, 'blocked', userId, 'chan-nhom', nowIso());
+        audit(null, targetChatId, from, 'blocked', userId, 'chan-nhom');
+        auditCmd(turnId, null, targetChatId, { cmd: 'chan-nhom', by: userId, chatId: targetChatId });
+      });
+      return { matched: true, handled: true, ok: true, cmd: 'chan-nhom', chatId: targetChatId };
+    }
+
+    if (cmd === 'tl') {
+      const parts = /^(\S+)\s+([\s\S]+)$/.exec(rest);
+      const body = parts?.[2]?.trim() ?? '';
+      if (!parts || !body) return { matched: true, handled: true, ok: false, cmd: 'tl', reason: 'invalid-args' };
+      const target = resolveTarget(parts[1]);
+      if (!target) return { matched: true, handled: true, ok: false, cmd: 'tl', reason: 'ticket-not-found' };
+      const { ticket, convId, chatId, row } = target;
+      const isGroup = convId !== chatId;
+      const prefix = isGroup
+        ? groupNameTag({ isGroup: true, userName: row?.display_name ?? null, userId: row?.user_id ?? (convId.startsWith(`${chatId}:`) ? convId.slice(chatId.length + 1) : null), members: store.convs.listByChat(chatId) })
+        : '';
+      const textToSend = prefix && !body.startsWith(prefix.trim()) ? prefix + body : body;
+      const idemKey = `s:${ticket?.id ?? convId}:${turnId ?? `auto-${++cmdSeq}`}`;
+      let sent = null;
+      if (gate) {
+        try { sent = await gate.send({ idemKey, chatId, convId, isGroup, turnId, kind: 'staff_relay', text: textToSend, staffId: userId }); }
+        catch (e) { log('lệnh /tl gửi lỗi', redact(e?.message)); return { matched: true, handled: true, ok: false, cmd: 'tl', reason: 'send-error', sent: null }; }
+      }
+      const ok = !gate || sent?.decision === 'send' || sent?.reason === 'duplicate-idem';
+      if (ok) {
+        if (stateOf(convId) !== 'human') toHuman(convId, userId, 'tl', { chatId });
+        touch(convId, userId, { chatId });
+      }
+      auditCmd(turnId, convId, chatId, { cmd: 'tl', by: userId, ticketId: ticket?.id ?? null, idemKey, decision: sent?.decision ?? null });
+      return { matched: true, handled: true, ok, cmd: 'tl', ticketId: ticket?.id ?? null, convId, chatId, sent };
+    }
+
+    const target = resolveTarget(rest.split(/\s+/)[0]);
+    if (!target) return { matched: true, handled: true, ok: false, cmd, reason: 'ticket-not-found' };
+    const { ticket, convId, chatId } = target;
+
+    if (cmd === 'nhan') {
+      if (!ticket) return { matched: true, handled: true, ok: false, cmd: 'nhan', reason: 'ticket-not-found' };
+      if (ticket.status === 'claimed') {
+        const owner = ticket.claimed_by;
+        const ten = cleanName(store.convs.get(`${staffChatId}:${owner}`)?.display_name ?? store.convs.get(owner)?.display_name) || owner;
+        const text = ten && ten !== owner ? `P${ticket.id} đã có ${ten} nhận (${owner})` : `P${ticket.id} đã có ${owner} nhận`;
+        if (stateOf(convId) === 'human') touch(convId, userId, { chatId });
+        const sent = await guiNhom(`cmd:nhan:${ticket.id}:${turnId ?? `auto-${++cmdSeq}`}`, turnId, text);
+        auditCmd(turnId, convId, chatId, { cmd: 'nhan', by: userId, ticketId: ticket.id, status: 'already-claimed', claimedBy: owner });
+        return { matched: true, handled: true, ok: false, alreadyClaimed: true, cmd: 'nhan', ticketId: ticket.id, claimedBy: owner, text, sent };
+      }
+      if (ticket.status !== 'open') return { matched: true, handled: true, ok: false, cmd: 'nhan', ticketId: ticket.id, reason: 'ticket-closed' };
+      store.tickets.update(ticket.id, { status: 'claimed', claimed_by: userId, claimed_at: nowIso() });
+      if (stateOf(convId) !== 'human') toHuman(convId, userId, 'nhan', { chatId });
+      else touch(convId, userId, { chatId });
+      auditCmd(turnId, convId, chatId, { cmd: 'nhan', by: userId, ticketId: ticket.id, status: 'claimed' });
+      return { matched: true, handled: true, ok: true, cmd: 'nhan', ticketId: ticket.id, convId, chatId, claimedBy: userId };
+    }
+
+    if (cmd === 'tra-bot') {
+      const openTicket = ticket && ticket.status !== 'closed' ? ticket : store.tickets.openFor(convId);
+      if (openTicket && openTicket.status !== 'closed') store.tickets.update(openTicket.id, { status: 'closed', closed_at: nowIso() });
+      if (convId === chatId && store.chats.get(chatId)?.state === 'blocked') store.chats.setState(chatId, 'bot', userId, 'tra-bot', nowIso());
+      toBot(convId, userId, { chatId });
+      auditCmd(turnId, convId, chatId, { cmd: 'tra-bot', by: userId, ticketId: (openTicket ?? ticket)?.id ?? null, status: 'closed' });
+      return { matched: true, handled: true, ok: true, cmd: 'tra-bot', ticketId: (openTicket ?? ticket)?.id ?? null, convId, chatId };
+    }
+
+    block(convId, userId, 'chan', { chatId });
+    auditCmd(turnId, convId, chatId, { cmd: 'chan', by: userId, ticketId: ticket?.id ?? null });
+    return { matched: true, handled: true, ok: true, cmd: 'chan', ticketId: ticket?.id ?? null, convId, chatId };
+  }
+
   return {
-    stateOf,
-    /** Phiếu cho nhóm nhân viên (T024) — mã ở `core/handoff-ticket.js`. */
-    open: phieu.open,
-    forward: phieu.forward,
-    flushDue: phieu.flushDue,
-    TICKET_FORWARD_MS,
-    /** Người cầm phòng: khách xin gặp người, `/nhan`, `/tl`, hoặc gói yêu cầu chuyển người (FR-014). */
-    toHuman: (convId, by, reason = 'handoff', o = {}) => setState(convId, 'human', by, reason, o),
-    /** Nhân viên trả phòng (`/tra-bot`): mở lại cả phòng 'human' và 'blocked' (data-model.md:40). */
-    toBot: (convId, by, o = {}) => setState(convId, 'bot', by, 'tra-bot', o),
-    /** Chặn một người (`/chan`, FR-032). Phòng 'blocked' KHÔNG tự về theo khoảng lặng. */
-    block: (convId, by, reason = 'chan', o = {}) => setState(convId, 'blocked', by, reason, o),
-    /**
-     * Lệnh nhân viên chạm vào phòng mà không sinh tin nào (ví dụ `/nhan` trên phòng đã 'human'):
-     * đếm lại khoảng lặng, không đổi trạng thái, không ghi `state-change`.
-     */
-    touch(convId, by = null, { chatId = null } = {}) {
-      const row = store.convs.get(convId);
-      const cid = chatIdOf(convId, row, chatId);
-      const at = nowIso();
-      store.convs.upsertSeen(convId, cid, row?.user_id ?? null, row?.display_name ?? null, at);
-      store.audit.add({ at, turn_id: null, conv_id: convId, chat_id: cid, type: 'handoff-touch', data: { by: by ?? null } });
-      return at;
-    },
-    HUMAN_IDLE_MS: idleMs,
+    stateOf, open: phieu.open, forward: phieu.forward, flushDue: phieu.flushDue, TICKET_FORWARD_MS,
+    toHuman, toBot, block, touch, command, HUMAN_IDLE_MS: idleMs,
   };
 }
