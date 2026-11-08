@@ -14,7 +14,7 @@ Mỗi dòng một bước (dòng bắt đầu `//` là ghi chú). Giờ mặc đ
 | `{"step":"mcp","tool":"phan_loai_hs","returns":[r1,r2]}` | Cổng giả: lần gọi thứ n trả `returns[n-1]`, hết thì lặp phần tử cuối. Công cụ không khai = Cổng không có công cụ đó |
 | `{"step":"in","update":{"id":"m1","text":"…","chatId":"c1"}}` | Khách nhắn (mặc định `c1`/`u1`, tin 1-1). Sau đó chạy việc nền tới khi xong; thêm `"drain":false` để không chạy |
 | `{"step":"advance","by":"10m"}` / `{"step":"at","time":"…Z"}` | Nhảy đồng hồ rồi chạy việc đến hạn |
-| `{"step":"restart"}` | Đóng lõi, mở lại cùng tệp SQLite |
+| `{"step":"restart"}` | Đóng lõi, mở lại cùng tệp SQLite, rồi khôi phục đúng như `server.js` lúc khởi động: `gate.recover()` → `engine.recover()` (T020) |
 | `{"step":"expect","sentTo":"c1","count":2,"match":"…","notMatch":"…"}` | Đếm và so chữ (regex, không phân biệt hoa thường) mọi tin đã gửi tới phòng |
 | `{"step":"staff","text":"/nhan P1"}` | Lệnh nhân viên — chưa có (T025), gặp là trượt |
 

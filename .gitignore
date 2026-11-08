@@ -11,3 +11,7 @@ zalo-hs-bot/
 data/
 .superpowers/
 du-lieu-truot/
+
+# Tệp siêu dữ liệu của macOS (AppleDouble, Finder) — không bao giờ commit
+._*
+.DS_Store

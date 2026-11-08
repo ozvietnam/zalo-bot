@@ -15,6 +15,7 @@ test('mặc định với env tối thiểu', () => {
   assert.equal(cfg.capChatDay, 8);
   assert.equal(cfg.capAllDay, 300);
   assert.equal(cfg.sessionTtlMs, 7_200_000);
+  assert.equal(cfg.humanIdleMs, 7_200_000);
   assert.ok(cfg.allowUsers instanceof Set && cfg.allowUsers.size === 0);
   assert.ok(cfg.staffUsers instanceof Set);
   assert.ok(cfg.companyPhones instanceof Set && cfg.companyPhones.size === 0);
@@ -51,6 +52,15 @@ test('danh sách, regex, số điện thoại', () => {
   assert.deepEqual(cfg.botNames, ['OZ Bot', 'Bot']);
   assert.deepEqual([...cfg.companyPhones], ['0985559918', '0912345678', '0987654321']);
   assert.equal(cfg.capChatDay, 3);
+});
+
+test('HUMAN_IDLE_MS là biến riêng, không dính SESSION_TTL_MS (T022)', () => {
+  const cfg = loadConfig({ ...min, HUMAN_IDLE_MS: '2700000' });
+  assert.equal(cfg.humanIdleMs, 2_700_000);
+  assert.equal(cfg.sessionTtlMs, 7_200_000); // đổi ngưỡng nhường phòng không đổi hạn phiên
+  const ngc = loadConfig({ ...min, SESSION_TTL_MS: '1800000' });
+  assert.equal(ngc.humanIdleMs, 7_200_000);
+  assert.throws(() => loadConfig({ ...min, HUMAN_IDLE_MS: '0' }), /HUMAN_IDLE_MS/);
 });
 
 test('ZALO_MODE không phân biệt hoa thường', () => {

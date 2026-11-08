@@ -32,9 +32,9 @@ function jobPack(extra = {}) {
 }
 
 /** Lõi việc nền trên một store cho trước; dùng lại store để mô phỏng khởi động lại. */
-function build({ store, clock, channel, pack = jobPack(), script = {}, tools = new Set(['kq']), onAlert = () => {} }) {
+function build({ store, clock, channel, pack = jobPack(), script = {}, tools = new Set(['kq']), onAlert = () => {}, gate: gateNgoai = null }) {
   const registry = createRegistry([pack]);
-  const gate = createGate({ store, channel, now: clock.now });
+  const gate = gateNgoai ?? createGate({ store, channel, now: clock.now });
   const mcp = fakeMcp(script);
   const jobs = createJobs({ store, mcp, registry, gate, now: clock.now, log: silent, tools: async () => tools, onAlert });
   return { jobs, gate, mcp };
@@ -218,6 +218,113 @@ test('cùng (gói, maLuot) thêm hai lần → chỉ một dòng việc; thiếu
   assert.equal(jobs.add(turnOf(), 'c1', 'jp', { maLuot: 'L-doi', resultTool: 'kq' }), null);
   assert.equal(store.jobs.due('2099-01-01T00:00:00.000Z').length, 1);
   assert.throws(() => jobs.add(turnOf(), 'c1', 'jp', { maLuot: 'L-thieu' }));
+});
+
+test('hai lượt tick() chồng nhau: jobs.claim chặn lượt đầu xử lý lại việc lượt sau đã nhận', async () => {
+  // Tranh chấp thật chỉ có khi lượt A đã lấy danh sách đến hạn gồm CẢ việc 2, rồi trong lúc A chờ
+  // Cổng cho việc 1 thì lượt B nhận việc 2. A quay lại vòng lặp gặp việc 2: claim trả false → phải bỏ qua.
+  // Một việc duy nhất không thử được chốt này: lượt B gọi due() sau khi A đã claim nên không thấy dòng.
+  let polls = 0;
+  let moKhoa;
+  const chomCho = new Promise((r) => { moKhoa = r; });
+  const { store, clock, channel, jobs } = setup({
+    script: { kq: async () => { polls++; await chomCho; return { trangThai: 'XONG', hs: '84137090' }; } },
+  });
+  const id1 = jobs.add(turnOf({ chatId: 'c1' }), 'c1', 'jp', { maLuot: 'L-claim-1', resultTool: 'kq' });
+  const id2 = jobs.add(turnOf({ chatId: 'c2' }), 'c2', 'jp', { maLuot: 'L-claim-2', resultTool: 'kq' });
+  clock.advance('6s');
+
+  const a = jobs.tick();
+  const b = jobs.tick();
+  moKhoa();
+  const [na, nb] = await Promise.all([a, b]);
+  assert.equal(na + nb, 2, 'mỗi việc đúng một lượt nhận');
+  assert.equal(polls, 2, 'claim hỏng thì Cổng bị hỏi lại việc 2 thêm một lần');
+  assert.deepEqual(sentTo(channel, 'c1'), ['Xong L-claim-1 84137090']);
+  assert.deepEqual(sentTo(channel, 'c2'), ['Xong L-claim-2 84137090']);
+  assert.equal(store.jobs.polling().length, 0);
+  for (const id of [id1, id2])
+    assert.equal(store.audit.byTurn(`job:${id}`).filter((x) => x.type === 'outbound').length, 1, `việc ${id} chỉ một lượt gửi`);
+});
+
+// Soát T021 (#33) chỉ ra: test việc nền trước đây chỉ xem CHỮ tới khách, nên đổi `kind` thành
+// 'reply', ép `isGroup` luôn false, hay bỏ trắng `evidence` đều không test nào đỏ. Ba test dưới đây
+// soi đúng các trường lõi đưa qua cửa — vì cửa quyết định theo chúng (giờ yên, nợ việc nền, trần
+// ngày của nhóm, kiểm số tiền), chữ giống nhau không có nghĩa là quyết định giống nhau.
+test('các trường lõi đưa qua cửa cho kết quả việc nền: kind job_result, isGroup, pack, mốc trả lời', async () => {
+  const ML = 'L-truong';
+  const ghi = [];
+  const { store, clock, jobs } = setup({
+    script: { kq: () => ({ trangThai: 'XONG', hs: '84137090' }) },
+    gate: { send: async (m) => { ghi.push(m); return { id: 1, decision: 'send', reason: 'ok', status: 'sent' }; }, sweep: async () => 0, recover: () => 0 },
+  });
+  store.convs.upsertSeen('G:u7', 'G', 'u7', 'Nguyễn Văn A', START);
+  const turn = turnOf({ chatId: 'G', convId: 'G:u7', userId: 'u7', userName: 'Nguyễn Văn A', isGroup: true, receivedAt: START });
+  const id = jobs.add(turn, 'G:u7', 'jp', { maLuot: ML, resultTool: 'kq' });
+  clock.advance('6s');
+  assert.equal(await jobs.tick(), 1);
+
+  assert.equal(ghi.length, 1);
+  const m = ghi[0];
+  // kind: cửa đối xử với 'job_result' KHÁC 'reply' — luôn là tin chủ động nên phải có việc nền nợ và
+  // phải chịu giờ yên (core/gate-decide.js:36-38, hiến pháp Điều II). Đổi sang 'reply' là lách luật đó.
+  assert.equal(m.kind, 'job_result');
+  // isGroup: cửa dùng để tính trần ngày CỦA NHÓM (core/gate-decide.js:108). Ép false là mất trần nhóm.
+  assert.equal(m.isGroup, true);
+  assert.equal(m.chatId, 'G');
+  assert.equal(m.convId, 'G:u7', 'khoá theo người, không theo phòng (FR-030)');
+  assert.equal(m.idemKey, `j:G:u7:${ML}`);
+  assert.equal(m.turnId, `job:${id}`, 'tin ra tra được về một lượt trong audit (SC-007)');
+  assert.equal(m.inReplyToAt, START, 'mốc tin khách của lượt sinh ra việc (issue #55)');
+  assert.deepEqual(m.pack, { id: 'jp', moneyCheck: false });
+  assert.deepEqual(m.evidence, [{ trangThai: 'XONG', hs: '84137090' }], 'evidence gói trả, nguyên vật');
+});
+
+test('isGroup/inReplyToAt của việc nền ở chat 1-1: isGroup false, dòng jobs cũ thiếu receivedAt → null', async () => {
+  const ghi = [];
+  const { store, clock, jobs } = setup({
+    script: { kq: () => ({ trangThai: 'XONG', hs: '84137090' }) },
+    gate: { send: async (m) => { ghi.push(m); return { id: 1, decision: 'send', reason: 'ok', status: 'sent' }; }, sweep: async () => 0, recover: () => 0 },
+  });
+  const id = jobs.add(turnOf({ receivedAt: START }), 'c1', 'jp', { maLuot: 'L-rieng', resultTool: 'kq' });
+  // Dòng việc của bản cũ không có `receivedAt` trong context (jobs cũ hơn issue #55).
+  const cu = store.jobs.due('2099-01-01T00:00:00.000Z')[0];
+  store.jobs.update(id, { context: { ...cu.context, receivedAt: undefined } });
+  clock.advance('6s');
+  assert.equal(await jobs.tick(), 1);
+
+  assert.equal(ghi[0].isGroup, false, 'chat 1-1 phải là false, không phải "luôn false" hay "luôn true"');
+  assert.equal(ghi[0].inReplyToAt, null, 'thiếu mốc thì null (cửa coi là tin chủ động), không ném lỗi');
+});
+
+test('evidence thật sự được dùng: gói moneyCheck → số tiền có trong evidence thì cửa cho gửi, không có thì chặn', async () => {
+  // Bước 8 của cửa (core/gate-decide.js:136-139): gói kiểm tiền thì mọi số tiền trong câu phải có
+  // trong evidence. Nếu lõi đưa evidence rỗng, ca thứ nhất dưới đây sẽ bị cửa chặn → test đỏ.
+  const tienPack = (text, evidence) => jobPack({
+    moneyCheck: true,
+    async onJobResult() { return { replies: [{ text }], evidence }; },
+  });
+
+  const dung = setup({
+    pack: tienPack('Giá lô này là 25.650.000đ nhé', [{ gia: '25.650.000đ' }]),
+    script: { kq: () => ({ trangThai: 'XONG' }) },
+  });
+  dung.jobs.add(turnOf(), 'c1', 'jp', { maLuot: 'L-tien-ok', resultTool: 'kq' });
+  dung.clock.advance('6s');
+  await dung.jobs.tick();
+  assert.deepEqual(sentTo(dung.channel), ['Giá lô này là 25.650.000đ nhé'], 'số tiền có trong evidence → được gửi');
+
+  const sai = setup({
+    pack: tienPack('Giá lô này là 25.650.000đ nhé', []),   // gói "nghĩ ra" số tiền: không có chứng cứ
+    script: { kq: () => ({ trangThai: 'XONG' }) },
+  });
+  sai.jobs.add(turnOf(), 'c1', 'jp', { maLuot: 'L-tien-sai', resultTool: 'kq' });
+  sai.clock.advance('6s');
+  await sai.jobs.tick();
+  assert.deepEqual(sentTo(sai.channel), [], 'số tiền không có chứng cứ → cửa chặn, khách không nhận');
+  const ly = sai.store.outbox.get(1);
+  assert.equal(ly.decision, 'reject');
+  assert.match(ly.reason, /^money:/);
 });
 
 test('việc nền trong nhóm: kết quả gắn lại @tên người hỏi, khoá idem theo conv_id', async () => {

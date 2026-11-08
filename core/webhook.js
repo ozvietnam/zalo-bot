@@ -3,7 +3,8 @@
 // Thứ tự BẮT BUỘC (Điều VII "sai thì dừng", plan.md "Luồng một lượt"):
 //   verifyWebhook → parse → inbox.insertIgnore (pending) → 200 (hoặc 503 nếu db lỗi) → runTask(convId, engine.process).
 // Ack trước khi ghi là mất tin: Zalo đã nhận 200 nên không gửi lại, mà tiến trình có thể chết ở khe hở đó.
-// `health` là hàm trả payload /health (server.js biết STARTED_AT/VERSION, tệp này không cần biết).
+// `health` là hàm trả payload /health (bất đồng bộ: có mốc chặn khi hỏi Cổng OZ/Zalo);
+// `metrics` là hàm trả số liệu vận hành (đồng bộ). Cả hai do server.js nối từ core/ops.js.
 import { convIdOf } from './conv.js';
 import { isGroup } from './mention.js';
 import { redact } from './redact.js';
@@ -14,10 +15,14 @@ const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'applic
 
 /**
  * @param {object} o
+ * @param {()=>Promise<object>} o.health  BẮT BUỘC — trả payload /health (bất đồng bộ).
+ *   Thiếu hàm hoặc hàm ném lỗi → 500 `{ok:false}` + `log.error` (không lộ lỗi gốc ra ngoài).
+ * @param {(sinceIso?:string)=>object} [o.metrics]  payload /metrics; mặc định null → GET /metrics trả 404.
+ *   `sinceIso` là chuỗi ISO (chuẩn hoá từ `?since=`); bỏ trống → không truyền tham số (mặc định = lúc khởi động).
  * @param {(key:string, fn:()=>Promise<any>)=>Promise<any>} [o.runTask]  mặc định chạy thẳng;
  *   `server.js` truyền `runTask: (key, fn) => queue.run(key, fn)` (T019 — hàng đợi tuần tự theo convId).
  */
-export function createWebhookHandler({ config, channel, engine, store, health, now = () => new Date(), runTask = (key, fn) => fn(), debug = false, log = console } = {}) {
+export function createWebhookHandler({ config, channel, engine, store, health, metrics = null, now = () => new Date(), runTask = (key, fn) => fn(), debug = false, log = console } = {}) {
   // Lỗi không lường được ở BẤT KỲ đâu trong handler: log rồi 500. Không để lọt ra ngoài thành
   // uncaughtException — một request hỏng là đủ giết bot. Request đã trả phản hồi thì chỉ log
   // (ghi header lần hai sẽ ném tiếp).
@@ -29,10 +34,37 @@ export function createWebhookHandler({ config, channel, engine, store, health, n
 
   return (req, res) => {
     try {
-      if (req.method === 'GET' && (req.url === '/health' || req.url === '/')) {
-        return json(res, 200, health());
+      const duongDan = req.url.split('?')[0];
+      if (req.method === 'GET' && (duongDan === '/health' || duongDan === '/')) {
+        // health() nay BẤT ĐỒNG BỘ (có mốc chặn khi hỏi Cổng OZ/Zalo) → phải await.
+        // Lỗi của nó → 500 (giữ hành vi cũ); ok=false → 503 kèm chính payload đó.
+        return Promise.resolve()
+          .then(() => health())
+          .then((h) => json(res, h?.ok === false ? 503 : 200, h))
+          .catch((e) => loi500(res, e));
       }
-      if (config.mode !== 'webhook' || req.method !== 'POST' || req.url.split('?')[0] !== config.webhookPath) return json(res, 404, { ok: false });
+      if (req.method === 'GET' && duongDan === '/metrics') {
+        if (!metrics) return json(res, 404, { ok: false });
+        // `?since=<ISO>`: lọc số liệu từ mốc đó. Sai định dạng là lỗi THAM SỐ của người gọi → 400, không phải 500.
+        const thamSo = new URLSearchParams(req.url.split('?')[1] ?? '');
+        const raw = (thamSo.get('since') ?? '').trim();
+        if (!raw) {
+          return Promise.resolve()
+            .then(() => metrics())
+            .then((m) => json(res, 200, m))
+            .catch((e) => loi500(res, e));
+        }
+        const t = Date.parse(raw);
+        if (Number.isNaN(t)) {
+          log.warn?.('[webhook] /metrics: tham số "since" sai định dạng ISO — bỏ qua');
+          return json(res, 400, { ok: false });
+        }
+        return Promise.resolve()
+          .then(() => metrics(new Date(t).toISOString()))
+          .then((m) => json(res, 200, m))
+          .catch((e) => loi500(res, e));
+      }
+      if (config.mode !== 'webhook' || req.method !== 'POST' || duongDan !== config.webhookPath) return json(res, 404, { ok: false });
       if (!channel.verifyWebhook(req)) return json(res, 403, { ok: false });
       // Gom các gói thành mảng Buffer rồi decode MỘT LẦN ở 'end': `body += c` ép từng gói sang
       // chuỗi riêng, nên ký tự nhiều byte (tiếng Việt) bị cắt ở ranh giới gói TCP thành U+FFFD —

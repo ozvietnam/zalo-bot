@@ -7,6 +7,7 @@ import { connect } from 'node:net';
 import { createWebhookHandler } from '../../core/webhook.js';
 import { parse as zaloParse } from '../../channels/zalo-bot.js';
 import { openStore } from '../../core/store.js';
+import { createOps } from '../../core/ops.js';
 
 const SECRET = 'bi-mat-du-dai';
 
@@ -58,12 +59,13 @@ const fakeLog = () => {
  * Dựng server với handler, trả { url, engine, store, log, server }; tự đóng khi test xong.
  * `boc` (nếu có) được gọi với (req, res) trước handler: chỗ để test gắn mốc vào res.
  */
-async function dung(t, { config = cfg(), engine = fakeEngine(), channel = fakeChannel(), health, store, now, runTask, log = fakeLog(), debug = false, boc } = {}) {
+async function dung(t, { config = cfg(), engine = fakeEngine(), channel = fakeChannel(), health, metrics, store, now, runTask, log = fakeLog(), debug = false, boc } = {}) {
   let st = store;
   if (!st) { st = openStore(':memory:'); t.after(() => st.close()); }
   const handler = createWebhookHandler({
     config, channel, engine, store: st, now, runTask,
     health: health || (() => ({ ok: true, mode: config.mode, startedAt: '2026-11-07T00:00:00.000Z' })),
+    metrics,
     debug,
     log,
   });
@@ -137,6 +139,92 @@ test('GET / → 200 giống /health', async (t) => {
   const b = await res.json();
   assert.equal(b.ok, true);
   assert.equal(b.mode, 'webhook');
+});
+
+// ───── T027: /health báo db hỏng → 503; /metrics ─────
+
+test('GET /health khi health() trả ok:false → 503 kèm payload đó', async (t) => {
+  const { url } = await dung(t, { health: () => ({ ok: false, mode: 'webhook', db: 'error' }) });
+  const res = await fetch(`${url}/health`);
+  assert.equal(res.status, 503);
+  const b = await res.json();
+  assert.equal(b.ok, false);
+  assert.equal(b.db, 'error');
+});
+
+test('GET /metrics → 200 với payload đúng hình dạng', async (t) => {
+  const payload = { turns: 3, gate: { send: 1, drop: 1, defer: 0, reject: 1, byReason: { similar: 1, 'leak:path': 1 } }, tickets: { open: 0 }, jobs: { waiting: 0 } };
+  const { url } = await dung(t, { metrics: () => payload });
+  const res = await fetch(`${url}/metrics`);
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), payload);
+});
+
+test('GET /metrics khi không truyền metrics → 404 {ok:false}', async (t) => {
+  const { url } = await dung(t);
+  const res = await fetch(`${url}/metrics`);
+  assert.equal(res.status, 404);
+  assert.deepEqual(await res.json(), { ok: false });
+});
+
+test('GET /metrics khi metrics() ném lỗi → 500 {ok:false}, có log', async (t) => {
+  const { url, log } = await dung(t, { metrics: () => { throw new Error('metrics-no'); } });
+  const res = await fetchCoHan(`${url}/metrics`);
+  assert.equal(res.status, 500);
+  assert.deepEqual(await res.json(), { ok: false });
+  assert.equal(log.calls.error.length >= 1, true);
+});
+
+test('GET /metrics khi db đóng (ops thật) → 500 {ok:false}; GET /health → 503', async (t) => {
+  // ops THẬT + db đã đóng: /metrics phải báo lỗi (không trả 200 toàn số 0), /health vẫn 503.
+  const store = openStore(':memory:');
+  const ops = createOps({
+    store,
+    mcp: { listTools: async () => [] },
+    channel: { getMe: async () => ({ id: 'bot' }) },
+    config: { mode: 'webhook' },
+    startedAt: '2026-11-07T00:00:00.000Z',
+    version: 'v-test',
+    log: fakeLog(),
+  });
+  store.close();
+  const { url } = await dung(t, { metrics: () => ops.metrics(), health: () => ops.health() });
+
+  const resM = await fetchCoHan(`${url}/metrics`);
+  assert.equal(resM.status, 500, 'db chết thì /metrics phải 500, không phải 200 số 0');
+  assert.deepEqual(await resM.json(), { ok: false });
+
+  const resH = await fetch(`${url}/health`);
+  assert.equal(resH.status, 503, '/health báo db hỏng thì 503');
+  const b = await resH.json();
+  assert.equal(b.ok, false);
+  assert.equal(b.db, 'error');
+});
+
+test('GET /metrics?since=<ISO> → 200 và metrics() nhận đúng chuỗi ISO đó', async (t) => {
+  const daNhan = [];
+  const { url } = await dung(t, { metrics: (sinceIso) => { daNhan.push(sinceIso); return { turns: 0 }; } });
+  const res = await fetch(`${url}/metrics?since=2026-11-07T00:00:00.000Z`);
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { turns: 0 });
+  assert.deepEqual(daNhan, ['2026-11-07T00:00:00.000Z']);
+});
+
+test('GET /metrics?since=abc → 400 {ok:false} (lỗi tham số, không phải 500)', async (t) => {
+  const { url, log } = await dung(t, { metrics: () => ({ turns: 0 }) });
+  const res = await fetch(`${url}/metrics?since=abc`);
+  assert.equal(res.status, 400);
+  assert.deepEqual(await res.json(), { ok: false });
+  assert.equal(log.calls.warn.length >= 1, true, 'phải có log.warn cho tham số sai');
+});
+
+test('GET /metrics không có since → 200 và metrics() được gọi KHÔNG có tham số', async (t) => {
+  const daNhan = [];
+  const { url } = await dung(t, { metrics: (...args) => { daNhan.push(args); return { turns: 0 }; } });
+  const res = await fetch(`${url}/metrics`);
+  assert.equal(res.status, 200);
+  assert.equal(daNhan.length, 1);
+  assert.deepEqual(daNhan[0], [], 'không truyền tham số nào');
 });
 
 test('GET vào đường webhook (sai method) → 404 ok:false', async (t) => {

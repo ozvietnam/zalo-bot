@@ -8,6 +8,10 @@ export function inboxTable(db) {
   const done = db.prepare("UPDATE inbox SET status = 'done', done_at = ? WHERE update_key = ?");
   const failed = db.prepare("UPDATE inbox SET status = 'failed', done_at = ?, error = ? WHERE update_key = ?");
   const claim = db.prepare("UPDATE inbox SET status = 'processing', claimed_at = ? WHERE update_key = ? AND status = 'pending'");
+  const processing = db.prepare("SELECT * FROM inbox WHERE status = 'processing' ORDER BY received_at, rowid");
+  const unclaim = db.prepare("UPDATE inbox SET status = 'pending', claimed_at = NULL WHERE update_key = ? AND status = 'processing'");
+  const cntPending = db.prepare("SELECT COUNT(*) AS n FROM inbox WHERE status IN ('pending','processing')");
+  const cntSince = db.prepare('SELECT COUNT(*) AS n FROM inbox WHERE received_at >= ?');
   return {
     insertIgnore(r) {
       try {
@@ -20,8 +24,15 @@ export function inboxTable(db) {
     },
     get: (key) => byKey.get(key) ?? null,
     pending: () => pending.all(),
-    /** pending → processing nguyên tử; chỉ người gọi nhận true mới được chạy gói. (T020: processing quá 5 phút coi như pending.) */
+    /** Số tin đang chờ xử lý (pending) hoặc đang chạy (processing) — số liệu cho /health. */
+    countPending: () => cntPending.get().n,
+    /** Số lượt ĐÃ NHẬN kể từ `sinceIso` (mỗi lượt vào lõi một dòng inbox) — số liệu cho /metrics. */
+    countSince: (sinceIso) => cntSince.get(sinceIso).n,
+    /** pending → processing nguyên tử; chỉ người gọi nhận true mới được chạy gói. */
     claim: (key, at) => Number(claim.run(at, key).changes) === 1,
+    /** T020, chỉ gọi LÚC KHỞI ĐỘNG: mọi dòng 'processing' là mồ côi (một tiến trình, một tệp db — hiến pháp
+     *  "Ràng buộc kỹ thuật"), nên trả hết về 'pending' để engine.recover() nhặt. Trả số dòng đã trả về. */
+    requeueProcessing: () => processing.all().filter((r) => Number(unclaim.run(r.update_key).changes) === 1).length,
     markDone: (key, at) => { done.run(at, key); },
     markFailed: (key, err, at) => { failed.run(at, String(err ?? ''), key); },
   };
@@ -44,6 +55,8 @@ export function outboxTable(db) {
   const byId = db.prepare('SELECT * FROM outbox WHERE id = ?');
   const due = db.prepare(`SELECT * FROM outbox WHERE (status = 'deferred' AND not_before <= ?1)
     OR (status = 'failed' AND attempts <= 3 AND (next_retry_at IS NULL OR next_retry_at <= ?1)) ORDER BY id`);
+  const cntDecision = db.prepare('SELECT decision, reason, COUNT(*) AS n FROM outbox WHERE created_at >= ? GROUP BY decision, reason');
+  const lastChat = db.prepare('SELECT * FROM outbox WHERE chat_id = ? ORDER BY created_at DESC, id DESC LIMIT 1');
   return {
     insert(m) {
       try {
@@ -64,6 +77,10 @@ export function outboxTable(db) {
     /** Đếm tin đã gửi theo phòng (cả nhóm, không tách theo người) — dùng cho trần ngày của nhóm. */
     countSentChat: (chatId, sinceIso) => cntChat.get(chatId, sinceIso).n,
     due: (nowIso) => due.all(nowIso).map(outOut),
+    /** Đếm theo quyết định của cửa từ lúc `sinceIso` — số liệu cho /metrics. */
+    countsByDecision: (sinceIso) => cntDecision.all(sinceIso),
+    /** Dòng outbox mới nhất của một phòng (để biết bot còn gửi được vào phòng đó không). */
+    lastForChat: (chatId) => outOut(lastChat.get(chatId)),
   };
 }
 
@@ -78,6 +95,7 @@ export function jobsTable(db) {
   const due = db.prepare("SELECT * FROM jobs WHERE status = 'waiting' AND next_poll_at <= ? ORDER BY next_poll_at, id");
   const next = db.prepare("SELECT MIN(next_poll_at) AS t FROM jobs WHERE status = 'waiting'");
   const polling = db.prepare("SELECT * FROM jobs WHERE status = 'polling' ORDER BY id");
+  const cntWaiting = db.prepare("SELECT COUNT(*) AS n FROM jobs WHERE status = 'waiting'");
   return {
     add(j) {
       try {
@@ -97,6 +115,8 @@ export function jobsTable(db) {
     polling: () => polling.all().map(jobOut),
     /** Phòng còn việc nền nợ: đang 'waiting'/'polling', hoặc 'done' từ sinceIso trở lại. */
     openFor: (convId, sinceIso) => open.get(convId, sinceIso) !== undefined,
+    /** Số việc nền đang chờ — số liệu cho /metrics. */
+    countWaiting: () => cntWaiting.get().n,
     update: (id, patch) => patchRow(db, 'jobs', 'id', id, patch, JOB_COLS, ['context']),
   };
 }
