@@ -15,6 +15,7 @@ import { createEngine } from './core/engine.js';
 import { createOps } from './core/ops.js';
 import { createWebhookHandler } from './core/webhook.js';
 import { createQueue } from './core/queue.js';
+import { redact } from './core/redact.js';
 import { availablePackages } from './packs/hs/packages.js';
 import { createVision } from './packs/hs/vision.js';
 import { createBrain } from './packs/hs/brain.js';
@@ -65,8 +66,8 @@ const gate = createGate({
     similarity: 0.8, directReplyMs: 600_000, quietHours: true, bannedPatterns: config.bannedPatterns },
   now,
   // T024 chưa làm hệ thống phiếu/cảnh báo cho nhân viên: tạm ghi log (kèm chat/conv + lý do).
-  onAlert: (chatId, reason) => console.warn(`[canh-bao] chat=${chatId} lý do=${reason}`),
-  onTicket: (convId, reason) => console.warn(`[phieu] conv=${convId} lý do=${reason}`),
+  onAlert: (chatId, reason) => console.warn(`[canh-bao] chat=…${String(chatId).slice(-4)} lý do=${reason}`),
+  onTicket: (convId, reason) => console.warn(`[phieu] conv=…${String(convId).slice(-4)} lý do=${reason}`),
   log: (...a) => console.error('[gate]', ...a),
 });
 
@@ -75,14 +76,14 @@ const registry = createRegistry(await loadPacks(join(import.meta.dirname, 'packs
 const goi = registry.available(null, { isStaff: true });
 if (!goi.length) console.error('[bot] KHÔNG nạp được gói nào — kiểm tra thư mục packs/');
 console.log(`[bot] đã nạp ${goi.length} gói: ${goi.map((p) => p.id).join(', ')}`);
-const engine = createEngine({ config: { ...config, botNames }, store, channel, mcp, vision, brain, editor, registry, gate, now, log: console, missLog, onAlert: (chatId, reason) => console.warn(`[canh-bao] chat=${chatId} lý do=${reason}`) });
-gate.recover(); engine.jobs.recover();   // hồi outbox 'queued' và jobs 'polling' của tiến trình cũ đã chết giữa chừng — Điều VII
+const queue = createQueue();   // một lượt mỗi người (khoá = convId): hai tin của cùng người không chạy chồng (T019)
+const engine = createEngine({ config: { ...config, botNames }, store, channel, mcp, vision, brain, editor, registry, gate, now, log: console, missLog, onAlert: (chatId, reason) => console.warn(`[canh-bao] chat=…${String(chatId).slice(-4)} lý do=${reason}`), runTask: (key, fn) => queue.run(key, fn) });
+// Khôi phục khi khởi động (T020, Điều VII), đúng thứ tự contracts/send-gate.md:52: outbox → jobs → inbox; bước inbox không chặn server.listen.
+gate.recover(); engine.jobs.recover();
+engine.recover().catch((e) => console.error('[bot] recover lỗi:', redact(e?.message)));
 // ops: /health và /metrics (T027) + bản tin gộp 08:00/17:00 (T028, đi qua cửa gửi duy nhất).
 const ops = createOps({ store, mcp, channel, config, startedAt: STARTED_AT, version: VERSION, now, log: console, gate });
-// HTTP: /health + webhook
-// store + now: handler ghi inbox (pending) TRƯỚC khi trả 200, lỗi db thì 503 để Zalo gửi lại (T018, Điều VII).
-// queue: một lượt mỗi người (khoá = convId) — không để hai tin của cùng người chạy chồng (T019).
-const queue = createQueue();
+// HTTP (/health, /metrics, webhook): handler ghi inbox (pending) TRƯỚC khi trả 200, lỗi db thì 503 để Zalo gửi lại (T018, Điều VII).
 const server = http.createServer(createWebhookHandler({
   config, channel, engine, store, now,
   runTask: (key, fn) => queue.run(key, fn),
