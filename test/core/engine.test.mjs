@@ -203,7 +203,7 @@ test('tin không phải chữ/ảnh: 1-1 trả hướng dẫn, nhóm im', async 
   assert.equal(seen.length, 0);
 });
 
-test('ctx: lời khách vào messages, history cũ → mới, customer null, tools, mcp ghi audit tool', async () => {
+test('ctx: lời khách vào messages, history cũ → mới, customer có hồ sơ của lượt này, tools, mcp ghi audit tool', async () => {
   const { pack, seen } = spyPack(() => ['ok bot']);
   pack.handle = async (turn, ctx) => { seen.push({ turn, ctx, h: ctx.history(5) }); await ctx.mcp.callTool('tra_thue', { maHs: '84137090' }); return { replies: [{ text: `Đã tra ${seen.length}` }] }; };
   const { store, engine } = setup({ packs: [pack], script: { tra_thue: () => ({ ok: true, data: { nk: 5 } }) } });
@@ -211,7 +211,11 @@ test('ctx: lời khách vào messages, history cũ → mới, customer null, too
   await engine.process(upd(null, { id: 'x2', extra: { event: 'message.image.received', photoUrl: 'https://x.zdn.vn/b.jpg', caption: 'bơm' } }));
   const h = seen[1].h;
   assert.deepEqual(h.map((m) => [m.speaker, m.text]), [['khach', 'lần một'], ['bot', 'Đã tra 1'], ['khach', '[ảnh] https://x.zdn.vn/b.jpg bơm']]);
-  assert.equal(seen[0].ctx.customer, null);
+  // T035: engine `touch` hồ sơ TRƯỚC khi gọi gói, nên `ctx.customer` không còn null như trước T035 —
+  // gói đọc được hồ sơ của CHÍNH lượt này (lượt 1 → turns = 1), chưa có nhãn vì gói này không trả labels.
+  assert.equal(seen[0].ctx.customer.turns, 1);
+  assert.equal(seen[0].ctx.customer.display_name, 'Tuấn');
+  assert.deepEqual(seen[0].ctx.customer.labels, []);
   assert.ok(seen[0].ctx.tools.has('tra_thue'));
   const tool = store.audit.byTurn('x1').find((a) => a.type === 'tool');
   assert.equal(tool.data.name, 'tra_thue');

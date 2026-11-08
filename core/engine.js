@@ -10,6 +10,7 @@ import { createToolCache, buildCtx, sessionApi } from './engine-ctx.js';
 import { createJobs } from './jobs.js';
 import { createHandoff } from './handoff.js';
 import { createHumanRoute } from './engine-handoff.js';
+import { createCustomers } from './customers.js';
 
 export const NON_TEXT_TEXT = 'Bot đọc tin nhắn chữ và ảnh. Gõ "menu" để xem các gói tra cứu.';
 export const RATE_LIMIT_TEXT = 'Bạn gửi hơi nhanh, đợi khoảng 1 phút rồi thử lại nhé.';
@@ -42,9 +43,28 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
   const tools = createToolCache({ mcp, now, log });
   const hits = new Map();
   const ho = handoff ?? createHandoff({ store, gate, config, now, log: (...a) => log.error?.('[handoff]', ...a) });
+  // Hồ sơ khách (T035). `createCustomers` không giữ trạng thái trong bộ nhớ (mọi thứ ở `store.customers`),
+  // nên `core/handoff.js` dựng bản riêng cho phiếu mà hai bản vẫn đọc/ghi cùng một chỗ. Ngày nào
+  // `core/customers.js` có bộ nhớ đệm thì hai bản sẽ lệch nhau — lúc đó phải truyền một bản dùng chung.
+  const customers = createCustomers({ store, config, now });
+
+  /** Hồ sơ là SỔ PHỤ: ghi lỗi (db khoá) thì lượt vẫn chạy tiếp, không được đẩy khách sang câu
+   *  "Cổng đang lỗi tạm thời" và nuốt luôn lời khách (Điều II, Điều VII). */
+  function hoSo(viec, fn) {
+    try { return fn(); } catch (e) { log.error?.(`[engine] không ghi được hồ sơ khách (${viec}): ${redact(e?.message)}`); return null; }
+  }
+
+  /** Áp `labels`/`interests` của một PackResult vào hồ sơ. Dùng cho CẢ lượt khách và kết quả việc nền:
+   *  gói 1 của hs trả mã HS ở `onJobResult`, không phải trong lượt (`packs/hs/packages.js:178`).
+   *  Nguồn luôn 'auto' — nhãn máy không được đè nguồn `staff:*` (`core/customers.js:96`). */
+  function ganKetQua(convId, res) {
+    if (res?.labels?.length) hoSo('nhãn của gói', () => customers.addLabels(convId, res.labels, 'auto'));
+    if (res?.interests?.length) hoSo('món của gói', () => customers.addInterests(convId, res.interests));
+  }
+
   // Việc nền bền (T021): lõi nợ khách kết quả đã hứa, hỏi Cổng tới khi xong rồi gửi qua cùng một cửa.
   // Phòng có người cầm thì việc nền không hỏi Cổng, không gọi gói mà để lại cho nhân viên (T026).
-  const jobs = createJobs({ store, mcp, registry, gate, now, log, tools, vision, brain, editor, ttlMs, ghiTruot, onAlert, handoff: ho });
+  const jobs = createJobs({ store, mcp, registry, gate, now, log, tools, vision, brain, editor, ttlMs, ghiTruot, onAlert, handoff: ho, ghiHoSo: ganKetQua });
 
   function limited(uid) {
     const t = now().getTime();
@@ -70,7 +90,10 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
   }
 
   const hsFooter = (ctx) => registry.available(null, { isStaff: true }).find((p) => p.id === 'hs')?.footer?.(ctx) || '';
-  const human = createHumanRoute({ store, handoff: ho, staffChatId: config.staffChatId, audit, reply });
+
+  // `ganNhan`: đường "khách xin gặp người" nằm ở `engine-handoff.js` và gắn nhãn TRƯỚC khi mở phiếu.
+  const human = createHumanRoute({ store, handoff: ho, staffChatId: config.staffChatId, audit, reply,
+    ganNhan: (convId, labels) => hoSo('gắn nhãn', () => customers.addLabels(convId, labels, 'auto')) });
 
   /**
    * Một lượt. `replayedAt` chỉ do recover() truyền (T020): mốc khách nhắn THẬT lấy từ `inbox.received_at`.
@@ -120,6 +143,10 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
       const cmd = text ? await human.lenh(turn, ghiVao) : null;
       if (cmd) return done(cmd);
       if (allow.size && !allow.has(u.userId) && !allow.has(u.chatId)) return done({ skipped: 'not-allowed' });
+      // Hồ sơ khách (T035) ghi TRƯỚC khi rẽ nhánh phòng: phòng do người cầm vẫn phải đếm lượt và lấy
+      // SĐT khách gõ — đó đúng lúc nhân viên cần hồ sơ nhất, và `human.im` mở phiếu in `summary()`.
+      // Đứng SAU lệnh nhân viên (nhóm STAFF không phải khách) và SAU ALLOW (lõi không nhận lượt đó).
+      hoSo('touch', () => customers.touch(turn));
       // Người trước máy (Điều II, FR-011): phòng không phải 'bot' thì chỉ ghi tin + chuyển phiếu rồi im.
       if (state !== 'bot') return done(await human.im(turn, said || (isText ? null : `[${u.event || 'tin không phải chữ'}]`), state, ghiVao));
       if (!isPhoto && !isText) {
@@ -161,6 +188,10 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
       Promise.resolve().then(() => channel.typing?.(turn.chatId)).catch(() => {});
       const res = (await pack.handle(turn, ctx)) ?? {};
       const evidence = [...(res.evidence ?? []), turn.text, turn.caption].filter((v) => v != null);
+      // Nhãn và món quan tâm gói trả về (`contracts/pack.md`) ghi vào hồ sơ NGAY, trước khi gửi câu
+      // trả lời và trước `human.goiChuyen`: gói xin chuyển người thì phiếu mở ra phải thấy hồ sơ của
+      // chính lượt này (phiếu in `summary()`), không phải hồ sơ của lượt trước.
+      ganKetQua(turn.convId, res);
       const results = [];
       for (const [i, r] of (res.replies ?? []).entries()) {
         const g = await reply(turn, r.text, i, { pack, evidence });

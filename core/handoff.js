@@ -9,8 +9,8 @@
 // command(turn)                    → xử lý lệnh nhân viên (/tl, /nhan, /tra-bot, /chan, /chan-nhom, /cho) (T025)
 //
 // Phần PHIẾU của T024 (`open`, `forward`, `flushDue`, và `note` của T026) nằm ở `core/handoff-ticket.js` — mỗi tệp một
-// trách nhiệm, dưới 300 dòng (Điều VI). Tệp này nhận `gate` cho phần phiếu và lệnh nhân viên.
-//
+// trách nhiệm, dưới 300 dòng (Điều VI). Tệp này nhận `gate` cho phần phiếu và lệnh nhân viên, và dựng
+// hồ sơ khách (T035) để phiếu mới kèm `summary()`.
 // Ba điều dễ sai, đã khoá bằng test ở `test/core/handoff-state.test.mjs`:
 //  1. Trạng thái theo người chỉ ghi vào `convs`. Cửa gửi đọc `chats` cho chat 1-1 (`core/gate.js:27`),
 //     nên 'human' nằm ở `chats` thì `/tra-bot` và tự về KHÔNG mở lại được phòng. `chats` chỉ giữ
@@ -24,6 +24,7 @@
 import { redact, findLeak } from './redact.js';
 import { groupNameTag, stripMention } from './mention.js';
 import { createTickets, TICKET_FORWARD_MS } from './handoff-ticket.js';
+import { createCustomers } from './customers.js';
 
 /** Khoảng lặng mặc định để phòng 'human' tự về 'bot': 2 giờ (anh Thắng chốt 06/11, research.md:71). */
 export const HUMAN_IDLE_MS = 7_200_000;
@@ -58,7 +59,9 @@ export function createHandoff({ store, gate = null, config = {}, now, log = () =
 
   /** Phòng (chat_id) của một cuộc trò chuyện; dòng chưa có thì lấy từ người gọi, cuối cùng là chính convId. */
   const chatIdOf = (convId, row, hint) => row?.chat_id ?? hint ?? convId;
-  const phieu = createTickets({ store, gate, staffChatId, banned, now, chatIdOf, log });
+  // Bản hồ sơ riêng: được, vì `createCustomers` chỉ đọc/ghi `store.customers` (xem `core/engine.js:46`).
+  const hoSoKhach = createCustomers({ store, config, now });
+  const phieu = createTickets({ store, gate, staffChatId, banned, now, chatIdOf, log, hoSo: (c) => hoSoKhach.summary(c) });
 
   const audit = (convId, chatId, from, to, by, reason) => store.audit.add({
     at: nowIso(), turn_id: null, conv_id: convId, chat_id: chatId, type: 'state-change',
