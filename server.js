@@ -77,8 +77,8 @@ if (!goi.length) console.error('[bot] KHÔNG nạp được gói nào — kiểm
 console.log(`[bot] đã nạp ${goi.length} gói: ${goi.map((p) => p.id).join(', ')}`);
 const engine = createEngine({ config: { ...config, botNames }, store, channel, mcp, vision, brain, editor, registry, gate, now, log: console, missLog, onAlert: (chatId, reason) => console.warn(`[canh-bao] chat=${chatId} lý do=${reason}`) });
 gate.recover(); engine.jobs.recover();   // hồi outbox 'queued' và jobs 'polling' của tiến trình cũ đã chết giữa chừng — Điều VII
-// ops: /health và /metrics (T027) — chỉ đọc db và hỏi trạng thái ngoài, KHÔNG gửi tin.
-const ops = createOps({ store, mcp, channel, config, startedAt: STARTED_AT, version: VERSION, now, log: console });
+// ops: /health và /metrics (T027) + bản tin gộp 08:00/17:00 (T028, đi qua cửa gửi duy nhất).
+const ops = createOps({ store, mcp, channel, config, startedAt: STARTED_AT, version: VERSION, now, log: console, gate });
 // HTTP: /health + webhook
 // store + now: handler ghi inbox (pending) TRƯỚC khi trả 200, lỗi db thì 503 để Zalo gửi lại (T018, Điều VII).
 // queue: một lượt mỗi người (khoá = convId) — không để hai tin của cùng người chạy chồng (T019).
@@ -91,8 +91,11 @@ const server = http.createServer(createWebhookHandler({
   debug: DEBUG,
   log: console,
 }));
-// bộ quét nền: drain() hỏi việc nền + quét outbox (đã có cờ chống chạy chồng trong engine/gate)
-setInterval(() => { engine.drain().catch((e) => console.error('[quet]', e.message)); }, 5000);
+// bộ quét nền: digest() (bản tin gộp 08:00/17:00) chạy TRƯỚC drain() — nó chặn dòng 'digest' còn chờ thử lại (bản tin cũ không được bắn ra ngoài giờ của nó).
+setInterval(() => {
+  ops.digest().catch((e) => console.error('[ban-tin]', e.message));
+  engine.drain().catch((e) => console.error('[quet]', e.message));
+}, 5000);
 
 server.listen(config.port, '0.0.0.0', async () => {
   console.log(`[bot] chế độ ${config.mode}, cổng ${config.port}${config.mode === 'webhook' ? `, đường dẫn ${config.webhookPath}` : ''}`);

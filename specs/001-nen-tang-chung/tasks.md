@@ -563,8 +563,11 @@ c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'au
 
 **Files:** Modify `core/ops.js` · Create `test/core/digest.test.mjs`
 
-- [ ] **Step 1: Test đỏ**: đồng hồ giả chạy từ 07:59 tới 08:01 VN, sweep mỗi phút → nhóm nhận đúng 1 tin `kind:'digest'` (idem `d:2026-11-05:08`); có số lượt, lỗi, tin bị chặn theo lý do, phiếu chờ > 15 phút; khởi động lại lúc 08:00:30 không gửi lần hai.
-- [ ] **Step 2:** FAIL · **Step 3:** viết; idem bảo đảm một lần. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(ops): twice-daily staff digest"`
+- [x] **Step 1: Test đỏ**: đồng hồ giả chạy từ 07:59 tới 08:01 VN, sweep mỗi phút → nhóm nhận đúng 1 tin `kind:'digest'` (idem `d:2026-11-05:08`); có số lượt, lỗi, tin bị chặn theo lý do, phiếu chờ > 15 phút; khởi động lại lúc 08:00:30 không gửi lần hai.
+- [x] **Step 2:** FAIL
+- [x] **Step 3:** viết; idem bảo đảm một lần.
+- [x] **Step 4:** PASS
+- [x] **Step 5:** `git commit -m "feat(ops): twice-daily staff digest"`
 
 ### T029 [US5] [P] `npm run audit`
 
