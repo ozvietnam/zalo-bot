@@ -1,0 +1,7 @@
+// #9 (26/09): khách hỏi "người hay máy" thì bot nói thật (Hiến pháp VIII, Điều VIII) và phòng vẫn giữ trạng thái bot cho câu hỏi kế tiếp
+{"step":"in","update":{"id":"ib1","text":"bạn là người hay máy vậy?"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"trợ lý tự động của OZ"}
+{"step":"in","update":{"id":"ib2","text":"xin chào"}}
+{"step":"expect","sentTo":"c1","count":2,"match":"tra cứu"}
+{"step":"in","update":{"id":"ib3","text":"gặp nhân viên"}}
+{"step":"expect","sentTo":"c1","count":3,"match":"chuyển cuộc trò chuyện cho nhân viên"}

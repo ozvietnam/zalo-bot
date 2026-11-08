@@ -43,3 +43,24 @@ test('eval: bước lạ hoặc JSON hỏng → kịch bản trượt, có lý d
     assert.match(r.stdout, /✗ hong: /);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('eval: hỗ trợ bước staff thực hiện lệnh nhân viên', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'eval-'));
+  try {
+    writeFileSync(join(dir, 'staff.jsonl'), jsonl([
+      { step: 'in', update: { id: 'm1', text: 'cho em gặp nhân viên với' } },
+      { step: 'expect', sentTo: 'c1', count: 1, match: 'chuyển cuộc trò chuyện' },
+      { step: 'staff', text: '/nhan P1' },
+      { step: 'in', update: { id: 'm2', text: 'alo bot' } },
+      { step: 'expect', sentTo: 'c1', count: 1 },
+      { step: 'staff', text: '/tra-bot P1' },
+      { step: 'in', update: { id: 'm3', text: 'xin chào' } },
+      { step: 'expect', sentTo: 'c1', count: 2 },
+    ]));
+    const r = run(dir);
+    assert.equal(r.status, 0, r.stdout + '\n' + r.stderr);
+    assert.match(r.stdout, /✓ staff/);
+    assert.match(r.stdout, /eval: 1\/1/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+

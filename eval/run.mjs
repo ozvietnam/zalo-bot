@@ -7,7 +7,7 @@
 //   {"step":"advance","by":"10m"} | {"step":"at","time":"2026-11-04T15:50:00Z"}   nhảy đồng hồ (UTC) rồi chạy việc đến hạn
 //   {"step":"restart"}     đóng lõi, mở lại cùng tệp SQLite rồi gate.recover() + jobs.recover() + engine.recover() như server.js
 //   {"step":"expect","sentTo":"c1","count":1,"match":"8413","notMatch":"C:\\\\"}   đếm/so chữ mọi tin đã gửi tới phòng
-// Bước "staff" (lệnh nhân viên) chờ T025 — gặp thì kịch bản trượt với lý do rõ.
+//   {"step":"staff","text":"/nhan P1"}   lệnh nhân viên (/tl, /nhan, /tra-bot, /chan, /cho) gửi trong nhóm staffChatId
 //
 // Dùng: npm run eval  |  node eval/run.mjs --dir <thư mục .jsonl>
 import { readdirSync, readFileSync, mkdtempSync, rmSync } from 'node:fs';
@@ -16,12 +16,15 @@ import { join, basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openStore } from '../core/store.js';
 import { createGate } from '../core/gate.js';
+import { createHandoff } from '../core/handoff.js';
 import { createRegistry } from '../core/registry.js';
 import { createEngine } from '../core/engine.js';
 import hsPack from '../packs/hs/index.js';
 import { fakeChannel, fakeClock } from '../test/helpers/fakes.mjs';
 
 const START = '2026-11-04T03:00:00.000Z';   // 10:00 giờ VN, mặc định của mọi kịch bản
+const DEFAULT_STAFF_CHAT = 'staff-chat';
+const DEFAULT_STAFF_USER = 'staff1';
 const silent = { info() {}, warn() {}, error() {} };
 
 function argDir(argv) {
@@ -53,7 +56,7 @@ const toUpdate = (u = {}) => ({
 });
 
 /** Chạy một kịch bản. → { ok, why? } */
-export async function runScenario(steps, { start = START } = {}) {
+export async function runScenario(steps, { start = START, config: userConfig = {} } = {}) {
   const tmp = mkdtempSync(join(tmpdir(), 'oz-eval-'));
   const dbPath = join(tmp, 'eval.db');
   const script = {};
@@ -61,12 +64,36 @@ export async function runScenario(steps, { start = START } = {}) {
   const clock = fakeClock(start);
   const channel = fakeChannel();
   const mcp = scriptedMcp(script);
-  let store; let engine; let gate;
+
+  const staffUsers = userConfig.staffUsers ?? new Set([DEFAULT_STAFF_USER]);
+  const config = {
+    capChatDay: 8,
+    capGroupDay: 200,
+    capAllDay: 300,
+    staffChatId: DEFAULT_STAFF_CHAT,
+    staffUsers,
+    bannedPatterns: [],
+    botNames: [],
+    humanIdleMs: 7_200_000,
+    ...userConfig,
+  };
+
+  let store; let engine; let gate; let handoff;
   const open = () => {
     store = openStore(dbPath);
-    gate = createGate({ store, channel, now: clock.now });
-    engine = createEngine({ store, channel, mcp, registry: createRegistry([hsPack]), gate, now: clock.now, log: silent,
-      advance: (ms) => { if (ms > clock.now().getTime()) clock.set(ms); } });
+    gate = createGate({
+      store, channel, now: clock.now,
+      rules: { capChatDay: config.capChatDay, capGroupDay: config.capGroupDay, capAllDay: config.capAllDay,
+        similarity: 0.8, directReplyMs: 600_000, quietHours: true, bannedPatterns: config.bannedPatterns },
+      onAlert: () => {},
+      onTicket: (convId, reason) => handoff.open(convId, reason).catch(() => {}),
+      log: silent,
+    });
+    handoff = createHandoff({ store, gate, config, now: clock.now, log: silent });
+    engine = createEngine({
+      config, store, channel, mcp, registry: createRegistry([hsPack]), gate, handoff, now: clock.now, log: silent,
+      advance: (ms) => { if (ms > clock.now().getTime()) clock.set(ms); },
+    });
   };
   /** Khởi động lại ĐÚNG như server.js: mở lại db → gate.recover() → jobs.recover() → engine.recover() (T020). */
   const boot = async () => { open(); gate.recover(); engine.jobs.recover(); await engine.recover(); };
@@ -76,10 +103,27 @@ export async function runScenario(steps, { start = START } = {}) {
       const at = `bước ${i + 1} (${s.step})`;
       switch (s.step) {
         case 'mcp': break;
+        case 'config': Object.assign(config, s.config ?? s); break;
         case 'in':
           await engine.process(toUpdate(s.update));
           if (s.drain !== false) await engine.drain();
           break;
+        case 'staff': {
+          const u = s.update ?? {};
+          const defaultStaffUser = config.staffUsers instanceof Set
+            ? [...config.staffUsers][0]
+            : (Array.isArray(config.staffUsers) ? config.staffUsers[0] : DEFAULT_STAFF_USER);
+          await engine.process(toUpdate({
+            id: s.id ?? u.id,
+            chatId: s.chatId ?? u.chatId ?? config.staffChatId,
+            userId: s.userId ?? u.userId ?? defaultStaffUser,
+            userName: s.userName ?? u.userName ?? 'Nhân viên',
+            chatType: s.chatType ?? u.chatType ?? 'GROUP',
+            text: s.text ?? u.text ?? null,
+          }));
+          if (s.drain !== false) await engine.drain();
+          break;
+        }
         case 'advance': clock.advance(s.by); await engine.drain(); break;
         case 'at': clock.set(s.time); await engine.drain(); break;
         case 'restart': store.close(); await boot(); await engine.drain(); break;
@@ -91,7 +135,6 @@ export async function runScenario(steps, { start = START } = {}) {
           if (s.notMatch && new RegExp(s.notMatch, 'i').test(all)) return { ok: false, why: `${at}: có /${s.notMatch}/ (không được có)` };
           break;
         }
-        case 'staff': return { ok: false, why: `${at}: lệnh nhân viên chưa có (chờ T025)` };
         default: return { ok: false, why: `${at}: bước lạ "${s.step}"` };
       }
     }
