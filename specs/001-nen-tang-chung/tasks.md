@@ -645,7 +645,7 @@ assert.match(REPLY_IS_BOT, /trợ lý tự động của OZ/);
 
 **Files:** Modify `core/handoff.js` · Create `test/core/handoff-cmd.test.mjs`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 test('/tl P3 Dạ em đây ạ → khách nhận đúng "Dạ em đây ạ" (kind staff_relay), phòng sang human', …)
 test('/nhan P3 hai người → người đầu được, người sau nhận "P3 đã có <tên> nhận"', …)
@@ -653,7 +653,7 @@ test('/tra-bot P3 → phòng về bot, phiếu closed; bot không trả lời b�
 test('/chan P3 → blocked; /cho → danh sách phiếu open + phút chờ', …)
 test('lệnh từ người không thuộc STAFF_USERS hoặc ngoài STAFF_CHAT_ID → bỏ qua, audit staff-cmd:denied', …)
 ```
-- [ ] **Step 2:** FAIL · **Step 3:** viết. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(handoff): staff commands"`
+- [x] **Step 2:** FAIL · **Step 3:** viết. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(handoff): staff commands"`
 
 ### T026 [US2] Cắm handoff vào engine
 
