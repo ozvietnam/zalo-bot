@@ -62,3 +62,13 @@ So khớp sau khi chuẩn hoá về số nguyên (bài học "1,5 tấn" và "1.
 7. `sweep()` chạy chồng thì lần sau trả 0 ngay.
 8. Cửa **không bao giờ** sửa `text`. Muốn khác thì gói phải trả câu khác.
 9. Mỗi quyết định ghi một dòng audit `gate` (`staff_relay` thêm `leakCheck: 'skipped'`).
+
+## Bản tin gộp (`kind = digest`, T028)
+
+Bản tin gộp 08:00 và 17:00 giờ VN gửi cho phòng nhân viên, đi qua cửa gửi này.
+
+- `digest` nằm trong `NEVER_PROACTIVE` (`core/gate-decide.js:18`) nên **được miễn** bước 2 (chat human/blocked), 3a/3b (nợ việc nền, giờ yên), 4/5/6 (trần ngày) và 7 (chống trùng) ở tầng cửa. Vì vậy **lớp gọi tự chịu giờ yên** (hiến pháp Điều II): `core/ops.js` chỉ bắn trong hai giờ 08:00 và 17:00 giờ VN.
+- Vì cửa miễn luật giờ yên cho `digest`, dòng `digest` gửi hỏng **không được** để bộ quét nền (`sweep()`) thử gửi lại vào lúc bất kỳ — nếu không, bản tin 08:00 có thể bắn lúc 23:30 giờ VN (giờ yên) hoặc 09:00 (ngoài hai giờ bắn). `core/ops.js` hết lượt thử lại của dòng đó ngay khi gửi hỏng (kỳ đó coi như mất; bản tin kỳ sau vẫn báo số liệu mới).
+- Khoá idempotency: `d:<ngày giờ VN>:<giờ>` (ví dụ `d:2026-11-05:08`) — một khoá mỗi kỳ, nên khởi động lại giữa kỳ không gửi hai lần.
+- Bản tin gộp **không** ghi vào `messages` (xem luật thi hành 2).
+- Nội dung chỉ gồm **số tổng hợp + tên lý do** (Điều IX): không tên, không số điện thoại, không `chat_id`/`conv_id`, không nội dung tin khách, không đường dẫn. Một tin, tối đa 2.000 ký tự (không bị chia).
