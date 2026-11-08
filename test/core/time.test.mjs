@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { vnHour, isQuietHours, nextMorning, vnDateKey, vnDayStartUtc } from '../../core/time.js';
+import { vnHour, isQuietHours, nextMorning, vnDateKey, vnDayStartUtc, vnStamp } from '../../core/time.js';
 
 test('giờ VN không phụ thuộc TZ của máy', () => {
   const saved = process.env.TZ;
@@ -20,6 +20,9 @@ test('giờ VN không phụ thuộc TZ của máy', () => {
       assert.equal(vnDateKey(new Date('2026-11-04T16:59:00Z')), '2026-11-04');
       assert.equal(vnDayStartUtc(new Date('2026-11-04T17:30:00Z')), '2026-11-04T17:00:00.000Z');
       assert.equal(vnDayStartUtc(new Date('2026-11-04T10:00:00Z')), '2026-11-03T17:00:00.000Z');
+      assert.equal(vnStamp(new Date('2026-11-07T03:00:00.000Z')), '2026-11-07 10:00:00');
+      assert.equal(vnStamp(new Date('2026-11-04T16:30:00Z')), '2026-11-04 23:30:00');
+      assert.equal(vnStamp(new Date('2026-11-04T17:00:00Z')), '2026-11-05 00:00:00');
     }
   } finally {
     if (saved === undefined) delete process.env.TZ; else process.env.TZ = saved;
