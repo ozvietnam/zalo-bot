@@ -1,0 +1,15 @@
+// #4 (01–08/10): phòng ở trạng thái human (nhân viên cầm phòng) thì bot im hoàn toàn (Hiến pháp II, FR-010..FR-014)
+{"step":"in","update":{"id":"h1","text":"cho em gặp nhân viên với"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"nhân viên OZ"}
+{"step":"in","update":{"id":"h2","text":"máy bơm nước ly tâm thuế bao nhiêu"}}
+{"step":"expect","sentTo":"c1","count":1}
+{"step":"staff","text":"/nhan P1"}
+{"step":"in","update":{"id":"h3","text":"alo bot có ở đó không"}}
+{"step":"expect","sentTo":"c1","count":1}
+{"step":"staff","text":"/tl P1 Chào bạn, mình là nhân viên OZ hỗ trợ bạn nhé"}
+{"step":"expect","sentTo":"c1","count":2,"match":"hỗ trợ bạn nhé"}
+{"step":"in","update":{"id":"h4","text":"dạ vâng em cảm ơn"}}
+{"step":"expect","sentTo":"c1","count":2}
+{"step":"staff","text":"/tra-bot P1"}
+{"step":"in","update":{"id":"h5","text":"xin chào"}}
+{"step":"expect","sentTo":"c1","count":3,"match":"tra cứu"}

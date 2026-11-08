@@ -16,7 +16,7 @@ Mỗi dòng một bước (dòng bắt đầu `//` là ghi chú). Giờ mặc đ
 | `{"step":"advance","by":"10m"}` / `{"step":"at","time":"…Z"}` | Nhảy đồng hồ rồi chạy việc đến hạn |
 | `{"step":"restart"}` | Đóng lõi, mở lại cùng tệp SQLite, rồi khôi phục đúng như `server.js` lúc khởi động: `gate.recover()` → `engine.recover()` (T020) |
 | `{"step":"expect","sentTo":"c1","count":2,"match":"…","notMatch":"…"}` | Đếm và so chữ (regex, không phân biệt hoa thường) mọi tin đã gửi tới phòng |
-| `{"step":"staff","text":"/nhan P1"}` | Lệnh nhân viên — chưa có (T025), gặp là trượt |
+| `{"step":"staff","text":"/nhan P1"}` | Lệnh nhân viên (/tl, /nhan, /tra-bot, /chan, /cho) gửi trong nhóm nhân viên (mặc định `staff-chat`, `staff1`) |
 
 ## Kịch bản hiện có
 
@@ -24,16 +24,13 @@ Mỗi dòng một bước (dòng bắt đầu `//` là ghi chú). Giờ mặc đ
 |---|---|
 | `retry-webhook` | #1 Zalo gửi lại cùng tin → trả lời đúng một lần |
 | `double-tap` | #2 Khách gửi 2 lần cùng chữ → không nhận 2 câu giống nhau |
+| `human-room` | #4 Nhân viên cầm phòng thì bot im hoàn toàn (Hiến pháp II) |
 | `silent-customer` | #5 Đã trả kết quả, khách im → không tự nhắn thêm |
 | `leak` | #7 Cổng trả đường dẫn tệp nội bộ → không lộ cho khách |
+| `is-bot` | #9 Khách hỏi "người hay máy" → nói thật, không lặp câu khuôn (Hiến pháp VIII) |
 | `restart-mid-job` | #11 Khởi động lại giữa lúc phân loại → kết quả vẫn tới |
 | `quiet-hours` | #12 Giờ yên 23:00–07:00 VN → tin chủ động hoãn tới sáng |
 | `cong-ai-ban` | 06/11/2026: Cổng báo "AI bận" (MiniMax 429) → báo đúng, không bịa mã |
-
-## Còn thiếu so với T030 (chờ tính năng)
-
-| Kịch bản | Chờ |
-|---|---|
-| `human-room` (#4: nhân viên cầm phòng thì bot im) | T022–T026 handoff |
-| `is-bot` (#9: hỏi "người hay máy" không nhận câu khuôn lặp) | T023 |
-| `ho-so-khach` (US7) | T033–T036 |
+| `hoi-lai` | #55 Khách hỏi lại câu trả lời trực tiếp sau cửa sổ chống trùng |
+| `ba-ma-khac-nhau` | #55 Tra 3 mã liên tiếp không bị gộp trùng |
+| `ho-so-khach` | US7: Dữ kiện tương tác (SĐT, nhãn) được ghi nhận vào hồ sơ customers |
