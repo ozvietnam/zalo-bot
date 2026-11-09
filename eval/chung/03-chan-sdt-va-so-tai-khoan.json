@@ -1,0 +1,28 @@
+{
+  "_nguon": "ozvietnam/zalo-bot (chep-mot-chieu)",
+  "id": "chung-03-chan-sdt-va-so-tai-khoan",
+  "luat": "UX-07",
+  "ten": "SĐT hoặc số tài khoản lọt vào câu trả lời phải bị chặn hoặc che",
+  "moTa": "Số điện thoại cá nhân và số tài khoản ngân hàng xuất hiện trong câu trả lời hoặc log phải bị che hoặc chặn để bảo vệ dữ liệu nhạy cảm",
+  "loai": "che-nhay-cam",
+  "cacTruongHop": [
+    {
+      "ten": "Số điện thoại Việt Nam mẫu 0912345678 phải bị che",
+      "vanBanGoc": "Mọi chi tiết xin liên hệ hotline 0912345678 để được tư vấn.",
+      "chuaNhayCam": true,
+      "khongChua": ["0912345678"]
+    },
+    {
+      "ten": "Số tài khoản ngân hàng kèm từ khóa STK phải bị che",
+      "vanBanGoc": "Vui lòng thanh toán vào STK: 1234567890 tại ngân hàng Vietcombank.",
+      "chuaNhayCam": true,
+      "khongChua": ["1234567890"]
+    },
+    {
+      "ten": "Mã HS 8 số không bị che nhầm",
+      "vanBanGoc": "Mã HS đề xuất là 84137090 với thuế suất ưu đãi 0%.",
+      "chuaNhayCam": false,
+      "phaiChua": ["84137090"]
+    }
+  ]
+}

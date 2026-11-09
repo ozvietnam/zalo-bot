@@ -34,7 +34,7 @@ Lưu ý khi tới 003 (CSKH): đây là gói rủi ro nhất, vì 18 sự cố t
 
 ## Về "lên trending GitHub"
 
-Repo hiện là **private**, nên chưa thể lên trending. Muốn có cộng đồng thì nên mở **phần lõi** (`core/`, `channels/`, `eval/`,
-khung gói mẫu) thành một repo công khai riêng: "khung bot Zalo an toàn cho doanh nghiệp, có cửa gửi, người cầm phòng, eval".
-Gói nghiệp vụ, tri thức và khoá Cổng OZ vẫn để private. Việc tách repo chỉ nên làm sau khi 001 đạt SC-001…SC-007:
+Repo hiện là **công khai** (public), tuân theo đầy đủ các quy tắc an toàn dữ liệu và bảo mật (không lộ bí mật, số điện thoại thật, thông tin nội bộ). Muốn có cộng đồng và lên trending thì cần hoàn thiện **phần lõi** (`core/`, `channels/`, `eval/`,
+khung gói mẫu): "khung bot Zalo an toàn cho doanh nghiệp, có cửa gửi, người cầm phòng, eval".
+Các tri thức nghiệp vụ sâu và khoá Cổng OZ nội bộ vẫn được bảo vệ hoặc tách riêng. Việc mở rộng cộng đồng chỉ nên làm sau khi 001 đạt SC-001…SC-007:
 số đo thật là thứ thuyết phục người ngoài, README đẹp thì không.
