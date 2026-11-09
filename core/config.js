@@ -37,6 +37,11 @@ export function loadConfig(env = process.env) {
   const mode = str(env, 'ZALO_MODE', 'webhook').toLowerCase();
   if (!MODES.includes(mode)) throw new Error(`ZALO_MODE phải là ${MODES.join(' | ')} (nhận "${mode}")`);
 
+  const voiceReplies = str(env, 'VOICE_REPLIES', 'summary').toLowerCase();
+  if (!['off', 'summary', 'always'].includes(voiceReplies)) {
+    throw new Error(`VOICE_REPLIES phải là off | summary | always (nhận "${voiceReplies}")`);
+  }
+
   return Object.freeze({
     zaloToken,
     mode,
@@ -63,5 +68,11 @@ export function loadConfig(env = process.env) {
     humanIdleMs: int(env, 'HUMAN_IDLE_MS', 7_200_000, 1),
     bannedPatterns: Object.freeze(patterns(env, 'BANNED_PATTERNS')),
     botNames: Object.freeze(list(env, 'BOT_NAMES')),
+    publicBaseUrl: str(env, 'PUBLIC_BASE_URL', 'https://zalo-bot.uythacnhapkhau.com'),
+    voiceReplies,
+    geminiTtsVoice: str(env, 'GEMINI_TTS_VOICE', 'Aoede'),
+    geminiTtsPrompt: str(env, 'GEMINI_TTS_PROMPT', 'giọng nữ trẻ, miền Bắc, dịu dàng, ấm áp, lễ phép'),
+    geminiTtsModel: str(env, 'GEMINI_TTS_MODEL', 'gemini-2.5-flash-preview-tts'),
+    capVoiceDay: int(env, 'CAP_VOICE_DAY', 50, 0),
   });
 }

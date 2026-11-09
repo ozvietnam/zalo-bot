@@ -5,6 +5,8 @@
 // Ack trước khi ghi là mất tin: Zalo đã nhận 200 nên không gửi lại, mà tiến trình có thể chết ở khe hở đó.
 // `health` là hàm trả payload /health (bất đồng bộ: có mốc chặn khi hỏi Cổng OZ/Zalo);
 // `metrics` là hàm trả số liệu vận hành (đồng bộ). Cả hai do server.js nối từ core/ops.js.
+import { existsSync, createReadStream } from 'node:fs';
+import { join } from 'node:path';
 import { convIdOf } from './conv.js';
 import { isGroup } from './mention.js';
 import { redact } from './redact.js';
@@ -63,6 +65,17 @@ export function createWebhookHandler({ config, channel, engine, store, health, m
           .then(() => metrics(new Date(t).toISOString()))
           .then((m) => json(res, 200, m))
           .catch((e) => loi500(res, e));
+      }
+      if (req.method === 'GET' && duongDan.startsWith('/am-thanh/')) {
+        const m = duongDan.match(/^\/am-thanh\/([a-f0-9]{32,64})\.aac$/i);
+        if (!m) return json(res, 404, { ok: false });
+        const hash = m[1].toLowerCase();
+        const amThanhDir = join(config?.dataDir || './data', 'am-thanh');
+        const filePath = join(amThanhDir, `${hash}.aac`);
+        if (!existsSync(filePath)) return json(res, 404, { ok: false });
+        res.writeHead(200, { 'Content-Type': 'audio/aac' });
+        createReadStream(filePath).pipe(res);
+        return;
       }
       if (config.mode !== 'webhook' || req.method !== 'POST' || duongDan !== config.webhookPath) return json(res, 404, { ok: false });
       if (!channel.verifyWebhook(req)) return json(res, 403, { ok: false });

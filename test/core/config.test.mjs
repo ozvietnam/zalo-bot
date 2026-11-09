@@ -16,6 +16,10 @@ test('mặc định với env tối thiểu', () => {
   assert.equal(cfg.capAllDay, 300);
   assert.equal(cfg.sessionTtlMs, 7_200_000);
   assert.equal(cfg.humanIdleMs, 7_200_000);
+  assert.equal(cfg.publicBaseUrl, 'https://zalo-bot.uythacnhapkhau.com');
+  assert.equal(cfg.voiceReplies, 'summary');
+  assert.equal(cfg.geminiTtsVoice, 'Aoede');
+  assert.equal(cfg.capVoiceDay, 50);
   assert.ok(cfg.allowUsers instanceof Set && cfg.allowUsers.size === 0);
   assert.ok(cfg.staffUsers instanceof Set);
   assert.ok(cfg.companyPhones instanceof Set && cfg.companyPhones.size === 0);
@@ -26,6 +30,7 @@ test('mặc định với env tối thiểu', () => {
 
 test('giá trị sai thì ném lỗi nêu tên khoá', () => {
   assert.throws(() => loadConfig({ ...min, ZALO_MODE: 'abc' }), /ZALO_MODE/);
+  assert.throws(() => loadConfig({ ...min, VOICE_REPLIES: 'invalid' }), /VOICE_REPLIES/);
   assert.throws(() => loadConfig({ ...min, CAP_CHAT_DAY: '-1' }), /CAP_CHAT_DAY/);
   assert.throws(() => loadConfig({ ...min, CAP_ALL_DAY: 'x' }), /CAP_ALL_DAY/);
   assert.throws(() => loadConfig({ ...min, PORT: '0' }), /PORT/);

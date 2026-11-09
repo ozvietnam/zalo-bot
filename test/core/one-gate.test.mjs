@@ -203,6 +203,12 @@ test('chỉ core/gate.js gọi .sendText trong core/packs/channels/scripts + ser
     `chỗ gọi .sendText ngoài core/gate.js: ${JSON.stringify(hits, null, 2)}`);
 });
 
+test('chỉ core/gate.js gọi .sendVoice trong core/packs/channels/scripts + server.js', () => {
+  const hits = prodFiles().flatMap((f) => grepLines(/\.sendVoice\(/, f));
+  assert.deepEqual(hits.map((h) => h.file), ['core/gate.js'],
+    `chỗ gọi .sendVoice ngoài core/gate.js: ${JSON.stringify(hits, null, 2)}`);
+});
+
 test('lib/ không còn tồn tại trên đĩa (đã xoá hẳn)', () => {
   assert.equal(existsSync(join(ROOT, 'lib')), false, 'lib/ vẫn còn tồn tại trên đĩa');
 });

@@ -26,6 +26,9 @@ export function createChannel({ token, baseUrl, fetchImpl, secret } = {}) {
       if (styles.length) body.text_styles = styles;
       await client.call('sendMessage', body);
     },
+    async sendVoice(chatId, voiceUrl) {
+      await client.call('sendVoice', { chat_id: chatId, voice_url: voiceUrl });
+    },
     async typing(chatId) { await client.sendChatAction(chatId, 'typing'); },
     getMe: () => client.getMe(),
     verifyWebhook(req) {
@@ -100,6 +103,7 @@ export function createZaloClient({ token, baseUrl = DEFAULT_BASE, fetchImpl = fe
     getMe: () => call('getMe'),
     getUpdates: (timeout = 30) => call('getUpdates', { timeout }, { timeoutMs: (timeout + 10) * 1000 }),
     sendChatAction: (chatId, action = 'typing') => call('sendChatAction', { chat_id: chatId, action }).catch(() => null),
+    sendVoice: (chatId, voiceUrl) => call('sendVoice', { chat_id: chatId, voice_url: voiceUrl }),
     setWebhook: (url, secretToken) => call('setWebhook', { url, secret_token: secretToken }),
     deleteWebhook: () => call('deleteWebhook'),
     getWebhookInfo: () => call('getWebhookInfo'),
@@ -144,14 +148,16 @@ export function parseUpdate(raw) {
   if (!u || typeof u !== 'object') return null;
   const m = u.message || {};
   const chatId = m.chat?.id ?? m.chat_id ?? m.from?.id ?? null;
+  const isVoiceEvent = u.event_name === 'message.voice.received' || Boolean(m.voice || m.voice_url);
   return {
-    event: u.event_name || (m.text ? 'message.text.received' : 'unknown'),
+    event: u.event_name || (isVoiceEvent ? 'message.voice.received' : (m.text ? 'message.text.received' : 'unknown')),
     chatId: chatId == null ? null : String(chatId),
     userId: m.from?.id == null ? null : String(m.from.id),
     userName: m.from?.display_name || m.from?.name || null,
     chatType: m.chat?.chat_type || m.chat?.type || null,
     text: typeof m.text === 'string' ? m.text : null,
     photoUrl: m.photo_url || m.photo?.url || (Array.isArray(m.photo) ? m.photo.at(-1)?.url : null) || null,
+    voiceUrl: m.voice_url || m.voice?.url || null,
     caption: typeof m.caption === 'string' ? m.caption : null,
     messageId: m.message_id == null ? null : String(m.message_id),
   };
