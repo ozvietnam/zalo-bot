@@ -44,7 +44,7 @@ description: "Danh sách việc spec 001: khuôn spec-kit, mỗi việc viết t
 
 **Files:** Modify `package.json`, `Dockerfile`, `.gitignore` · Create `test/core/smoke.test.mjs`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 test('node:sqlite có sẵn và ghi được', async () => {
   const { DatabaseSync } = await import('node:sqlite');
@@ -53,10 +53,10 @@ test('node:sqlite có sẵn và ghi được', async () => {
   assert.equal(db.prepare('select count(*) c from t').get().c, 1);
 });
 ```
-- [ ] **Step 2:** `node --test test/core/` → FAIL (chưa có tệp / chưa có script)
-- [ ] **Step 3:** `package.json`: `engines.node ">=22.13"`; scripts `test = "node --disable-warning=ExperimentalWarning --test test/core/ packs/ && node test/test.mjs"`, `dev = "node --env-file=.env --disable-warning=ExperimentalWarning server.js"`, `start = "node --disable-warning=ExperimentalWarning server.js"`, `eval = "node --disable-warning=ExperimentalWarning eval/run.mjs"`, `audit = "node scripts/audit.mjs"`. Dockerfile: `COPY core channels packs eval ./…`, `ENV DATA_DIR=/app/data`, `VOLUME /app/data`, tạo thư mục với quyền `node`. `.gitignore` thêm `data/`.
-- [ ] **Step 4:** `npm test` → PASS (smoke + 21 test cũ)
-- [ ] **Step 5:** `git commit -m "chore: node:test runner, data volume, scripts"`
+- [x] **Step 2:** `node --test test/core/` → FAIL (chưa có tệp / chưa có script)
+- [x] **Step 3:** `package.json`: `engines.node ">=22.13"`; scripts `test = "node --disable-warning=ExperimentalWarning --test test/core/ packs/ && node test/test.mjs"`, `dev = "node --env-file=.env --disable-warning=ExperimentalWarning server.js"`, `start = "node --disable-warning=ExperimentalWarning server.js"`, `eval = "node --disable-warning=ExperimentalWarning eval/run.mjs"`, `audit = "node scripts/audit.mjs"`. Dockerfile: `COPY core channels packs eval ./…`, `ENV DATA_DIR=/app/data`, `VOLUME /app/data`, tạo thư mục với quyền `node`. `.gitignore` thêm `data/`.
+- [x] **Step 4:** `npm test` → PASS (smoke + 21 test cũ)
+- [x] **Step 5:** `git commit -m "chore: node:test runner, data volume, scripts"`
 
 ### T002 [P] Đồ giả dùng chung cho test
 
@@ -67,10 +67,10 @@ test('node:sqlite có sẵn và ghi được', async () => {
 - `fakeMcp(script: Record<string, (args, n) => object>) -> { calls: Array<{name,args}>, callTool, listTools }`
 - `fakeClock(iso) -> { now(): Date, advance(ms|'10m'|'2h'): void, set(iso) }`
 
-- [ ] **Step 1: Test đỏ**: `fakeClock('2026-11-04T00:00:00Z').advance('10m')` → `now().toISOString() === '2026-11-04T00:10:00.000Z'`; `fakeMcp({tra_thue: () => ({ok:true})}).callTool('tra_thue', {})` ghi `calls.length === 1`.
-- [ ] **Step 2:** `node --test test/core/fakes.test.mjs` → FAIL
-- [ ] **Step 3:** Viết `fakes.mjs` theo Interfaces.
-- [ ] **Step 4:** PASS · **Step 5:** `git commit -m "test: shared fakes"`
+- [x] **Step 1: Test đỏ**: `fakeClock('2026-11-04T00:00:00Z').advance('10m')` → `now().toISOString() === '2026-11-04T00:10:00.000Z'`; `fakeMcp({tra_thue: () => ({ok:true})}).callTool('tra_thue', {})` ghi `calls.length === 1`.
+- [x] **Step 2:** `node --test test/core/fakes.test.mjs` → FAIL
+- [x] **Step 3:** Viết `fakes.mjs` theo Interfaces.
+- [x] **Step 4:** PASS · **Step 5:** `git commit -m "test: shared fakes"`
 
 ---
 
@@ -82,7 +82,7 @@ test('node:sqlite có sẵn và ghi được', async () => {
 
 **Interfaces — Produces:** `vnHour(d: Date) -> number` · `isQuietHours(d: Date, start=23, end=7) -> boolean` · `nextMorning(d: Date, hour=7) -> string /*ISO UTC*/` · `vnDateKey(d) -> 'YYYY-MM-DD'` · `vnDayStartUtc(d) -> string`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 for (const tz of ['UTC', 'Asia/Tokyo']) {
   process.env.TZ = tz;
@@ -94,7 +94,7 @@ for (const tz of ['UTC', 'Asia/Tokyo']) {
   assert.equal(vnDateKey(new Date('2026-11-04T17:30:00Z')), '2026-11-05');
 }
 ```
-- [ ] **Step 2:** FAIL · **Step 3:** cộng 7 giờ trên `getTime()`, đọc bằng `getUTCHours()`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): VN time helpers"`
+- [x] **Step 2:** FAIL · **Step 3:** cộng 7 giờ trên `getTime()`, đọc bằng `getUTCHours()`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): VN time helpers"`
 
 ### T004 [P] `core/redact.js`
 
@@ -102,7 +102,7 @@ for (const tz of ['UTC', 'Asia/Tokyo']) {
 
 **Interfaces — Produces:** `redact(s: string) -> string` · `findLeak(s: string, banned?: RegExp[]) -> null | 'path'|'stack'|'secret'|'banned'`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 assert.equal(redact('Authorization: Bearer abcDEF123456789012345678901234567890'), 'Authorization: Bearer ***');
 assert.match(redact('https://bot-api.zaloplatforms.com/bot1234:AAbbCC-dd/sendMessage'), /bot\*\*\*\/sendMessage/);
@@ -111,7 +111,7 @@ assert.equal(findLeak('at handle (/app/core/engine.js:12:5)'), 'stack');
 assert.equal(findLeak('Dạ mã 8413.70.90, thuế 0%'), null);
 assert.equal(findLeak('gọi 0985559918', [/0985\D?559\D?918/]), 'banned');
 ```
-- [ ] **Step 2:** FAIL · **Step 3:** regex theo `contracts/send-gate.md` dòng 7. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): redact and leak detection"`
+- [x] **Step 2:** FAIL · **Step 3:** regex theo `contracts/send-gate.md` dòng 7. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): redact and leak detection"`
 
 ### T005 [P] `core/config.js`
 
@@ -119,8 +119,8 @@ assert.equal(findLeak('gọi 0985559918', [/0985\D?559\D?918/]), 'banned');
 
 **Interfaces — Produces:** `loadConfig(env = process.env) -> Readonly<Config>` với các khoá `zaloToken, mode, port, webhookPath, webhookSecret, mcpUrl, mcpToken, mcpAuthHeader, geminiKey, geminiModel, rateLimitPerMin, allowUsers:Set, staffUsers:Set, staffChatId, dataDir, companyPhones:Set, capChatDay, capAllDay, bannedPatterns:RegExp[], botNames:string[]`
 
-- [ ] **Step 1: Test đỏ**: env tối thiểu `{ ZALO_BOT_TOKEN: 'x' }` → `mode === 'webhook'`, `capChatDay === 8`, `capAllDay === 300`, `Object.isFrozen(cfg)`; `ZALO_MODE='abc'` → throw `/ZALO_MODE/`; `CAP_CHAT_DAY='-1'` → throw; `BANNED_PATTERNS='0985\\D?559'` → `bannedPatterns[0].test('0985 559') === true`.
-- [ ] **Step 2:** FAIL · **Step 3:** viết; thêm vào `.env.example`: `STAFF_USERS`, `STAFF_CHAT_ID`, `DATA_DIR`, `CAP_CHAT_DAY`, `CAP_ALL_DAY`, `BANNED_PATTERNS`, `SESSION_TTL_MS`, `COMPANY_PHONES`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): validated config"`
+- [x] **Step 1: Test đỏ**: env tối thiểu `{ ZALO_BOT_TOKEN: 'x' }` → `mode === 'webhook'`, `capChatDay === 8`, `capAllDay === 300`, `Object.isFrozen(cfg)`; `ZALO_MODE='abc'` → throw `/ZALO_MODE/`; `CAP_CHAT_DAY='-1'` → throw; `BANNED_PATTERNS='0985\\D?559'` → `bannedPatterns[0].test('0985 559') === true`.
+- [x] **Step 2:** FAIL · **Step 3:** viết; thêm vào `.env.example`: `STAFF_USERS`, `STAFF_CHAT_ID`, `DATA_DIR`, `CAP_CHAT_DAY`, `CAP_ALL_DAY`, `BANNED_PATTERNS`, `SESSION_TTL_MS`, `COMPANY_PHONES`. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): validated config"`
 
 ### T006 `core/store.js`
 
@@ -138,7 +138,7 @@ assert.equal(findLeak('gọi 0985559918', [/0985\D?559\D?918/]), 'banned');
 `customers.{get(chatId)->row|null, upsert(chatId, patch, at), deleteChat(chatId)}` ·
 `meta.{get(k), set(k, v)}` · `tx(fn)` · `close()`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 const s = openStore(); assert.equal(s.meta.get('schema_version'), '1');
 openStore(file).close(); assert.equal(openStore(file).meta.get('schema_version'), '1'); // migrate lặp không lỗi
@@ -150,7 +150,7 @@ assert.equal(s.jobs.add({ pack: 'hs', ma_luot: 'L1', /* … */ }) !== null, true
 assert.equal(s.jobs.add({ pack: 'hs', ma_luot: 'L1', /* … */ }), null);       // UNIQUE(pack, ma_luot)
 assert.equal(s.chats.get('c2'), null);
 ```
-- [ ] **Step 2:** FAIL · **Step 3:** lược đồ đúng `data-model.md`; `PRAGMA journal_mode=WAL; busy_timeout=5000`; mọi câu SQL dùng `prepare` + tham số. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): sqlite store and schema v1"`
+- [x] **Step 2:** FAIL · **Step 3:** lược đồ đúng `data-model.md`; `PRAGMA journal_mode=WAL; busy_timeout=5000`; mọi câu SQL dùng `prepare` + tham số. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): sqlite store and schema v1"`
 
 ### T007 [P] `core/text.js`
 
@@ -158,7 +158,7 @@ assert.equal(s.chats.get('c2'), null);
 
 **Interfaces — Produces:** `normVi(s) -> string` (thường, bỏ dấu, `đ→d`, gộp khoảng trắng) · `jaccard(a, b) -> number` (tập từ của `normVi`) · `extractMoney(s) -> number[]` · `isCloser(s) -> boolean`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 assert.ok(jaccard('Dạ anh gửi giúp em ảnh sản phẩm ạ', 'dạ anh gửi giúp em ảnh sản phẩm') >= 0.8);
 assert.ok(jaccard('Mã 8413.70.90 thuế 0%', 'Anh cần tra mã khác không ạ') < 0.3);
@@ -168,7 +168,7 @@ assert.deepEqual(extractMoney('mua 3 250.000đ'), [250000]);
 assert.deepEqual(extractMoney('mã 8413.70.90, 1,5 tấn'), []);   // không có đơn vị tiền
 assert.equal(isCloser('ok ạ'), true); assert.equal(isCloser('👍'), true); assert.equal(isCloser('ok mã 8413'), false);
 ```
-- [ ] **Step 2:** FAIL · **Step 3:** viết. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): vi text normalize, jaccard, money extraction"`
+- [x] **Step 2:** FAIL · **Step 3:** viết. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): vi text normalize, jaccard, money extraction"`
 
 ---
 
@@ -183,7 +183,7 @@ assert.equal(isCloser('ok ạ'), true); assert.equal(isCloser('👍'), true); as
 **Interfaces — Consumes:** `isQuietHours`, `nextMorning` (T003) · `findLeak` (T004) · `jaccard`, `extractMoney` (T007)
 **Produces:** `decide(msg, facts, rules) -> { decision, reason, notBefore? }` theo đúng bảng 8 dòng trong `contracts/send-gate.md`
 
-- [ ] **Step 1: Test đỏ**: mỗi dòng của bảng một test, cùng một `msg` gốc `{ kind:'reply', text:'Dạ mã 8413.70.90', inReplyToAt: NOW }` và `facts` mặc định `{ chatState:'bot', hasOpenJob:false, … }`:
+- [x] **Step 1: Test đỏ**: mỗi dòng của bảng một test, cùng một `msg` gốc `{ kind:'reply', text:'Dạ mã 8413.70.90', inReplyToAt: NOW }` và `facts` mặc định `{ chatState:'bot', hasOpenJob:false, … }`:
 ```js
 expect({ idemExists: true }) → { decision: 'drop', reason: 'duplicate-idem' }
 expect({ chatState: 'human' }) → { decision: 'reject', reason: 'chat-human' }
@@ -199,7 +199,7 @@ expect({}, { text: 'xem /home/oz/a.log' }) → { decision: 'reject', reason: 'le
 expect({}, { text: 'Cước 27.000đ/kg', pack: { moneyCheck: true }, evidence: [{ donGia: 25650 }] }) → { decision: 'reject', reason: 'money:27000' }
 expect({}, { text: 'Cước 25.650đ/kg', pack: { moneyCheck: true }, evidence: [{ donGia: 25650 }] }) → 'send'
 ```
-- [ ] **Step 2:** FAIL · **Step 3:** kiểm theo thứ tự bảng, trượt đầu tiên thì trả. Số trong `evidence` lấy bằng duyệt sâu mọi giá trị số và chuỗi (`extractMoney` + `Number`). · **Step 4:** PASS · **Step 5:** `git commit -m "feat(gate): pure send decision"`
+- [x] **Step 2:** FAIL · **Step 3:** kiểm theo thứ tự bảng, trượt đầu tiên thì trả. Số trong `evidence` lấy bằng duyệt sâu mọi giá trị số và chuỗi (`extractMoney` + `Number`). · **Step 4:** PASS · **Step 5:** `git commit -m "feat(gate): pure send decision"`
 
 ### T009 [US1] `gate.send()`: thi hành, chia phần, idempotent
 
@@ -208,7 +208,7 @@ expect({}, { text: 'Cước 25.650đ/kg', pack: { moneyCheck: true }, evidence: 
 **Interfaces — Consumes:** `Store.outbox`, `Store.chats`, `Store.audit` (T006) · `channel.sendText` (contract kênh)
 **Produces:** `createGate({ store, channel, rules, now, onAlert, onTicket }) -> { send(msg) -> Promise<{id, decision, reason, status}>, sweep() -> Promise<number> }`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 test('ghi outbox trước khi gọi kênh', …)        // channel.sendText đọc store: dòng đã có status 'queued'
 test('hai send cùng idemKey song song → kênh nhận 1 lần', …)   // Promise.all([send(m), send(m)]) → sent.length === 1
@@ -217,14 +217,14 @@ test('sweep sau lỗi → gửi tiếp phần 2 và 3, không gửi lại phần
 test('reject leak → onAlert gọi 1 lần, không có gì tới kênh', …)
 test('cap:chat → onTicket(chatId, "cap")', …)
 ```
-- [ ] **Step 2:** FAIL · **Step 3:** `send`: đọc facts → `decide` → `outbox.insert` (bắt `DUPLICATE_IDEM` → trả `drop`) → nếu `send`: chia bằng `splitText` (chuyển từ `lib/zalo.js` sang `core/text.js`) → gửi từ `parts_sent` → cập nhật. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(gate): idempotent send with part resume"`
+- [x] **Step 2:** FAIL · **Step 3:** `send`: đọc facts → `decide` → `outbox.insert` (bắt `DUPLICATE_IDEM` → trả `drop`) → nếu `send`: chia bằng `splitText` (chuyển từ `lib/zalo.js` sang `core/text.js`) → gửi từ `parts_sent` → cập nhật. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(gate): idempotent send with part resume"`
 
 ### T010 [US1] `gate.sweep()`: tin hoãn và thử lại
 
 **Files:** Modify `core/gate.js`, `test/core/gate-send.test.mjs`
 
-- [ ] **Step 1: Test đỏ**: tin `defer` `notBefore=07:00` → sweep lúc 06:59 không gửi, 07:00 gửi; phòng sang `human` trước 07:00 → sweep chuyển `rejected: chat-human`; tin `failed` thử lại 3 lần ở +1, +5, +15 phút sau lần lỗi thứ 1, 2, 3 (chạy lại `decide` đầy đủ mỗi lần), lỗi thứ 4 thì dừng ở `attempts=4`, `onAlert` một lần; tin `cap:chat`/`cap:all` hoãn thẳng tới 07:00 VN sau nửa đêm VN kế tiếp.
-- [ ] **Step 2:** FAIL · **Step 3:** `outbox.due(now)` → chạy lại `decide` với facts mới (bỏ qua bước idem vì là chính dòng đó). · **Step 4:** PASS · **Step 5:** `git commit -m "feat(gate): sweep deferred and failed messages"`
+- [x] **Step 1: Test đỏ**: tin `defer` `notBefore=07:00` → sweep lúc 06:59 không gửi, 07:00 gửi; phòng sang `human` trước 07:00 → sweep chuyển `rejected: chat-human`; tin `failed` thử lại 3 lần ở +1, +5, +15 phút sau lần lỗi thứ 1, 2, 3 (chạy lại `decide` đầy đủ mỗi lần), lỗi thứ 4 thì dừng ở `attempts=4`, `onAlert` một lần; tin `cap:chat`/`cap:all` hoãn thẳng tới 07:00 VN sau nửa đêm VN kế tiếp.
+- [x] **Step 2:** FAIL · **Step 3:** `outbox.due(now)` → chạy lại `decide` với facts mới (bỏ qua bước idem vì là chính dòng đó). · **Step 4:** PASS · **Step 5:** `git commit -m "feat(gate): sweep deferred and failed messages"`
 
 ---
 
@@ -233,7 +233,7 @@ test('cap:chat → onTicket(chatId, "cap")', …)
 ### T011 [US4] `core/types.js`
 
 **Files:** Create `core/types.js` (chỉ JSDoc `@typedef Pack, Turn, Ctx, Update, PackResult, Job` đúng `contracts/`)
-- [ ] **Step 1:** Viết typedef. **Step 2:** `node --check core/types.js` → OK. **Step 3:** `git commit -m "docs(core): shared typedefs"`
+- [x] **Step 1:** Viết typedef. **Step 2:** `node --check core/types.js` → OK. **Step 3:** `git commit -m "docs(core): shared typedefs"`
 
 ### T012 [US4] `channels/zalo-bot.js`
 
@@ -241,8 +241,8 @@ test('cap:chat → onTicket(chatId, "cap")', …)
 
 **Interfaces — Produces:** `createChannel({ token, baseUrl?, fetchImpl?, secret }) -> Channel` theo `contracts/channel.md`; `parse(raw).updateKey`
 
-- [ ] **Step 1: Test đỏ**: `parse({ result: { event_name: 'message.image.received', message: { chat: { id: 1 }, photo_url: 'u' } } }).updateKey` bằng nhau qua 2 lần gọi và có 40 ký tự hex; có `message_id: 9` thì `updateKey === '9'`; `verifyWebhook({ headers: { 'x-bot-api-secret-token': 's' } })` với `secret: 's'` → true, sai → false.
-- [ ] **Step 2:** FAIL · **Step 3:** thêm `updateKey`, `verifyWebhook`, `typing`, `capabilities: { detectsHumanReplies: false }`; `sendText` chỉ gửi một phần (việc chia chuyển cho gate). · **Step 4:** `npm test` PASS (21 test cũ) · **Step 5:** `git commit -m "refactor: zalo client becomes channel adapter"`
+- [x] **Step 1: Test đỏ**: `parse({ result: { event_name: 'message.image.received', message: { chat: { id: 1 }, photo_url: 'u' } } }).updateKey` bằng nhau qua 2 lần gọi và có 40 ký tự hex; có `message_id: 9` thì `updateKey === '9'`; `verifyWebhook({ headers: { 'x-bot-api-secret-token': 's' } })` với `secret: 's'` → true, sai → false.
+- [x] **Step 2:** FAIL · **Step 3:** thêm `updateKey`, `verifyWebhook`, `typing`, `capabilities: { detectsHumanReplies: false }`; `sendText` chỉ gửi một phần (việc chia chuyển cho gate). · **Step 4:** `npm test` PASS (21 test cũ) · **Step 5:** `git commit -m "refactor: zalo client becomes channel adapter"`
 
 ### T013 [US4] `core/registry.js`
 
@@ -250,8 +250,8 @@ test('cap:chat → onTicket(chatId, "cap")', …)
 
 **Interfaces — Produces:** `loadPacks(dir = 'packs') -> Promise<Pack[]>` · `createRegistry(packs) -> { available(tools: Set|null, turn) -> Pack[], pick(turn, ctx) -> Pack|null }`
 
-- [ ] **Step 1: Test đỏ**: hai gói giả `a` (priority 5, match true) và `b` (priority 10, `audience:'staff'`, match true): `pick({isStaff:false})` → `a`; `pick({isStaff:true})` → `b`; gói `requiresTools:['x']` với `tools = new Set(['y'])` không có trong `available`; `tools = null` (Cổng chưa trả) thì vẫn có (giữ hành vi hiện tại).
-- [ ] **Step 2:** FAIL · **Step 3:** `loadPacks` dùng `fs.readdir` + `import(pathToFileURL(…/index.js))`, kiểm `id` duy nhất. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): pack registry"`
+- [x] **Step 1: Test đỏ**: hai gói giả `a` (priority 5, match true) và `b` (priority 10, `audience:'staff'`, match true): `pick({isStaff:false})` → `a`; `pick({isStaff:true})` → `b`; gói `requiresTools:['x']` với `tools = new Set(['y'])` không có trong `available`; `tools = null` (Cổng chưa trả) thì vẫn có (giữ hành vi hiện tại).
+- [x] **Step 2:** FAIL · **Step 3:** `loadPacks` dùng `fs.readdir` + `import(pathToFileURL(…/index.js))`, kiểm `id` duy nhất. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): pack registry"`
 
 ### T014 [US4] Chuyển 7 gói hải quan sang `packs/hs/`
 
@@ -259,13 +259,13 @@ test('cap:chat → onTicket(chatId, "cap")', …)
 
 **Interfaces — Consumes:** `Ctx` (T011) · **Produces:** `default Pack` với `id:'hs'`, `priority: 0`, `audience:'public'`, `moneyCheck:false`, `requiresTools: []` (giữ "gói chỉ hiện khi Cổng có công cụ" ở mức từng gói con trong `availablePackages`)
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 test('phan_loai_hs trả DANG_XU_LY → handle trả jobs [{maLuot, resultTool:"ket_qua_phan_loai"}] và 1 câu "⏳"', …)
 test('onJobResult(job, {trangThai:"XONG", ...}) → reply có mã HS gợi ý (dùng renderClassify như cũ)', …)
 test('mã 8 số → gói 2, kết quả có thuế suất từ Cổng (giữ nguyên test cũ "gói 2")', …)
 ```
-- [ ] **Step 2:** FAIL · **Step 3:** `index.js` gói `route()` + `PACKAGES` hiện có; `waitJob` thành `toJob(r, resultTool)` trả `{ job }` thay vì vòng `while`. Phiên đọc/ghi qua `ctx.session`. · **Step 4:** `npm test` PASS · **Step 5:** `git commit -m "refactor(hs): move customs packages into packs/hs"`
+- [x] **Step 2:** FAIL · **Step 3:** `index.js` gói `route()` + `PACKAGES` hiện có; `waitJob` thành `toJob(r, resultTool)` trả `{ job }` thay vì vòng `while`. Phiên đọc/ghi qua `ctx.session`. · **Step 4:** `npm test` PASS · **Step 5:** `git commit -m "refactor(hs): move customs packages into packs/hs"`
 
 ### T015 [US4] `core/engine.js`: một lượt
 
@@ -274,7 +274,7 @@ test('mã 8 số → gói 2, kết quả có thuế suất từ Cổng (giữ ng
 **Interfaces — Consumes:** `Store` (T006), `createGate` (T009), `createRegistry` (T013), `Channel` (T012)
 **Produces:** `createEngine({ config, store, channel, mcp, vision, registry, gate, now, log }) -> { process(update) -> Promise<{handled|skipped, turnId}>, drain() -> Promise<void> }` · `createBot(opts)` giữ chữ ký hiện tại cho test cũ (dựng engine với `openStore(':memory:')`).
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 test('mỗi lượt ghi audit inbound → route → outbound với cùng turnId', …)
 test('gói trả 2 replies → idemKey r:<chat>:<turn>:0 và :1', …)
@@ -282,7 +282,7 @@ test('isCloser("cảm ơn ạ") sau khi bot vừa trả lời → không gửi g
 test('gói ném lỗi → khách nhận câu báo chung không chứa nội dung lỗi; audit error đã redact', …)
 test('ALLOW_USERS và rate limit 10/phút giữ như cũ', …)
 ```
-- [ ] **Step 2:** FAIL · **Step 3:** `process`: `chats.upsertSeen` → (US2 cắm vào đây) → `registry.pick` → `pack.handle` → `gate.send` từng reply với `footer` của gói nối cuối như hiện nay → `jobs.add` → `inbox.markDone`. `drain()` chạy `jobs.tick` + `gate.sweep` tới khi không còn việc đến hạn (cho test). · **Step 4:** `npm test` PASS · **Step 5:** `git commit -m "feat(core): engine turn pipeline"`
+- [x] **Step 2:** FAIL · **Step 3:** `process`: `chats.upsertSeen` → (US2 cắm vào đây) → `registry.pick` → `pack.handle` → `gate.send` từng reply với `footer` của gói nối cuối như hiện nay → `jobs.add` → `inbox.markDone`. `drain()` chạy `jobs.tick` + `gate.sweep` tới khi không còn việc đến hạn (cho test). · **Step 4:** `npm test` PASS · **Step 5:** `git commit -m "feat(core): engine turn pipeline"`
 
 ### T037 [US8] Cuộc trò chuyện riêng trong nhóm: chuyển khoá sang `conv_id`
 
@@ -291,14 +291,14 @@ test('ALLOW_USERS và rate limit 10/phút giữ như cũ', …)
 **Interfaces — Produces:** `convIdOf(update) -> string` (`chat_id` hoặc `chat_id:user_id` khi nhóm) trong `core/conv.js` · `Store.convs.{get, upsertSeen, setState}` · mọi `msg` gửi qua cửa có `convId`; facts của cửa (`chatState`, `recentBotTexts`, `sentTodayChat`, `hasOpenJob`) tính theo `convId`; thêm fact `sentTodayGroup` + luật `cap:group` (`CAP_GROUP_DAY=200`) và `chatState` cấp nhóm (`blocked` ở `chats` chặn mọi conv của nhóm)
 
 - [x] **Step 1: Test đỏ**: nhóm `g1`, A và B: A chạm trần 8 tin → B vẫn gửi được; 30 người gửi cùng câu "8413.70.90" trong 5 phút → 30 tin ra (không `similar`); `convs.setState('g1:B','human')` → tin cho A `send`, cho B `reject chat-human`; `chats` `g1` `blocked` → cả A và B `reject chat-blocked`; idemKey dạng `r:<convId>:<turn>:<i>`; nhóm chạm `CAP_GROUP_DAY` → `defer cap:group`.
-- [ ] **Step 2:** FAIL · **Step 3:** sửa lược đồ v1 (chưa có db thật), thêm cột + chỉ mục `(conv_id, …)`, đổi truy vấn; engine tính `convId`, khoá phiên = `convId` (thay `chat:user` hiện tại, cùng giá trị). · **Step 4:** `npm test` PASS · **Step 5:** `git commit -m "feat(core): per-person conversations in group chats"`
+- [x] **Step 2:** FAIL · **Step 3:** sửa lược đồ v1 (chưa có db thật), thêm cột + chỉ mục `(conv_id, …)`, đổi truy vấn; engine tính `convId`, khoá phiên = `convId` (thay `chat:user` hiện tại, cùng giá trị). · **Step 4:** `npm test` PASS · **Step 5:** `git commit -m "feat(core): per-person conversations in group chats"`
 
 ### T038 [US8] Gắn đúng tên trong nhóm, tách người trùng tên, hàng đợi theo người
 
 **Files:** Modify `core/engine*.js`, `core/queue.js` (nếu đã có; chưa có thì ghi chú cho T019) · Create `test/core/group-tag.test.mjs`
 
 - [x] **Step 1: Test đỏ**: trong nhóm, mọi reply bắt đầu `@<tên>\n`; A và C trùng tên `Nguyễn Văn A` (user_id `...7f`, `...2c`) đều từng nhắn trong nhóm → tên gắn là `@Nguyễn Văn A ·7f` và `@Nguyễn Văn A ·2c`; tên không trùng thì không có hậu tố; fixture 3 người xen kẽ 12 tin (US8 Independent Test) → mỗi người chỉ nhận câu của mình; việc nền của A không chặn B (hàng đợi khoá `convId`).
-- [ ] **Step 2:** FAIL · **Step 3:** danh sách tên đã thấy trong nhóm lấy từ `convs` theo `chat_id`; nếu kênh có `capabilities.replyTo` thì gửi kèm `reply_to` (chưa có tài liệu chính thức cho Zalo Bot Platform ở nhóm, mặc định `false`). · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): unambiguous name tags in group chats"`
+- [x] **Step 2:** FAIL · **Step 3:** danh sách tên đã thấy trong nhóm lấy từ `convs` theo `chat_id`; nếu kênh có `capabilities.replyTo` thì gửi kèm `reply_to` (chưa có tài liệu chính thức cho Zalo Bot Platform ở nhóm, mặc định `false`). · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): unambiguous name tags in group chats"`
 
 ### T016 [US4] Nối `server.js`, xoá `lib/`, khoá "một cửa gửi"
 
@@ -740,7 +740,7 @@ c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'au
 - [x] **Step 2:** FAIL (viết test đỏ trước, thấy đỏ rồi mới viết code).
 - [x] **Step 3:** tệp mới `core/ops.js` — `createOps` trả `{health, metrics}`; `health()` đo db bằng `store.ping()`, hỏi Cổng OZ và Zalo **song song** với mốc chặn 2,5 s (để `/health` luôn nằm trong 5 s của `HEALTHCHECK`), `ok` chỉ phụ thuộc db; `metrics()` đếm bằng SQL: `turns` đếm từ bảng `inbox` (lý do: `audit` ghi bản ghi `inbound` **sau** các nhánh chặn sớm của lõi nên bỏ sót lượt mà bot đã gửi tin), quyết định cửa đếm từ `outbox` (một tin = một dòng, quyết định cuối) cộng bù hai lý do chặn sớm không tạo dòng outbox (`empty`, `duplicate-idem`) từ `audit`; thêm index `received_at` cho `inbox`, `created_at` cho `outbox`, `(type, at)` cho `audit`.
 - [x] **Step 4:** PASS — `npm test` 448/448, `npm run eval` 9/9, `node scripts/kiem-wiki.mjs --nghiem` → "wiki: ĐẠT (16 trang)".
-- [ ] **Step 5:** `git commit -m "feat(ops): health and metrics"`
+- [x] **Step 5:** `git commit -m "feat(ops): health and metrics"`
 
 ### T028 [US5] Bản tin gộp 08:00 và 17:00 giờ VN
 
@@ -784,8 +784,11 @@ c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'au
 
 **Files:** Create `.github/workflows/ci.yml`
 
-- [ ] **Step 1:** workflow `node-version: 22`, chạy `npm test` rồi `npm run eval` cho mọi PR và push lên `main`.
-- [ ] **Step 2:** đẩy nhánh, CI xanh trên PR. · **Step 3:** `git commit -m "ci: test and eval gate"`
+> **Đã làm (nguồn PR #19: commit `64a728a`).** Tệp `.github/workflows/ci.yml` đã được tạo từ PR #19, nội dung khớp quy cách: `node-version: 22`, chạy `npm test` rồi `npm run eval` cho mọi PR và push lên `main`, bổ sung thêm job `wiki` (`scripts/kiem-wiki.mjs`).
+
+- [x] **Step 1:** workflow `node-version: 22`, chạy `npm test` rồi `npm run eval` cho mọi PR và push lên `main`. (nguồn: PR #19)
+- [x] **Step 2:** đẩy nhánh, CI xanh trên PR. (nguồn: PR #19)
+- [x] **Step 3:** `git commit -m "ci: test and eval gate"` (nguồn: PR #19 commit `64a728a`)
 
 ---
 
@@ -797,7 +800,7 @@ c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'au
 
 - [x] **Step 1:** README: mô hình lõi / gói / kênh; lệnh nhân viên; biến môi trường mới; cách thêm gói (trỏ `contracts/pack.md`).
 - [x] **Step 2:** Chạy đủ `quickstart.md` mục 1–6 trên máy thật, ghi kết quả vào mô tả PR.
-- [ ] **Step 3:** `git commit -m "docs: core platform usage"`
+- [x] **Step 3:** `git commit -m "docs: core platform usage"`
 
 ---
 
@@ -813,7 +816,7 @@ c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'au
 - [x] **Step 2:** FAIL (bản cũ bỏ tin trùng trong 15 phút bất kể loại tin → khách hỏi lại không được trả lời).
 - [x] **Step 3:** `core/gate-decide.js` thêm `dupDirectMs`/`dupWindowMs` và hàm `isDirectReply`; bước chống trùng chọn cửa sổ theo `isDirectReply` (60 giây cho trả lời trực tiếp, 15 phút cho chủ động), tin không có mốc đọc được thì coi như trong cửa sổ; `core/store/queue.js` đổi `recentBotTexts` → `recentBotMsgs` (kèm `sent_at`); `core/gate.js` đọc theo cửa sổ dài 15 phút rồi `decide` tự lọc; `core/engine-jobs.js` ghi `receivedAt` vào `context` của dòng `jobs` và truyền `inReplyToAt` khi gửi `job_result` (dòng cũ không có → `null`). `job_result` vẫn luôn chịu luật `proactive-no-debt` và luật giờ yên như trước.
 - [x] **Step 4:** PASS — `npm test` xanh.
-- [ ] **Step 5:** `git commit -m "feat(gate): split duplicate window by message kind"`
+- [x] **Step 5:** `git commit -m "feat(gate): split duplicate window by message kind"`
 
 ---
 
