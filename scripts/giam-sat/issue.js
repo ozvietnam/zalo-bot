@@ -1,7 +1,8 @@
 // Mở/append GitHub issue từ phát hiện giám sát — spec 007 User Story 2
-// Không trùng (cùng mã + chế độ → comment vào issue cũ), ẩn danh bằng chứng, giới hạn 5 issue mới/repo/ngày.
-// Dùng GitHub REST API (fetch) — không cần gh CLI trong container.
+// Không trùng (chống trùng theo fingerprint), ẩn danh bằng chứng, trần 5 issue mới/repo/ngày, mở lại sau 3 ngày.
+// Dùng GitHub REST API (fetch hoặc client được tiêm) — không cần gh CLI trong container.
 // Env: GITHUB_TOKEN (PAT có quyền issue:write trên các repo đích)
+import { createHash } from 'node:crypto';
 import { anDanhVanBan } from './an-danh.js';
 
 const LABELS = { 'zalo-bot': 'ozvietnam/zalo-bot', 'ozplugin': 'ozvietnam/ozplugin', 'hs-code-api': 'ozvietnam/hs-code-api' };
@@ -28,79 +29,161 @@ async function gh(path, opts = {}) {
   return r.status === 204 ? null : r.json();
 }
 
-/** Tạo label nếu chưa có (idempotent, 404 = tạo mới) */
-async function taoLabel(repo, name) {
+/** Lấy fingerprint định danh phát hiện */
+export function layFingerprint(p) {
+  return p.fingerprint || `${p.ma}${p.cheDo ? `:${p.cheDo}` : ''}`;
+}
+
+/** Sinh nhãn fingerprint fp:<8 ký tự sha256> */
+export function layFpLabel(p) {
+  const fp = layFingerprint(p);
+  const h8 = createHash('sha256').update(fp).digest('hex').slice(0, 8);
+  return `fp:${h8}`;
+}
+
+/** Kiểm tra phát hiện có vượt ngưỡng 3 ngày liền đối với issue đã đóng không (FR-008) */
+function laVuotNguong3Ngay(p, issue) {
+  if (typeof p.ngayLienTiep === 'number' && p.ngayLienTiep >= 3) return true;
+  if (typeof p.soNgayVuot === 'number' && p.soNgayVuot >= 3) return true;
+  if (typeof p.ngayVuotNguong === 'number' && p.ngayVuotNguong >= 3) return true;
+  if (issue && typeof issue.comments === 'number' && issue.comments >= 3) return true;
+  return false;
+}
+
+/** Ghi nhận lỗi vào ketQua.loi (mảng khi có lỗi, null khi không có lỗi để tương thích) */
+function ghiLoi(ketQua, thongTinLoi) {
+  if (!ketQua.loi) {
+    ketQua.loi = [];
+  }
+  ketQua.loi.push(thongTinLoi);
+}
+
+/** Tạo label nếu chưa có (idempotent, 422 = đã có, OK) */
+async function taoLabel(client, repo, name) {
   try {
-    await gh(`/repos/${repo}/labels`, { method: 'POST', body: JSON.stringify({ name, color: 'd73a4a', description: 'Phát hiện bởi agent giám sát (spec 007)' }) });
+    await client(`/repos/${repo}/labels`, {
+      method: 'POST',
+      body: JSON.stringify({ name, color: 'd73a4a', description: 'Phát hiện bởi agent giám sát (spec 007)' }),
+    });
   } catch (e) {
     if (!String(e.message).includes('422')) throw e; // 422 = đã có, OK
   }
 }
 
-/** Tìm issue mở cùng mã tín hiệu */
-async function timIssueCu(repo, ma) {
-  const q = `repo:${repo} is:issue is:open label:giam-sat label:${ma}`;
-  const list = await gh(`/search/issues?q=${encodeURIComponent(q)}&per_page=1`);
-  return list.items?.[0] || null;
+/** Tìm issue cũ theo fingerprint (ưu tiên open, sau đó đến closed) */
+async function timIssueCu(client, repo, fpLabel) {
+  const q = `repo:${repo} is:issue label:giam-sat label:${fpLabel}`;
+  const list = await client(`/search/issues?q=${encodeURIComponent(q)}&per_page=5`);
+  const items = list?.items || [];
+  const open = items.find(it => it.state === 'open');
+  if (open) return open;
+  const closed = items.find(it => it.state === 'closed');
+  return closed || null;
 }
 
 /**
  * @param {Array} phatHien — từ tinhHieu()
- * @param {object} opts — { dryRun?: boolean, ngay: string, redactFn?: (s)=>string, mapKhach?: Map }
- * @returns {{moi:Array, comment:Array, boViGioiHan:Array, loi?:string}}
+ * @param {object} opts — { dryRun?: boolean, ngay: string, redactFn?: (s)=>string, mapKhach?: Map, ghClient?: Function }
+ * @returns {Promise<{moi:Array, comment:Array, reopen:Array, boViGioiHan:Array, loi:Array|null}>}
  */
-export async function xuLyIssue(phatHien, { dryRun = false, ngay, redactFn = (s) => s, mapKhach } = {}) {
-  const ketQua = { moi: [], comment: [], boViGioiHan: [], loi: null };
+export async function xuLyIssue(phatHien, { dryRun = false, ngay, redactFn = (s) => s, mapKhach, ghClient } = {}) {
+  const ketQua = { moi: [], comment: [], reopen: [], boViGioiHan: [], loi: null };
   const demMoi = {};
-  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  const client = ghClient || gh;
 
-  if (!token && !dryRun) {
-    ketQua.loi = 'Thiếu GITHUB_TOKEN — không mở issue được (chỉ in console)';
-    return ketQua;
+  if (!dryRun && !ghClient) {
+    const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+    if (!token) {
+      ghiLoi(ketQua, { loi: 'Thiếu GITHUB_TOKEN — không mở issue được (chỉ in console)' });
+      return ketQua;
+    }
   }
 
-  // Tạo labels cần thiết một lần (chạy song song)
+  // Tạo labels cần thiết một lần
   if (!dryRun) {
-    const tatCaLabel = new Set(phatHien.flatMap(p => ['giam-sat', p.ma]));
-    for (const repo of new Set(phatHien.map(p => LABELS[p.repo]))) {
+    const tatCaLabel = new Set();
+    for (const p of phatHien) {
+      tatCaLabel.add('giam-sat');
+      tatCaLabel.add(p.ma);
+      tatCaLabel.add(layFpLabel(p));
+    }
+    for (const repo of new Set(phatHien.map(p => LABELS[p.repo] || LABELS['zalo-bot']))) {
       for (const lb of tatCaLabel) {
-        await taoLabel(repo, lb).catch(() => {});
+        await taoLabel(client, repo, lb).catch(() => {});
       }
     }
   }
 
   for (const p of phatHien) {
     const repo = LABELS[p.repo] || LABELS['zalo-bot'];
+    const fp = layFingerprint(p);
+    const fpLabel = layFpLabel(p);
     const tieuDe = `[giám sát] ${p.ma}${p.cheDo ? `: ${p.cheDo}` : ''} — ${p.moTa.slice(0, 60)}`;
-    const labels = ['giam-sat', p.ma];
+    const labels = ['giam-sat', p.ma, fpLabel];
     const body = dichVanBan(p, ngay, redactFn, mapKhach);
 
     let cu = null;
     if (!dryRun) {
-      cu = await timIssueCu(repo, p.ma).catch(() => null);
+      try {
+        cu = await timIssueCu(client, repo, fpLabel);
+      } catch (err) {
+        ghiLoi(ketQua, { repo, ma: p.ma, fingerprint: fp, thaoTac: 'tim_issue', loi: err.message });
+      }
     }
 
-    if (cu) {
+    if (cu && cu.state === 'open') {
       if (!dryRun) {
-        await gh(`/repos/${repo}/issues/${cu.number}/comments`, {
-          method: 'POST',
-          body: JSON.stringify({ body: `**+1 ngày (${ngay}):** ${p.soDo}` }),
-        }).catch(() => {});
+        try {
+          await client(`/repos/${repo}/issues/${cu.number}/comments`, {
+            method: 'POST',
+            body: JSON.stringify({ body: `**+1 ngày (${ngay}):** ${p.soDo}` }),
+          });
+          ketQua.comment.push({ repo, issue: cu.number, ma: p.ma, fingerprint: fp });
+        } catch (err) {
+          ghiLoi(ketQua, { repo, issue: cu.number, ma: p.ma, fingerprint: fp, thaoTac: 'comment', loi: err.message });
+        }
+      } else {
+        ketQua.comment.push({ repo, issue: cu.number, ma: p.ma, fingerprint: fp });
       }
-      ketQua.comment.push({ repo, issue: cu.number, ma: p.ma });
+    } else if (cu && cu.state === 'closed') {
+      if (laVuotNguong3Ngay(p, cu)) {
+        if (!dryRun) {
+          try {
+            await client(`/repos/${repo}/issues/${cu.number}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ state: 'open' }),
+            });
+            await client(`/repos/${repo}/issues/${cu.number}/comments`, {
+              method: 'POST',
+              body: JSON.stringify({ body: `**Mở lại sau 3 ngày vượt ngưỡng (${ngay}):** ${p.soDo}` }),
+            }).catch(() => {});
+            ketQua.reopen.push({ repo, issue: cu.number, ma: p.ma, fingerprint: fp, soDo: p.soDo });
+          } catch (err) {
+            ghiLoi(ketQua, { repo, issue: cu.number, ma: p.ma, fingerprint: fp, thaoTac: 'reopen', loi: err.message });
+          }
+        } else {
+          ketQua.reopen.push({ repo, issue: cu.number, ma: p.ma, fingerprint: fp, soDo: p.soDo });
+        }
+      }
     } else {
       demMoi[repo] = (demMoi[repo] || 0) + 1;
       if (demMoi[repo] > MAX_ISSUE_MOI_NGAY) {
-        ketQua.boViGioiHan.push({ repo, ma: p.ma, lyDo: `đã mở ${MAX_ISSUE_MOI_NGAY} issue mới cho ${repo} hôm nay` });
+        ketQua.boViGioiHan.push({ repo, ma: p.ma, fingerprint: fp, lyDo: `đã mở ${MAX_ISSUE_MOI_NGAY} issue mới cho ${repo} hôm nay` });
         continue;
       }
       if (!dryRun) {
-        await gh(`/repos/${repo}/issues`, {
-          method: 'POST',
-          body: JSON.stringify({ title: tieuDe, body, labels }),
-        }).catch(() => {});
+        try {
+          await client(`/repos/${repo}/issues`, {
+            method: 'POST',
+            body: JSON.stringify({ title: tieuDe, body, labels }),
+          });
+          ketQua.moi.push({ repo, tieuDe, ma: p.ma, fingerprint: fp });
+        } catch (err) {
+          ghiLoi(ketQua, { repo, ma: p.ma, fingerprint: fp, thaoTac: 'tao_issue', loi: err.message });
+        }
+      } else {
+        ketQua.moi.push({ repo, tieuDe, ma: p.ma, fingerprint: fp });
       }
-      ketQua.moi.push({ repo, tieuDe, ma: p.ma });
     }
   }
   return ketQua;
