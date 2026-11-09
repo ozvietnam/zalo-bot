@@ -74,7 +74,7 @@ Toàn bộ 9 nguyên tắc của Hiến pháp đã được thi hành và bảo 
 
 | Spec | Trạng thái | Bằng chứng |
 |---|---|---|
-| 007 — Agent giám sát | Spec còn Draft, **chưa có plan.md/tasks.md**, code đã có bản thử nghiệm nhưng **đã thấy lệch spec** | `specs/007-giam-sat-nang-cap/spec.md:7`; đo 9 tín hiệu ở `scripts/giam-sat/tinh-hieu.js:37`, mở issue ở `scripts/giam-sat/issue.js:51`; code thử nghiệm gửi Telegram ở `scripts/giam-sat.mjs:84-86` và `scripts/giam-sat/telegram.js:10`, trong khi spec 007 FR-010 đòi bản tin vào nhóm nhân viên qua cửa gửi duy nhất `kind:'digest'`; thư mục `specs/007-giam-sat-nang-cap/` chưa có *plan.md* và *tasks.md* |
+| 007 — Agent giám sát | Đã có spec, plan, tasks (T701–T712); code đã có, chờ sửa 4 điểm lệch | `specs/007-giam-sat-nang-cap/plan.md:1`, `specs/007-giam-sat-nang-cap/tasks.md:5`; đo 9 tín hiệu ở `scripts/giam-sat/tinh-hieu.js:37`, mở issue đúng repo ở `scripts/giam-sat/issue.js:51`, báo Telegram ở `scripts/giam-sat/telegram.js:10`, chạy lệnh ở `scripts/giam-sat.mjs:2` |
 | 008 — Cổng AI Studio | **Chỉ có spec** | `specs/008-cong-ai-studio/spec.md:7` (Draft); chưa có mã nguồn trong repo này, dự kiến tách repo riêng |
 | 009 — Agent tra cứu hải quan | **Chỉ có spec** | `specs/009-agent-tra-cuu/spec.md:7` (Draft); não hiện tại ở `packs/hs/brain.js` chỉ chọn một gói, chưa phải vòng lặp gọi nhiều công cụ |
 | 010 — Giao việc cho thợ ngoài (Antigravity, Muse Code) | **Chỉ có spec, ghi là nghiên cứu** | `specs/010-giao-viec-antigravity/spec.md:7` (Nghiên cứu — chưa code); chưa có mã nguồn: không có tệp *scripts/mcp-tho.mjs*, không có *.agents/hooks.json*, `.gitignore` chưa có `.agy-logs/` và `.worktrees/`; thẻ còn 5 câu NEEDS CLARIFICATION chờ chủ repo chốt |
