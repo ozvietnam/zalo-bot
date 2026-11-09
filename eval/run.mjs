@@ -14,6 +14,7 @@ import { readdirSync, readFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DatabaseSync } from 'node:sqlite';
 import { openStore } from '../core/store.js';
 import { createGate } from '../core/gate.js';
 import { createHandoff } from '../core/handoff.js';
@@ -133,17 +134,79 @@ export async function runScenario(steps, { start = START, config: userConfig = {
           if (s.count != null && sent.length !== s.count) return { ok: false, why: `${at}: cần ${s.count} tin, có ${sent.length}${sent.length ? `: ${JSON.stringify(sent.map((t) => t.slice(0, 80)))}` : ''}` };
           if (s.match && !new RegExp(s.match, 'i').test(all)) return { ok: false, why: `${at}: không thấy /${s.match}/ trong ${JSON.stringify(all.slice(0, 300))}` };
           if (s.notMatch && new RegExp(s.notMatch, 'i').test(all)) return { ok: false, why: `${at}: có /${s.notMatch}/ (không được có)` };
+          if (s.messages != null) {
+            const msgs = store.messages.recent(s.sentTo ?? 'c1', 1000);
+            if (msgs.length !== s.messages) return { ok: false, why: `${at}: messages cần ${s.messages}, có ${msgs.length}` };
+          }
           break;
         }
         default: return { ok: false, why: `${at}: bước lạ "${s.step}"` };
       }
     }
-    return { ok: true };
+    store.close();
+    store = null;
+    const chk = checkMessages(dbPath, config.staffChatId);
+    if (!chk.ok) return chk;
+    return { ok: true, stats: chk.stats };
   } catch (e) {
     return { ok: false, why: `lỗi: ${e?.message ?? e}` };
   } finally {
     try { store?.close(); } catch { /* đã đóng */ }
     rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+/**
+ * SC-008 (T040, spec.md:286): Đối chiếu số tin trong bảng messages của mọi phòng khách.
+ * - Tin khách vào = inbox status='done' (không tính nhóm nhân viên)
+ * - Tin đã gửi = outbox status='sent', kind NOT IN ('ticket','digest')
+ * - Ca bị cửa drop/reject không được có trong messages
+ * - messages của phòng khách = khách vào + đã gửi (không thiếu, không thừa)
+ */
+export function checkMessages(dbPath, staffChatId = DEFAULT_STAFF_CHAT) {
+  const raw = new DatabaseSync(dbPath, { readOnly: true });
+  try {
+    const chats = raw.prepare(`
+      SELECT DISTINCT chat_id FROM (
+        SELECT chat_id FROM inbox WHERE chat_id != ?
+        UNION
+        SELECT chat_id FROM outbox WHERE chat_id != ?
+        UNION
+        SELECT chat_id FROM messages WHERE chat_id != ?
+      )
+    `).all(staffChatId, staffChatId, staffChatId).map((r) => r.chat_id);
+
+    const stats = [];
+    for (const chatId of chats) {
+      const inDone = raw.prepare("SELECT COUNT(*) AS n FROM inbox WHERE chat_id = ? AND status = 'done'").get(chatId).n;
+      const outSent = raw.prepare("SELECT COUNT(*) AS n FROM outbox WHERE chat_id = ? AND status = 'sent' AND kind NOT IN ('ticket', 'digest')").get(chatId).n;
+      const msgTotal = raw.prepare("SELECT COUNT(*) AS n FROM messages WHERE chat_id = ?").get(chatId).n;
+      const msgKhach = raw.prepare("SELECT COUNT(*) AS n FROM messages WHERE chat_id = ? AND speaker = 'khach'").get(chatId).n;
+      const msgSent = raw.prepare("SELECT COUNT(*) AS n FROM messages WHERE chat_id = ? AND speaker IN ('bot', 'nhan-vien')").get(chatId).n;
+
+      const leaked = raw.prepare(`
+        SELECT COUNT(*) AS n FROM messages WHERE chat_id = ? AND outbox_id IN (
+          SELECT id FROM outbox WHERE chat_id = ? AND status != 'sent'
+        )
+      `).get(chatId, chatId).n;
+
+      if (leaked > 0) {
+        return { ok: false, why: `SC-008: phòng ${chatId} có ${leaked} tin bị drop/reject lọt vào messages` };
+      }
+      if (inDone !== msgKhach) {
+        return { ok: false, why: `SC-008: phòng ${chatId} tin khách vào (${inDone}) != tin khách trong messages (${msgKhach})` };
+      }
+      if (outSent !== msgSent) {
+        return { ok: false, why: `SC-008: phòng ${chatId} tin gửi thành công (${outSent}) != tin gửi trong messages (${msgSent})` };
+      }
+      if (msgTotal !== inDone + outSent) {
+        return { ok: false, why: `SC-008: phòng ${chatId} tổng messages (${msgTotal}) != tin vào (${inDone}) + tin ra (${outSent})` };
+      }
+      stats.push({ chatId, inDone, outSent, msgTotal });
+    }
+    return { ok: true, stats };
+  } finally {
+    raw.close();
   }
 }
 
@@ -161,7 +224,10 @@ async function main() {
     let r;
     try { r = await runScenario(parse(join(dir, f))); } catch (e) { r = { ok: false, why: `đọc tệp lỗi: ${e.message}` }; }
     if (r.ok) pass++;
-    console.log(r.ok ? `✓ ${name}` : `✗ ${name}: ${r.why}`);
+    const statStr = r.stats?.length
+      ? ` (${r.stats.map((s) => `${s.chatId}: vào ${s.inDone} + ra ${s.outSent} = ${s.msgTotal}`).join(', ')})`
+      : '';
+    console.log(r.ok ? `✓ ${name}${statStr}` : `✗ ${name}: ${r.why}`);
   }
   console.log(`eval: ${pass}/${files.length} kịch bản đạt`);
   process.exitCode = pass === files.length ? 0 : 1;

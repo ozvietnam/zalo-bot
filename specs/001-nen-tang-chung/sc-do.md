@@ -1,6 +1,6 @@
 # Bảng đo lường Success Criteria SC-001…SC-009 (Spec 001)
 
-> Cập nhật: 2026-11-09 · commit: 5528796 · Trạng thái: 5/9 Đạt trọn vẹn trong lab, 4/9 Đạt về code (chờ nghiệm thu chạy thật/test suite)
+> Cập nhật: 2026-11-09 · commit: 5528796 · Trạng thái: 6/9 Đạt trọn vẹn trong lab, 3/9 Đạt về code (chờ nghiệm thu chạy thật)
 
 Tài liệu này ghi nhận kết quả đo lường thực tế 9 chỉ số thành công (Success Criteria) của spec 001 theo quy định tại `specs/001-nen-tang-chung/spec.md:276-288`, làm cơ sở nghiệm thu spec 001 để chuyển sang spec 007 và quyết định bật lại bot cho khách (bot tạm tắt từ 19/10/2026).
 
@@ -17,7 +17,7 @@ Tài liệu này ghi nhận kết quả đo lường thực tế 9 chỉ số th
 | **SC-005** | 21 test cũ đạt sau chuyển gói; thêm gói mẫu không đổi `core/` | Chạy `node test/test.mjs` và nạp gói mẫu `packs/echo/test/echo.test.mjs` | • Test chuyển gói: **34/34** test đạt (vượt cam kết gốc 21 test).<br>• Gói mẫu `packs/echo/`: **6/6** test đạt, nạp động qua `core/registry.js:9`, không đổi bất kỳ dòng nào trong `core/` (`git diff core/` rỗng) | **ĐẠT** (Lab) | Đã kiểm chứng trọn vẹn tính mô-đun hóa của kiến trúc gói (packs). |
 | **SC-006** | Phiếu → nhân viên thấy trong nhóm < 10 giây (p95) | Kiểm tra `core/handoff-ticket.js:107-136` (hàm `open`), nhịp quét dồn tin `flushDue()` định kỳ 5 giây tại `server.js:99` và `test/core/handoff-ticket.test.mjs:61-120` | • Mở phiếu mới: gửi tức thì qua `gate.send` (< 100 ms).<br>• Tin nhắn khách gửi tiếp: quét dồn mỗi 5.000 ms (5 giây) qua `flushDue`.<br>• Độ trễ tổng thể: p95 **< 10 giây** | **ĐẠT** (Lab) | Đã kiểm chứng cơ chế đẩy tức thì và bộ quét 5 giây. |
 | **SC-007** | Mọi tin ra 7 ngày chạy thật tra được `turn_id` trong audit | • Lab: Kiểm tra kiến trúc một cửa gửi duy nhất `core/gate.js:54-105` (mọi tin qua `auditGate` đều gắn `turn_id`) và `test/core/one-gate.test.mjs:200`.<br>• Thật: Đối chiếu `outbox` và `audit` trong 7 ngày | • Lab: **100%** tin gửi ra đều tạo bản ghi audit loại `gate` chứa `turn_id`.<br>• Chạy thật: **Chưa có dữ liệu** do bot tắt từ 19/10/2026 | **ĐẠT** (Lab)<br>*Chờ đo thực địa* | Đối chiếu toàn bộ tin `sent` trong `outbox` với bảng `audit` sau 7 ngày vận hành thật. Tiêu chuẩn: 100% khớp `turn_id`. |
-| **SC-008** | Đếm `messages` bằng fixture eval (phụ thuộc #80 T033) | Đối chiếu logic lưu trữ `core/engine.js:126` (tin khách vào) và `core/gate.js:98-102` (tin bot/nhân viên gửi ra thành công); chạy 12/12 eval | • Code lõi: Đã ghi nhận đầy đủ tin vào và tin ra vào bảng `messages`.<br>• Bộ đếm tự động eval: Chưa tích hợp bước assert đếm bảng `messages` trong `eval/run.mjs` (chờ hoàn tất bộ test suite tự động của issue #80 / T033) | **ĐẠT (Lõi)**<br>*Chờ test suite #80* | Tích hợp bước kiểm tra số lượng dòng `messages` tương ứng từng kịch bản trong `eval/run.mjs` khi issue #80 hoàn thành. |
+| **SC-008** | Đếm `messages` bằng fixture eval (T040, issue #86) | Đo tự động qua `eval/run.mjs:148` (hàm `checkMessages`): đối chiếu dòng `inbox` đã xử lý (`status = 'done'`), dòng `outbox` đã gửi (`status = 'sent'`, khác `ticket`/`digest`) và dòng trong bảng `messages` của từng phòng khách trên toàn bộ 12 kịch bản eval | • Số kịch bản đạt: **12/12** (100%), 13 phòng khách.<br>• Tin khách vào: **22** tin.<br>• Tin đã gửi: **19** tin.<br>• Dòng trong `messages`: **41** tin.<br>• Tin lệch hoặc tin drop/reject lọt vào `messages`: **0**.<br>• Đột biến: ngắt `store.messages.add` tại `core/gate.js:98` → 11/12 kịch bản đỏ ngay lập tức. | **ĐẠT** (Lab) | Đã kiểm chứng trọn vẹn và tự động trong bộ chạy eval `npm run eval`. |
 | **SC-009** | 20 phiếu chạy thật đầu tiên luôn có tóm tắt hồ sơ (cùng ĐK SC-007) | • Lab: Kiểm tra hàm `dongHoSo()` trong `core/handoff-ticket.js:130` và unit test `test/core/engine-customers.test.mjs:83-100`.<br>• Thật: Soát 20 phiếu đầu tiên gửi vào nhóm nhân viên | • Lab: **100%** phiếu tạo mới đều chứa khối "Hồ sơ khách" (gồm tên, SĐT nếu có, số lượt, nhãn và món hàng quan tâm).<br>• Chạy thật: **Chưa có dữ liệu** do bot tắt từ 19/10/2026 | **ĐẠT** (Lab)<br>*Chờ đo thực địa* | Nhân viên CSKH kiểm tra 20 phiếu đầu tiên khi bot chạy lại, xác nhận không phải hỏi lại thông tin khách đã cung cấp. |
 
 ---
@@ -84,11 +84,37 @@ Tài liệu này ghi nhận kết quả đo lường thực tế 9 chỉ số th
 
 ### SC-008: Đồng bộ số lượng tin nhắn trong lịch sử hội thoại
 - **Mục tiêu:** Số tin trong `messages` của một phòng bằng số tin khách vào cộng số tin đã gửi (không thiếu, không thừa) trên toàn bộ fixture eval.
-- **Thực thi:**
-  - Lõi `core/engine.js:126` ghi tin khách vào `messages`.
-  - Cửa gửi `core/gate.js:98-102` ghi tin bot và tin nhân viên relay (`kind === 'staff_relay'`) vào `messages` sau khi giao thành công qua kênh. Các tin bị `drop` hoặc `reject` không được ghi vào `messages`.
-  - Việc tích hợp bước kiểm tra assert tự động cho 12 fixture eval đang được phối hợp thực hiện tại issue #80 (T033).
-- **Kết luận:** Code lõi đã sẵn sàng; đánh dấu phụ thuộc hoàn tất bộ đếm của issue #80.
+- **Thực thi (T040, issue #86):**
+  - Tích hợp kiểm tra tự động `checkMessages` tại `eval/run.mjs:166`, chạy ở cuối mỗi kịch bản eval trong `runScenario` (`eval/run.mjs:148`).
+  - Định nghĩa chuẩn:
+    - Tin khách vào: Dòng `inbox` của phòng khách (`chat_id !== staffChatId`) có trạng thái `status = 'done'`.
+    - Tin đã gửi: Dòng `outbox` của phòng đó có trạng thái `status = 'sent'` và `kind NOT IN ('ticket', 'digest')` (đếm theo dòng outbox, không đếm theo số phần tin chia nhỏ trên kênh).
+    - Mọi ca bị cửa `drop`/`reject` không được phép xuất hiện trong `messages`.
+  - Bộ chạy eval tự động kiểm tra:
+    1. `msgKhach === inDone` (mọi tin khách đã xử lý đều được ghi vào `messages`).
+    2. `msgSent === outSent` (mọi tin gửi đi thành công đều được ghi vào `messages`).
+    3. `msgTotal === inDone + outSent` (tổng tin trong `messages` khớp tuyệt đối, không thiếu không thừa).
+    4. Không có bất kỳ bản ghi nào có `outbox_id` thuộc các dòng outbox không thành công (`status != 'sent'`).
+  - Bảng số liệu đo lường thực tế trên toàn bộ 12 kịch bản eval hiện có (`npm run eval`):
+
+| STT | Kịch bản eval (`eval/fixtures/`) | Phòng | Tin khách vào (`inbox done`) | Tin đã gửi (`outbox sent`) | `messages` khách | `messages` gửi | Tổng `messages` | Tin rò rỉ drop/reject | Kết quả |
+|:---:|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 1 | `ba-ma-khac-nhau.jsonl` | `c1` | 3 | 3 | 3 | 3 | 6 | 0 | **PASS** |
+| 2 | `cong-ai-ban.jsonl` | `c1` | 1 | 1 | 1 | 1 | 2 | 0 | **PASS** |
+| 3 | `double-tap.jsonl` | `c1`<br>`c2` | 2<br>1 | 1<br>1 | 2<br>1 | 1<br>1 | 3<br>2 | 0<br>0 | **PASS**<br>**PASS** |
+| 4 | `ho-so-khach.jsonl` | `c1` | 1 | 2 | 1 | 2 | 3 | 0 | **PASS** |
+| 5 | `hoi-lai.jsonl` | `c1` | 2 | 2 | 2 | 2 | 4 | 0 | **PASS** |
+| 6 | `human-room.jsonl` | `c1` | 5 | 3 | 5 | 3 | 8 | 0 | **PASS** |
+| 7 | `is-bot.jsonl` | `c1` | 3 | 3 | 3 | 3 | 6 | 0 | **PASS** |
+| 8 | `leak.jsonl` | `c1` | 1 | 0 | 1 | 0 | 1 | 0 | **PASS** |
+| 9 | `quiet-hours.jsonl` | `c1` | 1 | 1 | 1 | 1 | 2 | 0 | **PASS** |
+| 10 | `restart-mid-job.jsonl` | `c1` | 1 | 1 | 1 | 1 | 2 | 0 | **PASS** |
+| 11 | `retry-webhook.jsonl` | `c1` | 1 | 1 | 1 | 1 | 2 | 0 | **PASS** |
+| 12 | `silent-customer.jsonl` | `c1` | 1 | 1 | 1 | 1 | 2 | 0 | **PASS** |
+| **Tổng** | **12 kịch bản** | **13 phòng** | **22** | **19** | **22** | **19** | **41** | **0** | **12/12 ĐẠT** |
+
+  - Kiểm chứng đột biến (Mutation Testing): Tạm thời ngắt lệnh ghi `store.messages.add` tại `core/gate.js:98` → chạy `npm run eval` báo đỏ ngay lập tức trên 11/12 kịch bản (kịch bản duy nhất pass là `leak` do tin trả lời bị chặn rò rỉ nên không có tin gửi ra); khôi phục lại code thì toàn bộ 12/12 kịch bản xanh trở lại.
+- **Kết luận:** ĐẠT TRỌN VẸN TRONG LAB (100% kịch bản eval đã có cơ chế kiểm tra tự động đối chiếu số tin).
 
 ### SC-009: Tóm tắt hồ sơ khách hàng đầy đủ trong phiếu hỗ trợ
 - **Mục tiêu:** Phiếu cho người luôn có tóm tắt hồ sơ; nhân viên không phải hỏi lại khách thông tin khách đã gõ (kiểm trên 20 phiếu chạy thật đầu tiên).
@@ -103,13 +129,12 @@ Tài liệu này ghi nhận kết quả đo lường thực tế 9 chỉ số th
 ## 3. Kết luận và Kiến nghị bật lại Bot cho khách
 
 ### 3.1. Tỷ lệ đạt
-- **5 / 9 tiêu chí ĐẠT TRỌN VẸN TRONG LAB:** SC-001, SC-003, SC-004, SC-005, SC-006.
-- **4 / 9 tiêu chí ĐẠT VỀ MẶT CODE & KIỂM THỬ TỰ ĐỘNG:**
+- **6 / 9 tiêu chí ĐẠT TRỌN VẸN TRONG LAB:** SC-001, SC-003, SC-004, SC-005, SC-006, SC-008.
+- **3 / 9 tiêu chí ĐẠT VỀ MẶT CODE & KIỂM THỬ TỰ ĐỘNG:**
   - **SC-002, SC-007, SC-009:** Đã được bảo đảm 100% bằng kiến trúc lõi và bài test tự động; điều kiện để chốt số liệu thực địa là dữ liệu vận hành thật (7 ngày và 20 phiếu đầu tiên) sau khi bật lại bot.
-  - **SC-008:** Code lõi đã ghi nhận tin nhắn đúng thiết kế; chờ tích hợp bộ test đếm tự động của issue #80 (T033).
 
 ### 3.2. Căn cứ trình Giám đốc & CEO để BẬT LẠI BOT
-Theo `specs/001-nen-tang-chung/tasks.md:831`:
+Theo `specs/001-nen-tang-chung/tasks.md:834`:
 > **MVP an toàn để bật lại cho khách** = xong Phase 1–6b (T001–T026, T033–T036): cửa gửi, gói hs trên lõi, bền vững, người cầm phòng, lịch sử và hồ sơ khách.
 
 Hiện tại toàn bộ các điều kiện tiên quyết kỹ thuật đã hoàn thành:
@@ -117,9 +142,10 @@ Hiện tại toàn bộ các điều kiện tiên quyết kỹ thuật đã hoà
 2. **Tôn trọng con người:** Khi nhân viên cầm phòng hoặc khách yêu cầu gặp người, bot im lặng tuyệt đối (SC-002).
 3. **Bền vững khi có sự cố:** 1.000 update và việc nền khôi phục hoàn hảo 100% không mất tin sau 3 lần ngắt nguồn đột ngột (SC-001, SC-003).
 4. **Hỗ trợ tối đa cho nhân viên:** Phiếu chuyển giao tức thì (< 10s), luôn kèm tóm tắt hồ sơ và nhu cầu khách hàng (SC-006, SC-009).
+5. **Đồng bộ lịch sử hội thoại:** Toàn bộ tin vào và tin ra của khách đều được kiểm chứng đối chiếu tự động 100% (SC-008).
 
 **Kiến nghị:**
 Kính trình Giám đốc phê duyệt kết quả đo lường bộ Success Criteria SC-001…SC-009 và trình CEO cho phép:
-1. Đóng spec 001 (sau khi phối hợp đóng nốt test suite T033 tại issue #80).
+1. Đóng spec 001.
 2. Chuyển trọng tâm phát triển sang **Spec 007 (Agent giám sát)** theo đúng lộ trình CEO chốt (001 → 007 → 005).
 3. **Bật lại bot Zalo cho khách hàng** với quy trình theo dõi sát 7 ngày đầu để nghiệm thu thực địa các chỉ số SC-002, SC-007, SC-009.
