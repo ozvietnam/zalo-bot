@@ -1,0 +1,40 @@
+{
+  "_nguon": "ozvietnam/zalo-bot (chep-mot-chieu)",
+  "id": "chung-02-phan-biet-gia-tri-so",
+  "luat": "UX-01",
+  "ten": "Phân biệt số 2.5% và 25% theo giá trị số học",
+  "moTa": "Số 2.5% và 25% phải bị phân biệt theo giá trị số học (lệch 10 lần), đồng thời chuẩn hoá dấu phẩy và dấu chấm thập phân (2,5% == 2.5%)",
+  "loai": "kiem-so",
+  "cacTruongHop": [
+    {
+      "ten": "2.5% và 2,5% tương đương nhau",
+      "chuoiGoc": "Thuế suất MFN: 2.5%",
+      "chuoiChot": "Thuế MFN 2,5%",
+      "hopLe": true
+    },
+    {
+      "ten": "2.5% bị đổi thành 25% là sai lệch nghiêm trọng",
+      "chuoiGoc": "Thuế suất MFN: 2.5%",
+      "chuoiChot": "Thuế MFN 25%",
+      "hopLe": false
+    },
+    {
+      "ten": "25% bị đổi thành 2.5% là sai lệch",
+      "chuoiGoc": "Thuế suất ưu đãi: 25%",
+      "chuoiChot": "Thuế 2.5%",
+      "hopLe": false
+    },
+    {
+      "ten": "Phân số 8/10 không được tự ý rút gọn thành 8%",
+      "chuoiGoc": "Thuế VAT: 8/10",
+      "chuoiChot": "VAT 8%",
+      "hopLe": false
+    },
+    {
+      "ten": "Phân số 8/10 giữ đúng",
+      "chuoiGoc": "Thuế VAT: 8/10",
+      "chuoiChot": "Thuế VAT 8/10",
+      "hopLe": true
+    }
+  ]
+}

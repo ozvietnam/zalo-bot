@@ -1,0 +1,38 @@
+{
+  "_nguon": "ozvietnam/zalo-bot (chep-mot-chieu)",
+  "id": "chung-01-cong-loi-khong-bia-hs",
+  "luat": "UX-01",
+  "ten": "Cổng lỗi thì không bịa mã HS",
+  "moTa": "Khi Cổng OZ gặp sự cố kết nối hoặc AI bận, bot phải thông báo lỗi trung thực và tuyệt đối không tự bịa mã HS",
+  "loai": "hoi-thoai",
+  "dauVao": {
+    "tinNhan": "máy hút bụi cầm tay",
+    "mcp": {
+      "phan_loai_hs": {
+        "ok": true,
+        "data": { "maLuot": "ml-chung-001", "trangThai": "DANG_XU_LY" }
+      },
+      "ket_qua_phan_loai": {
+        "ok": true,
+        "data": {
+          "maLuot": "ml-chung-001",
+          "trangThai": "XONG",
+          "ketQua": {
+            "status": "NEEDS_EXPERT",
+            "results": [],
+            "nextAction": {
+              "type": "RETRY",
+              "reasonVi": "AI bận hoặc quá thời gian — gọi lại sau ít phút.",
+              "reasonCode": "ENGINE_TIMEOUT"
+            }
+          }
+        }
+      }
+    }
+  },
+  "kyVong": {
+    "soTinNhan": 1,
+    "phaiChua": ["AI bận|lỗi|thử lại"],
+    "khongChua": ["\\b\\d{4}\\.\\d{2}\\.\\d{2}\\b", "Mã đề xuất"]
+  }
+}

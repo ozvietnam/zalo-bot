@@ -22,6 +22,7 @@ import { createRegistry } from '../core/registry.js';
 import { createEngine } from '../core/engine.js';
 import hsPack from '../packs/hs/index.js';
 import { fakeChannel, fakeClock } from '../test/helpers/fakes.mjs';
+import { kiemSoTheoGiaTri, cheThongTinNhayCam, chuaThongTinNhayCam } from '../core/sanitizer.js';
 
 const START = '2026-11-04T03:00:00.000Z';   // 10:00 giờ VN, mặc định của mọi kịch bản
 const DEFAULT_STAFF_CHAT = 'staff-chat';
@@ -214,20 +215,94 @@ function parse(file) {
   return readFileSync(file, 'utf8').split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith('//')).map((l) => JSON.parse(l));
 }
 
+/** Chạy một ca kiểm trung lập JSON từ eval/chung/. → { ok, why? } */
+export async function runNeutralCase(c) {
+  if (c.loai === 'hoi-thoai') {
+    const steps = [];
+    if (c.dauVao?.mcp) {
+      for (const [tool, val] of Object.entries(c.dauVao.mcp)) {
+        steps.push({ step: 'mcp', tool, returns: Array.isArray(val) ? val : [val] });
+      }
+    }
+    steps.push({ step: 'in', update: { id: c.id, text: c.dauVao?.tinNhan } });
+    const exp = { step: 'expect', sentTo: 'c1' };
+    if (c.kyVong?.soTinNhan != null) exp.count = c.kyVong.soTinNhan;
+    if (c.kyVong?.phaiChua?.length) exp.match = c.kyVong.phaiChua.join('|');
+    if (c.kyVong?.khongChua?.length) exp.notMatch = c.kyVong.khongChua.join('|');
+    steps.push(exp);
+    return runScenario(steps);
+  }
+  if (c.loai === 'kiem-so') {
+    for (const [idx, th] of (c.cacTruongHop || []).entries()) {
+      const res = kiemSoTheoGiaTri(th.chuoiChot, th.chuoiGoc);
+      if (res.hopLe !== th.hopLe) {
+        return { ok: false, why: `trường hợp ${idx + 1} (${th.ten}): mong muốn hopLe=${th.hopLe}, thực tế=${res.hopLe}` };
+      }
+    }
+    return { ok: true };
+  }
+  if (c.loai === 'che-nhay-cam') {
+    for (const [idx, th] of (c.cacTruongHop || []).entries()) {
+      const co = chuaThongTinNhayCam(th.vanBanGoc);
+      if (th.chuaNhayCam != null && co !== th.chuaNhayCam) {
+        return { ok: false, why: `trường hợp ${idx + 1} (${th.ten}): mong muốn chuaNhayCam=${th.chuaNhayCam}, thực tế=${co}` };
+      }
+      const daChe = cheThongTinNhayCam(th.vanBanGoc);
+      for (const kc of th.khongChua || []) {
+        if (new RegExp(kc).test(daChe)) {
+          return { ok: false, why: `trường hợp ${idx + 1} (${th.ten}): sau khi che vẫn còn /${kc}/` };
+        }
+      }
+      for (const pc of th.phaiChua || []) {
+        if (!new RegExp(pc).test(daChe)) {
+          return { ok: false, why: `trường hợp ${idx + 1} (${th.ten}): sau khi che không tìm thấy /${pc}/` };
+        }
+      }
+    }
+    return { ok: true };
+  }
+  return { ok: false, why: `loại ca kiểm lạ: ${c.loai}` };
+}
+
 async function main() {
+  const customDir = process.argv.indexOf('--dir') >= 0;
   const dir = argDir(process.argv.slice(2));
   let files = [];
-  try { files = readdirSync(dir).filter((f) => f.endsWith('.jsonl')).sort(); } catch { /* chưa có thư mục = 0 kịch bản */ }
+  try {
+    files = readdirSync(dir)
+      .filter((f) => f.endsWith('.jsonl'))
+      .map((f) => ({ path: join(dir, f), name: basename(f, '.jsonl'), type: 'jsonl' }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch { /* chưa có thư mục = 0 kịch bản */ }
+
+  if (!customDir) {
+    const chungDir = join(dirname(fileURLToPath(import.meta.url)), 'chung');
+    try {
+      const chungFiles = readdirSync(chungDir)
+        .filter((f) => f.endsWith('.json'))
+        .map((f) => ({ path: join(chungDir, f), name: `chung/${basename(f, '.json')}`, type: 'json' }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      files.push(...chungFiles);
+    } catch { /* ignore */ }
+  }
+
   let pass = 0;
-  for (const f of files) {
-    const name = basename(f, '.jsonl');
+  for (const item of files) {
     let r;
-    try { r = await runScenario(parse(join(dir, f))); } catch (e) { r = { ok: false, why: `đọc tệp lỗi: ${e.message}` }; }
+    try {
+      if (item.type === 'jsonl') {
+        r = await runScenario(parse(item.path));
+      } else {
+        r = await runNeutralCase(JSON.parse(readFileSync(item.path, 'utf8')));
+      }
+    } catch (e) {
+      r = { ok: false, why: `đọc tệp lỗi: ${e.message}` };
+    }
     if (r.ok) pass++;
     const statStr = r.stats?.length
       ? ` (${r.stats.map((s) => `${s.chatId}: vào ${s.inDone} + ra ${s.outSent} = ${s.msgTotal}`).join(', ')})`
       : '';
-    console.log(r.ok ? `✓ ${name}${statStr}` : `✗ ${name}: ${r.why}`);
+    console.log(r.ok ? `✓ ${item.name}${statStr}` : `✗ ${item.name}: ${r.why}`);
   }
   console.log(`eval: ${pass}/${files.length} kịch bản đạt`);
   process.exitCode = pass === files.length ? 0 : 1;
