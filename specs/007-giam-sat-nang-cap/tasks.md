@@ -44,11 +44,11 @@ Bảng đối chiếu toàn bộ 11 Functional Requirements (FR-001..FR-011) và
 | **FR-006** | Gemini nhận cả lô tuần 1 lần gọi, JSON schema cố định, kiểm tra `turn_id` thật | `scripts/giam-sat/gemini-cluster.js:37,116` | **Xong** | T708 |
 | **FR-007** | Giới hạn tối đa 5 issue mới / repo / ngày; phần dư chuyển vào bản tin | `scripts/giam-sat/issue.js:9`, `scripts/giam-sat/issue.js:174-178` | **Đã xong** (T707, khoá bằng test tự động) | T707 |
 | **FR-008** | Issue đã đóng mà tín hiệu vẫn vượt ngưỡng 3 ngày liền phải mở lại kèm số đo mới | `scripts/giam-sat/issue.js:48-54`, `scripts/giam-sat/issue.js:154-173` | **Đã xong** (T707, reopen issue đã đóng khi vượt ngưỡng 3 ngày) | T707 |
-| **FR-009** | Nguồn máy chủ Fanpage đọc bản sao db chỉ-đọc; nguồn Cổng OZ đọc log chỉ-đọc | Chưa có code | **Chưa làm** | T709, T710 |
+| **FR-009** | Nguồn máy chủ Fanpage đọc bản sao db chỉ-đọc; nguồn Cổng OZ đọc log chỉ-đọc | `scripts/giam-sat/cong-oz.js:1` | **Xong một phần** (T710: Cổng OZ metrics /metrics, T709: Fanpage đang chờ) | T709, T710 |
 | **FR-010** | Bản tin ngày (07:30) và tuần (thứ Hai 08:00) giờ VN vào nhóm nhân viên qua cửa gửi 001 `kind: 'digest'` | `scripts/giam-sat/digest.js:52`, `core/digest-scan.js:20`, `server.js:100` | **Đã xong** (T704: hộp thư riêng theo idemKey, cửa gửi gate.js kind: 'digest' vào STAFF_CHAT_ID) | T704 |
 | **FR-011** | Ghi bản ghi thực thi: nguồn đã đọc, số tin, số phát hiện, issue mở/bình luận, lỗi | `scripts/giam-sat/so-nhat-ky.js:59`, `scripts/giam-sat.mjs:74,113` | **Đã xong** (T712: sổ nhật ký SQLite độc lập giam-sat.db) | T712 |
 | **SC-001** | Bắt đủ 9 lỗi trên db mẫu cài sẵn, 0 phát hiện thừa | `scripts/giam-sat/tinh-hieu.js:63`, `test/helpers/giam-sat-fixture.mjs:8` | **Đạt** (T705: test fixture bắt đủ 9/9 lỗi, 0 phát hiện thừa) | T705 |
-| **SC-002** | 0 issue chứa SĐT, STK, token hay tên khách thật (quét tự động) | `scripts/giam-sat/issue.js:111` | **Chưa làm** (chưa có test quét rò rỉ dữ liệu) | T706 |
+| **SC-002** | 0 issue chứa SĐT, STK, token hay tên khách thật (quét tự động) | `scripts/giam-sat/sc-002.js:1` | **Đạt** (T710: kiemTraSc002 quét tự động, mapKhach từ messages) | T706, T710 |
 | **SC-003** | ≥ 80% issue giám sát được gắn nhãn "đúng vấn đề" trong 4 tuần đầu | Cần theo dõi vận hành | **Chưa làm** | T712 |
 | **SC-004** | Lỗi lặp lại không sinh issue trùng: số issue mở / số fingerprint = 1 | `scripts/giam-sat/issue.js:139-153` | **Đã xong** (T707, comment dồn vào issue cũ cùng fingerprint, khoá bằng test) | T707 |
 | **SC-005** | Mỗi issue đã đóng có số đo trước/sau trong bản tin tuần kế tiếp | `scripts/giam-sat/vong-lap.js:101` | **Đạt** (T711: test tự động đối chiếu số đo trước/sau) | T711 |
@@ -399,7 +399,7 @@ Hiện thực hóa bộ thu thập số đo Cổng OZ theo đề xuất ưu tiê
 **Interfaces — Produces:**
 - `docMetricsCongOz(metricsUrl: string) -> Promise<{ toolStats: Record<string, { p50, p95, errRate }>, phatHienSlow: Array }>`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -415,10 +415,10 @@ test('T710: Phát hiện TOOL-SLOW khi p95 của công cụ Cổng OZ vượt 30
   assert.equal(res.phatHienSlow[0].ma, 'TOOL-SLOW');
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/giam-sat/cong-oz.test.mjs` → FAIL.
-- [ ] **Step 3:** Tạo `scripts/giam-sat/cong-oz.js` đọc và phân tích định dạng Prometheus/JSON metrics từ Cổng OZ.
-- [ ] **Step 4:** Chạy lại `node --test test/giam-sat/cong-oz.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(giam-sat): parse gateway metrics and detect slow tools (T710)"`
+- [x] **Step 2:** Chạy `node --test test/giam-sat/cong-oz.test.mjs` → FAIL.
+- [x] **Step 3:** Tạo `scripts/giam-sat/cong-oz.js` đọc và phân tích định dạng Prometheus/JSON metrics từ Cổng OZ.
+- [x] **Step 4:** Chạy lại `node --test test/giam-sat/cong-oz.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(giam-sat): parse gateway metrics and detect slow tools (T710)"`
 
 ---
 

@@ -20,12 +20,16 @@ const STK_SAU_TU_KHOA = new RegExp(`(\\b${TU_KHOA_NGAN_HANG}\\b\\s*[:#-]?\\s*)(\
 // Regex nhận diện dãy số đứng trước từ khoá ngân hàng / STK
 const STK_TRUOC_TU_KHOA = new RegExp(`\\b(\\d[\\d\\s.-]{7,22}\\d)(\\s*[:#-]?\\s*\\b${TU_KHOA_NGAN_HANG}\\b)`, 'gi');
 
+// Regex nhận diện tên khách qua xưng hô tiếng Việt (bắt buộc viết hoa từng âm tiết tên)
+const TEN_XUNG_HO = /(?:(?:[Kk]hách(?:\s+hàng)?|[Aa]nh|[Cc]hị|[Ee]m|[Bb]ác|[Cc]hú|[Cc]ô)\s+|[Tt]ôi là\s+|[Mm]ình là\s+|[Ee]m là\s+)(\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+){1,3})/gu;
+const TEN_HE_THONG = new Set(['bot', 'nhan-vien', 'nhanvien', 'staff', 'system', 'admin', 'oz', 'zalo']);
+
 /**
  * Sinh nhãn khách hàng theo chỉ số tuần tự: 0 -> 'Khách A', 1 -> 'Khách B', ...
  * @param {number} index
  * @returns {string}
  */
-function sinhNhanKhach(index) {
+export function sinhNhanKhach(index) {
   let s = '';
   let n = index;
   while (n >= 0) {
@@ -33,6 +37,63 @@ function sinhNhanKhach(index) {
     n = Math.floor(n / 26) - 1;
   }
   return `Khách ${s}`;
+}
+
+/**
+ * Thu thập tên khách hàng từ danh sách hội thoại/tin nhắn và tạo Map ánh xạ tên -> nhãn
+ * @param {Array<object|string>} [messages=[]]
+ * @returns {Map<string, string>}
+ */
+export function taoBangKhach(messages = []) {
+  const mapKhach = new Map();
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return mapKhach;
+  }
+
+  let idx = 0;
+  function themTen(rawTen) {
+    if (!rawTen || typeof rawTen !== 'string') return;
+    const ten = rawTen.trim();
+    if (ten.length < 2 || TEN_HE_THONG.has(ten.toLowerCase())) return;
+    if (!mapKhach.has(ten)) {
+      mapKhach.set(ten, sinhNhanKhach(idx++));
+    }
+  }
+
+  for (const m of messages) {
+    if (!m) continue;
+    if (typeof m === 'string') {
+      let match;
+      const re = new RegExp(TEN_XUNG_HO.source, 'gu');
+      while ((match = re.exec(m)) !== null) {
+        themTen(match[1]);
+      }
+      continue;
+    }
+
+    if (typeof m === 'object') {
+      const tenTrucTiep = m.display_name || m.sender_name || m.customer_name || m.tenKhach || m.user_name;
+      if (typeof tenTrucTiep === 'string') {
+        themTen(tenTrucTiep);
+      }
+
+      // Chỉ quét nội dung tin nhắn nếu không phải bot / nhân viên phát ngôn
+      const spk = m.speaker ? String(m.speaker).toLowerCase() : '';
+      if (spk === 'bot' || spk === 'nhan-vien' || spk === 'staff') {
+        continue;
+      }
+
+      if (typeof m.text === 'string') {
+        let match;
+        const re = new RegExp(TEN_XUNG_HO.source, 'gu');
+        while ((match = re.exec(m.text)) !== null) {
+          themTen(match[1]);
+        }
+      }
+    }
+  }
+
+  return mapKhach;
 }
 
 /**
