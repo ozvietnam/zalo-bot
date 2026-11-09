@@ -1,0 +1,111 @@
+{
+  "id": "g4-quyen-hoi-lai",
+  "dich": "G4",
+  "ten": "G4 · Giọng Quyên & Hỏi lại: Điền chỗ thiếu trước khi tra, kết quả ngắn gọn, mở chi tiết và giả định",
+  "moTa": "Nghiệm thu issue #136: (a) Tra hs máy sấy sinh tố bot hỏi lại tên/thông số; (b) trả lời đủ ra tin <= 7 dòng, gõ chi tiết ra khối đầy đủ; (c) không rõ cứ tra ra kết quả nêu rõ giả định; (d) trong nhóm hỏi lại gắn đúng tên người.",
+  "chatType": "PRIVATE",
+  "chatId": "khach_quyen_01",
+  "userId": "khach_quyen_01",
+  "userName": "Nguyễn Văn Khách",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "(a) 'Tra hs máy sấy sinh tố' → bot hỏi lại (xác nhận máy xay + công suất/điện áp), KHÔNG đổ kết quả",
+      "text": "Tra hs máy sấy sinh tố",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "máy xay sinh tố",
+          "công suất",
+          "điện áp"
+        ],
+        "khongChua": [
+          "8509",
+          "Thuế suất",
+          "Tự động chọn gói"
+        ]
+      }
+    },
+    {
+      "step": 2,
+      "mieuTa": "(b) Khách trả lời đủ thông số → tin kết quả <= 7 dòng đúng giọng Quyên",
+      "text": "đúng, 350W 220V",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "8509\\.40\\.00",
+          "Thuế NK 25%",
+          "C/O mẫu E",
+          "VAT 8%",
+          "soạn luôn mô tả khai báo"
+        ],
+        "khongChua": [
+          "Tự động chọn gói",
+          "Gõ \"menu\""
+        ]
+      }
+    },
+    {
+      "step": 3,
+      "mieuTa": "(b2) Khách gõ 'chi tiết' → mở khối phân tích đầy đủ",
+      "text": "chi tiết",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Bản chi tiết",
+          "8509\\.40\\.00",
+          "Thuế suất",
+          "Chính sách"
+        ]
+      }
+    },
+    {
+      "step": 4,
+      "mieuTa": "(c1) Bắt đầu lượt hỏi hàng mới 'Tra hs máy sấy sinh tố'",
+      "chatId": "khach_quyen_02",
+      "userId": "khach_quyen_02",
+      "userName": "Trần Văn Bình",
+      "text": "Tra hs máy sấy sinh tố",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "máy xay sinh tố"
+        ]
+      }
+    },
+    {
+      "step": 5,
+      "mieuTa": "(c2) Khách bảo 'không rõ, cứ tra' → tra với giả định nêu rõ ở dòng 1",
+      "chatId": "khach_quyen_02",
+      "userId": "khach_quyen_02",
+      "userName": "Trần Văn Bình",
+      "text": "không rõ, cứ tra đi",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "theo giả định",
+          "máy xay sinh tố",
+          "8509\\.40\\.00"
+        ]
+      }
+    },
+    {
+      "step": 6,
+      "mieuTa": "(d) Trong nhóm chat: hỏi lại vẫn gắn đúng tên người hỏi",
+      "chatType": "GROUP",
+      "chatId": "nhom_qa_01",
+      "userId": "huong_01",
+      "userName": "Hương",
+      "text": "Bot OZ Tra hs máy sấy sinh tố",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "tagDungNguoi": "@Hương\n",
+        "phaiChua": [
+          "máy xay sinh tố",
+          "công suất",
+          "điện áp"
+        ]
+      }
+    }
+  ]
+}

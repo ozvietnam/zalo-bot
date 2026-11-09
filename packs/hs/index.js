@@ -17,7 +17,9 @@ const ANH_RE = /(ten hang|thong so|model|thuong hieu|chat lieu)\s*:/;
 /** Chạy một gói con. Gói có batDau (1, 4) không chờ: DANG_XU_LY → job; còn lại → chữ trả lời như cũ. */
 async function runPkg(st, pkg, text, { head = '', nguonThongSo } = {}) {
   const pctx = st.pctx(nguonThongSo ? { nguonThongSo } : {});
-  const reply = (body, known) => result(st, [clipReply(`${head}${body}\n\n${st.footer}`)], { known });
+  const headPkg = pkg.so === 1 ? '' : head;
+  const footerPkg = pkg.so === 1 ? '' : `\n\n${st.footer}`;
+  const reply = (body, known) => result(st, [clipReply(`${headPkg}${body}${footerPkg}`)], { known });
   if (!pkg.batDau) return reply(await pkg.chay(text, pctx));
   const b = await pkg.batDau(text, pctx);
   if (typeof b === 'string') return reply(b);
@@ -25,8 +27,10 @@ async function runPkg(st, pkg, text, { head = '', nguonThongSo } = {}) {
   if (!t.job) return reply(await pkg.xong(t.result, b.context, pctx), b.context);
   // Kết quả phân loại (gói 1) theo form "🔍 Hàng: …" — không kèm dòng "(Tự động chọn gói 1)".
   const job = { ...t.job, context: { goi: pkg.so, head: pkg.so === 1 ? '' : head, ...b.context } };
-  // Không gửi câu chờ "⏳ Đang …" (chủ repo bỏ 06/11): lõi chỉ gửi kết quả khi việc nền xong.
-  return result(st, [], { jobs: [job], known: b.context });
+  // Báo đang tra (issue #136, mục 5): trong 3 giây gửi 1 câu ngắn kiểu "Dạ anh chờ em tra chút nhé"
+  // Áp dụng cho luồng giọng Quyên (hỏi lại / tra hs) khi không phải chonNhanh và không phải bổ sung dữ kiện
+  const cauCho = (pkg.so === 1 && b.context?.giongQuyen && !b.context?.chonNhanh && !b.context?.boSung) ? (b.cauCho || 'Dạ anh chờ em tra chút nhé') : null;
+  return result(st, cauCho ? [cauCho] : [], { jobs: [job], known: b.context });
 }
 
 async function textFlow(turn, ctx, st) {
@@ -81,10 +85,10 @@ async function textFlow(turn, ctx, st) {
       }
       case 'chi-tiet':   // mở lại bản phân tích đầy đủ của lượt phân loại gần nhất (khách cuộn mất tin)
         return one(s.chiTiet?.text
-          ? `🔎 Bản chi tiết lượt gần nhất:\n\n${clipReply(s.chiTiet.text)}\n\n${st.footer}`
-          : `Chưa có kết quả phân loại nào trong phiên này để mở chi tiết. Anh/chị gửi mô tả hàng hoặc mã HS trước rồi gõ "chi tiết" nhé.\n\n${st.footer}`);
+          ? `🔎 Bản chi tiết lượt gần nhất:\n\n${clipReply(s.chiTiet.text)}`
+          : 'Chưa có kết quả phân loại nào trong phiên này để mở chi tiết. Anh/chị gửi mô tả hàng hoặc mã HS trước rồi gõ "chi tiết" nhé.');
       case 'hoi-lai':   // não hỏi lại một câu thay vì đoán mò chạy gói
-        return one(`❓ ${r.cauHoi}\n\n${st.footer}`);
+        return one(`❓ ${r.cauHoi}`);
       case 'khac':      // chào hỏi/xã giao: não trả lời ngắn, dẫn về menu
         return one(`${r.cauDan}\n\n${st.footer}`);
       default:   // 'ignore' (tin rỗng) và loại lạ: không trả lời
@@ -137,7 +141,11 @@ export default {
       const pkg = PACKAGES.find((p) => p.so === c.goi);
       const body = pkg?.xong ? await pkg.xong(r, c, st.pctx()) : renderResult(r, { title: `📥 Kết quả lượt ${job.maLuot}` });
       const calls = [{ name: job.resultTool, args: {}, result: r }];
-      return result(st, [clipReply(`${c.head || ''}${body}\n\n${st.footer}`)], { known: c, calls });
+      // Giọng Quyên (issue #136, mục 2 & 3): gói 1 ở chế độ tự do giọng Quyên không dán footer "Gõ menu"
+      const textOut = (c.goi === 1 && c.giongQuyen && !c.chonNhanh)
+        ? clipReply(body)
+        : clipReply(`${c.head || ''}${body}\n\n${st.footer}`);
+      return result(st, [textOut], { known: c, calls });
     } finally {
       st.save();
     }

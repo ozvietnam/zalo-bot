@@ -97,7 +97,9 @@ function createMockMcp() {
         const text = String(args.tenHang || args.moTa || '');
         const is8413 = text.includes('8413') || text.includes('bơm');
         const is8504 = text.includes('8504') || text.includes('biến đổi');
-        const maHs = is8413 ? '84137090' : (is8504 ? '85044090' : '85371099');
+        const is8509 = text.includes('8509') || text.includes('xay') || text.includes('sinh tố');
+        const maHs = is8413 ? '84137090' : (is8504 ? '85044090' : (is8509 ? '85094000' : '85371099'));
+        const nameVi = is8413 ? 'Máy bơm ly tâm' : (is8504 ? 'Bộ biến đổi tĩnh điện' : (is8509 ? 'Máy xay, ép trái cây gia dụng' : 'Bàn điều khiển cầm tay'));
         return {
           ok: true,
           maLuot: 'ML-TEST-' + maHs,
@@ -108,39 +110,54 @@ function createMockMcp() {
             maHs,
             ketQua: {
               results: [
-                { hsCode: maHs, nameVi: is8413 ? 'Máy bơm ly tâm' : (is8504 ? 'Bộ biến đổi tĩnh điện' : 'Bàn điều khiển cầm tay'), confidence: 0.95 },
+                { hsCode: maHs, nameVi, confidence: 0.95, reasoning: nameVi },
               ],
             },
           },
         };
       }
       if (name === 'ket_qua_phan_loai') {
+        const ml = String(args.maLuot || '');
+        const maHs = ml.includes('8509') ? '85094000' : (ml.includes('8413') ? '84137090' : (ml.includes('8504') ? '85044090' : '85371099'));
+        const nameVi = maHs === '85094000' ? 'Máy xay, ép trái cây gia dụng' : (maHs === '84137090' ? 'Máy bơm ly tâm' : 'Bảng, bàn điều khiển cầm tay');
         return {
           ok: true,
-          maHs: '85371099',
-          deXuat: [{ ma: '85371099', moTa: 'Bảng, bàn điều khiển cầm tay' }],
+          maHs,
+          trangThai: 'XONG',
+          data: {
+            maHs,
+            ketQua: {
+              results: [{ hsCode: maHs, nameVi, confidence: 0.95 }],
+            },
+          },
+          deXuat: [{ ma: maHs, moTa: nameVi }],
         };
       }
       if (name === 'tra_thue') {
         const ma = String(args.maHs || '84137090');
+        const is8509 = ma.startsWith('8509');
         return {
           ok: true,
           data: {
             hsCode: ma,
-            nameVi: ma.startsWith('8413') ? 'Máy bơm ly tâm khác' : (ma.startsWith('8504') ? 'Bộ biến đổi tĩnh điện khác' : 'Thiết bị điều khiển cầm tay'),
-            taxNkPreferential: 0,
-            taxVat: 10,
-            taxAcftaChina: { eligible: true, rate: 0 },
+            nameVi: is8509 ? 'máy xay, ép trái cây gia dụng' : (ma.startsWith('8413') ? 'Máy bơm ly tâm khác' : (ma.startsWith('8504') ? 'Bộ biến đổi tĩnh điện khác' : 'Thiết bị điều khiển cầm tay')),
+            taxNkPreferential: is8509 ? 25 : 0,
+            taxVat: is8509 ? 8 : 10,
+            vatReduction: is8509 ? { noteVi: 'áp tới hết 2026' } : null,
+            taxAcftaChina: { eligible: true, rate: is8509 ? 5 : 0 },
           },
         };
       }
       if (name === 'tra_thu_tuc_nhap_khau') {
+        const ma = String(args.maHs || '');
+        const is8509 = ma.startsWith('8509');
         return {
           ok: true,
           data: {
-            kiemTraChuyenNganh: [],
+            kiemTraChuyenNganh: is8509 ? [{ label: 'công bố hợp quy' }] : [],
             giayPhep: [],
             vanBanQuanLy: [],
+            chinhSach: is8509 ? { policyLines: [{ text: 'Đồ điện gia dụng phải công bố hợp quy trước khi bán' }] } : { policyLines: [] },
           },
         };
       }
