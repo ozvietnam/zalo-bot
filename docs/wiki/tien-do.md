@@ -73,10 +73,11 @@ Toàn bộ 40 việc của **spec 001 (T001–T040)** đã hoàn thành trọn v
 - **3/9 Đạt về code (chờ nghiệm thu chạy thật: SC-002, SC-007, SC-009)**: SC-002 (bot im trong phòng human — chờ audit 7 ngày chạy thật), SC-007 (mọi tin ra có `turn_id` trong audit — chờ audit 7 ngày chạy thật), SC-009 (20 phiếu đầu tiên kèm hồ sơ khách — chờ đối chiếu 20 phiếu thật khi mở lại bot).
 Toàn bộ 9 nguyên tắc của Hiến pháp đã được thi hành và bảo vệ bằng kiểm thử tự động.
 
-## 3. Spec 007, 008, 009, 010, 011
+## 3. Spec 005, 007, 008, 009, 010, 011
 
 | Spec | Trạng thái | Bằng chứng |
 |---|---|---|
+| 005 — Kênh thứ hai (Zalo OA & Fanpage) | **Đang làm** — T502 (adapter Zalo OA) và T503 (chuẩn hoá Update isEcho, appId) xong | `channels/zalo-oa.js:95`, `channels/zalo-bot.js:152`, `test/core/channel-zalo-oa.test.mjs:1`, `test/core/channel-echo.test.mjs:1` |
 | 007 — Agent giám sát | Đã có spec, plan, tasks (T701–T713); toàn bộ T701–T713 đã xong (db chỉ-đọc, giờ VN, chuẩn hoá speaker, gửi bản tin kind: 'digest' qua hộp thư riêng digest_outbox, fingerprint + turnIds 9 tín hiệu, ẩn danh bằng chứng, chống trùng issue, gom nhóm Gemini, đọc số đo Cổng OZ và bắt TOOL-SLOW ở T710, kiểm SC-002, khép vòng lặp tuần SC-005 đo lường trước/sau và hiển thị lên bản tin ở T713, lập bảng đo nghiệm thu 6 tiêu chí SC-001..SC-006, đọc bản sao Fanpage chỉ-đọc ở T709, sổ nhật ký giam-sat.db), test spec 007 đưa vào CI qua npm test | `specs/007-giam-sat-nang-cap/plan.md:1`, `specs/007-giam-sat-nang-cap/sc-do.md:1`; db chỉ-đọc ở `scripts/giam-sat.mjs:42`, đọc bản sao Fanpage chỉ-đọc ở `scripts/giam-sat/nguon-fanpage.js:1`, gửi bản tin digest qua hộp thư riêng ở `scripts/giam-sat/digest.js:52`, hiển thị vòng lặp ở `scripts/giam-sat/digest.js:68`, 9 tín hiệu có fingerprint và turn_id ở `scripts/giam-sat/tinh-hieu.js:63`, Cổng OZ metrics ở `scripts/giam-sat/cong-oz.js:1`, kiểm SC-002 ở `scripts/giam-sat/sc-002.js:1`, test Cổng OZ ở `test/giam-sat/cong-oz.test.mjs:1`, test nguồn Fanpage ở `test/giam-sat/nguon-fanpage.test.mjs:1`, đo lường vòng lặp ở `scripts/giam-sat/vong-lap.js:139`, sổ nhật ký ở `scripts/giam-sat/so-nhat-ky.js:59`, cắm vào `scripts/giam-sat.mjs:84`, test spec 007 đưa vào CI ở `package.json:13` |
 | 008 — Cổng AI Studio | **Chỉ có spec** | `specs/008-cong-ai-studio/spec.md:7` (Draft); chưa có mã nguồn trong repo này, dự kiến tách repo riêng |
 | 009 — Agent tra cứu hải quan | **Chỉ có spec** | `specs/009-agent-tra-cuu/spec.md:7` (Draft); não hiện tại ở `packs/hs/brain.js` chỉ chọn một gói, chưa phải vòng lặp gọi nhiều công cụ |

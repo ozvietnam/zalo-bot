@@ -160,6 +160,8 @@ export function parseUpdate(raw) {
     voiceUrl: m.voice_url || m.voice?.url || null,
     caption: typeof m.caption === 'string' ? m.caption : null,
     messageId: m.message_id == null ? null : String(m.message_id),
+    isEcho: false,
+    appId: null,
   };
 }
 
