@@ -1,0 +1,34 @@
+{
+  "id": "g4-mot-mot",
+  "dich": "G4",
+  "ten": "G4 · 1-1: Chat riêng 1-1, tra cứu mã HS và hỏi nối tiếp ngữ cảnh",
+  "moTa": "Khách hỏi mô tả hàng thật (Teaching Box), bot trả lời có mã HS/hướng tra cứu; khách hỏi nối tiếp về thuế thì bot kế thừa đúng ngữ cảnh lượt trước.",
+  "chatType": "PRIVATE",
+  "chatId": "khach_01",
+  "userId": "khach_01",
+  "userName": "Nguyễn Văn Khách",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "Hỏi mã HS cho thiết bị điều khiển cầm tay",
+      "text": "Điều khiển cầm tay (Teaching Box) kết nối dây, dùng cho máy gắn chip tự động, có màn hình và các phím điều khiển, điện áp 24V DC",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "coMaHsHoacHuongTra": true,
+        "phaiChua": ["8537|8479|8471|mã|phân loại|tra cứu|hướng"],
+        "khongChua": ["{orange}⚠️ Cổng tra cứu OZ đang lỗi"]
+      }
+    },
+    {
+      "step": 2,
+      "mieuTa": "Hỏi nối tiếp về thuế nhập khẩu kế thừa lượt trước",
+      "text": "thuế nhập khẩu bao nhiêu?",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "keThuaNguCanh": true,
+        "phaiChua": ["thuế|NK|VAT|%|ưu đãi|biểu thuế|mã"],
+        "khongChua": ["không tìm thấy mã|chưa có thông tin|nhập lại từ đầu"]
+      }
+    }
+  ]
+}

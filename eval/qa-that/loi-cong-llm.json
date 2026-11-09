@@ -1,0 +1,30 @@
+{
+  "id": "loi-cong-llm",
+  "dich": "Lỗi",
+  "ten": "Lỗi: Khi Cổng OZ hoặc LLM lỗi thì báo lỗi đúng mẫu, không bịa mã",
+  "moTa": "Khi dịch vụ phía sau (Cổng OZ hoặc Gemini) bị sự cố kết nối hoặc lỗi tạm thời, bot phải phản hồi câu báo lỗi chuẩn thân thiện, không làm lộ lỗi hệ thống và tuyệt đối không bịa mã HS.",
+  "chatType": "PRIVATE",
+  "chatId": "khach_loi_01",
+  "userId": "khach_loi_01",
+  "userName": "Lê Lỗi",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "Cổng OZ trả lỗi 502/ECONNREFUSED khi tra cứu",
+      "text": "Tra mã 84137090",
+      "moPhongLoi": "mcp-error",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": ["Cổng tra cứu OZ đang lỗi tạm thời|lỗi tạm thời"],
+        "khongChua": [
+          "ECONNREFUSED",
+          "HTTP 502",
+          "stack",
+          "TypeError",
+          "undefined"
+        ],
+        "khongBiaMa": true
+      }
+    }
+  ]
+}
