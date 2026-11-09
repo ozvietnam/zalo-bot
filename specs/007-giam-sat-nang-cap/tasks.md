@@ -117,7 +117,7 @@ test('T702: Mốc lọc ngày VN phải đổi chính xác sang UTC', () => {
 
 ---
 
-### T703 [P] Chuẩn hóa ánh xạ người nói (`speaker`) khớp với dữ liệu lõi bot
+### [x] T703 [P] Chuẩn hóa ánh xạ người nói (`speaker`) khớp với dữ liệu lõi bot
 
 Khắc phục lệch tại `scripts/giam-sat.mjs:38`: code hiện map `speaker === 'bot_out' ? 'bot' : r.speaker`. Tuy nhiên lõi bot ghi vào bảng `messages` các giá trị thực tế: `'khach'` (tin khách gửi đến), `'bot'` (tin bot gửi đi), `'nhan-vien'` (tin nhân viên trả lời). Trong khi đó, `tinh-hieu.js` đang kiểm tra `speaker === 'user'` và `speaker === 'staff'`. Cần chuẩn hóa toàn diện.
 
@@ -126,7 +126,7 @@ Khắc phục lệch tại `scripts/giam-sat.mjs:38`: code hiện map `speaker =
 **Interfaces — Produces:**
 - Nhận diện đúng 3 vai trò trong hội thoại: `khach` (user), `bot`, `nhan-vien` (staff).
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -142,10 +142,10 @@ test('T703: tinhHieu nhận diện đúng speaker = khach và nhan-vien từ cor
   assert.ok(xinLoi, 'Phải phát hiện XIN-LOI-TAY với speaker nhan-vien');
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/giam-sat/speaker-mapping.test.mjs` → FAIL (do `tinh-hieu.js` chỉ tìm `speaker === 'staff'`).
-- [ ] **Step 3:** Cập nhật `scripts/giam-sat/tinh-hieu.js` chấp nhận cả `'nhan-vien'`/`'staff'` và `'khach'`/`'user'`. Bỏ ánh xạ thừa `bot_out` ở `scripts/giam-sat.mjs:38`.
-- [ ] **Step 4:** Chạy lại `node --test test/giam-sat/speaker-mapping.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "fix(giam-sat): normalize speaker mapping to match core messages table (T703)"`
+- [x] **Step 2:** Chạy `node --test test/giam-sat/speaker-mapping.test.mjs` → FAIL (do `tinh-hieu.js` chỉ tìm `speaker === 'staff'`).
+- [x] **Step 3:** Cập nhật `scripts/giam-sat/tinh-hieu.js` chấp nhận cả `'nhan-vien'`/`'staff'` và `'khach'`/`'user'`. Bỏ ánh xạ thừa `bot_out` ở `scripts/giam-sat.mjs:38`.
+- [x] **Step 4:** Chạy lại `node --test test/giam-sat/speaker-mapping.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "fix(giam-sat): normalize speaker mapping to match core messages table (T703)"`
 
 ---
 
