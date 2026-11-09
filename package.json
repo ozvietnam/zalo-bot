@@ -13,6 +13,7 @@
     "test": "node --disable-warning=ExperimentalWarning --test \"test/core/**/*.test.mjs\" \"packs/**/*.test.mjs\" && node --disable-warning=ExperimentalWarning test/test.mjs",
     "eval": "node --disable-warning=ExperimentalWarning eval/run.mjs",
     "audit": "node scripts/audit.mjs",
+    "do-sc": "node scripts/do-sc-thuc.mjs",
     "webhook:set": "node scripts/set-webhook.mjs set",
     "webhook:info": "node scripts/set-webhook.mjs info",
     "giam-sat": "node scripts/giam-sat.mjs",
