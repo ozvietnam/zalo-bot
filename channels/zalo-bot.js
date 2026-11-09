@@ -47,8 +47,9 @@ export function parse(raw) {
 
 /**
  * Trước khi chạy polling (getUpdates, kèm deleteWebhook): bot đang có webhook (thường là production) thì KHÔNG chạy,
- * vì xoá webhook làm bot thật ngừng nhận tin (sự cố 06/11/2026). Không đọc được trạng thái webhook cũng không chạy.
- * force (ZALO_FORCE_POLLING=1): cố ý chiếm bot, chấp nhận xoá webhook.
+ * vì xoá webhook làm bot thật ngừng nhận tin (sự cố 06/11/2026). Bot chưa từng đặt webhook (Not Found / 404) coi như url rỗng.
+ * Không đọc được trạng thái webhook (lỗi khác) cũng không chạy trừ khi có force.
+ * force (ZALO_FORCE_POLLING=1): cố ý chiếm bot, chấp nhận xoá webhook hoặc bỏ qua lỗi đọc trạng thái.
  * → { ok: true, url } | { ok: false, url?, lyDo }
  */
 export async function kiemTruocPolling(zalo, { force = false } = {}) {
@@ -56,6 +57,11 @@ export async function kiemTruocPolling(zalo, { force = false } = {}) {
   try {
     info = await zalo.getWebhookInfo();
   } catch (e) {
+    if (force) return { ok: true, url: '' };
+    const isNotFound = Number(e?.status) === 404
+      || /not found/i.test(e?.message || '')
+      || /not found/i.test(e?.description || '');
+    if (isNotFound) return { ok: true, url: '' };
     return { ok: false, lyDo: `không đọc được trạng thái webhook (${e?.message ?? e}) — dừng để khỏi xoá nhầm webhook production` };
   }
   const url = String(info?.url ?? '').trim();
