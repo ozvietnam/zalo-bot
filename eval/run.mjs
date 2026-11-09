@@ -51,11 +51,24 @@ function scriptedMcp(script) {
 }
 
 let seq = 0;
-const toUpdate = (u = {}) => ({
-  updateKey: String(u.id ?? `e${++seq}`), event: u.event ?? 'message.text.received', chatId: u.chatId ?? 'c1', userId: u.userId ?? 'u1',
-  userName: u.userName ?? 'Khách', chatType: u.chatType ?? 'PRIVATE', text: u.text ?? null, photoUrl: u.photoUrl ?? null,
-  caption: u.caption ?? null, messageId: String(u.id ?? seq),
-});
+const toUpdate = (u = {}) => {
+  const isEcho = Boolean(u.isEcho);
+  return {
+    updateKey: String(u.id ?? `e${++seq}`),
+    event: u.event ?? (isEcho ? 'message.echo' : 'message.text.received'),
+    chatId: u.chatId ?? 'c1',
+    userId: u.userId ?? 'u1',
+    userName: u.userName ?? (isEcho ? 'Admin' : 'Khách'),
+    chatType: u.chatType ?? 'PRIVATE',
+    text: u.text ?? null,
+    photoUrl: u.photoUrl ?? null,
+    caption: u.caption ?? null,
+    messageId: String(u.id ?? seq),
+    isEcho,
+    appId: u.appId ?? null,
+    channel: u.channel ?? null,
+  };
+};
 
 /** Chạy một kịch bản. → { ok, why? } */
 export async function runScenario(steps, { start = START, config: userConfig = {} } = {}) {
@@ -180,10 +193,13 @@ export function checkMessages(dbPath, staffChatId = DEFAULT_STAFF_CHAT) {
     const stats = [];
     for (const chatId of chats) {
       const inDone = raw.prepare("SELECT COUNT(*) AS n FROM inbox WHERE chat_id = ? AND status = 'done'").get(chatId).n;
+      const inKhach = raw.prepare("SELECT COUNT(*) AS n FROM inbox WHERE chat_id = ? AND status = 'done' AND json_extract(raw, '$.isEcho') IS NOT 1").get(chatId).n;
+      const inHumanEcho = raw.prepare("SELECT COUNT(*) AS n FROM inbox WHERE chat_id = ? AND status = 'done' AND json_extract(raw, '$.isEcho') = 1 AND update_key IN (SELECT turn_id FROM audit WHERE type = 'echo-human')").get(chatId).n;
       const outSent = raw.prepare("SELECT COUNT(*) AS n FROM outbox WHERE chat_id = ? AND status = 'sent' AND kind NOT IN ('ticket', 'digest')").get(chatId).n;
       const msgTotal = raw.prepare("SELECT COUNT(*) AS n FROM messages WHERE chat_id = ?").get(chatId).n;
       const msgKhach = raw.prepare("SELECT COUNT(*) AS n FROM messages WHERE chat_id = ? AND speaker = 'khach'").get(chatId).n;
-      const msgSent = raw.prepare("SELECT COUNT(*) AS n FROM messages WHERE chat_id = ? AND speaker IN ('bot', 'nhan-vien')").get(chatId).n;
+      const msgHumanEcho = raw.prepare("SELECT COUNT(*) AS n FROM messages WHERE chat_id = ? AND speaker = 'nhan-vien' AND outbox_id IS NULL").get(chatId).n;
+      const msgSent = raw.prepare("SELECT COUNT(*) AS n FROM messages WHERE chat_id = ? AND speaker IN ('bot', 'nhan-vien') AND outbox_id IS NOT NULL").get(chatId).n;
 
       const leaked = raw.prepare(`
         SELECT COUNT(*) AS n FROM messages WHERE chat_id = ? AND outbox_id IN (
@@ -194,14 +210,17 @@ export function checkMessages(dbPath, staffChatId = DEFAULT_STAFF_CHAT) {
       if (leaked > 0) {
         return { ok: false, why: `SC-008: phòng ${chatId} có ${leaked} tin bị drop/reject lọt vào messages` };
       }
-      if (inDone !== msgKhach) {
-        return { ok: false, why: `SC-008: phòng ${chatId} tin khách vào (${inDone}) != tin khách trong messages (${msgKhach})` };
+      if (inKhach !== msgKhach) {
+        return { ok: false, why: `SC-008: phòng ${chatId} tin khách vào (${inKhach}) != tin khách trong messages (${msgKhach})` };
+      }
+      if (inHumanEcho !== msgHumanEcho) {
+        return { ok: false, why: `SC-008: phòng ${chatId} tin nhân viên gõ tay vào (${inHumanEcho}) != tin nhân viên trong messages (${msgHumanEcho})` };
       }
       if (outSent !== msgSent) {
         return { ok: false, why: `SC-008: phòng ${chatId} tin gửi thành công (${outSent}) != tin gửi trong messages (${msgSent})` };
       }
-      if (msgTotal !== inDone + outSent) {
-        return { ok: false, why: `SC-008: phòng ${chatId} tổng messages (${msgTotal}) != tin vào (${inDone}) + tin ra (${outSent})` };
+      if (msgTotal !== inKhach + outSent + inHumanEcho) {
+        return { ok: false, why: `SC-008: phòng ${chatId} tổng messages (${msgTotal}) != tin vào (${inKhach}) + tin ra (${outSent}) + nhân viên gõ (${inHumanEcho})` };
       }
       stats.push({ chatId, inDone, outSent, msgTotal });
     }
@@ -209,6 +228,10 @@ export function checkMessages(dbPath, staffChatId = DEFAULT_STAFF_CHAT) {
   } finally {
     raw.close();
   }
+}
+
+export async function runEvalFixture(filePath, opts = {}) {
+  return runScenario(parse(filePath), opts);
 }
 
 function parse(file) {

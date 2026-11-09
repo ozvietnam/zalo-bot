@@ -1,0 +1,9 @@
+// Kịch bản kiểm thử hành vi end-to-end trên kênh Messenger: bot trả lời -> nhân viên gõ tay trên trang -> bot im hoàn toàn (T507, Điều II, SC-002)
+{"step":"in","update":{"id":"m1","chatId":"c1","text":"xin chào bot OZ, mình muốn hỏi thủ tục nhập khẩu","channel":"messenger"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"tra cứu"}
+{"step":"in","update":{"id":"m2","chatId":"c1","text":"Chào bạn, chuyên viên OZ tiếp nhận tư vấn cho bạn ngay nhé","isEcho":true,"appId":null,"channel":"messenger"}}
+{"step":"in","update":{"id":"m3","chatId":"c1","text":"Vâng ạ, em muốn hỏi thuế suất mặt hàng này","channel":"messenger"}}
+{"step":"expect","sentTo":"c1","count":1}
+{"step":"in","update":{"id":"m4","chatId":"c1","text":"Bạn gửi mã HS hoặc mô tả chi tiết hàng hoá giúp mình nhé","isEcho":true,"appId":null,"channel":"messenger"}}
+{"step":"in","update":{"id":"m5","chatId":"c1","text":"Dạ vâng, để em gửi mô tả ạ","channel":"messenger"}}
+{"step":"expect","sentTo":"c1","count":1}

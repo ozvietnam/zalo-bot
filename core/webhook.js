@@ -24,7 +24,7 @@ const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'applic
  * @param {(key:string, fn:()=>Promise<any>)=>Promise<any>} [o.runTask]  mặc định chạy thẳng;
  *   `server.js` truyền `runTask: (key, fn) => queue.run(key, fn)` (T019 — hàng đợi tuần tự theo convId).
  */
-export function createWebhookHandler({ config, channel, engine, store, health, metrics = null, now = () => new Date(), runTask = (key, fn) => fn(), debug = false, log = console } = {}) {
+export function createWebhookHandler({ config, channel, channels, engine, store, health, metrics = null, now = () => new Date(), runTask = (key, fn) => fn(), debug = false, log = console } = {}) {
   // Lỗi không lường được ở BẤT KỲ đâu trong handler: log rồi 500. Không để lọt ra ngoài thành
   // uncaughtException — một request hỏng là đủ giết bot. Request đã trả phản hồi thì chỉ log
   // (ghi header lần hai sẽ ném tiếp).
@@ -33,6 +33,29 @@ export function createWebhookHandler({ config, channel, engine, store, health, m
     if (!res.headersSent) json(res, 500, { ok: false });
     else try { res.end(); } catch { /* socket đã đứt: không còn gì làm được */ }
   };
+
+  const channelMap = new Map();
+  if (channels instanceof Map) {
+    for (const [k, v] of channels.entries()) channelMap.set(k, v);
+  } else if (channels && typeof channels === 'object') {
+    for (const [k, v] of Object.entries(channels)) channelMap.set(k, v);
+  }
+  if (channel) {
+    channelMap.set(channel.name || 'zalo-bot', channel);
+  }
+
+  function resolveChannel(path) {
+    if (path === '/webhook/messenger' && channelMap.has('messenger')) return { name: 'messenger', channel: channelMap.get('messenger') };
+    if (path === '/webhook/zalo-oa' && channelMap.has('zalo-oa')) return { name: 'zalo-oa', channel: channelMap.get('zalo-oa') };
+    if (path === '/webhook/zalo-bot' && channelMap.has('zalo-bot')) return { name: 'zalo-bot', channel: channelMap.get('zalo-bot') };
+    if (path === config?.webhookPath) {
+      if (channel) return { name: channel.name || 'zalo-bot', channel };
+      if (channelMap.has('zalo-bot')) return { name: 'zalo-bot', channel: channelMap.get('zalo-bot') };
+      const first = channelMap.entries().next().value;
+      if (first) return { name: first[0], channel: first[1] };
+    }
+    return null;
+  }
 
   return (req, res) => {
     try {
@@ -77,8 +100,23 @@ export function createWebhookHandler({ config, channel, engine, store, health, m
         createReadStream(filePath).pipe(res);
         return;
       }
-      if (config.mode !== 'webhook' || req.method !== 'POST' || duongDan !== config.webhookPath) return json(res, 404, { ok: false });
-      if (!channel.verifyWebhook(req)) return json(res, 403, { ok: false });
+
+      const target = resolveChannel(duongDan);
+      const targetChannel = target?.channel;
+
+      // GET challenge (Meta Webhook)
+      if (req.method === 'GET' && targetChannel && typeof targetChannel.verifyChallenge === 'function') {
+        const c = targetChannel.verifyChallenge(req);
+        if (c?.ok) {
+          res.writeHead(200, { 'Content-Type': 'text/plain' });
+          res.end(String(c.challenge ?? ''));
+          return;
+        }
+        return json(res, 403, { ok: false });
+      }
+
+      if (config.mode !== 'webhook' || req.method !== 'POST' || !targetChannel) return json(res, 404, { ok: false });
+
       // Gom các gói thành mảng Buffer rồi decode MỘT LẦN ở 'end': `body += c` ép từng gói sang
       // chuỗi riêng, nên ký tự nhiều byte (tiếng Việt) bị cắt ở ranh giới gói TCP thành U+FFFD —
       // hỏng cả inbox.raw đã bền hoá. Giới hạn đếm theo byte (c.length) mới đúng nghĩa "1 MB".
@@ -87,55 +125,65 @@ export function createWebhookHandler({ config, channel, engine, store, health, m
       req.on('data', (c) => { phan.push(c); soByte += c.length; if (soByte > MAX_BODY) req.destroy(); });
       req.on('end', () => {
         try {
-          const body = Buffer.concat(phan).toString('utf8');
+          const rawBuf = Buffer.concat(phan);
+          req.rawBody = rawBuf;
+          const body = rawBuf.toString('utf8');
+          req.body = body;
+
+          if (!targetChannel.verifyWebhook(req)) return json(res, 403, { ok: false });
+
           let payload;
           try { payload = JSON.parse(body || '{}'); } catch { return json(res, 400, { ok: false }); }
           if (debug) log.log('[debug] webhook:', body.slice(0, 800));
-          let u;
-          try { u = channel.parse(payload); } catch { u = null; }
+
+          let updates = [];
+          if (typeof targetChannel.parseAll === 'function') {
+            try { updates = targetChannel.parseAll(payload); } catch { updates = []; }
+          } else if (typeof targetChannel.parse === 'function') {
+            try {
+              const u = targetChannel.parse(payload);
+              if (u) updates = [u];
+            } catch { updates = []; }
+          }
+          if (!Array.isArray(updates)) updates = [];
+          for (const u of updates) {
+            if (u && !u.channel) u.channel = targetChannel.name || target.name;
+          }
+
+          const valid = updates.filter((u) => u && u.chatId);
           // Update bot không hiểu được (hay thiếu chatId — cột chat_id là NOT NULL): ack 200 và thôi.
           // Gửi lại cũng vẫn không hiểu, nên 503 chỉ làm Zalo thử mãi.
           // Nhưng phải để lại dấu vết: Zalo đổi định dạng payload mà bot ack mọi thứ rồi im lặng
           // thì không ai biết. Chỉ in các khoá cấp cao, KHÔNG in body (có nội dung tin khách, Điều IX).
-          if (!u || !u.chatId) {
+          if (valid.length === 0) {
             const khoa = payload && typeof payload === 'object' ? Object.keys(payload).slice(0, 10).join(',') : typeof payload;
             log.warn?.('[webhook] update không parse được / thiếu chatId, đã ack 200 và bỏ qua; khoá cấp cao:',
               redact(khoa).slice(0, 120));
             return json(res, 200, { ok: true });
           }
-          let moi;
-          try {
-            moi = store.inbox.insertIgnore({
-              update_key: u.updateKey, chat_id: u.chatId, user_id: u.userId ?? null,
-              raw: JSON.stringify(u.raw ?? payload), received_at: now().toISOString(),
-            });
-          } catch (e) {
-            log.error('[webhook] không ghi được inbox:', redact(e?.message));
-            return json(res, 503, { ok: false });   // chưa bền hoá thì KHÔNG ack: để Zalo gửi lại
+
+          const moiList = [];
+          for (const u of valid) {
+            let moi;
+            try {
+              moi = store.inbox.insertIgnore({
+                update_key: u.updateKey, chat_id: u.chatId, user_id: u.userId ?? null,
+                raw: JSON.stringify(u.raw ?? payload), received_at: now().toISOString(),
+              });
+            } catch (e) {
+              log.error('[webhook] không ghi được inbox:', redact(e?.message));
+              return json(res, 503, { ok: false });   // chưa bền hoá thì KHÔNG ack: để gửi lại
+            }
+            if (moi) moiList.push(u);
           }
           json(res, 200, { ok: true });   // đã bền hoá (pending) mới ack
-          if (!moi) return;   // trùng khoá: lượt này đã có người nhận, không xử lý lại
-          const key = convIdOf({ chatId: u.chatId, userId: u.userId, isGroup: isGroup(u) });
-          // `Promise.resolve().then(() => runTask(...))` chứ không `Promise.resolve(runTask(...))`.
-          // Lý do: cách đúng đưa lỗi của việc (kể cả lỗi ĐỒNG BỘ) vào .catch RIÊNG ở dòng 93 —
-          // đó là đường lỗi CỦA VIỆC, không phải đường `loi500` dành cho lỗi không lường được
-          // của handler. (`queue.run` của T019 KHÔNG ném lỗi đồng bộ ra ngoài: `fn` chạy bên trong
-          // `truoc.then(() => fn())` nên lỗi luôn thành promise bị từ chối.)
-          // Cách sai gọi runTask NGAY trong thân callback 'end', nên lỗi đồng bộ của nó rơi vào
-          // try/catch của callback (dòng 44 và 94) → bị gán NHẦM nhãn "lỗi không lường được" → gọi
-          // res.end() LẦN HAI trên phản hồi đã trả 200. Tệ hơn: chuỗi promise phía sau KHÔNG
-          // được tạo, nên lỗi của việc không còn đường đi riêng. Bất kỳ `runTask` nào ném lỗi ĐỒNG BỘ
-          // (kể cả hàm bọc của hàng đợi, nếu ai đó viết sai) đều rơi vào đây ⇒ lượt sau cùng cuộc trò chuyện không bao giờ chạy (specs/001-nen-tang-chung/tasks.md:343).
-          // KHÔNG phải để "flush ack trước": `.then` là microtask, chạy xong TRƯỚC khi vòng lặp sự
-          // kiện ghi socket ra ngoài, nên phần đồng bộ của engine.process (`store.tx` insert+claim,
-          // `chats/convs.upsertSeen`) VẪN nằm trước lúc khách nhận ack. Đo thật với engine.process
-          // có 400 ms đồng bộ, thời điểm KHÁCH nhận ack: `.then` 436 ms · `setImmediate` 409 ms ·
-          // `setTimeout(0)` 5 ms. Tức `setImmediate` cũng không cứu. Đưa phần đồng bộ của engine
-          // ra khỏi đường ack là việc RIÊNG (ghi ở T021 — việc nền bền,
-          // specs/001-nen-tang-chung/tasks.md), ngoài phạm vi T019.
-          Promise.resolve().then(() => runTask(key, () => engine.process(u)))
-            .then((x) => { if (debug || x?.skipped) log.log('[bot] kết quả:', JSON.stringify(x)); })
-            .catch((e) => log.error('[webhook]', redact(e?.message)));
+
+          for (const u of moiList) {
+            const key = convIdOf({ chatId: u.chatId, userId: u.userId, isGroup: isGroup(u), channel: u.channel });
+            Promise.resolve().then(() => runTask(key, () => engine.process(u)))
+              .then((x) => { if (debug || x?.skipped) log.log('[bot] kết quả:', JSON.stringify(x)); })
+              .catch((e) => log.error('[webhook]', redact(e?.message)));
+          }
         } catch (e) { loi500(res, e); }
       });
     } catch (e) { loi500(res, e); }
