@@ -478,7 +478,7 @@ await t('sổ trượt: ghi JSONL theo ngày giờ VN, đếm theo loại', asyn
 });
 
 // ---------- não biên tập kết quả (Gemini giả lập) ----------
-await t('form đầy đủ: phân loại xong KHÔNG dùng bản chốt AI (editor); "chi tiết" báo chưa có bản riêng', async () => {
+await t('form đầy đủ: phân loại xong KHÔNG dùng bản chốt AI (editor); "chi tiết" mở lại được bản vừa rồi', async () => {
   const zalo = fakeZalo();
   const ML = '11111111-2222-4333-8444-555555555555';
   let n = 0; let chot = 0;
@@ -496,6 +496,12 @@ await t('form đầy đủ: phân loại xong KHÔNG dùng bản chốt AI (edit
   assert.equal(chot, 0);
   assert.doesNotMatch(s, /BẢN CHỐT AI|"chi tiết"/);
   assert.match(s, /🔍 Hàng/); assert.match(s, /Mã HS đề xuất: 8413\.70\.90/); assert.match(s, /Chính sách quản lý/);
+  // 07/11: lệnh "chi tiết" mở lại được bản phân tích vừa rồi (trước đây luôn trả lời
+  // "Chưa có bản chi tiết nào" vì chỉ nhánh AI biên tập mới ghi phiên — mà nhánh đó không chạy).
+  await bot.handleUpdate(dm('chi tiết', 'bt2'));
+  const cd = zalo.sent.at(-1)[1];
+  assert.match(cd, /Bản chi tiết lượt gần nhất/);
+  assert.match(cd, /Mã HS đề xuất: 8413\.70\.90/);
 });
 await t('biên tập: editor lỗi → giữ bản đầy đủ như cũ; CAN_DU_KIEN không nhờ biên tập', async () => {
   const zalo = fakeZalo();

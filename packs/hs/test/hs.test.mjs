@@ -49,12 +49,17 @@ test('toJob: DANG_XU_LY → { job }, còn lại → { result }', () => {
   assert.deepEqual(toJob({ ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' }, 'ket_qua_phan_loai', { tools: new Set() }).job, undefined);
 });
 
-test('menu: đúng chữ menu cũ, không gắn nhãn; footer = menuText(availablePackages(tools))', async () => {
+test('menu: chào hỏi → lời chào + menu RÚT GỌN; gõ "menu" mới ra menu đầy đủ; footer = menuText(availablePackages(tools))', async () => {
   const { ctx } = fakeCtx();
+  // 07/11: câu chào không còn dán menu đầy đủ (~970 ký tự) — chỉ lời chào + tên gói.
   const r = await hs.handle(turn('xin chào'), ctx);
-  assert.deepEqual(r.replies, [{ text: `{b}🤖 Bot tra cứu hải quan OZ{/b}\n\n${menuText(availablePackages(ctx.tools), { full: true })}\n\nHoặc cứ gõ mã HS / mô tả hàng, bot tự chọn gói.` }]);
-  assert.match(plain(r.replies[0].text), /CHỌN GÓI/); assert.match(plain(r.replies[0].text), /7\. 📄 Hồ sơ giải trình/);
+  assert.match(plain(r.replies[0].text), /^🤖 Chào anh\/chị!/);
+  assert.match(plain(r.replies[0].text), /Các gói tra cứu/);
+  assert.ok(plain(r.replies[0].text).length < 600, `lời chào vẫn dài ${plain(r.replies[0].text).length} ký tự`);
   assert.deepEqual(r.labels, []); assert.deepEqual(r.jobs, []); assert.equal(r.handoff, null);
+  const m = await hs.handle(turn('menu'), ctx);
+  assert.deepEqual(m.replies, [{ text: `{b}🤖 Bot tra cứu hải quan OZ{/b}\n\n${menuText(availablePackages(ctx.tools), { full: true })}\n\nHoặc cứ gõ mã HS / mô tả hàng, bot tự chọn gói.` }]);
+  assert.match(plain(m.replies[0].text), /CHỌN GÓI/); assert.match(plain(m.replies[0].text), /7\. 📄 Hồ sơ giải trình/);
   assert.equal(plain(hs.footer(ctx)), FOOTER);
   assert.equal(plain(hs.footer({ ...ctx, tools: new Set(['tra_thue', 'phan_loai_hs']) })), FOOTER);   // footer gọn không liệt kê số theo công cụ
   const c = await hs.handle(turn('2'), ctx);
@@ -110,7 +115,10 @@ test('mã 8 số → gói 2, kết quả có thuế suất từ Cổng (giữ ng
   const s = plain(r.replies[0].text);
   assert.deepEqual(calls.map((c) => c.name).sort(), ['tra_thu_tuc_nhap_khau', 'tra_thue']);
   assert.deepEqual(calls.find((c) => c.name === 'tra_thue').args, { maHs: '84137090', xuatXu: 'CN' });
-  assert.match(s, /Tự động chọn gói 2/);
+  // 07/11: câu CHỈ CÓ mã → không hỏi não (tiết kiệm lượt + độ trễ) nên không có dòng
+  // "(Tự động chọn gói 2…)"; tin mở đầu thẳng bằng kết quả.
+  assert.match(s, /^💰 Thuế — 8413\.70\.90/);
+  assert.doesNotMatch(s, /Tự động chọn gói 2/);
   assert.match(s, /KHÔNG được hưởng → áp MFN/);
   assert.match(s, /Chính sách nhập khẩu[\s\S]*gặp lỗi/);
   assert.match(s, /Gõ "menu" để xem các gói/);

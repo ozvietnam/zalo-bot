@@ -161,9 +161,9 @@ function dongThueSuat(x, origin = 'CN') {
   const w = x.warnings?.nhanAi === 'AI_CHUA_KIEM' ? null : x.warnings;
   const dkW = dieuKienOf(w) ?? dieuKienOf(x);
   const dkTextW = dkW != null && dkW !== '' ? ` — điều kiện: ${clip(typeof dkW === 'object' ? JSON.stringify(dkW) : dkW, 300)}` : '';
-  if (w?.summary) l.push(`${w.severity === 'HIGH' ? '{red}🔴{/red}' : '{orange}🟡{/orange}'} Chính sách: ${clip(w.summary, 300)}${dkTextW}`);
-  else if (x.policyByHs) l.push(`{orange}🟡 Chính sách: ${clip(x.policyByHs, 300)}{/orange}`);
-  else if (x.hasPolicyWarning === false) l.push('Chính sách: chưa có dữ liệu cảnh báo (không có nghĩa là không cần thủ tục).');
+  if (w?.summary) l.push(`${w.severity === 'HIGH' ? '{red}🔴{/red}' : '{orange}🟡{/orange}'} Lưu ý: ${clip(w.summary, 300)}${dkTextW}`);
+  else if (x.policyByHs) l.push(`{orange}🟡 Lưu ý: ${clip(x.policyByHs, 300)}{/orange}`);
+  else if (x.hasPolicyWarning === false) l.push('Lưu ý: chưa có dữ liệu cảnh báo (không có nghĩa là không cần thủ tục).');
   return l.join('\n');
 }
 
@@ -187,31 +187,63 @@ export function phanTichChinhSach(d) {
     if (!so) continue;
     if (!vb.has(so) || (!vb.get(so).hieuLuc && v.hieuLuc)) vb.set(so, { so, hieuLuc: v.hieuLuc || null });
   }
-  const hetHieuLuc = (so) => vb.get(goc(so))?.hieuLuc?.tinhTrang === 'HET_HIEU_LUC';
+  /** Trạng thái hiệu lực của văn bản, viết bằng tiếng Việt. Rỗng = Cổng không nói (đừng bịa).
+   *  Có cả `HET_HIEU_LUC_MOT_PHAN` (hết hiệu lực một phần) và `biBaiBoBoi`/`biTamNgungBoi`: bỏ qua hai
+   *  trường này thì khách thấy một văn bản ĐÃ BỊ BÃI BỎ hiện như còn hiệu lực — lỗi pháp lý. */
+  const trangThai = (so) => {
+    const h = vb.get(goc(so))?.hieuLuc;
+    if (!h?.tinhTrang) return '';
+    if (h.tinhTrang === 'CON_HIEU_LUC') return 'còn hiệu lực';
+    if (h.tinhTrang === 'HET_HIEU_LUC') {
+      const thay = (h.biThayTheBoi || []).filter(Boolean);
+      return `hết hiệu lực${ngayVN(h.hetHieuLucTu) ? ` từ ${ngayVN(h.hetHieuLucTu)}` : ''}${thay.length ? `, thay bởi ${thay.join(', ')}` : ''}`;
+    }
+    if (h.tinhTrang === 'HET_HIEU_LUC_MOT_PHAN') {
+      const bo = (h.biBaiBoBoi || []).filter(Boolean);
+      const ngung = (h.biTamNgungBoi || []).filter(Boolean);
+      return `hết hiệu lực một phần${bo.length ? `, đã bị bãi bỏ bởi ${bo.join(', ')}` : ''}${ngung.length ? `, tạm ngưng bởi ${ngung.join(', ')}` : ''}`;
+    }
+    return '';
+  };
+  const hetHieuLuc = (so) => /^hết hiệu lực/.test(trangThai(so));
   const muc = [];
   for (const p of d.chinhSach?.policyLines || []) {
     const raw = String(p?.text || '').trim();
     if (!raw) continue;
-    const so = p.soHieu || (raw.match(SO_HIEU) || [])[0];
-    let t = raw.replace(new RegExp(`\\s*[—–-]\\s*${SO_HIEU.source}\\s*$`), '').replace(new RegExp(`\\s*\\(${SO_HIEU.source}\\)\\s*$`), '').trim();
-    if (so && hetHieuLuc(so)) t += ' (căn cứ đã hết hiệu lực)';
-    muc.push(clip(t, 200));
+    let t = raw.replace(new RegExp(`\\s*[—–-]\\s*${SO_HIEU.source}\\s*$`), '').trim();
+    // Ngoặc cuối chứa MỘT hoặc NHIỀU số hiệu văn bản ("(42/2019/TT-BCT & 34/2025/TT-BCT )") → bỏ:
+    // mục "Văn bản dẫn tới chính sách" đã liệt kê, giữ lại chỉ là lặp lại (và có dấu cách thừa).
+    let soDa = [];
+    const ngoac = /\s*\(([^()]+)\)\s*$/.exec(t);
+    if (ngoac) {
+      const soTrong = ngoac[1].match(new RegExp(SO_HIEU.source, 'g')) || [];
+      const bietDuoc = soTrong.length > 0 && soTrong.every((x) => vb.has(goc(x)));
+      if (bietDuoc) { soDa = soTrong; t = t.slice(0, ngoac.index).trim(); }
+    }
+    // Văn bản gốc: ưu tiên trường có cấu trúc (`soHieu`) của Cổng; nếu không có thì lấy số hiệu CÒN
+    // trong câu sau khi đã bỏ phần trích dẫn — không lấy từ câu đã bỏ, nếu không một dòng trích
+    // nhiều văn bản sẽ bị gắn cảnh báo "đã hết hiệu lực" theo văn bản đầu tiên.
+    const so = p.soHieu || (t.match(SO_HIEU) || [])[0] || null;
+    if (so) soDa = [...new Set([...soDa, so])];
+    // Cảnh báo "căn cứ đã hết hiệu lực" chỉ khi MỌI văn bản dòng này viện dẫn đều hết hiệu lực:
+    // dòng trích hai văn bản (một còn hiệu lực, một đã bãi bỏ) thì không được gắn cảnh báo chung.
+    if (soDa.length && soDa.every((x) => hetHieuLuc(x))) t += ' (căn cứ đã hết hiệu lực)';
+    // Dòng chỉ có nhãn ("Danh mục liên quan") thì khách không hiểu phải làm gì → lấy lý do Cổng ghi kèm.
+    if (t.length < 25 && p.reasonVi) t = `${t} — ${clip(String(p.reasonVi).trim(), 200)}`;
+    muc.push(clip(t, 260));
   }
   if (!muc.length) for (const k of d.kiemTraChuyenNganh || []) if (k?.label) muc.push(clip(k.label, 200));
   for (const g of d.giayPhep || []) {
     const ten = typeof g === 'string' ? g : g?.ten || g?.label || g?.tenVi || g?.name;
     if (ten) muc.push(`Giấy phép: ${clip(ten, 200)}`);
   }
-  const vanBan = [...vb.values()].map(({ so, hieuLuc: h }) => {
-    let tt = '';
-    if (h?.tinhTrang === 'CON_HIEU_LUC') tt = 'còn hiệu lực';
-    else if (h?.tinhTrang === 'HET_HIEU_LUC') {
-      const thay = (h.biThayTheBoi || []).filter(Boolean);
-      tt = `hết hiệu lực${ngayVN(h.hetHieuLucTu) ? ` từ ${ngayVN(h.hetHieuLucTu)}` : ''}${thay.length ? `, thay bởi ${thay.join(', ')}` : ''}`;
-    }
-    return { so, ten: h?.ten ? clip(h.ten, 160) : null, tt };
-  });
-  return { muc: [...new Set(muc)], vanBan, cu: d.chinhSach?.policyBasisReview?.status === 'OUTDATED_BASIS' };
+  const vanBan = [...vb.values()].map(({ so, hieuLuc: h }) => ({
+    so, ten: h?.ten ? clip(h.ten, 160) : null, tt: trangThai(so),
+  }));
+  // Cổng tự nói danh mục "chưa đối chiếu bản gốc" → không được khẳng định là đã dính chính sách.
+  const lines = d.chinhSach?.policyLines || [];
+  const chacChan = lines.some((p) => /chưa (?:xác minh|đối chiếu)|có thể thuộc diện|CÓ THỂ/i.test(String(p?.reasonVi || '')));
+  return { muc: [...new Set(muc)], vanBan, cu: d.chinhSach?.policyBasisReview?.status === 'OUTDATED_BASIS', chacChan };
 }
 
 const CHUA_GHI_NHAN = 'Cổng OZ chưa ghi nhận chính sách quản lý chuyên ngành cho mã này (không có nghĩa là chắc chắn miễn thủ tục).';
@@ -223,7 +255,10 @@ export function renderPolicy(d) {
   if (!cs) return null;
   const l = [`{b}📋 Chính sách nhập khẩu${d.maHs ? ` — ${fmtHs(d.maHs)}` : ''}{/b}`];
   if (!cs.muc.length) { l.push(`✅ ${CHUA_GHI_NHAN}`); return l.join('\n'); }
-  l.push('{red}⚠️ CÓ chính sách quản lý chuyên ngành:{/red}');
+  // Cổng ghi "chưa đối chiếu bản gốc" thì không được khẳng định khách CHẮC chắn dính (Hiến chương VIII).
+  l.push(cs.chacChan
+    ? '{orange}⚠️ CÓ THỂ dính chính sách quản lý chuyên ngành — Cổng chưa đối chiếu bản gốc, nhân viên OZ cần xem lại:{/orange}'
+    : '{red}⚠️ CÓ chính sách quản lý chuyên ngành:{/red}');
   for (const m of cs.muc) l.push(`• ${m}`);
   if (cs.vanBan.length) {
     l.push('{b}Văn bản dẫn tới chính sách:{/b}');
@@ -277,7 +312,9 @@ export function renderPhanLoaiDayDu({ tenHang, maHs, phanLoai, thue, thuTuc, moT
   const cs = phanTichChinhSach(duLieu(thuTuc));
   if (cs) {
     if (cs.muc.length) {
-      l.push('', '{red}🔴{/red} {b}Chính sách quản lý{/b}', ...cs.muc.map((m) => `• ${m}`));
+      l.push('', cs.chacChan
+        ? '{orange}⚠️{/orange} {b}Chính sách quản lý (có thể — Cổng chưa đối chiếu bản gốc){/b}'
+        : '{red}🔴{/red} {b}Chính sách quản lý{/b}', ...cs.muc.map((m) => `• ${m}`));
       if (cs.vanBan.length) l.push(`• Văn bản: ${cs.vanBan.map((v) => `${v.so}${v.tt ? ` (${v.tt})` : ''}`).join(', ')}`);
       if (cs.cu) l.push(CANH_BAO_CU);
     } else {
