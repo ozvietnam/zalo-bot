@@ -72,7 +72,7 @@ Toàn bộ 40 việc của **spec 001 (T001–T040)** đã hoàn thành trọn v
 - **3/9 Đạt về code (chờ nghiệm thu chạy thật: SC-002, SC-007, SC-009)**: SC-002 (bot im trong phòng human — chờ audit 7 ngày chạy thật), SC-007 (mọi tin ra có `turn_id` trong audit — chờ audit 7 ngày chạy thật), SC-009 (20 phiếu đầu tiên kèm hồ sơ khách — chờ đối chiếu 20 phiếu thật khi mở lại bot).
 Toàn bộ 9 nguyên tắc của Hiến pháp đã được thi hành và bảo vệ bằng kiểm thử tự động.
 
-## 3. Spec 007, 008, 009, 010
+## 3. Spec 007, 008, 009, 010, 011
 
 | Spec | Trạng thái | Bằng chứng |
 |---|---|---|
@@ -80,6 +80,7 @@ Toàn bộ 9 nguyên tắc của Hiến pháp đã được thi hành và bảo 
 | 008 — Cổng AI Studio | **Chỉ có spec** | `specs/008-cong-ai-studio/spec.md:7` (Draft); chưa có mã nguồn trong repo này, dự kiến tách repo riêng |
 | 009 — Agent tra cứu hải quan | **Chỉ có spec** | `specs/009-agent-tra-cuu/spec.md:7` (Draft); não hiện tại ở `packs/hs/brain.js` chỉ chọn một gói, chưa phải vòng lặp gọi nhiều công cụ |
 | 010 — Giao việc cho thợ ngoài (Antigravity, Muse Code) | **Đóng — đã hiện thực ở tầng văn phòng (ADR-0022)** | `specs/010-giao-viec-antigravity/spec.md:9`; 5 câu hỏi đã giải quyết theo thực tế hạ tầng bể thợ Google AI Ultra của văn phòng (ADR-0022); đóng spec 010 trong repo, Muse Code gác lại |
+| 011 — Khung đề xuất bus (ZB-01) | **Chỉ có spec** | `specs/011-de-xuat-bus/spec.md:7` (Draft); khung tài liệu dự thảo ZB-01, không đổi mã chạy, không chặn 007/005; ZB-05/ZB-06 giữ trạng thái chờ |
 
 ## 4. Việc nên làm tiếp theo
 
