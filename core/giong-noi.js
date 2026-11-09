@@ -128,7 +128,7 @@ export function createGiongNoi({
 
     // Chưa có trong cache: gọi Gemini TTS
     if (!apiKey) throw new Error('TTS lỗi: thiếu GEMINI_API_KEY');
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
     const p = opts.prompt || prompt;
     const body = {
       contents: [{ parts: [{ text: cauDoc }] }],
@@ -141,7 +141,10 @@ export function createGiongNoi({
 
     const res = await fetchImpl(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
       body: JSON.stringify(body),
     });
 

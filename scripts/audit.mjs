@@ -138,6 +138,8 @@ function inDong(r, trangThaiOutbox) {
   } else if (r.type === 'tool') {
     chiTiet = `${d.name ?? '-'} ${d.ok === false ? 'fail' : 'ok'}`;
     if (d.args != null) phu.push(`args="${cheArgs(d.args)}"`);
+    if (d.code != null) phu.push(`code=${cheOr(d.code)}`);
+    if (d.error != null) phu.push(`err="${cheOr(d.error)}"`);
   } else if (r.type === 'gate') {
     chiTiet = `${d.decision ?? '-'} ${cheOr(d.reason)}`;
     const st = d.idemKey ? trangThaiOutbox.get(d.idemKey) : null;
