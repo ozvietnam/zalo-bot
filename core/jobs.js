@@ -33,7 +33,7 @@ const iso = (ms) => new Date(ms).toISOString();
  *   nên bỏ qua đường này là món quan tâm kèm mã HS không bao giờ vào hồ sơ.
  * @returns {{ add: Function, tick: () => Promise<number>, recover: () => number }}
  */
-export function createJobs({ store, mcp, registry, gate, now, log = console, tools, vision = null, brain = null, editor = null, ttlMs, ghiTruot = null, onAlert = () => {}, handoff = null, ghiHoSo = null }) {
+export function createJobs({ store, mcp, registry, gate, now, log = console, tools, vision = null, brain = null, editor = null, ttlMs, ghiTruot = null, onAlert = () => {}, handoff = null, ghiHoSo = null, guiThoai = null }) {
   const audit = (turnId, chatId, convId, type, data) => store.audit.add({ at: now().toISOString(), turn_id: turnId, conv_id: convId ?? null, chat_id: chatId, type, data });
   const canhBao = (chatId, reason) => { try { onAlert(chatId, reason); } catch (e) { log.error?.(`[jobs] onAlert lỗi: ${redact(e?.message)}`); } };
 
@@ -152,6 +152,18 @@ export function createJobs({ store, mcp, registry, gate, now, log = console, too
             pack: { id: pack.id, moneyCheck: pack.moneyCheck === true }, evidence: res.evidence ?? [],
           });
           sent.push({ idemKey, decision: g.decision, reason: g.reason, status: g.status, text: r.text });
+        }
+        // Tin thoại cho job_result (issue #136, mục 6): gọi guiThoai phát âm thanh tóm tắt ngắn khi bật voice.
+        if (guiThoai && res?.replies?.length) {
+          const turnFake = {
+            convId: row.conv_id,
+            chatId: row.chat_id,
+            isGroup: c.isGroup === true,
+            receivedAt: c.receivedAt ?? nowIso,
+            replayed: false,
+            isVoice: false,
+          };
+          try { await guiThoai(turnFake, res, `j:${row.ma_luot}`, sent); } catch {}
         }
         // Phòng sang 'human' GIỮA lúc gói soạn (nhân viên /nhan, /tl): cửa chặn `chat-human`. Kết quả đã
         // soạn không được mất im lặng — chuyển nguyên văn vào phiếu cho nhân viên (#33).

@@ -338,3 +338,31 @@ test('việc nền trong nhóm: kết quả gắn lại @tên người hỏi, kh
   assert.deepEqual(sentTo(channel, 'G'), ['@Nguyễn Văn A\nXong L-nhom 84137090']);
   assert.ok(store.outbox.hasIdem('j:G:u7:L-nhom'));
 });
+
+test('issue #136: jobs.tick gọi guiThoai khi kết quả việc nền hoàn tất', async () => {
+  const thoaiDaGoi = [];
+  const fakeGuiThoai = async (turn, res, key, results) => {
+    thoaiDaGoi.push({ turn, res, key });
+  };
+
+  const { store, clock, channel } = setup();
+  const pack = jobPack();
+  const registry = createRegistry([pack]);
+  const gate = createGate({ store, channel, now: clock.now });
+  const mcp = fakeMcp({ kq: () => ({ trangThai: 'XONG', hs: '85094000' }) });
+  const jobs = createJobs({
+    store, mcp, registry, gate, now: clock.now, log: silent,
+    tools: async () => new Set(['kq']),
+    guiThoai: fakeGuiThoai,
+  });
+
+  const turn = turnOf({ chatId: 'c1', convId: 'c1', userId: 'u1' });
+  jobs.add(turn, 'c1', 'jp', { maLuot: 'ML-VOICE', resultTool: 'kq' });
+  clock.advance('6s');
+  await jobs.tick();
+
+  assert.equal(thoaiDaGoi.length, 1, 'guiThoai phải được gọi 1 lần khi job xong');
+  assert.equal(thoaiDaGoi[0].key, 'j:ML-VOICE');
+  assert.match(thoaiDaGoi[0].res.replies[0].text, /85094000/);
+});
+

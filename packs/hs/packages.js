@@ -7,6 +7,8 @@ import { renderResult, renderClassify, nhacPhongVe, renderPhanLoaiDayDu } from '
 import { plain } from './style.js';
 import { fmtHs } from './format.js';
 import { chayCho } from './jobs.js';
+import { kiemTraThongTinPhanLoai, xuLyTraLoiHoiLai } from './dien-cho-thieu.js';
+import { renderPhanLoaiGiongQuyen } from './giong-quyen.js';
 
 export { notice, hetHan, toJob, waitJob, WAIT_JOB_MAX_MS } from './jobs.js';
 
@@ -148,6 +150,38 @@ export const PACKAGES = [
     async chay(text, ctx) { return chayCho(this, text, ctx); },
     /** Gọi Cổng, không chờ: → câu hỏi lại (string) | { r, resultTool, label, context } cho xong(). */
     async batDau(text, ctx) {
+      // 0a. Đang trong phiên hỏi lại chi tiết còn thiếu (session.hoiLai)
+      const hoiLai = ctx.session.hoiLai;
+      if (hoiLai) {
+        const xl = xuLyTraLoiHoiLai(text, hoiLai);
+        if (xl.sanSangTra) {
+          ctx.session.hoiLai = null;
+          ctx.session.daHoiLai = true;
+          if (xl.giaDinh) ctx.session.giaDinh = xl.giaDinh;
+          text = xl.moTaTraCuu;
+        } else {
+          hoiLai.vongHoi = (hoiLai.vongHoi || 1) + 1;
+          const kt = kiemTraThongTinPhanLoai(text, { vongHoi: hoiLai.vongHoi });
+          if (kt.canHoi) {
+            ctx.session.hoiLai = { ...hoiLai, ...kt };
+            return kt.cauHoi;
+          }
+          ctx.session.hoiLai = null;
+          ctx.session.daHoiLai = true;
+          if (kt.giaDinh) ctx.session.giaDinh = kt.giaDinh;
+        }
+      }
+
+      // 0b. Kiểm tra xem có cần hỏi lại trước khi tra không (chỉ hỏi khi là câu tự do, không hỏi khi khách dùng form có nhãn Tên hàng:...)
+      const coNhanChuan = /^(t[eê]n\s*h[aà]ng|ten\s*hang)\s*:/i.test(text.trim());
+      if (!ctx.session.hoiLai && !coNhanChuan && !/^(h[aà]ng m[oớ]i|b[oỏ] qua)/i.test(text.trim())) {
+        const kt = kiemTraThongTinPhanLoai(text, { vongHoi: 0 });
+        if (kt.canHoi) {
+          ctx.session.hoiLai = { ...kt, vongHoi: 1 };
+          return kt.cauHoi;
+        }
+      }
+
       // Đang chờ bổ sung dữ kiện cho lượt phân loại trước (CAN_DU_KIEN) → gửi câu trả lời vào đúng lượt đó, không trừ điểm lại.
       const cho = ctx.session.choBoSung;
       const cauHoiMoi = /(hs code|ma hs|ma so hs|bao nhieu|la gi|thue|phan loai|ma gi)/.test(norm(text));
@@ -176,12 +210,14 @@ export const PACKAGES = [
         ghiTruot(ctx, 'GO_LAI', { goi: 1, cau: bo.slice(0, 1000), cauTruoc: truoc.cau.slice(0, 1000), maHsTruoc: truoc.maHs || null });
       }
       const r = await ctx.mcp.callTool('phan_loai_hs', args);
-      return { r, resultTool: 'ket_qua_phan_loai', label: 'Đang phân loại mã HS', context: { tenHang, boSung: false, cauMoi: text, thuongHieu: v.thuongHieu || null } };
+      const chonNhanh = !ctx.session.daHoiLai && !ctx.session.giaDinh && (ctx.session.goi === 1 || coNhanChuan);
+      const giongQuyen = Boolean(ctx.session.daHoiLai || ctx.session.giaDinh || /tra\s*hs/i.test(text || ''));
+      return { r, resultTool: 'ket_qua_phan_loai', label: 'Đang phân loại mã HS', cauCho: 'Dạ anh chờ em tra chút nhé', context: { tenHang, boSung: false, cauMoi: text, thuongHieu: v.thuongHieu || null, chonNhanh, giongQuyen } };
     },
     /** Kết quả cuối (đã xong, hoặc lỗi/hết hạn) → chữ trả lời; ghi phiên last/choBoSung.
      *  Có mã HS → tự chạy tiếp thuế + thủ tục (tra cứu miễn phí) ngay trong tin: khách "vất hàng vào" là ra hết,
      *  không phải gõ "2". Gói 3/4 tính điểm nên vẫn để khách chủ động gọi. */
-    async xong(r, { tenHang, boSung = false, cauMoi, thuongHieu = null }, ctx) {
+    async xong(r, { tenHang, boSung = false, cauMoi, thuongHieu = null, chonNhanh = false, giongQuyen = false }, ctx) {
       const maHs = pickHs(r);
       const maLuot = r?.maLuot || r?.chiPhi?.maLuot || r?.data?.maLuot;
       ctx.session.last = { tenHang, maHs, maLuotPhanLoai: UUID.test(maLuot || '') ? maLuot : null };
@@ -226,6 +262,14 @@ export const PACKAGES = [
         // "Chưa có bản chi tiết nào" vì chỉ có nhánh AI biên tập mới ghi phiên — mà nhánh đó
         // không chạy nữa (form cố định đã thay). Khách cuộn mất tin thì gõ "chi tiết" là lấy lại.
         ctx.session.chiTiet = { text: traLoi, at: Date.now() };
+
+        // Giọng Quyên (issue #136, mục 2 & 3): trả bản ngắn gọn <= 6-7 dòng khi thuộc luồng giọng Quyên
+        if (giongQuyen && !chonNhanh) {
+          const giaDinh = ctx.session.giaDinh || null;
+          ctx.session.giaDinh = null;
+          ctx.session.daHoiLai = null;
+          return renderPhanLoaiGiongQuyen({ tenHang, maHs, phanLoai: r, thue, thuTuc, moTa, xuatXu: xx, giaDinh });
+        }
         return traLoi;
       }
       let out = renderClassify(r, { title: `🔎 Phân loại: "${tenHien}"` });

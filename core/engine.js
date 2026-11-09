@@ -69,7 +69,7 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
 
   // Việc nền bền (T021): lõi nợ khách kết quả đã hứa, hỏi Cổng tới khi xong rồi gửi qua cùng một cửa.
   // Phòng có người cầm thì việc nền không hỏi Cổng, không gọi gói mà để lại cho nhân viên (T026).
-  const jobs = createJobs({ store, mcp, registry, gate, now, log, tools, vision, brain, editor, ttlMs, ghiTruot, onAlert, handoff: ho, ghiHoSo: ganKetQua });
+  const jobs = createJobs({ store, mcp, registry, gate, now, log, tools, vision, brain, editor, ttlMs, ghiTruot, onAlert, handoff: ho, ghiHoSo: ganKetQua, guiThoai: voiceRoute.guiThoai });
 
   function limited(uid) {
     const t = now().getTime();
