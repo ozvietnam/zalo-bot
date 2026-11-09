@@ -37,9 +37,10 @@ export function tenTepHopThu(idemKey) {
  * @param {Array} [param0.phatHien=[]] Danh sách phát hiện
  * @param {object} [param0.ketQua={}] Kết quả issue
  * @param {string} [param0.loai='ngay'] 'ngay' hoặc 'tuan'
+ * @param {Array} [param0.vongLap=[]] Danh sách đo lường vòng lặp trước/sau
  * @returns {string} Nội dung bản tin định dạng Markdown / text
  */
-export function soanBanTin({ ngay, phatHien = [], ketQua = {}, loai = 'ngay' }) {
+export function soanBanTin({ ngay, phatHien = [], ketQua = {}, loai = 'ngay', vongLap = [] }) {
   const tieuDeLoai = loai === 'tuan' ? 'Bản tin tuần' : 'Bản tin ngày';
   const icon = phatHien.length === 0 ? '✅' : phatHien.length <= 3 ? '⚠️' : '🔴';
 
@@ -64,6 +65,32 @@ export function soanBanTin({ ngay, phatHien = [], ketQua = {}, loai = 'ngay' }) 
   if (ketQua?.comment?.length) lines.push(`↗ Comment cũ: ${ketQua.comment.length}`);
   if (ketQua?.boViGioiHan?.length) lines.push(`⊘ Bỏ giới hạn: ${ketQua.boViGioiHan.length}`);
   if (ketQua?.loi) lines.push('', `⚠️ ${ketQua.loi}`);
+
+  if (Array.isArray(vongLap) && vongLap.length > 0) {
+    lines.push('', 'Vòng lặp cải tiến (trước/sau 7 ngày):');
+    for (const v of vongLap) {
+      const num = v.issueNumber ?? v.number ?? '?';
+      const ma = v.maLoi || v.ma || 'KHONG-RO';
+      if (v.chuaDu7Ngay || v.ghiChu === 'Chưa đủ 7 ngày sau khi đóng để đo') {
+        lines.push(`• #${num} ${ma}: Chưa đủ 7 ngày sau khi đóng để đo`);
+      } else {
+        const truoc = v.truoc7Ngay ?? v.soDoTruoc ?? 0;
+        const sau = v.sau7Ngay ?? v.soDoSau ?? 0;
+        let ptStr = v.phanTramThayDoi;
+        if (!ptStr) {
+          const nT = Number(truoc) || 0;
+          const nS = Number(sau) || 0;
+          if (nT > 0) {
+            const pt = Math.round(Math.abs(nT - nS) / nT * 100);
+            ptStr = nS < nT ? `giảm ${pt}%` : nS > nT ? `tăng ${pt}%` : 'không đổi';
+          } else {
+            ptStr = nS === 0 ? 'không đổi' : `tăng ${nS}`;
+          }
+        }
+        lines.push(`• #${num} ${ma}: ${truoc} → ${sau} (${ptStr})`);
+      }
+    }
+  }
 
   return lines.join('\n');
 }
