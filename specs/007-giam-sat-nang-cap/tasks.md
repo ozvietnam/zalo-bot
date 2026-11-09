@@ -44,7 +44,7 @@ Bảng đối chiếu toàn bộ 11 Functional Requirements (FR-001..FR-011) và
 | **FR-006** | Gemini nhận cả lô tuần 1 lần gọi, JSON schema cố định, kiểm tra `turn_id` thật | `scripts/giam-sat/gemini-cluster.js:37,116` | **Xong** | T708 |
 | **FR-007** | Giới hạn tối đa 5 issue mới / repo / ngày; phần dư chuyển vào bản tin | `scripts/giam-sat/issue.js:9`, `scripts/giam-sat/issue.js:174-178` | **Đã xong** (T707, khoá bằng test tự động) | T707 |
 | **FR-008** | Issue đã đóng mà tín hiệu vẫn vượt ngưỡng 3 ngày liền phải mở lại kèm số đo mới | `scripts/giam-sat/issue.js:48-54`, `scripts/giam-sat/issue.js:154-173` | **Đã xong** (T707, reopen issue đã đóng khi vượt ngưỡng 3 ngày) | T707 |
-| **FR-009** | Nguồn máy chủ Fanpage đọc bản sao db chỉ-đọc; nguồn Cổng OZ đọc log chỉ-đọc | `scripts/giam-sat/cong-oz.js:1` | **Xong một phần** (T710: Cổng OZ metrics /metrics, T709: Fanpage đang chờ) | T709, T710 |
+| **FR-009** | Nguồn máy chủ Fanpage đọc bản sao db chỉ-đọc; nguồn Cổng OZ đọc log chỉ-đọc | `scripts/giam-sat/cong-oz.js:1`, `scripts/giam-sat/nguon-fanpage.js:1` | **Đã xong** (T710: Cổng OZ metrics /metrics, T709: Fanpage docNguonFanpage chỉ-đọc) | T709, T710 |
 | **FR-010** | Bản tin ngày (07:30) và tuần (thứ Hai 08:00) giờ VN vào nhóm nhân viên qua cửa gửi 001 `kind: 'digest'` | `scripts/giam-sat/digest.js:52`, `core/digest-scan.js:20`, `server.js:100` | **Đã xong** (T704: hộp thư riêng theo idemKey, cửa gửi gate.js kind: 'digest' vào STAFF_CHAT_ID) | T704 |
 | **FR-011** | Ghi bản ghi thực thi: nguồn đã đọc, số tin, số phát hiện, issue mở/bình luận, lỗi | `scripts/giam-sat/so-nhat-ky.js:59`, `scripts/giam-sat.mjs:74,113` | **Đã xong** (T712: sổ nhật ký SQLite độc lập giam-sat.db) | T712 |
 | **SC-001** | Bắt đủ 9 lỗi trên db mẫu cài sẵn, 0 phát hiện thừa | `scripts/giam-sat/tinh-hieu.js:63`, `test/helpers/giam-sat-fixture.mjs:8` | **Đạt** (T705: test fixture bắt đủ 9/9 lỗi, 0 phát hiện thừa) | T705 |
@@ -372,7 +372,7 @@ Tạo module nạp bản sao cơ sở dữ liệu `fb-inbox.db` của máy chủ
 **Interfaces — Produces:**
 - `docNguonFanpage(dbPath: string, khoangNgay: object) -> Array<{ chat_id, turn_id, speaker, text, at }>`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -383,10 +383,10 @@ test('T709 (FR-009): Đọc bản sao máy chủ Fanpage ở chế độ chỉ-�
   assert.ok(typeof docNguonFanpage === 'function');
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/giam-sat/nguon-fanpage.test.mjs` → FAIL.
-- [ ] **Step 3:** Tạo `scripts/giam-sat/nguon-fanpage.js` mở kết nối `DatabaseSync` với `readOnly: true`, lọc bỏ tin thông báo hệ thống Fanpage.
-- [ ] **Step 4:** Chạy lại `node --test test/giam-sat/nguon-fanpage.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(giam-sat): read-only adapter for legacy fanpage dataset (T709)"`
+- [x] **Step 2:** Chạy `node --test test/giam-sat/nguon-fanpage.test.mjs` → FAIL.
+- [x] **Step 3:** Tạo `scripts/giam-sat/nguon-fanpage.js` mở kết nối `DatabaseSync` với `readOnly: true`, lọc bỏ tin thông báo hệ thống Fanpage.
+- [x] **Step 4:** Chạy lại `node --test test/giam-sat/nguon-fanpage.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(giam-sat): read-only adapter for legacy fanpage dataset (T709)"`
 
 ---
 
