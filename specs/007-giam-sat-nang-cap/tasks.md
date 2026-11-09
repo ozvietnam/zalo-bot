@@ -41,7 +41,7 @@ Bảng đối chiếu toàn bộ 11 Functional Requirements (FR-001..FR-011) và
 | **FR-003** | Mở GitHub issue đúng repo bằng token issues, chống trùng theo fingerprint | `scripts/giam-sat/issue.js:69-77`, `scripts/giam-sat/issue.js:98-195` | **Đã sửa** (T707, chống trùng theo nhãn `fp:<hash>`, tiêm ghClient) | T707 |
 | **FR-004** | Ẩn danh bằng chứng trước khi xuất: tên → nhãn, SĐT/STK → che, token → `***` | `scripts/giam-sat.mjs:12`, `scripts/giam-sat/issue.js:111` | **Lệch** (chỉ gọi `redact` thô, chưa che SĐT qua `core/sdt.js`, chưa che STK và tên khách) | T706 |
 | **FR-005** | MUST NOT sửa code, mở PR, ghi vào db của bot, hay gửi tin cho khách | `scripts/giam-sat.mjs:30-49` (`DatabaseSync` readOnly) | **Đã sửa** (T701, mở DatabaseSync readOnly, không openStore) | T701 |
-| **FR-006** | Gemini nhận cả lô tuần 1 lần gọi, JSON schema cố định, kiểm tra `turn_id` thật | Chưa có code | **Chưa làm** | T708 |
+| **FR-006** | Gemini nhận cả lô tuần 1 lần gọi, JSON schema cố định, kiểm tra `turn_id` thật | `scripts/giam-sat/gemini-cluster.js:37,116` | **Xong** | T708 |
 | **FR-007** | Giới hạn tối đa 5 issue mới / repo / ngày; phần dư chuyển vào bản tin | `scripts/giam-sat/issue.js:9`, `scripts/giam-sat/issue.js:174-178` | **Đã xong** (T707, khoá bằng test tự động) | T707 |
 | **FR-008** | Issue đã đóng mà tín hiệu vẫn vượt ngưỡng 3 ngày liền phải mở lại kèm số đo mới | `scripts/giam-sat/issue.js:48-54`, `scripts/giam-sat/issue.js:154-173` | **Đã xong** (T707, reopen issue đã đóng khi vượt ngưỡng 3 ngày) | T707 |
 | **FR-009** | Nguồn máy chủ Fanpage đọc bản sao db chỉ-đọc; nguồn Cổng OZ đọc log chỉ-đọc | Chưa có code | **Chưa làm** | T709, T710 |
@@ -52,7 +52,7 @@ Bảng đối chiếu toàn bộ 11 Functional Requirements (FR-001..FR-011) và
 | **SC-003** | ≥ 80% issue giám sát được gắn nhãn "đúng vấn đề" trong 4 tuần đầu | Cần theo dõi vận hành | **Chưa làm** | T712 |
 | **SC-004** | Lỗi lặp lại không sinh issue trùng: số issue mở / số fingerprint = 1 | `scripts/giam-sat/issue.js:139-153` | **Đã xong** (T707, comment dồn vào issue cũ cùng fingerprint, khoá bằng test) | T707 |
 | **SC-005** | Mỗi issue đã đóng có số đo trước/sau trong bản tin tuần kế tiếp | Chưa có code | **Chưa làm** | T711 |
-| **SC-006** | Chi phí AI = 0 đồng (Gemini miễn phí), tối đa 1 lần gọi Gemini / tuần cho US3 | Chưa có code | **Chưa làm** | T708 |
+| **SC-006** | Chi phí AI = 0 đồng (Gemini miễn phí), tối đa 1 lần gọi Gemini / tuần cho US3 | `scripts/giam-sat/gemini-cluster.js:116` | **Xong** | T708 |
 
 ---
 
@@ -305,7 +305,7 @@ Xây dựng module `scripts/giam-sat/gemini-cluster.js`: gom toàn bộ các đo
 **Interfaces — Produces:**
 - `gomNhomNhuCau({ hoiThoaiTuan, db, geminiApiKey }) -> Promise<Array<{ tenNhom: string, soPhong: number, turnIds: string[], deXuatCongCu: string, repo: string }>>`
 
-- [ ] **Step 1: Test đỏ (FR-006, SC-006)**
+- [x] **Step 1: Test đỏ (FR-006, SC-006)**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -320,10 +320,10 @@ test('T708 (FR-006): Loại bỏ nhóm nhu cầu nếu Gemini trích dẫn turn_
   assert.equal(xacThucTurnIds(nhomBia, dbTurns), false, 'Phải loại bỏ nhóm có turn_id bịa');
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/giam-sat/gemini-cluster.test.mjs` → FAIL.
-- [ ] **Step 3:** Tạo `scripts/giam-sat/gemini-cluster.js` với prompt chuẩn, JSON schema, và hàm thẩm định `turn_id` đối chiếu với SQLite.
-- [ ] **Step 4:** Chạy lại `node --test test/giam-sat/gemini-cluster.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(giam-sat): weekly Gemini need clustering with citation verification (T708)"`
+- [x] **Step 2:** Chạy `node --test test/giam-sat/gemini-cluster.test.mjs` → FAIL.
+- [x] **Step 3:** Tạo `scripts/giam-sat/gemini-cluster.js` với prompt chuẩn, JSON schema, và hàm thẩm định `turn_id` đối chiếu với SQLite.
+- [x] **Step 4:** Chạy lại `node --test test/giam-sat/gemini-cluster.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(giam-sat): weekly Gemini need clustering with citation verification (T708)"`
 
 ---
 
