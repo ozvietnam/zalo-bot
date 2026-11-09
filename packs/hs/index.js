@@ -17,8 +17,9 @@ const ANH_RE = /(ten hang|thong so|model|thuong hieu|chat lieu)\s*:/;
 /** Chạy một gói con. Gói có batDau (1, 4) không chờ: DANG_XU_LY → job; còn lại → chữ trả lời như cũ. */
 async function runPkg(st, pkg, text, { head = '', nguonThongSo } = {}) {
   const pctx = st.pctx(nguonThongSo ? { nguonThongSo } : {});
-  const headPkg = pkg.so === 1 ? '' : head;
-  const footerPkg = pkg.so === 1 ? '' : `\n\n${st.footer}`;
+  const boQuaTrangTri = pkg.so === 1 || (pkg.so === 2 && Boolean(st.session.banDayDuPhanLoai));
+  const headPkg = boQuaTrangTri ? '' : head;
+  const footerPkg = boQuaTrangTri ? '' : `\n\n${st.footer}`;
   const reply = (body, known) => result(st, [clipReply(`${headPkg}${body}${footerPkg}`)], { known });
   if (!pkg.batDau) return reply(await pkg.chay(text, pctx));
   const b = await pkg.batDau(text, pctx);
@@ -29,7 +30,8 @@ async function runPkg(st, pkg, text, { head = '', nguonThongSo } = {}) {
   const job = { ...t.job, context: { goi: pkg.so, head: pkg.so === 1 ? '' : head, ...b.context } };
   // Báo đang tra (issue #136, mục 5): trong 3 giây gửi 1 câu ngắn kiểu "Dạ anh chờ em tra chút nhé"
   // Áp dụng cho luồng giọng Quyên (hỏi lại / tra hs) khi không phải chonNhanh và không phải bổ sung dữ kiện
-  const cauCho = (pkg.so === 1 && b.context?.giongQuyen && !b.context?.chonNhanh && !b.context?.boSung) ? (b.cauCho || 'Dạ anh chờ em tra chút nhé') : null;
+  const laHoiLaiTraHs = Boolean(b.context?.daHoiLai || b.context?.giaDinh || /tra\s*hs/i.test(b.context?.cauMoi || ''));
+  const cauCho = (pkg.so === 1 && b.context?.giongQuyen && laHoiLaiTraHs && !b.context?.chonNhanh && !b.context?.boSung) ? (b.cauCho || 'Dạ anh chờ em tra chút nhé') : null;
   return result(st, cauCho ? [cauCho] : [], { jobs: [job], known: b.context });
 }
 
@@ -56,14 +58,17 @@ async function textFlow(turn, ctx, st) {
   try {
     switch (r.kind) {
       case 'menu':
+        s.banDayDuPhanLoai = null;
         return one(`{b}🤖 Bot tra cứu hải quan OZ{/b}\n\n${menuText(st.pkgs, { full: true })}\n\nHoặc cứ gõ mã HS / mô tả hàng, bot tự chọn gói.`);
       case 'chao':   // lời chào: ngắn + menu rút gọn (dán menu 900 ký tự vào câu chào là ấn tượng xấu nhất)
         return one(`{b}🤖 Chào anh/chị!{/b} Em là bot tra cứu hải quan OZ đây ạ.\n\n${menuText(st.pkgs, { compact: true })}\n\nAnh/chị cứ gõ mã HS hoặc mô tả hàng (tên, chất liệu, công dụng, thông số), em tra giúp.`);
       case 'tu-dong':
         s.goi = null;
+        s.banDayDuPhanLoai = null;
         return one(`{b}🔄 Đã chuyển sang chế độ TỰ ĐỘNG:{/b} bot đoán gói theo nội dung bạn gõ.\n\n${st.footer}`);
       case 'chon':
         s.goi = r.pkg.so;
+        s.banDayDuPhanLoai = null;
         // Vừa phân loại xong (phiên có mã + tên hàng) mà gõ "2"/"3" → chạy luôn với mã vừa tra, không bắt gõ lại theo mẫu.
         if ((r.pkg.so === 2 || r.pkg.so === 3) && s.last?.maHs && (r.pkg.so === 2 || s.last.tenHang)) {
           return runPkg(st, r.pkg, '', { head: `{b}${r.pkg.icon} Gói ${r.pkg.so}: ${r.pkg.ten} — mã vừa tra{/b}\n\n` });
@@ -78,7 +83,8 @@ async function textFlow(turn, ctx, st) {
       }
       case 'chay': {
         if (r.chon) s.goi = r.pkg.so;
-        const head = r.tuDong ? `{b}${r.pkg.icon} (Tự động chọn gói ${r.pkg.so}: ${r.pkg.ten}){/b}\n\n` : '';
+        const boQuaHead = (r.pkg.so === 1) || (r.pkg.so === 2 && Boolean(s.banDayDuPhanLoai));
+        const head = (r.tuDong && !boQuaHead) ? `{b}${r.pkg.icon} (Tự động chọn gói ${r.pkg.so}: ${r.pkg.ten}){/b}\n\n` : '';
         const out = await runPkg(st, r.pkg, r.text, { head });
         ctx.log?.info?.(`[hs] gói ${r.pkg.so} chat=${String(turn.chatId ?? '').slice(-4)}`);
         return out;
