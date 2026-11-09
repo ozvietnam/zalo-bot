@@ -38,19 +38,19 @@ Bảng đối chiếu toàn bộ 11 Functional Requirements (FR-001..FR-011) và
 |---|---|---|---|---|
 | **FR-001** | Tính các tín hiệu US1 bằng code từ db bot theo ngưỡng config | `scripts/giam-sat/tinh-hieu.js:5-15`, `scripts/giam-sat/tinh-hieu.js:37` | **Lệch** (ngưỡng fix cứng, mapping speaker lệch, chưa có test suite) | T703, T705 |
 | **FR-002** | Phát hiện có: mã, số đo, khoảng tg, `turn_id` bằng chứng, repo đích, fingerprint | `scripts/giam-sat/tinh-hieu.js:40-43`, `scripts/giam-sat/tinh-hieu.js:48` | **Lệch** (chưa có trường `fingerprint` rõ ràng, thiếu `turn_id` ở một số tín hiệu) | T705 |
-| **FR-003** | Mở GitHub issue đúng repo bằng token issues, chống trùng theo fingerprint | `scripts/giam-sat/issue.js:40-44`, `scripts/giam-sat/issue.js:78-103` | **Lệch** (tìm theo `ma` thay vì `fingerprint`, thiếu template US2 chuẩn) | T707 |
+| **FR-003** | Mở GitHub issue đúng repo bằng token issues, chống trùng theo fingerprint | `scripts/giam-sat/issue.js:69-77`, `scripts/giam-sat/issue.js:98-195` | **Đã sửa** (T707, chống trùng theo nhãn `fp:<hash>`, tiêm ghClient) | T707 |
 | **FR-004** | Ẩn danh bằng chứng trước khi xuất: tên → nhãn, SĐT/STK → che, token → `***` | `scripts/giam-sat.mjs:12`, `scripts/giam-sat/issue.js:111` | **Lệch** (chỉ gọi `redact` thô, chưa che SĐT qua `core/sdt.js`, chưa che STK và tên khách) | T706 |
 | **FR-005** | MUST NOT sửa code, mở PR, ghi vào db của bot, hay gửi tin cho khách | `scripts/giam-sat.mjs:30-49` (`DatabaseSync` readOnly) | **Đã sửa** (T701, mở DatabaseSync readOnly, không openStore) | T701 |
 | **FR-006** | Gemini nhận cả lô tuần 1 lần gọi, JSON schema cố định, kiểm tra `turn_id` thật | Chưa có code | **Chưa làm** | T708 |
-| **FR-007** | Giới hạn tối đa 5 issue mới / repo / ngày; phần dư chuyển vào bản tin | `scripts/giam-sat/issue.js:7`, `scripts/giam-sat/issue.js:91-95` | **Xong một phần** (đã có biến đếm, chưa có test tự động khoá) | T707 |
-| **FR-008** | Issue đã đóng mà tín hiệu vẫn vượt ngưỡng 3 ngày liền phải mở lại kèm số đo mới | `scripts/giam-sat/issue.js:41` (chỉ tìm `is:open`) | **Chưa làm** | T707 |
+| **FR-007** | Giới hạn tối đa 5 issue mới / repo / ngày; phần dư chuyển vào bản tin | `scripts/giam-sat/issue.js:9`, `scripts/giam-sat/issue.js:174-178` | **Đã xong** (T707, khoá bằng test tự động) | T707 |
+| **FR-008** | Issue đã đóng mà tín hiệu vẫn vượt ngưỡng 3 ngày liền phải mở lại kèm số đo mới | `scripts/giam-sat/issue.js:48-54`, `scripts/giam-sat/issue.js:154-173` | **Đã xong** (T707, reopen issue đã đóng khi vượt ngưỡng 3 ngày) | T707 |
 | **FR-009** | Nguồn máy chủ Fanpage đọc bản sao db chỉ-đọc; nguồn Cổng OZ đọc log chỉ-đọc | Chưa có code | **Chưa làm** | T709, T710 |
 | **FR-010** | Bản tin ngày (07:30) và tuần (thứ Hai 08:00) giờ VN vào nhóm nhân viên qua cửa gửi 001 `kind: 'digest'` | `scripts/giam-sat.mjs:84-86`, `scripts/giam-sat/telegram.js:10` | **Lệch** (hiện gửi Telegram cho CEO, chưa gửi vào nhóm nhân viên qua Zalo digest) | T704 |
 | **FR-011** | Ghi bản ghi thực thi: nguồn đã đọc, số tin, số phát hiện, issue mở/bình luận, lỗi | `scripts/giam-sat.mjs:78-82` (chỉ lưu file markdown thô) | **Chưa làm** (chưa có lưu trữ có cấu trúc) | T712 |
 | **SC-001** | Bắt đủ 9 lỗi trên db mẫu cài sẵn, 0 phát hiện thừa | `scripts/giam-sat/tinh-hieu.js:37` | **Chưa làm** (chưa có bộ test fixture 9 lỗi) | T705 |
 | **SC-002** | 0 issue chứa SĐT, STK, token hay tên khách thật (quét tự động) | `scripts/giam-sat/issue.js:111` | **Chưa làm** (chưa có test quét rò rỉ dữ liệu) | T706 |
 | **SC-003** | ≥ 80% issue giám sát được gắn nhãn "đúng vấn đề" trong 4 tuần đầu | Cần theo dõi vận hành | **Chưa làm** | T712 |
-| **SC-004** | Lỗi lặp lại không sinh issue trùng: số issue mở / số fingerprint = 1 | `scripts/giam-sat/issue.js:78-90` | **Chưa làm** (chưa có test khoá) | T707 |
+| **SC-004** | Lỗi lặp lại không sinh issue trùng: số issue mở / số fingerprint = 1 | `scripts/giam-sat/issue.js:139-153` | **Đã xong** (T707, comment dồn vào issue cũ cùng fingerprint, khoá bằng test) | T707 |
 | **SC-005** | Mỗi issue đã đóng có số đo trước/sau trong bản tin tuần kế tiếp | Chưa có code | **Chưa làm** | T711 |
 | **SC-006** | Chi phí AI = 0 đồng (Gemini miễn phí), tối đa 1 lần gọi Gemini / tuần cho US3 | Chưa có code | **Chưa làm** | T708 |
 
@@ -268,7 +268,7 @@ Nâng cấp `scripts/giam-sat/issue.js`: tìm issue cũ theo `fingerprint`, bìn
 **Interfaces — Produces:**
 - `xuLyIssue(phatHien, opts) -> Promise<{ moi: Array, comment: Array, reopen: Array, boViGioiHan: Array }>`
 
-- [ ] **Step 1: Test đỏ (SC-004 & FR-008)**
+- [x] **Step 1: Test đỏ (SC-004 & FR-008)**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -287,10 +287,10 @@ test('T707: Chống trùng issue theo fingerprint và tôn trọng trần 5 issu
   assert.equal(res.moi.length, 0, 'Không mở issue mới khi đã có issue đang mở');
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/giam-sat/issue.test.mjs` → FAIL.
-- [ ] **Step 3:** Sửa `scripts/giam-sat/issue.js`: tiêm được client HTTP giả để test không cần mạng; thêm nhãn `fp:<hash>` hoặc tìm theo fingerprint; xử lý trạng thái đóng và mở lại nếu vượt ngưỡng 3 ngày; áp dụng trần 5 issue mới.
-- [ ] **Step 4:** Chạy lại `node --test test/giam-sat/issue.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(giam-sat): issue lifecycle management, deduplication and daily limits (T707)"`
+- [x] **Step 2:** Chạy `node --test test/giam-sat/issue.test.mjs` → FAIL.
+- [x] **Step 3:** Sửa `scripts/giam-sat/issue.js`: tiêm được client HTTP giả để test không cần mạng; thêm nhãn `fp:<hash>` hoặc tìm theo fingerprint; xử lý trạng thái đóng và mở lại nếu vượt ngưỡng 3 ngày; áp dụng trần 5 issue mới.
+- [x] **Step 4:** Chạy lại `node --test test/giam-sat/issue.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(giam-sat): issue lifecycle management, deduplication and daily limits (T707)"`
 
 ---
 
