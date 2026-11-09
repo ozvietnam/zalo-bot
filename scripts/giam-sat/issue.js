@@ -2,6 +2,7 @@
 // Không trùng (cùng mã + chế độ → comment vào issue cũ), ẩn danh bằng chứng, giới hạn 5 issue mới/repo/ngày.
 // Dùng GitHub REST API (fetch) — không cần gh CLI trong container.
 // Env: GITHUB_TOKEN (PAT có quyền issue:write trên các repo đích)
+import { anDanhVanBan } from './an-danh.js';
 
 const LABELS = { 'zalo-bot': 'ozvietnam/zalo-bot', 'ozplugin': 'ozvietnam/ozplugin', 'hs-code-api': 'ozvietnam/hs-code-api' };
 const MAX_ISSUE_MOI_NGAY = 5;
@@ -45,10 +46,10 @@ async function timIssueCu(repo, ma) {
 
 /**
  * @param {Array} phatHien — từ tinhHieu()
- * @param {object} opts — { dryRun?: boolean, ngay: string, redactFn?: (s)=>string }
+ * @param {object} opts — { dryRun?: boolean, ngay: string, redactFn?: (s)=>string, mapKhach?: Map }
  * @returns {{moi:Array, comment:Array, boViGioiHan:Array, loi?:string}}
  */
-export async function xuLyIssue(phatHien, { dryRun = false, ngay, redactFn = (s) => s } = {}) {
+export async function xuLyIssue(phatHien, { dryRun = false, ngay, redactFn = (s) => s, mapKhach } = {}) {
   const ketQua = { moi: [], comment: [], boViGioiHan: [], loi: null };
   const demMoi = {};
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
@@ -72,7 +73,7 @@ export async function xuLyIssue(phatHien, { dryRun = false, ngay, redactFn = (s)
     const repo = LABELS[p.repo] || LABELS['zalo-bot'];
     const tieuDe = `[giám sát] ${p.ma}${p.cheDo ? `: ${p.cheDo}` : ''} — ${p.moTa.slice(0, 60)}`;
     const labels = ['giam-sat', p.ma];
-    const body = dichVanBan(p, ngay, redactFn);
+    const body = dichVanBan(p, ngay, redactFn, mapKhach);
 
     let cu = null;
     if (!dryRun) {
@@ -105,10 +106,14 @@ export async function xuLyIssue(phatHien, { dryRun = false, ngay, redactFn = (s)
   return ketQua;
 }
 
-function dichVanBan(p, ngay, redact) {
+export function dichVanBan(p, ngay, redact, mapKhach = new Map()) {
   const bangChung = (p.bangChung || []).map((b, i) => {
-    const j = JSON.stringify(b);
-    return `${i + 1}. \`${redact(j.slice(0, 200))}\``;
+    const raw = typeof b === 'string' ? b : JSON.stringify(b);
+    let sach = anDanhVanBan(raw, mapKhach);
+    if (typeof redact === 'function') {
+      sach = redact(sach);
+    }
+    return `${i + 1}. \`${sach.slice(0, 200)}\``;
   }).join('\n');
   return `## Số đo
 ${p.soDo} — ngày ${ngay}

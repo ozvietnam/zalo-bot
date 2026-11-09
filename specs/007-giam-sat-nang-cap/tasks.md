@@ -236,7 +236,7 @@ Xây dựng module ẩn danh độc lập tái sử dụng `core/redact.js` (cho
 - `anDanhVanBan(text: string, mapKhach?: Map<string, string>) -> string`
 - `anDanhBangChung(bangChung: Array<any>) -> Array<any>`
 
-- [ ] **Step 1: Test đỏ (SC-002)**
+- [x] **Step 1: Test đỏ (SC-002)**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -252,10 +252,10 @@ test('T706 (SC-002): Che sạch thông tin nhạy cảm trước khi đưa vào 
   assert.equal(clean.includes('PATH_GIA'), false, 'Không được để lộ đường dẫn');
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/giam-sat/an-danh.test.mjs` → FAIL.
-- [ ] **Step 3:** Viết `scripts/giam-sat/an-danh.js`: tích hợp `cheSdt` từ `core/sdt.js`, `redact` từ `core/redact.js`, bổ sung regex STK và ẩn danh tên khách; cập nhật `issue.js` gọi module này.
-- [ ] **Step 4:** Chạy lại `node --test test/giam-sat/an-danh.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(giam-sat): implement comprehensive data sanitization for issues (T706)"`
+- [x] **Step 2:** Chạy `node --test test/giam-sat/an-danh.test.mjs` → FAIL.
+- [x] **Step 3:** Viết `scripts/giam-sat/an-danh.js`: tích hợp `cheSdt` từ `core/sdt.js`, `redact` từ `core/redact.js`, bổ sung regex STK và ẩn danh tên khách; cập nhật `issue.js` gọi module này.
+- [x] **Step 4:** Chạy lại `node --test test/giam-sat/an-danh.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(giam-sat): implement comprehensive data sanitization for issues (T706)"`
 
 ---
 
