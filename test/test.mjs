@@ -103,7 +103,8 @@ await t('gói: chỉ hiện gói có công cụ trên Cổng; menu cuối tin li
 await t('định tuyến: menu / chọn số / "gói 2 <nội dung>" / tự động', () => {
   const pkgs = PACKAGES;
   assert.equal(route('menu', { pkgs }).kind, 'menu');
-  assert.equal(route('xin chào', { pkgs }).kind, 'menu');
+  // 07/11: lời chào không dán menu đầy đủ nữa (970 ký tự) → loại riêng 'chao'.
+  assert.equal(route('xin chào', { pkgs }).kind, 'chao');
   assert.equal(route('3', { pkgs }).pkg.so, 3);
   const g = route('gói 2 84137090', { pkgs }); assert.equal(g.kind, 'chay'); assert.equal(g.pkg.so, 2); assert.equal(g.text, '84137090');
   assert.equal(route('0', { pkgs }).kind, 'tu-dong');
@@ -132,10 +133,15 @@ await t('pickHs tìm mã đề xuất ở nhiều dạng', () => {
 });
 
 // ---------- luồng đầy đủ qua bot ----------
-await t('bot: "xin chào" → menu đủ 7 gói', async () => {
+await t('bot: "xin chào" → lời chào + menu rút gọn (7 gói); gõ "menu" mới ra menu đầy đủ', async () => {
   const zalo = fakeZalo(); const bot = createBot({ zalo, mcp: fakeMcp(), log: {} });
   await bot.handleUpdate(dm('xin chào', 'a1'));
-  assert.match(zalo.sent[0][1], /CHỌN GÓI/); assert.match(zalo.sent[0][1], /7\. 📄 Hồ sơ giải trình/);
+  // 07/11: lời chào không dán menu đầy đủ (~970 ký tự) nữa — lời chào + tên gói.
+  assert.match(zalo.sent[0][1], /Chào anh\/chị/); assert.match(zalo.sent[0][1], /Các gói tra cứu/);
+  assert.match(zalo.sent[0][1], /7\. 📄 Hồ sơ giải trình/);
+  assert.ok(zalo.sent[0][1].length < 900, `lời chào vẫn dài ${zalo.sent[0][1].length} ký tự`);
+  await bot.handleUpdate(dm('menu', 'a2'));
+  assert.match(zalo.sent.at(-1)[1], /CHỌN GÓI/);
 });
 
 await t('bot: gói 2 — thuế (bộ dựng thuế) + thủ tục lỗi backend vẫn trả phần thuế; cuối tin có menu', async () => {
@@ -146,7 +152,9 @@ await t('bot: gói 2 — thuế (bộ dựng thuế) + thủ tục lỗi backend
   const s = zalo.sent[0][1];
   assert.deepEqual(mcp.calls.map((c) => c[0]).sort(), ['tra_thu_tuc_nhap_khau', 'tra_thue']);
   assert.deepEqual(mcp.calls.find((c) => c[0] === 'tra_thue')[1], { maHs: '84137090', xuatXu: 'CN' });
-  assert.match(s, /Tự động chọn gói 2/);
+  // 07/11: câu CHỈ CÓ mã → không hỏi não nên không có dòng "(Tự động chọn gói 2…)"; tin mở đầu thẳng bằng kết quả.
+  assert.match(s, /^💰 Thuế — 8413\.70\.90/);
+  assert.doesNotMatch(s, /Tự động chọn gói 2/);
   assert.match(s, /KHÔNG được hưởng → áp MFN/);
   assert.match(s, /Chính sách nhập khẩu[\s\S]*gặp lỗi/);
   assert.match(s, /Gõ "menu" để xem các gói/);
@@ -478,7 +486,7 @@ await t('sổ trượt: ghi JSONL theo ngày giờ VN, đếm theo loại', asyn
 });
 
 // ---------- não biên tập kết quả (Gemini giả lập) ----------
-await t('form đầy đủ: phân loại xong KHÔNG dùng bản chốt AI (editor); "chi tiết" báo chưa có bản riêng', async () => {
+await t('form đầy đủ: phân loại xong KHÔNG dùng bản chốt AI (editor); "chi tiết" mở lại được bản vừa rồi', async () => {
   const zalo = fakeZalo();
   const ML = '11111111-2222-4333-8444-555555555555';
   let n = 0; let chot = 0;
@@ -496,6 +504,12 @@ await t('form đầy đủ: phân loại xong KHÔNG dùng bản chốt AI (edit
   assert.equal(chot, 0);
   assert.doesNotMatch(s, /BẢN CHỐT AI|"chi tiết"/);
   assert.match(s, /🔍 Hàng/); assert.match(s, /Mã HS đề xuất: 8413\.70\.90/); assert.match(s, /Chính sách quản lý/);
+  // 07/11: lệnh "chi tiết" mở lại được bản phân tích vừa rồi (trước đây luôn trả lời
+  // "Chưa có bản chi tiết nào" vì chỉ nhánh AI biên tập mới ghi phiên — mà nhánh đó không chạy).
+  await bot.handleUpdate(dm('chi tiết', 'bt2'));
+  const cd = zalo.sent.at(-1)[1];
+  assert.match(cd, /Bản chi tiết lượt gần nhất/);
+  assert.match(cd, /Mã HS đề xuất: 8413\.70\.90/);
 });
 await t('biên tập: editor lỗi → giữ bản đầy đủ như cũ; CAN_DU_KIEN không nhờ biên tập', async () => {
   const zalo = fakeZalo();

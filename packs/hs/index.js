@@ -53,6 +53,8 @@ async function textFlow(turn, ctx, st) {
     switch (r.kind) {
       case 'menu':
         return one(`{b}🤖 Bot tra cứu hải quan OZ{/b}\n\n${menuText(st.pkgs, { full: true })}\n\nHoặc cứ gõ mã HS / mô tả hàng, bot tự chọn gói.`);
+      case 'chao':   // lời chào: ngắn + menu rút gọn (dán menu 900 ký tự vào câu chào là ấn tượng xấu nhất)
+        return one(`{b}🤖 Chào anh/chị!{/b} Em là bot tra cứu hải quan OZ đây ạ.\n\n${menuText(st.pkgs, { compact: true })}\n\nAnh/chị cứ gõ mã HS hoặc mô tả hàng (tên, chất liệu, công dụng, thông số), em tra giúp.`);
       case 'tu-dong':
         s.goi = null;
         return one(`{b}🔄 Đã chuyển sang chế độ TỰ ĐỘNG:{/b} bot đoán gói theo nội dung bạn gõ.\n\n${st.footer}`);
@@ -77,8 +79,10 @@ async function textFlow(turn, ctx, st) {
         ctx.log?.info?.(`[hs] gói ${r.pkg.so} chat=${String(turn.chatId ?? '').slice(-4)}`);
         return out;
       }
-      case 'chi-tiet':   // mở lại bản đầy đủ của lượt phân loại gần nhất (não biên tập đã thay bằng bản chốt)
-        return one(s.chiTiet?.text ? clipReply(s.chiTiet.text) : 'Chưa có bản chi tiết nào trong phiên này (bot chỉ giữ cho lượt phân loại gần nhất, ~2 giờ).');
+      case 'chi-tiet':   // mở lại bản phân tích đầy đủ của lượt phân loại gần nhất (khách cuộn mất tin)
+        return one(s.chiTiet?.text
+          ? `🔎 Bản chi tiết lượt gần nhất:\n\n${clipReply(s.chiTiet.text)}\n\n${st.footer}`
+          : `Chưa có kết quả phân loại nào trong phiên này để mở chi tiết. Anh/chị gửi mô tả hàng hoặc mã HS trước rồi gõ "chi tiết" nhé.\n\n${st.footer}`);
       case 'hoi-lai':   // não hỏi lại một câu thay vì đoán mò chạy gói
         return one(`❓ ${r.cauHoi}\n\n${st.footer}`);
       case 'khac':      // chào hỏi/xã giao: não trả lời ngắn, dẫn về menu

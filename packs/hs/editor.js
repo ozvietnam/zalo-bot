@@ -16,10 +16,33 @@ Luật cứng:
 
 const TAM_THOI = new Set([429, 500, 502, 503, 504]);
 
-/** Mọi dãy số trong bản chốt phải có mặt trong bản gốc. Dãy số so sau khi bỏ dấu chấm/phẩy/khoảng trắng
- *  ("8414.59.49" ≡ "84145949"), nên khác cách viết mã HS vẫn khớp, còn số bịa hay mã cắt lở bị bắt. */
+/** Chuẩn hoá một số về dạng so sánh được.
+ *  - Mã HS 8 số có dấu chấm ("8414.59.49") → "84145949" (dấu chấm là dấu ngăn nhóm, KHÔNG phải thập phân).
+ *  - Số thập phân ("2.5", "2,5") → "2.5" (dấu phẩy là thập phân kiểu Việt Nam).
+ *  - Phân số ("8/10") → giữ nguyên "8/10" (phải khớp CẢ tử và mẫu). */
+function chuanSo(chuoi) {
+  const s = String(chuoi).trim();
+  const hs = /^(\d{4})[.\s](\d{2})[.\s](\d{2})$/.exec(s);
+  if (hs) return `${hs[1]}${hs[2]}${hs[3]}`;
+  if (/^\d+\s*\/\s*\d+$/.test(s)) return s.replace(/\s+/g, '');
+  const n = Number(s.replace(',', '.'));
+  return Number.isFinite(n) ? String(n) : s;
+}
+
+/** Các "con số" trong một đoạn chữ, đã chuẩn hoá. */
+function laySo(s) {
+  const out = [];
+  const re = /(\d{4}[.\s]?\d{2}[.\s]?\d{2}|\d+(?:[.,]\d+)?(?:\s*\/\s*\d+(?:[.,]\d+)?)?)/g;
+  for (const m of String(s ?? '').match(re) ?? []) {
+    const c = chuanSo(m);
+    if (c) out.push(c);
+  }
+  return out;
+}
+
+/** Mọi dãy số trong bản chốt phải có mặt trong bản gốc, so theo GIÁ TRỊ chứ không theo chuỗi chữ:
+ *  "2.5" ≠ "25" (lệch 10 lần) và "8/10" ≠ "8" (nửa thuế suất) — so chuỗi rời rạc sẽ cho qua hai lỗi này. */
 export function soDungChuan(chot, goc) {
-  const laySo = (s) => (String(s ?? '').match(/\d[\d.,\s]*\d|\d+/g) || []).map((x) => x.replace(/[\s.,]/g, '')).filter(Boolean);
   const co = new Set(laySo(goc));
   return laySo(chot).every((x) => co.has(x));
 }

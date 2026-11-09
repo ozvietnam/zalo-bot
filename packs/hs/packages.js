@@ -209,7 +209,12 @@ export const PACKAGES = [
           const shtt = await ctx.mcp.callTool('kiem_tra_shtt', { tenNhan: thuongHieu, maHs, xuatXu: xx }).catch(() => null);
           if (shtt) full += `\n\n${renderResult(shtt, { title: `®️ Rủi ro nhãn hiệu "${thuongHieu}"` })}`;
         }
-        return `${full}\n\n{b}👉{/b} Thêm thương hiệu/model cho mô tả: gõ {b}"3"{/b} · xuất xứ khác: gõ {b}"2"{/b} kèm nước\n${LUU_Y}`;
+        const traLoi = `${full}\n\n{b}👉{/b} Thêm thương hiệu/model cho mô tả: gõ {b}"3"{/b} · xuất xứ khác: gõ {b}"2"{/b} kèm nước\n${LUU_Y}`;
+        // Lưu bản đầy đủ để lệnh "chi tiết" mở lại được: trước đây lệnh này luôn trả lời
+        // "Chưa có bản chi tiết nào" vì chỉ có nhánh AI biên tập mới ghi phiên — mà nhánh đó
+        // không chạy nữa (form cố định đã thay). Khách cuộn mất tin thì gõ "chi tiết" là lấy lại.
+        ctx.session.chiTiet = { text: traLoi, at: Date.now() };
+        return traLoi;
       }
       let out = renderClassify(r, { title: `🔎 Phân loại: "${tenHien}"` });
       if (st === 'CAN_DU_KIEN') {
@@ -421,7 +426,15 @@ export function availablePackages(toolNames) {
  * full = false → footer gọn cuối mọi tin: KHÔNG liệt kê số gói (khách quen thấy là rác) — chỉ dẫn tới "menu".
  * Dùng thẻ định dạng {b}…{/b} — channels/zalo-bot.js chuyển sang text_styles của Zalo.
  */
-export function menuText(pkgs, { full = false } = {}) {
+export function menuText(pkgs, { full = false, compact = false } = {}) {
+  if (compact) {
+    // Menu RÚT GỘN: tên gói + mô tả một dòng. Dùng cho lời chào — khách cần biết bot làm được gì,
+    // không cần đọc 7 mô tả dài (menu đầy đủ ~970 ký tự, rút gọn ~380).
+    const l = ['{b}📦 Các gói tra cứu:{/b}'];
+    for (const p of pkgs) l.push(`{b}${p.so}. {/b}${p.icon} ${p.ten}`);
+    l.push('{b}0.{/b} Tự động — bot tự chọn gói theo nội dung bạn gõ');
+    return l.join('\n');
+  }
   if (full) {
     const l = [`{b}📦 CHỌN GÓI TRA CỨU{/b} — gõ số tương ứng:`, ''];
     for (const p of pkgs) {

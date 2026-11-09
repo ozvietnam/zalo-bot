@@ -11,9 +11,10 @@ export function route(text, { session = {}, pkgs = [] } = {}) {
   if (!t) return { kind: 'ignore' };
   const n = norm(t);
 
-  if (/^\/?(start|help|menu|goi|cac goi|huong dan|hd|\?)$/.test(n) || /^(hi|hello|xin chao|chao|alo)( bot| ban)?[!. ]*$/.test(n)) {
-    return { kind: 'menu' };
-  }
+  if (/^\/?(start|help|menu|goi|cac goi|huong dan|hd|\?)$/.test(n)) return { kind: 'menu' };
+  // Chào hỏi: lời chào ngắn + menu RÚT GỌN. Dán menu đầy đủ (900+ ký tự) vào câu chào là ấn tượng
+  // xấu nhất của bot — khách chỉ muốn biết "bot làm được gì", không cần đọc 7 mô tả dài.
+  if (/^(hi|hello|xin chao|chao|alo)( bot| ban)?[!. ]*$/.test(n)) return { kind: 'chao' };
   // Mở lại bản phân tích đầy đủ của lượt phân loại gần nhất (bản chốt ngắn đã thay bản dài trong tin chính).
   if (/^(chi tiet|xem chi tiet|chi tiet day du|chi tiet day)$/.test(n)) return { kind: 'chi-tiet' };
   // Chọn gói: "7", "gói 7", "chọn gói 7", "chọn gói số 7", "dùng gói 7", "chọn 7", "gói 7: <nội dung>"
@@ -34,22 +35,34 @@ export function route(text, { session = {}, pkgs = [] } = {}) {
 
   const cur = session.goi && pkgs.find((p) => p.so === session.goi);
   if (cur) return { kind: 'chay', pkg: cur, text: t };
-  return { kind: 'chay', pkg: autoPick(t, pkgs), text: t, tuDong: true };
+  const ap = chonGoi(t, pkgs);
+  // `tuDong` = "hãy hỏi não". Câu CHỈ CÓ mã HS thì não không thêm được gì (gói 2 tự tìm mã và nước)
+  // nên khỏi hỏi: mỗi lượt là một lượt Gemini + chờ (chi phí + độ trễ cho tin phổ biến nhất).
+  return { kind: 'chay', pkg: ap.pkg, text: t, tuDong: !ap.chac };
 }
 
-/** Chế độ tự động: đoán gói phù hợp nhất. */
-export function autoPick(text, pkgs) {
+/**
+ * Chọn gói theo từ khoá. Kèm `chac`: true = bộ dò đã đủ chắc (chỉ có mã HS), không cần hỏi não.
+ * `autoPick` giữ nguyên chữ ký cũ (trả về gói) cho nơi gọi khác.
+ */
+export function chonGoi(text, pkgs) {
   const by = (id) => pkgs.find((p) => p.id === id);
   const n = norm(text);
   const onlyCode = /^[\d.\s]{4,14}(\s+[a-z]{2})?$/i.test(text.trim());
   // Từ khoá phải đứng thành TỪ (\b): đã bỏ dấu thì "nhập máy" = "nh-ap ma-y" sẽ khớp nhầm "ap ma" (áp mã).
-  if (/\b(giai trinh|ap ma|tham van|tranh chap)\b/.test(n) && by('giai-trinh')) return by('giai-trinh');
-  if (/\b(nhan hieu|thuong hieu|so huu tri tue|shtt|hang gia|brand)\b/.test(n) && by('shtt')) return by('shtt');
-  if (soHieuList(text).length && by('phap-luat')) return by('phap-luat');
-  if (/\b(chu giai|tien le|hieu luc|van ban|thong tu|nghi dinh)\b/.test(n) && by('phap-luat')) return by('phap-luat');
-  if (/\b(soat|kiem tra mo ta|to khai)\b/.test(n) && firstHs8(text) && by('kiem-tra')) return by('kiem-tra');
-  if (/\b(mo ta khai|viet mo ta|soan mo ta)\b/.test(n) && by('mo-ta')) return by('mo-ta');
-  if (onlyCode && by('thue-thu-tuc')) return by('thue-thu-tuc');
-  if (/^(thue|thu tuc)\b/.test(n) && by('thue-thu-tuc')) return by('thue-thu-tuc');
-  return by('phan-loai') || by('thue-thu-tuc') || pkgs[0];
+  if (/\b(giai trinh|ap ma|tham van|tranh chap)\b/.test(n) && by('giai-trinh')) return { pkg: by('giai-trinh'), chac: false };
+  if (/\b(nhan hieu|thuong hieu|so huu tri tue|shtt|hang gia|brand)\b/.test(n) && by('shtt')) return { pkg: by('shtt'), chac: false };
+  if (soHieuList(text).length && by('phap-luat')) return { pkg: by('phap-luat'), chac: false };
+  if (/\b(chu giai|tien le|hieu luc|van ban|thong tu|nghi dinh)\b/.test(n) && by('phap-luat')) return { pkg: by('phap-luat'), chac: false };
+  if (/\b(soat|kiem tra mo ta|to khai)\b/.test(n) && firstHs8(text) && by('kiem-tra')) return { pkg: by('kiem-tra'), chac: false };
+  if (/\b(mo ta khai|viet mo ta|soan mo ta)\b/.test(n) && by('mo-ta')) return { pkg: by('mo-ta'), chac: false };
+  // CHỈ có mã (kèm nước tuỳ chọn) → gói 2 tự bóc mã và xuất xứ: não không thêm được gì.
+  if (onlyCode && by('thue-thu-tuc')) return { pkg: by('thue-thu-tuc'), chac: true };
+  if (/^(thue|thu tuc)\b/.test(n) && by('thue-thu-tuc')) return { pkg: by('thue-thu-tuc'), chac: false };
+  return { pkg: by('phan-loai') || by('thue-thu-tuc') || pkgs[0], chac: false };
+}
+
+/** Chế độ tự động: đoán gói phù hợp nhất. */
+export function autoPick(text, pkgs) {
+  return chonGoi(text, pkgs).pkg;
 }

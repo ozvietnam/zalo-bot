@@ -58,5 +58,7 @@ test('renderPolicy: không có dữ liệu chính sách → nói chưa ghi nhậ
 test('renderTax: bỏ dòng "Chính sách" do AI tổng hợp chưa kiểm (AI_CHUA_KIEM); giữ khi Cổng không gắn nhãn AI', () => {
   const x = { hsCode: '85044090', nameVi: '- - Loại khác', taxNkPreferential: '0', taxVat: '8/10' };
   assert.doesNotMatch(plain(renderTax({ ...x, warnings: { summary: 'Sản phẩm hóa chất…', severity: 'HIGH', nhanAi: 'AI_CHUA_KIEM' } })), /Chính sách/);
-  assert.match(plain(renderTax({ ...x, warnings: { summary: 'Kiểm tra hiệu suất năng lượng.', severity: 'MEDIUM' } })), /Chính sách: Kiểm tra hiệu suất năng lượng/);
+  // 07/11: nhãn "Chính sách" trong khối THUẾ đổi thành "Lưu ý" — cảnh báo của Cổng không phải chính sách,
+  // đặt cạnh thuế suất thì khách tưởng là một dòng thuế.
+  assert.match(plain(renderTax({ ...x, warnings: { summary: 'Kiểm tra hiệu suất năng lượng.', severity: 'MEDIUM' } })), /Lưu ý: Kiểm tra hiệu suất năng lượng/);
 });
