@@ -212,7 +212,7 @@ export function createHumanDetector({ store, config = {}, now = () => new Date()
 }
 ```
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -240,10 +240,10 @@ test('T504: Echo KHÔNG có trong outbox được nhận diện chính xác là 
   assert.equal(detector.isHumanReply(update), true);
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/core/human-detector.test.mjs` → FAIL (chưa có `core/human-detector.js`).
-- [ ] **Step 3:** Tạo `core/human-detector.js` (< 150 dòng) và bổ sung hàm truy vấn `findRecentByChat` trong `core/store/queue.js`.
-- [ ] **Step 4:** Chạy lại `node --test test/core/human-detector.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(core): add human reply detection by outbox reconciliation (T504)"`
+- [x] **Step 2:** Chạy `node --test test/core/human-detector.test.mjs` → FAIL (chưa có `core/human-detector.js`).
+- [x] **Step 3:** Tạo `core/human-detector.js` (< 150 dòng) và bổ sung hàm truy vấn `findRecentByChat` trong `core/store/queue.js`.
+- [x] **Step 4:** Chạy lại `node --test test/core/human-detector.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(core): add human reply detection by outbox reconciliation (T504)"`
 
 ---
 

@@ -71,6 +71,10 @@ export function outboxTable(db) {
     OR (status = 'failed' AND attempts <= 3 AND (next_retry_at IS NULL OR next_retry_at <= ?1)) ORDER BY id`);
   const cntDecision = db.prepare('SELECT decision, reason, COUNT(*) AS n FROM outbox WHERE created_at >= ? GROUP BY decision, reason');
   const lastChat = db.prepare('SELECT * FROM outbox WHERE chat_id = ? ORDER BY created_at DESC, id DESC LIMIT 1');
+  const recentChat = db.prepare(`SELECT * FROM outbox WHERE chat_id = ?
+    AND (decision = 'send' OR status = 'sent')
+    AND (sent_at >= ? OR created_at >= ?)
+    ORDER BY id DESC LIMIT ?`);
   return {
     insert(m) {
       try {
@@ -102,6 +106,11 @@ export function outboxTable(db) {
     countsByDecision: (sinceIso) => cntDecision.all(sinceIso),
     /** Dòng outbox mới nhất của một phòng (để biết bot còn gửi được vào phòng đó không). */
     lastForChat: (chatId) => outOut(lastChat.get(chatId)),
+    /** Danh sách tin outbox gần đây tới chat_id (đối chiếu echo nhân viên gõ tay — T504). */
+    findRecentByChat(chatId, { sinceIso, withinMs, nowIso, limit = 10 } = {}) {
+      const since = sinceIso ?? (withinMs ? new Date(new Date(nowIso ?? Date.now()).getTime() - withinMs).toISOString() : '1970-01-01T00:00:00.000Z');
+      return recentChat.all(chatId, since, since, limit).map(outOut);
+    },
   };
 }
 
