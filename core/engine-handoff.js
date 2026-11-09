@@ -3,19 +3,23 @@
 // Tách khỏi `core/engine.js` để tệp đó dưới 300 dòng (Điều VI) — cùng lối `engine-ctx.js`.
 // Tệp này KHÔNG tự gửi: câu cho khách đi qua `reply` của engine (tức `gate.send`), phiếu qua `handoff`.
 import { wantsHuman, asksIfBot, REPLY_HANDOFF, REPLY_IS_BOT } from './intents.js';
+import { createHumanDetector } from './human-detector.js';
 
 /**
  * @param {object} o
  * @param {object} o.store
  * @param {object} o.handoff       `core/handoff.js` (stateOf, toHuman, command, open, forward)
+ * @param {object} [o.config]      cấu hình (fbAppId, zaloOaAppId)
+ * @param {()=>Date} [o.now]       đồng hồ
  * @param {string} [o.staffChatId] nhóm nhân viên
  * @param {(type:string, chatId:string, convId:string|null, turnId:string, data:object)=>void} o.audit
  * @param {(turn:object, text:string, i:number|string, o?:object)=>Promise<object>} o.reply  gửi qua cửa
  * @param {(convId:string, labels:string[])=>void} [o.ganNhan]  gắn nhãn tự động vào hồ sơ khách (T035);
  *   không truyền thì bỏ qua — tệp này không dựng hồ sơ riêng, hồ sơ là việc của engine.
  */
-export function createHumanRoute({ store, handoff, staffChatId = '', audit, reply, ganNhan = null }) {
+export function createHumanRoute({ store, handoff, config = {}, now = () => new Date(), staffChatId = '', audit, reply, ganNhan = null }) {
   const staffChat = String(staffChatId || '').trim();
+  const detector = createHumanDetector({ store, config, now });
   const kq = (turn, i, g) => ({ idemKey: `r:${turn.convId}:${turn.turnId}:${i}`, decision: g?.decision, reason: g?.reason, status: g?.status });
 
   /**
@@ -96,5 +100,32 @@ export function createHumanRoute({ store, handoff, staffChatId = '', audit, repl
     return { ...kq(turn, 'h', g), handoff: reason };
   }
 
-  return { phong, lenh, im, y, goiChuyen };
+  /**
+   * Xử lý sự kiện echo (T505, Điều II, VII):
+   * - Nếu là tin bot echo: bỏ qua, không ghi messages, không đổi trạng thái phòng.
+   * - Nếu là tin nhân viên gõ tay: chuyển phòng sang 'human', ghi messages speaker='nhan-vien', đặt lại lặng 2h, im hoàn toàn (0 tin ra).
+   */
+  async function echo(u, turn, ghiVao) {
+    if (!detector.isHumanReply(u)) {
+      ghiVao(turn.text ?? u.text ?? '', { isEcho: true, botEcho: true });
+      return { skipped: 'bot-echo' };
+    }
+    const text = u.text ?? (u.photoUrl ? `[ảnh] ${u.photoUrl}` : '[tin nhân viên trên trang]');
+    ghiVao(text, { isEcho: true, humanEcho: true });
+    handoff.toHuman(turn.convId, 'nhan-vien-go-tay', 'echo-detected', { chatId: turn.chatId });
+    store.messages.add({
+      conv_id: turn.convId,
+      chat_id: turn.chatId,
+      turn_id: turn.turnId,
+      speaker: 'nhan-vien',
+      speaker_id: 'page',
+      text,
+      at: turn.receivedAt,
+    });
+    handoff.touch(turn.convId, 'page');
+    audit('echo-human', turn.chatId, turn.convId, turn.turnId, { reason: 'echo-detected', appId: u.appId ?? null });
+    return { handled: 'human-echo-detected', convId: turn.convId };
+  }
+
+  return { phong, lenh, im, y, goiChuyen, echo };
 }

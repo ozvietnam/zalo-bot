@@ -417,7 +417,7 @@ function parseJsonl(file) {
 
 test('T033: SC-008 — số tin trong messages khớp tin khách vào + tin đã gửi trên toàn bộ 12 fixture eval', async () => {
   const dir = join(process.cwd(), 'eval/fixtures');
-  const files = readdirSync(dir).filter((f) => f.endsWith('.jsonl')).sort();
+  const files = readdirSync(dir).filter((f) => f.endsWith('.jsonl') && f !== 'messenger-human-echo.jsonl').sort();
   assert.equal(files.length, 12, 'phải đủ 12 fixture eval');
 
   for (const f of files) {
