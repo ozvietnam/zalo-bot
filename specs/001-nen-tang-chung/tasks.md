@@ -681,8 +681,8 @@ test('gói trả handoff:{reason} → phòng human, phiếu mở với reason c�
 
 **Interfaces — Consumes:** `Store.messages` (T006) · **Produces:** tin khách ghi ở `engine.process` (`speaker:'khach'`); tin bot/nhân viên ghi ở `gate.send` **chỉ khi** `status = sent` (`speaker:'bot'|'nhan-vien'`, `outbox_id`)
 
-- [ ] **Step 1: Test đỏ**: hội thoại 3 tin khách → bot trả 3 câu → `messages.recent(c, 10)` có 6 dòng xen kẽ đúng thứ tự; tin bị cửa `drop`/`reject` **không** có trong `messages`; `/tl` ghi `speaker:'nhan-vien'`, `speaker_id` là nhân viên; ảnh ghi `[ảnh] <url>`.
-- [ ] **Step 2:** FAIL · **Step 3:** viết. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): persist full chat transcript"`
+- [x] **Step 1: Test đỏ**: hội thoại 3 tin khách → bot trả 3 câu → `messages.recent(c, 10)` có 6 dòng xen kẽ đúng thứ tự; tin bị cửa `drop`/`reject` **không** có trong `messages`; `/tl` ghi `speaker:'nhan-vien'`, `speaker_id` là nhân viên; ảnh ghi `[ảnh] <url>`.
+- [x] **Step 2:** FAIL · **Step 3:** viết. · **Step 4:** PASS · **Step 5:** `git commit -m "feat(core): persist full chat transcript"`
 
 ### T034 [US7] [P] `core/customers.js`: hồ sơ và nhãn tự động
 
