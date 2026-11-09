@@ -1,6 +1,6 @@
 # Nhật ký wiki
 
-> Cập nhật: 2026-11-07 · commit: 0842386
+> Cập nhật: 2026-11-09 · commit: c4d099d
 
 Nhật ký thay đổi của bộ wiki trong docs/wiki. Mỗi dòng ghi: ngày, commit của mã nguồn
 đã đọc khi viết, và những trang bị thay đổi hoặc thêm mới.
@@ -11,6 +11,13 @@ Quy ước:
 - Ghi rõ **vì sao** đổi, không chỉ ghi "sửa lỗi".
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
+
+## 2026-11-09 — WIKI-0911: Cập nhật docs/wiki/tien-do.md theo code main (lệch từ 07/11)
+
+- **Commit mã nguồn đã đọc:** `c4d099d`.
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md`, `docs/wiki/log.md`.
+- **Vì sao:** đồng bộ trang tiến độ với code main mới nhất (commit `c4d099d`); cập nhật dòng T022 thành Xong đồng bộ với T024–T026 và T036; chuẩn hoá trạng thái SC-008 theo `specs/001-nen-tang-chung/sc-do.md:20` (ĐẠT lõi, chờ test suite #80 trong `eval/run.mjs`); bổ sung ghi chú trạng thái spec 007 (chưa có plan/tasks và phát hiện lệch giữa `scripts/giam-sat.mjs:84-86` gửi Telegram với spec 007 FR-010 gửi digest); chuyển các mục đã xong ở phần 5 và 6 (tasks.md đã tick hết, `scripts/audit.mjs`, `README.md`, bản Node, T022 tự trở về, `STAFF_CHAT_ID`/`STAFF_USERS`) sang "Đã giải quyết" kèm `tệp:dòng` để xoá bỏ triệt để mâu thuẫn nội tại.
+- **Kiểm tra:** `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang), `npm test` 715 test xanh (681 test core + 34 test gói), `npm run eval` 12/12 kịch bản đạt.
 
 ## 2026-11-09 — Xong T032: README, kiểm tay quickstart và đo đạc SC-001 đến SC-009
 
