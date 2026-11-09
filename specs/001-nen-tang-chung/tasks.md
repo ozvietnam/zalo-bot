@@ -795,8 +795,8 @@ c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'au
 
 **Files:** Modify `README.md`, `.env.example` · Verify `specs/001-nen-tang-chung/quickstart.md`
 
-- [ ] **Step 1:** README: mô hình lõi / gói / kênh; lệnh nhân viên; biến môi trường mới; cách thêm gói (trỏ `contracts/pack.md`).
-- [ ] **Step 2:** Chạy đủ `quickstart.md` mục 1–6 trên máy thật, ghi kết quả vào mô tả PR.
+- [x] **Step 1:** README: mô hình lõi / gói / kênh; lệnh nhân viên; biến môi trường mới; cách thêm gói (trỏ `contracts/pack.md`).
+- [x] **Step 2:** Chạy đủ `quickstart.md` mục 1–6 trên máy thật, ghi kết quả vào mô tả PR.
 - [ ] **Step 3:** `git commit -m "docs: core platform usage"`
 
 ---

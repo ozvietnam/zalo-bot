@@ -12,6 +12,14 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-09 — Xong T032: README, kiểm tay quickstart và đo đạc SC-001 đến SC-009
+
+- **Commit mã nguồn đã đọc:** `da8ffbe` (sau T036 #41).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (cập nhật dòng T032 thành Xong kèm số đo 9 tiêu chí thành công SC-001 đến SC-009), `docs/wiki/log.md`.
+- **Ngoài wiki:** viết lại `README.md` (mô hình lõi/gói/kênh, một cửa gửi `core/gate.js`, router `core/registry.js`, 11 lệnh nhân viên, contract gói `specs/001-nen-tang-chung/contracts/pack.md`, các biến môi trường lõi khớp `.env.example`, yêu cầu Node >= 22.13), thêm test regression `test/core/readme-t032.test.mjs`, đối chiếu và xác minh `specs/001-nen-tang-chung/quickstart.md`, tick hoàn thành ô T032 trong `specs/001-nen-tang-chung/tasks.md`.
+- **Vì sao:** hoàn tất spec 001 nền tảng dùng chung; chuẩn hoá toàn diện tài liệu kỹ thuật, hướng dẫn vận hành, đồng bộ biến cấu hình và đo đạc thực tế nghiệm thu toàn bộ 9 tiêu chí thành công (SC-001 đến SC-009).
+- **Kiểm tra:** `npm test` 703 test xanh (669 test `node:test` + 34 test `test/test.mjs`), `npm run eval` 12/12 kịch bản đạt, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
+
 ## 2026-11-07 — Thêm thẻ nghiên cứu 010: giao việc cho thợ ngoài (Antigravity, Muse Code)
 
 - **Commit mã nguồn đã đọc:** `0842386` (code không đổi trong đợt này; chỉ thêm thẻ spec và sửa tài liệu).
