@@ -86,6 +86,39 @@ if (!trang.includes('index.md')) {
   }
 }
 
+// Khớp số liệu Success Criteria (SC) giữa tien-do.md và specs/001-nen-tang-chung/sc-do.md
+const scDoPath = join(GOC, 'specs/001-nen-tang-chung/sc-do.md');
+if (existsSync(scDoPath)) {
+  const scNoiDung = readFileSync(scDoPath, 'utf8');
+  const dongTrangThai = scNoiDung.split('\n').find((d) => /Trạng thái:/i.test(d));
+  if (dongTrangThai) {
+    const scMatches = [...dongTrangThai.matchAll(/(\d+)\/9\b/g)];
+    if (scMatches.length >= 2) {
+      const x = Number(scMatches[0][1]);
+      const y = Number(scMatches[1][1]);
+      const hopLeSC = new Set([x, y]);
+
+      const tienDoPath = join(WIKI, 'tien-do.md');
+      if (existsSync(tienDoPath)) {
+        const tienDoNoiDung = readFileSync(tienDoPath, 'utf8');
+        const reSC = /(?:(\d+)\/9(?:\s+tiêu chí)?\s*(?:\*\*\s*)?[đĐ]ạt|[đĐ]ạt\s*(?:\*\*\s*)?(\d+)\/9)/gi;
+        let match;
+        while ((match = reSC.exec(tienDoNoiDung)) !== null) {
+          const n = Number(match[1] || match[2]);
+          if (!hopLeSC.has(n)) {
+            them(
+              'tien-do.md',
+              'LECH_SC',
+              `Lệch số tiêu chí SC: "${match[0]}" (${n}/9) khác ${x}/9 và ${y}/9 từ sc-do.md.`,
+              'chép lại từ sc-do.md'
+            );
+          }
+        }
+      }
+    }
+  }
+}
+
 for (const c of canhBao) console.log('! ' + c);
 if (loi.length) {
   for (const l of loi) console.log(`✗ ${relative(GOC, join(WIKI, l.trang))} [${l.ma}] ${l.moTa} → ${l.cachSua}`);
