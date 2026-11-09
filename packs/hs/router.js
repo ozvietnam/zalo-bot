@@ -58,7 +58,7 @@ export function chonGoi(text, pkgs) {
   if (/\b(mo ta khai|viet mo ta|soan mo ta)\b/.test(n) && by('mo-ta')) return { pkg: by('mo-ta'), chac: false };
   // CHỈ có mã (kèm nước tuỳ chọn) → gói 2 tự bóc mã và xuất xứ: não không thêm được gì.
   if (onlyCode && by('thue-thu-tuc')) return { pkg: by('thue-thu-tuc'), chac: true };
-  if (/^(thue|thu tuc)\b/.test(n) && by('thue-thu-tuc')) return { pkg: by('thue-thu-tuc'), chac: false };
+  if (/^(thue|thu tuc|thue suat|bao nhieu %|bao nhieu phan tram)\b/.test(n) && by('thue-thu-tuc')) return { pkg: by('thue-thu-tuc'), chac: false };
   return { pkg: by('phan-loai') || by('thue-thu-tuc') || pkgs[0], chac: false };
 }
 
