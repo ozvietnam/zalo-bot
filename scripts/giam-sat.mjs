@@ -34,8 +34,7 @@ const dauNgay = `${ngay}T00:00:00Z`;
 const cuoiNgay = `${ngay}T23:59:59Z`;
 
 const messages = db.prepare(`SELECT chat_id, turn_id, speaker, speaker_id, text, at
-  FROM messages WHERE at BETWEEN ? AND ? ORDER BY at`).all(dauNgay, cuoiNgay)
-  .map(r => ({ ...r, speaker: r.speaker === 'bot_out' ? 'bot' : r.speaker }));
+  FROM messages WHERE at BETWEEN ? AND ? ORDER BY at`).all(dauNgay, cuoiNgay);
 
 const outbox = db.prepare(`SELECT chat_id, turn_id, decision, reason, created_at, sent_at
   FROM outbox WHERE created_at BETWEEN ? AND ?`).all(dauNgay, cuoiNgay);

@@ -29,6 +29,29 @@ export function jaccard(a, b) {
 // ═══ Từ khoá khách bực ═══
 const BUC_PATTERN = /chả hiểu|cha hieu|không hiểu|ko hiểu|lần thứ \d|bot à|người hay máy|thật sự|gtgt|!!!{2,}/i;
 
+// ═══ Nhận diện vai trò người nói (lõi bot: 'khach'/'nhan-vien', tương thích cũ: 'user'/'staff') ═══
+/**
+ * Kiểm tra xem đối tượng tin nhắn hoặc chuỗi vai trò có phải là khách hay không.
+ * Hỗ trợ cả vai trò lõi bot ('khach') lẫn dữ liệu lịch sử ('user').
+ * @param {{ speaker?: string } | string | null | undefined} m Đối tượng tin nhắn hoặc chuỗi speaker
+ * @returns {boolean} true nếu là khách ('khach' hoặc 'user')
+ */
+export function laKhach(m) {
+  const s = typeof m === 'object' && m !== null ? m.speaker : m;
+  return s === 'khach' || s === 'user';
+}
+
+/**
+ * Kiểm tra xem đối tượng tin nhắn hoặc chuỗi vai trò có phải là nhân viên hay không.
+ * Hỗ trợ cả vai trò lõi bot ('nhan-vien') lẫn dữ liệu lịch sử ('staff').
+ * @param {{ speaker?: string } | string | null | undefined} m Đối tượng tin nhắn hoặc chuỗi speaker
+ * @returns {boolean} true nếu là nhân viên ('nhan-vien' hoặc 'staff')
+ */
+export function laNhanVien(m) {
+  const s = typeof m === 'object' && m !== null ? m.speaker : m;
+  return s === 'nhan-vien' || s === 'staff';
+}
+
 /**
  * Tính phát hiện từ dữ liệu 1 ngày.
  * @param {{messages:Array, outbox:Array, jobs:Array, audit:Array, ngay:string, hienTai?:string}} duLieu
@@ -97,19 +120,19 @@ export function tinhHieu({ messages = [], outbox = [], jobs = [], audit = [], ng
     msgs.sort((a, b) => (a.at || '').localeCompare(b.at || ''));
     for (let i = 0; i < msgs.length; i++) {
       const m = msgs[i];
-      if (m.speaker !== 'user' || !m.text) continue;
+      if (!laKhach(m) || !m.text) continue;
       // tìm bot trả lời sau đó
       let botReply = null;
       for (let j = i + 1; j < msgs.length; j++) {
         if (msgs[j].speaker === 'bot') { botReply = msgs[j]; break; }
-        if (msgs[j].speaker === 'user') break;
+        if (laKhach(msgs[j])) break;
       }
       if (!botReply) continue;
       // tìm user hỏi lại trong 30 phút (botIdx = vị trí bot trả lời)
       const botIdx = msgs.indexOf(botReply);
       for (let j = botIdx + 1; j < msgs.length; j++) {
         const m2 = msgs[j];
-        if (m2.speaker !== 'user') continue;
+        if (!laKhach(m2)) continue;
         const dt = new Date(m2.at) - new Date(botReply.at);
         if (dt > 30 * 60_000) break;
         if (jaccard(m.text, m2.text) >= 0.8) {
@@ -133,7 +156,7 @@ export function tinhHieu({ messages = [], outbox = [], jobs = [], audit = [], ng
       if (msgs[i].speaker !== 'bot') continue;
       for (let j = i + 1; j < msgs.length; j++) {
         const m = msgs[j];
-        if (m.speaker === 'staff') {
+        if (laNhanVien(m)) {
           const dt = new Date(m.at) - new Date(msgs[i].at);
           if (dt >= 0 && dt <= 15 * 60_000) {
             nguoiThayPhong.add(chat);
@@ -141,7 +164,7 @@ export function tinhHieu({ messages = [], outbox = [], jobs = [], audit = [], ng
           }
           break;
         }
-        if (m.speaker === 'user') break;
+        if (laKhach(m)) break;
       }
     }
   }
@@ -153,7 +176,7 @@ export function tinhHieu({ messages = [], outbox = [], jobs = [], audit = [], ng
   const bucPhong = new Set();
   const bucBangChung = [];
   for (const m of messages) {
-    if (m.speaker === 'user' && m.text && BUC_PATTERN.test(m.text)) {
+    if (laKhach(m) && m.text && BUC_PATTERN.test(m.text)) {
       bucPhong.add(m.chat_id);
       bucBangChung.push({ chat_id: m.chat_id, text: m.text.slice(0, 80) });
     }
@@ -167,7 +190,7 @@ export function tinhHieu({ messages = [], outbox = [], jobs = [], audit = [], ng
   for (const [chat, msgs] of Object.entries(byChat)) {
     msgs.sort((a, b) => (a.at || '').localeCompare(b.at || ''));
     for (let i = 1; i < msgs.length; i++) {
-      if (msgs[i].speaker === 'staff' && /xin lỗi|gửi nhầm|sorry/i.test(msgs[i].text || '')
+      if (laNhanVien(msgs[i]) && /xin lỗi|gửi nhầm|sorry/i.test(msgs[i].text || '')
           && msgs[i - 1].speaker === 'bot') {
         xinLoi.push({ chat_id: chat, staff_text: msgs[i].text?.slice(0, 80) });
       }
