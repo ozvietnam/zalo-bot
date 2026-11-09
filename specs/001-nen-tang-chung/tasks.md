@@ -820,6 +820,20 @@ c.addLabels('c1', ['tra-cuu-hs'], 'auto'); c.addLabels('c1', ['tra-cuu-hs'], 'au
 
 ---
 
+## Phase 11: Nghiệm thu thực địa & Công cụ đo lường (issue #91)
+
+### T041 Công cụ đo SC-002/SC-007/SC-009 trên dữ liệu chạy thật (chỉ đọc bot.db)
+
+**Files:** Create `scripts/do-sc-thuc.mjs`, `test/core/do-sc-thuc.test.mjs` · Modify `package.json`, `specs/001-nen-tang-chung/sc-do.md`, `docs/wiki/tien-do.md`
+
+- [x] **Step 1: Test đỏ**: `test/core/do-sc-thuc.test.mjs` — 9 ca kiểm thử bao phủ SC-002, SC-007, SC-009, db rỗng, cờ CLI, bảo mật dữ liệu khách.
+- [x] **Step 2:** FAIL (chưa có `scripts/do-sc-thuc.mjs`).
+- [x] **Step 3:** Hiện thực `scripts/do-sc-thuc.mjs` (< 300 dòng, không dependency), mở db SQLite readonly, đo SC-002 (miễn trừ `REPLY_HANDOFF`), SC-007 (đối chiếu audit gate mang cùng `turn_id`), SC-009 (20 phiếu mở đầu tiên có khối hồ sơ); khai lệnh `npm run do-sc` trong `package.json`.
+- [x] **Step 4:** PASS — `test/core/do-sc-thuc.test.mjs` xanh 9/9, thử nghiệm đột biến bỏ lọc phòng human làm test đỏ.
+- [x] **Step 5:** Cập nhật cột điều kiện nghiệm thu thực địa trong `specs/001-nen-tang-chung/sc-do.md` và wiki `docs/wiki/tien-do.md`.
+
+---
+
 ## Dependencies & Execution Order
 
 - T001 → T002 → (T003, T004, T005, T007 song song) → T006 → T008 → T009 → T010
