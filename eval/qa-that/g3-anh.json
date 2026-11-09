@@ -1,0 +1,30 @@
+{
+  "id": "g3-anh",
+  "dich": "G3",
+  "ten": "G3 · Ảnh: Đọc thông số tem nhãn/bao bì bằng AI Vision",
+  "moTa": "Khách gửi URL ảnh tem nhãn sản phẩm công khai. Bot gọi Gemini vision đọc thông số, trả lời rõ ràng bằng tiếng Việt, không lộ tiếng Anh thô, có câu hỏi/hướng dẫn khi thiếu.",
+  "chatType": "PRIVATE",
+  "chatId": "khach_02",
+  "userId": "khach_02",
+  "userName": "Trần Thị Ảnh",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "Gửi ảnh tem nhãn sản phẩm công khai",
+      "photoUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Product_Label_Sample.jpg/640px-Product_Label_Sample.jpg",
+      "caption": "Nhờ bot đọc tem nhãn này",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "docThongSo": true,
+        "phaiChua": ["Thông số|Tên hàng|Model|Chất liệu|chữ trong ảnh|Chưa chắc|Đúng thì gõ \"ok\"|gõ tên hàng"],
+        "khongChua": [
+          "RESOURCE_EXHAUSTED",
+          "INTERNAL_SERVER_ERROR",
+          "candidatesTokenCount",
+          "finishReason",
+          "modelVersion"
+        ]
+      }
+    }
+  ]
+}

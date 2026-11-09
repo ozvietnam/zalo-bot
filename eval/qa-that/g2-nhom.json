@@ -1,0 +1,64 @@
+{
+  "id": "g2-nhom",
+  "dich": "G2",
+  "ten": "G2 · Nhóm: 3 người trong nhóm, chỉ trả lời khi được gọi, tách mạch hội thoại riêng",
+  "moTa": "Trong nhóm chat đông khách gồm 3 người: tin không nhắc bot thì bot im lặng; tin có nhắc @<tên bot> thì bot phản hồi đúng người; hai người hỏi xen kẽ thì tạo 2 mạch conv_id độc lập.",
+  "chatType": "GROUP",
+  "chatId": "nhom_xnk_01",
+  "botNames": ["OZ Tra cứu HS", "Bot OZ"],
+  "thanhVien": [
+    { "userId": "u_an", "userName": "An" },
+    { "userId": "u_binh", "userName": "Bình" },
+    { "userId": "u_cuong", "userName": "Cường" }
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "Cường gửi tin nói chuyện trong nhóm không nhắc bot",
+      "userId": "u_cuong",
+      "userName": "Cường",
+      "text": "Mọi người kiểm tra giúp tiến độ lô hàng với nhé",
+      "kyVong": {
+        "botIm": true,
+        "soTinGoi": 0
+      }
+    },
+    {
+      "step": 2,
+      "mieuTa": "An gọi bot hỏi mã HS",
+      "userId": "u_an",
+      "userName": "An",
+      "text": "@OZ Tra cứu HS tra giúp mã 84137090",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "tagDungNguoi": "@An",
+        "phaiChua": ["@An", "8413|bơm|thuế|thủ tục"]
+      }
+    },
+    {
+      "step": 3,
+      "mieuTa": "Bình hỏi xen kẽ một mã HS khác",
+      "userId": "u_binh",
+      "userName": "Bình",
+      "text": "@OZ Tra cứu HS tra giúp mã 85044090",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "tagDungNguoi": "@Bình",
+        "phaiChua": ["@Bình", "8504|biến đổi|nguồn|thuế|thủ tục"]
+      }
+    },
+    {
+      "step": 4,
+      "mieuTa": "An hỏi tiếp mạch của An",
+      "userId": "u_an",
+      "userName": "An",
+      "text": "@OZ Tra cứu HS thuế bao nhiêu?",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "tagDungNguoi": "@An",
+        "tachMachRieng": true,
+        "phaiChua": ["@An", "thuế|NK|VAT|8413"]
+      }
+    }
+  ]
+}
