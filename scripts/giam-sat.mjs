@@ -9,6 +9,8 @@ import { tinhHieu } from './giam-sat/tinh-hieu.js';
 import { guiTelegram, dungBanTin } from './giam-sat/telegram.js';
 import { layKhoangNgayVnUtc } from './giam-sat/time-util.js';
 import { xuLyIssue } from './giam-sat/issue.js';
+import { soanBanTinDigest } from './giam-sat/digest.js';
+import { ghiHopThu } from '../core/giam-sat-hop-thu.js';
 import { redact } from '../core/redact.js';
 
 const args = process.argv.slice(2);
@@ -69,25 +71,25 @@ console.log(`[giám sát] Dữ liệu: ${messages.length} tin · ${outbox.length
 const phatHien = tinhHieu({ messages, outbox, jobs, audit, ngay });
 console.log(`[giám sát] Phát hiện: ${phatHien.length}`);
 
+let ketQua = { moi: [], comment: [], boViGioiHan: [] };
 if (phatHien.length === 0) {
   console.log(`[giám sát] ✓ Ngày ${ngay} sạch — 0 phát hiện`);
-  process.exit(0);
+} else {
+  // ═══ 3. In báo cáo console ═══
+  for (const p of phatHien) {
+    console.log(`  ${p.ma}${p.cheDo ? `/${p.cheDo}` : ''} → ${p.repo} · ${p.soDo} · ${p.bangChung.length} bằng chứng`);
+  }
+
+  // ═══ 4. Mở/append GitHub issue ═══
+  ketQua = await xuLyIssue(phatHien, { dryRun, ngay, redactFn: redact });
+  console.log(`[giám sát] Issue mới: ${ketQua.moi.length} · comment vào cũ: ${ketQua.comment.length} · bỏ vì giới hạn: ${ketQua.boViGioiHan.length}`);
+
+  for (const m of ketQua.moi) console.log(`  ↗ MỚI: ${m.repo} — ${m.tieuDe}`);
+  for (const c of ketQua.comment) console.log(`  ↗ CŨ: ${c.repo}#${c.issue} — ${c.ma}`);
+  for (const b of ketQua.boViGioiHan) console.log(`  ⊘ BỎ: ${b.repo} — ${b.ma} (${b.lyDo})`);
 }
 
-// ═══ 3. In báo cáo console ═══
-for (const p of phatHien) {
-  console.log(`  ${p.ma}${p.cheDo ? `/${p.cheDo}` : ''} → ${p.repo} · ${p.soDo} · ${p.bangChung.length} bằng chứng`);
-}
-
-// ═══ 4. Mở/append GitHub issue ═══
-const ketQua = await xuLyIssue(phatHien, { dryRun, ngay, redactFn: redact });
-console.log(`[giám sát] Issue mới: ${ketQua.moi.length} · comment vào cũ: ${ketQua.comment.length} · bỏ vì giới hạn: ${ketQua.boViGioiHan.length}`);
-
-for (const m of ketQua.moi) console.log(`  ↗ MỚI: ${m.repo} — ${m.tieuDe}`);
-for (const c of ketQua.comment) console.log(`  ↗ CŨ: ${c.repo}#${c.issue} — ${c.ma}`);
-for (const b of ketQua.boViGioiHan) console.log(`  ⊘ BỎ: ${b.repo} — ${b.ma} (${b.lyDo})`);
-
-// ═══ 5. Bản tin ngày (cho Telegram / lưu file) ═══
+// ═══ 5. Bản tin ngày (cho Telegram / Zalo digest qua hộp thư / lưu file) ═══
 const banTin = dungBanTin({ ngay, phatHien, ketQua });
 
 // Lưu file
@@ -95,6 +97,12 @@ const banTinPath = join(DATA_DIR, `giam-sat-${ngay}.md`);
 if (!dryRun) {
   writeFileSync(banTinPath, banTin.replace(/<[^>]+>/g, '')); // bỏ HTML tag cho file
   console.log(`[giám sát] Bản tin lưu: ${banTinPath}`);
+
+  // Ghi vào hộp thư riêng để bot quét gửi kind 'digest' vào STAFF_CHAT_ID (FR-010)
+  const idemKey = `digest:ngay:${ngay}`;
+  const textDigest = soanBanTinDigest({ ngay, phatHien, ketQua, loai: 'ngay' });
+  const gh = ghiHopThu({ dataDir: DATA_DIR, idemKey, text: textDigest, loai: 'ngay' });
+  console.log(`[giám sát] Hộp thư digest: ${gh.daCo ? 'đã có sẵn (không nhân bản)' : 'đã ghi'} — ${idemKey}`);
 }
 
 // Gửi Telegram cho CEO (im lặng nếu chưa cấu hình)

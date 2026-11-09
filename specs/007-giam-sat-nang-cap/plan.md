@@ -73,13 +73,33 @@ Hệ thống tuân thủ nghiêm ngặt nguyên tắc chỉ-đọc (FR-005), b�
 
 ### 3. Xử lý 4 điểm lệch giữa code hiện tại và Spec
 1. **Gửi bản tin vào Telegram vs Cửa gửi 001 `kind: 'digest'` (Lệch `scripts/giam-sat.mjs:84-86` vs FR-010)**:
-   - *Giải pháp*: Tích hợp module gửi bản tin vào nhóm nhân viên Zalo qua cửa gửi lõi `core/gate.js` với `kind: 'digest'` và `chat_id: process.env.STAFF_CHAT_ID` (hoặc thông qua webhook nội bộ của bot). Kênh Telegram trong `scripts/giam-sat/telegram.js` được giữ lại làm kênh phụ tuỳ chọn (chỉ kích hoạt khi có đủ `TELEGRAM_BOT_TOKEN` và `TELEGRAM_CHAT_ID`).
+   - *Giải pháp*: Tích hợp module gửi bản tin vào nhóm nhân viên Zalo qua cửa gửi lõi `core/gate.js` với `kind: 'digest'` và `chat_id: process.env.STAFF_CHAT_ID` (thông qua hộp thư riêng). Kênh Telegram trong `scripts/giam-sat/telegram.js` được giữ lại làm kênh phụ tuỳ chọn (chỉ kích hoạt khi có đủ `TELEGRAM_BOT_TOKEN` và `TELEGRAM_CHAT_ID`).
 2. **Khởi tạo schema ghi db `openStore` vs Nguyên tắc chỉ-đọc (Lệch `scripts/giam-sat.mjs:30-31` vs FR-005)**:
    - *Giải pháp*: Loại bỏ hoàn toàn lệnh `openStore(DB_PATH)` trong script giám sát. Mở trực tiếp bằng `new DatabaseSync(DB_PATH, { readOnly: true })`. Nếu tệp `bot.db` chưa tồn tại hoặc thiếu bảng, script báo lỗi và thoát với mã 1 (tương tự pattern ở `scripts/audit.mjs:174`).
 3. **Ánh xạ người nói `speaker === 'bot_out'` vs Lõi bot (Lệch `scripts/giam-sat.mjs:38`)**:
    - *Giải pháp*: Chuẩn hóa theo đúng các giá trị trường `speaker` trong bảng `messages` của lõi bot: `'khach'` (tin khách nhắn vào), `'bot'` (tin bot gửi ra), `'nhan-vien'` (tin nhân viên trả lời qua lệnh `/tl` hoặc gõ tay). Chuyển đổi bộ lọc trong `tinh-hieu.js` từ `'user'` / `'staff'` sang đúng bộ giá trị chuẩn của lõi.
 4. **Mốc thời gian UTC vs Giờ Việt Nam (Lệch `scripts/giam-sat.mjs:17,33-34` vs Ràng buộc giờ VN)**:
    - *Giải pháp*: Sử dụng hàm xử lý thời gian chuẩn từ `core/time.js` (`vnDateKey`, `vnDayBoundsUtc`). Mốc đầu ngày và cuối ngày của ngày xét $D$ phải là khoảng thời gian tương ứng với $[00:00:00, 23:59:59.999]$ giờ Việt Nam (tức từ 17:00:00 UTC của ngày $D-1$ đến 16:59:59.999 UTC của ngày $D$).
+
+### 4. Đánh giá 3 phương án kết nối bản tin giám sát vào cửa gửi gate (FR-010)
+
+Để đưa bản tin giám sát từ CLI độc lập vào cửa gửi duy nhất `core/gate.js` với `kind: 'digest'` tới nhóm nhân viên `STAFF_CHAT_ID` mà vẫn tuân thủ nguyên tắc chỉ-đọc của `bot.db` (FR-005), ba phương án kiến trúc đã được cân nhắc:
+
+- **Phương án (a) Hộp thư riêng (Đã chốt & áp dụng)**:
+  - *Cơ chế*: CLI `giam-sat` ghi bản tin đã ẩn danh vào hộp thư riêng (`hop-thu-giam-sat.json` hoặc SQLite riêng) nằm trong `DATA_DIR`, hoàn toàn độc lập với `bot.db`. Mỗi bản tin mang khoá `idemKey` theo kỳ (ví dụ `digest:ngay:YYYY-MM-DD` hoặc `digest:tuan:YYYY-Www`). Tiến trình bot quét hộp thư định kỳ qua vòng lặp nền 5 giây (`setInterval`), gọi `gate.send({ kind: 'digest', chatId: STAFF_CHAT_ID, idemKey, ... })`, và cập nhật trạng thái `sent` trong hộp thư.
+  - *Ưu điểm*:
+    1. Giữ trọn vẹn FR-005: CLI `giam-sat.mjs` mở `bot.db` với `readOnly: true`, tuyệt đối không ghi `bot.db`.
+    2. Độc lập tiến trình & chịu lỗi cao: Nếu bot đang khởi động lại hoặc tắt lúc CLI chạy, bản tin vẫn nằm an toàn trong hộp thư và được quét gửi ngay khi bot hoạt động lại.
+    3. Không mở thêm cổng mạng hay endpoint HTTP mới (triệt tiêu rủi ro bảo mật nội bộ).
+    4. Tránh xung đột khóa: Hộp thư sử dụng cơ chế ghi nguyên tử (atomic rename file JSON), không gây tranh chấp SQLite WAL với `bot.db`.
+
+- **Phương án (b) Mở endpoint HTTP nội bộ trên tiến trình bot (Bị loại bỏ)**:
+  - *Cơ chế*: Tiến trình bot mở thêm endpoint nội bộ (ví dụ `POST /internal/digest`), CLI gọi HTTP POST để bot nhận và chuyển tiếp qua `gate.send`.
+  - *Lý do loại bỏ*: Mở thêm bề mặt tấn công mạng (attack surface), đòi hỏi cơ chế xác thực riêng (shared secret / token nội bộ); nếu tiến trình bot sập đúng lúc cron chạy thì request lỗi và bản tin bị mất trừ khi CLI xây dựng hàng đợi thử lại phức tạp.
+
+- **Phương án (c) Chạy toàn bộ giám sát trực tiếp trong tiến trình bot (Bị loại bỏ)**:
+  - *Cơ chế*: Đưa logic giám sát vào một timer/scheduler chạy bên trong tiến trình chính của bot Zalo.
+  - *Lý do loại bỏ*: Tác vụ tính toán 9 tín hiệu, đọc nhiều bảng dữ liệu và tính Jaccard tiêu tốn CPU/RAM, gây nguy cơ nghẽn event loop làm chậm việc phản hồi tin nhắn của khách hàng; nguy cơ tranh chấp khóa SQLite giữa luồng chat và luồng giám sát; mất tính linh hoạt của CLI (khó chạy `--dry-run`, `--ngay=...` theo nhu cầu điều tra).
 
 ## Project Structure
 

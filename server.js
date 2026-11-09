@@ -15,6 +15,7 @@ import { createHandoff } from './core/handoff.js';
 import { createEngine } from './core/engine.js';
 import { createOps } from './core/ops.js';
 import { createBackup } from './core/backup.js';
+import { createGiamSatHopThu } from './core/giam-sat-hop-thu.js';
 import { createWebhookHandler } from './core/webhook.js';
 import { createQueue } from './core/queue.js';
 import { redact } from './core/redact.js';
@@ -97,9 +98,10 @@ const server = http.createServer(createWebhookHandler({
 }));
 // sao lưu db 03:00 giờ VN (T036, FR-028): `run()` tự bỏ qua ngoài giờ đó và khi hôm nay đã sao, nên đi chung bộ quét 5 giây thay vì thêm một đồng hồ riêng.
 const backup = createBackup({ store, dataDir: config.dataDir, now, log: (...a) => console.log('[sao-luu]', ...a) });
+const giamSatHopThu = createGiamSatHopThu({ dataDir: config.dataDir, gate, staffChatId: config.staffChatId, enabled: /^(1|true|yes)$/i.test(env.GIAM_SAT_DIGEST || '') });
 // quét nền 5 giây: bản tin T028 TRƯỚC drain() (chặn bản tin cũ); drain() = việc nền + outbox + đẩy tin gộp vào phiếu (T024, T026).
 const loi = (tag) => (e) => console.error(tag, e.message);
-setInterval(() => { ops.digest().catch(loi('[ban-tin]')); engine.drain().catch(loi('[quet]')); backup.run().catch(loi('[sao-luu]')); }, 5000);
+setInterval(() => { ops.digest().catch(loi('[ban-tin]')); giamSatHopThu.quet().catch(loi('[giam-sat]')); engine.drain().catch(loi('[quet]')); backup.run().catch(loi('[sao-luu]')); }, 5000);
 
 server.listen(config.port, '0.0.0.0', async () => {
   console.log(`[bot] chế độ ${config.mode}, cổng ${config.port}${config.mode === 'webhook' ? `, đường dẫn ${config.webhookPath}` : ''}`);

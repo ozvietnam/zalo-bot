@@ -159,7 +159,7 @@ Khắc phục lệch tại `scripts/giam-sat.mjs:84-86`: chuyển đổi việc 
 - `soanBanTin({ ngay, phatHien, ketQua, loai }) -> string`
 - `guiBanTinDigest({ banTin, gate, staffChatId, now }) -> Promise<{ ok: boolean, decision?: string }>`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -184,10 +184,10 @@ test('T704: Bản tin giám sát phải gửi qua cửa gate.send với kind: di
   assert.equal(sent[0].isGroup, true);
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/giam-sat/digest-delivery.test.mjs` → FAIL.
-- [ ] **Step 3:** Tạo `scripts/giam-sat/digest.js` hiện thực hóa logic soạn bản tin và gửi qua gate (hoặc endpoint nội bộ nếu chạy CLI); cập nhật `scripts/giam-sat.mjs`.
-- [ ] **Step 4:** Chạy lại `node --test test/giam-sat/digest-delivery.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(giam-sat): route digest bulletin through send gate with kind digest (T704)"`
+- [x] **Step 2:** Chạy `node --test test/giam-sat/digest-delivery.test.mjs` → FAIL.
+- [x] **Step 3:** Tạo `scripts/giam-sat/digest.js` hiện thực hóa logic soạn bản tin và gửi qua gate (hoặc endpoint nội bộ nếu chạy CLI); cập nhật `scripts/giam-sat.mjs`.
+- [x] **Step 4:** Chạy lại `node --test test/giam-sat/digest-delivery.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(giam-sat): route digest bulletin through send gate with kind digest (T704)"`
 
 ---
 
