@@ -109,3 +109,42 @@ test('kiemTruocPolling: không đọc được webhook → KHÔNG chạy (không
   assert.match(r.lyDo, /không đọc được/);
   assert.match(r.lyDo, /HTTP 500/);
 });
+
+test('kiemTruocPolling: getWebhookInfo ném lỗi Not Found hoặc 404 → coi như chưa có webhook, cho chạy { ok: true, url: "" }', async () => {
+  // Ca 1: message chứa "Not Found"
+  const r1 = await kiemTruocPolling({ getWebhookInfo: async () => { throw new Error('Zalo getWebhookInfo lỗi: Not Found'); } });
+  assert.deepEqual(r1, { ok: true, url: '' });
+
+  // Ca 2: status = 404
+  const err404 = new Error('Zalo getWebhookInfo lỗi: HTTP 404');
+  err404.status = 404;
+  const r2 = await kiemTruocPolling({ getWebhookInfo: async () => { throw err404; } });
+  assert.deepEqual(r2, { ok: true, url: '' });
+});
+
+test('kiemTruocPolling: getWebhookInfo ném lỗi mạng hoặc 500 không có force → dừng và không để lộ token', async () => {
+  const token = 'sk-gia-loi-goc';
+  const zalo = {
+    getWebhookInfo: async () => {
+      throw new Error('Zalo getWebhookInfo lỗi: HTTP 500');
+    },
+  };
+  const r = await kiemTruocPolling(zalo);
+  assert.equal(r.ok, false);
+  assert.match(r.lyDo, /không đọc được trạng thái webhook/);
+  assert.equal(r.lyDo.includes(token), false);
+});
+
+test('kiemTruocPolling: getWebhookInfo ném lỗi bất kỳ nhưng có force: true → cho phép chạy { ok: true, url: "" }', async () => {
+  const rNetwork = await kiemTruocPolling(
+    { getWebhookInfo: async () => { throw new Error('fetch failed: connect ETIMEDOUT'); } },
+    { force: true },
+  );
+  assert.deepEqual(rNetwork, { ok: true, url: '' });
+
+  const r500 = await kiemTruocPolling(
+    { getWebhookInfo: async () => { throw new Error('Zalo getWebhookInfo lỗi: HTTP 500'); } },
+    { force: true },
+  );
+  assert.deepEqual(r500, { ok: true, url: '' });
+});

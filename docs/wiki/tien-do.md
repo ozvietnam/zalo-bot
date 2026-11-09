@@ -25,7 +25,7 @@ danh sách việc `specs/001-nen-tang-chung/tasks.md:563`.
 | T009 | `gate.send()` (chia phần, idempotent) | Xong | `core/gate.js:106`, `core/gate.js:74`, `test/core/gate-send.test.mjs` |
 | T010 | `gate.sweep()` (tin hoãn, thử lại) | Xong | `core/gate.js:180`, `core/gate.js:160` |
 | T011 | `core/types.js` (kiểu dùng chung) | Xong | `core/types.js` |
-| T012 | `channels/zalo-bot.js` (adapter kênh) | Xong | `channels/zalo-bot.js:13`, `test/core/channel.test.mjs` |
+| T012 | `channels/zalo-bot.js` (adapter kênh) | Xong | `channels/zalo-bot.js:13`, `channels/zalo-bot.js:55` (`kiemTruocPolling`), `test/core/channel.test.mjs` |
 | T013 | `core/registry.js` (chọn gói) | Xong | `core/registry.js:9`, `core/registry.js:34`, `test/core/registry.test.mjs` |
 | T014 | Chuyển 7 gói hải quan sang `packs/hs/` | Xong | `packs/hs/packages.js:142`, `packs/hs/index.js:96`, `docs/sdd/001-ledger.md:30` (36 lượt đối chiếu khớp) |
 | T015 | `core/engine.js` (một lượt) | Xong | `core/engine.js:27`, `core/engine.js:60`, `docs/sdd/001-ledger.md:37` |
