@@ -132,7 +132,7 @@ export function createChannel({ oaToken, oaSecret, baseUrl, fetchImpl }) -> {
 }
 ```
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -159,10 +159,10 @@ test('T502: Zalo OA parse sự kiện user_send_text và oa_send_text chuẩn h�
   assert.equal(u2.chatId, 'u1');
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/channels/zalo-oa.test.mjs` → FAIL (chưa có `channels/zalo-oa.js`).
-- [ ] **Step 3:** Tạo `channels/zalo-oa.js` (< 280 dòng), hiện thực `createChannel`, `verifyWebhook`, `parse`, `sendText`, `typing`.
-- [ ] **Step 4:** Chạy lại `node --test test/channels/zalo-oa.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(channel): add Zalo OA adapter (T502)"`
+- [x] **Step 2:** Chạy `node --test test/channels/zalo-oa.test.mjs` → FAIL (chưa có `channels/zalo-oa.js`).
+- [x] **Step 3:** Tạo `channels/zalo-oa.js` (< 280 dòng), hiện thực `createChannel`, `verifyWebhook`, `parse`, `sendText`, `typing`.
+- [x] **Step 4:** Chạy lại `node --test test/channels/zalo-oa.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(channel): add Zalo OA adapter (T502)"`
 
 ---
 
@@ -175,7 +175,7 @@ Chuẩn hóa giao diện đối tượng `Update` xuất ra từ các adapter k�
 **Interfaces — Produces:**
 - Mọi `Update` có cấu trúc: `{ updateKey, event, chatId, userId, userName, chatType, text, photoUrl, voiceUrl, caption, messageId, raw, isEcho, appId }`.
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -189,10 +189,10 @@ test('T503: Zalo Bot parse giữ nguyên tính tương thích, isEcho mặc đ�
   assert.equal(u.appId, null);
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/core/channel-echo.test.mjs` → FAIL (do `parseUpdate` của `zalo-bot.js` chưa có `isEcho` và `appId`).
-- [ ] **Step 3:** Bổ sung `isEcho: false`, `appId: null` vào hàm `parseUpdate` trong `channels/zalo-bot.js`.
-- [ ] **Step 4:** Chạy lại `node --test test/core/channel-echo.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "refactor(channel): standardize Update interface with echo fields (T503)"`
+- [x] **Step 2:** Chạy `node --test test/core/channel-echo.test.mjs` → FAIL (do `parseUpdate` của `zalo-bot.js` chưa có `isEcho` và `appId`).
+- [x] **Step 3:** Bổ sung `isEcho: false`, `appId: null` vào hàm `parseUpdate` trong `channels/zalo-bot.js`.
+- [x] **Step 4:** Chạy lại `node --test test/core/channel-echo.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "refactor(channel): standardize Update interface with echo fields (T503)"`
 
 ---
 
