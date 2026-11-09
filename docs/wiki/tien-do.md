@@ -77,7 +77,7 @@ Toàn bộ 9 nguyên tắc của Hiến pháp đã được thi hành và bảo 
 | 007 — Agent giám sát | Đã có spec, plan, tasks (T701–T712); code đã có, chờ sửa 4 điểm lệch | `specs/007-giam-sat-nang-cap/plan.md:1`, `specs/007-giam-sat-nang-cap/tasks.md:5`; đo 9 tín hiệu ở `scripts/giam-sat/tinh-hieu.js:37`, mở issue đúng repo ở `scripts/giam-sat/issue.js:51`, báo Telegram ở `scripts/giam-sat/telegram.js:10`, chạy lệnh ở `scripts/giam-sat.mjs:2` |
 | 008 — Cổng AI Studio | **Chỉ có spec** | `specs/008-cong-ai-studio/spec.md:7` (Draft); chưa có mã nguồn trong repo này, dự kiến tách repo riêng |
 | 009 — Agent tra cứu hải quan | **Chỉ có spec** | `specs/009-agent-tra-cuu/spec.md:7` (Draft); não hiện tại ở `packs/hs/brain.js` chỉ chọn một gói, chưa phải vòng lặp gọi nhiều công cụ |
-| 010 — Giao việc cho thợ ngoài (Antigravity, Muse Code) | **Chỉ có spec, ghi là nghiên cứu** | `specs/010-giao-viec-antigravity/spec.md:7` (Nghiên cứu — chưa code); chưa có mã nguồn: không có tệp *scripts/mcp-tho.mjs*, không có *.agents/hooks.json*, `.gitignore` chưa có `.agy-logs/` và `.worktrees/`; thẻ còn 5 câu NEEDS CLARIFICATION chờ chủ repo chốt |
+| 010 — Giao việc cho thợ ngoài (Antigravity, Muse Code) | **Đóng — đã hiện thực ở tầng văn phòng (ADR-0022)** | `specs/010-giao-viec-antigravity/spec.md:9`; 5 câu hỏi đã giải quyết theo thực tế hạ tầng bể thợ Google AI Ultra của văn phòng (ADR-0022); đóng spec 010 trong repo, Muse Code gác lại |
 
 ## 4. Việc nên làm tiếp theo
 
