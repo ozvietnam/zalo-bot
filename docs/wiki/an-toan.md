@@ -198,6 +198,14 @@ Tự kiểm bằng một lệnh: chỉ có `core/gate.js:79` gọi `channel.send
 3. Cảnh báo và phiếu mới chỉ ghi log, chưa tới được nhóm nhân viên: điều VII chưa trọn.
 4. Hai tệp trong `packs/hs/` vượt giới hạn 300 dòng của điều VI.
 
+## Rủi ro cơ chế hộp thư riêng giám sát (T704, spec 007)
+
+Cơ chế hộp thư riêng cho bản tin giám sát (`scripts/giam-sat/digest.js:1`, `core/digest-scan.js:1`) chứa các biện pháp phòng vệ an toàn:
+- **Rủi ro gửi ban đêm (giờ yên)**: Bộ quét `core/digest-scan.js:33` chủ động kiểm tra `isQuietHours()` để không gửi trong giờ yên 23:00–07:00 VN, dù cửa `core/gate.js` miễn giờ yên cho loại `digest`.
+- **Rủi ro dồn ứ bản tin cũ**: Bản tin quá hạn (>24 giờ đối với ngày, >7 ngày đối với tuần) được bộ quét tự động đánh dấu `het-han` (`core/digest-scan.js:63`) và không gửi bù, tránh làm ngập tin nhân viên khi bot khởi động lại sau nhiều ngày tắt.
+- **Rủi ro rò rỉ bí mật trong lỗi hộp thư**: Mọi thông báo lỗi và lý do từ chối được lọc qua `redact()` (`core/digest-scan.js:90`) trước khi ghi vào trường `lastError` của tệp hộp thư.
+- **Rủi ro tranh chấp ghi tệp**: Mỗi bản tin lưu thành một tệp riêng theo `idemKey` (`scripts/giam-sat/digest.js:52`), sử dụng cơ chế ghi nguyên tử qua tệp tạm rồi đổi tên, loại bỏ hoàn toàn việc đọc-sửa-ghi chung một tệp.
+
 ## Cách người đọc tự kiểm
 
 ```bash

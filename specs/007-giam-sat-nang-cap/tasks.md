@@ -45,7 +45,7 @@ Bảng đối chiếu toàn bộ 11 Functional Requirements (FR-001..FR-011) và
 | **FR-007** | Giới hạn tối đa 5 issue mới / repo / ngày; phần dư chuyển vào bản tin | `scripts/giam-sat/issue.js:9`, `scripts/giam-sat/issue.js:174-178` | **Đã xong** (T707, khoá bằng test tự động) | T707 |
 | **FR-008** | Issue đã đóng mà tín hiệu vẫn vượt ngưỡng 3 ngày liền phải mở lại kèm số đo mới | `scripts/giam-sat/issue.js:48-54`, `scripts/giam-sat/issue.js:154-173` | **Đã xong** (T707, reopen issue đã đóng khi vượt ngưỡng 3 ngày) | T707 |
 | **FR-009** | Nguồn máy chủ Fanpage đọc bản sao db chỉ-đọc; nguồn Cổng OZ đọc log chỉ-đọc | Chưa có code | **Chưa làm** | T709, T710 |
-| **FR-010** | Bản tin ngày (07:30) và tuần (thứ Hai 08:00) giờ VN vào nhóm nhân viên qua cửa gửi 001 `kind: 'digest'` | `scripts/giam-sat.mjs:84-86`, `scripts/giam-sat/telegram.js:10` | **Lệch** (hiện gửi Telegram cho CEO, chưa gửi vào nhóm nhân viên qua Zalo digest) | T704 |
+| **FR-010** | Bản tin ngày (07:30) và tuần (thứ Hai 08:00) giờ VN vào nhóm nhân viên qua cửa gửi 001 `kind: 'digest'` | `scripts/giam-sat/digest.js:52`, `core/digest-scan.js:20`, `server.js:100` | **Đã xong** (T704: hộp thư riêng theo idemKey, cửa gửi gate.js kind: 'digest' vào STAFF_CHAT_ID) | T704 |
 | **FR-011** | Ghi bản ghi thực thi: nguồn đã đọc, số tin, số phát hiện, issue mở/bình luận, lỗi | `scripts/giam-sat/so-nhat-ky.js:59`, `scripts/giam-sat.mjs:74,113` | **Đã xong** (T712: sổ nhật ký SQLite độc lập giam-sat.db) | T712 |
 | **SC-001** | Bắt đủ 9 lỗi trên db mẫu cài sẵn, 0 phát hiện thừa | `scripts/giam-sat/tinh-hieu.js:63`, `test/helpers/giam-sat-fixture.mjs:8` | **Đạt** (T705: test fixture bắt đủ 9/9 lỗi, 0 phát hiện thừa) | T705 |
 | **SC-002** | 0 issue chứa SĐT, STK, token hay tên khách thật (quét tự động) | `scripts/giam-sat/issue.js:111` | **Chưa làm** (chưa có test quét rò rỉ dữ liệu) | T706 |
@@ -159,7 +159,7 @@ Khắc phục lệch tại `scripts/giam-sat.mjs:84-86`: chuyển đổi việc 
 - `soanBanTin({ ngay, phatHien, ketQua, loai }) -> string`
 - `guiBanTinDigest({ banTin, gate, staffChatId, now }) -> Promise<{ ok: boolean, decision?: string }>`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -184,10 +184,10 @@ test('T704: Bản tin giám sát phải gửi qua cửa gate.send với kind: di
   assert.equal(sent[0].isGroup, true);
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/giam-sat/digest-delivery.test.mjs` → FAIL.
-- [ ] **Step 3:** Tạo `scripts/giam-sat/digest.js` hiện thực hóa logic soạn bản tin và gửi qua gate (hoặc endpoint nội bộ nếu chạy CLI); cập nhật `scripts/giam-sat.mjs`.
-- [ ] **Step 4:** Chạy lại `node --test test/giam-sat/digest-delivery.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(giam-sat): route digest bulletin through send gate with kind digest (T704)"`
+- [x] **Step 2:** Chạy `node --test test/giam-sat/digest-delivery.test.mjs` → FAIL.
+- [x] **Step 3:** Tạo `scripts/giam-sat/digest.js` hiện thực hóa logic soạn bản tin và gửi qua gate (hoặc endpoint nội bộ nếu chạy CLI); cập nhật `scripts/giam-sat.mjs`.
+- [x] **Step 4:** Chạy lại `node --test test/giam-sat/digest-delivery.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(giam-sat): route digest bulletin through send gate with kind digest (T704)"`
 
 ---
 
