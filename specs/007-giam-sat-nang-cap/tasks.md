@@ -40,7 +40,7 @@ Bảng đối chiếu toàn bộ 11 Functional Requirements (FR-001..FR-011) và
 | **FR-002** | Phát hiện có: mã, số đo, khoảng tg, `turn_id` bằng chứng, repo đích, fingerprint | `scripts/giam-sat/tinh-hieu.js:40-43`, `scripts/giam-sat/tinh-hieu.js:48` | **Lệch** (chưa có trường `fingerprint` rõ ràng, thiếu `turn_id` ở một số tín hiệu) | T705 |
 | **FR-003** | Mở GitHub issue đúng repo bằng token issues, chống trùng theo fingerprint | `scripts/giam-sat/issue.js:40-44`, `scripts/giam-sat/issue.js:78-103` | **Lệch** (tìm theo `ma` thay vì `fingerprint`, thiếu template US2 chuẩn) | T707 |
 | **FR-004** | Ẩn danh bằng chứng trước khi xuất: tên → nhãn, SĐT/STK → che, token → `***` | `scripts/giam-sat.mjs:12`, `scripts/giam-sat/issue.js:111` | **Lệch** (chỉ gọi `redact` thô, chưa che SĐT qua `core/sdt.js`, chưa che STK và tên khách) | T706 |
-| **FR-005** | MUST NOT sửa code, mở PR, ghi vào db của bot, hay gửi tin cho khách | `scripts/giam-sat.mjs:30-31` (`openStore`) | **Lệch nghiêm trọng** (`openStore` mở db đọc-ghi để migrate schema) | T701 |
+| **FR-005** | MUST NOT sửa code, mở PR, ghi vào db của bot, hay gửi tin cho khách | `scripts/giam-sat.mjs:30-49` (`DatabaseSync` readOnly) | **Đã sửa** (T701, mở DatabaseSync readOnly, không openStore) | T701 |
 | **FR-006** | Gemini nhận cả lô tuần 1 lần gọi, JSON schema cố định, kiểm tra `turn_id` thật | Chưa có code | **Chưa làm** | T708 |
 | **FR-007** | Giới hạn tối đa 5 issue mới / repo / ngày; phần dư chuyển vào bản tin | `scripts/giam-sat/issue.js:7`, `scripts/giam-sat/issue.js:91-95` | **Xong một phần** (đã có biến đếm, chưa có test tự động khoá) | T707 |
 | **FR-008** | Issue đã đóng mà tín hiệu vẫn vượt ngưỡng 3 ngày liền phải mở lại kèm số đo mới | `scripts/giam-sat/issue.js:41` (chỉ tìm `is:open`) | **Chưa làm** | T707 |
@@ -68,7 +68,7 @@ Khắc phục lệch tại `scripts/giam-sat.mjs:30-31`: việc gọi `openStore
 - Mở kết nối SQLite chỉ-đọc trực tiếp, không import `openStore`.
 - Báo lỗi rõ ràng và dừng tiến trình nếu `bot.db` không tồn tại hoặc không thể đọc.
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -80,10 +80,10 @@ test('T701: scripts/giam-sat.mjs không được import hoặc gọi openStore',
   assert.equal(content.includes('readOnly: true'), true, 'Phải mở db với tùy chọn readOnly: true');
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/giam-sat/readonly-store.test.mjs` → FAIL (do `scripts/giam-sat.mjs` đang chứa `openStore`).
-- [ ] **Step 3:** Sửa `scripts/giam-sat.mjs`: xoá import `openStore`, xoá dòng 30-31 `const store = openStore(DB_PATH); store.close();`, chỉ giữ lại `new DatabaseSync(DB_PATH, { readOnly: true })`.
-- [ ] **Step 4:** Chạy lại `node --test test/giam-sat/readonly-store.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "fix(giam-sat): enforce strict read-only database connection (T701)"`
+- [x] **Step 2:** Chạy `node --test test/giam-sat/readonly-store.test.mjs` → FAIL (do `scripts/giam-sat.mjs` đang chứa `openStore`).
+- [x] **Step 3:** Sửa `scripts/giam-sat.mjs`: xoá import `openStore`, xoá dòng 30-31 `const store = openStore(DB_PATH); store.close();`, chỉ giữ lại `new DatabaseSync(DB_PATH, { readOnly: true })`.
+- [x] **Step 4:** Chạy lại `node --test test/giam-sat/readonly-store.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "fix(giam-sat): enforce strict read-only database connection (T701)"`
 
 ---
 
@@ -96,7 +96,7 @@ Khắc phục lệch tại `scripts/giam-sat.mjs:17,33-34`: hiện đang lấy n
 **Interfaces — Produces:**
 - `layKhoangNgayVnUtc(ngayYmd?: string) -> { ngayVn: string, dauNgayUtc: string, cuoiNgayUtc: string }`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -110,10 +110,10 @@ test('T702: Mốc lọc ngày VN phải đổi chính xác sang UTC', () => {
   assert.equal(cuoiNgayUtc, '2026-11-06T16:59:59.999Z');
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/giam-sat/vn-time-bounds.test.mjs` → FAIL (chưa có module `time-util.js`).
-- [ ] **Step 3:** Tạo `scripts/giam-sat/time-util.js` tận dụng `core/time.js` hoặc chuyển đổi mốc UTC tương ứng với ngày VN; cập nhật `scripts/giam-sat.mjs` sử dụng hàm này.
-- [ ] **Step 4:** Chạy lại `node --test test/giam-sat/vn-time-bounds.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "fix(giam-sat): align query time range with Vietnam timezone (T702)"`
+- [x] **Step 2:** Chạy `node --test test/giam-sat/vn-time-bounds.test.mjs` → FAIL (chưa có module `time-util.js`).
+- [x] **Step 3:** Tạo `scripts/giam-sat/time-util.js` tận dụng `core/time.js` hoặc chuyển đổi mốc UTC tương ứng với ngày VN; cập nhật `scripts/giam-sat.mjs` sử dụng hàm này.
+- [x] **Step 4:** Chạy lại `node --test test/giam-sat/vn-time-bounds.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "fix(giam-sat): align query time range with Vietnam timezone (T702)"`
 
 ---
 

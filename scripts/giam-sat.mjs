@@ -7,14 +7,15 @@ import { join } from 'path';
 import { DatabaseSync } from 'node:sqlite';
 import { tinhHieu } from './giam-sat/tinh-hieu.js';
 import { guiTelegram, dungBanTin } from './giam-sat/telegram.js';
-import { openStore } from '../core/store.js';
+import { layKhoangNgayVnUtc } from './giam-sat/time-util.js';
 import { xuLyIssue } from './giam-sat/issue.js';
 import { redact } from '../core/redact.js';
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
 const ngayArg = args.find(a => a.startsWith('--ngay='));
-const ngay = ngayArg ? ngayArg.split('=')[1] : new Date().toISOString().slice(0, 10);
+const ngayYmd = ngayArg ? ngayArg.split('=')[1] : undefined;
+const { ngayVn: ngay, dauNgayUtc, cuoiNgayUtc } = layKhoangNgayVnUtc(ngayYmd);
 const DATA_DIR = process.env.DATA_DIR || './data';
 const DB_PATH = join(DATA_DIR, 'bot.db');
 
@@ -26,25 +27,40 @@ if (!existsSync(DB_PATH)) {
 console.log(`[giám sát] Ngày ${ngay} · dryRun=${dryRun}`);
 
 // ═══ 1. Đọc dữ liệu từ SQLite ═══
-// Khởi tạo schema nếu chưa có (bot.db tạo khi bot nhận tin đầu tiên)
-const store = openStore(DB_PATH);
-store.close();
-const db = new DatabaseSync(DB_PATH, { readOnly: true });
-const dauNgay = `${ngay}T00:00:00Z`;
-const cuoiNgay = `${ngay}T23:59:59Z`;
+// Agent giám sát tuyệt đối chỉ-đọc (FR-005). Không tự khởi tạo schema nếu chưa có.
+let db;
+try {
+  db = new DatabaseSync(DB_PATH, { readOnly: true });
+} catch (err) {
+  console.error(`[giám sát] Không thể mở ${DB_PATH} ở chế độ chỉ-đọc: ${err.message}`);
+  process.exit(1);
+}
+
+let coBang = false;
+try {
+  coBang = Boolean(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'messages'").get());
+} catch {
+  console.error(`[giám sát] Không thể đọc sqlite_master từ ${DB_PATH}`);
+  db.close();
+  process.exit(1);
+}
+if (!coBang) {
+  console.error(`[giám sát] db ${DB_PATH} chưa có bảng (bot chưa nhận tin nào)`);
+  db.close();
+  process.exit(1);
+}
 
 const messages = db.prepare(`SELECT chat_id, turn_id, speaker, speaker_id, text, at
-  FROM messages WHERE at BETWEEN ? AND ? ORDER BY at`).all(dauNgay, cuoiNgay)
-  .map(r => ({ ...r, speaker: r.speaker === 'bot_out' ? 'bot' : r.speaker }));
+  FROM messages WHERE at BETWEEN ? AND ? ORDER BY at`).all(dauNgayUtc, cuoiNgayUtc);
 
 const outbox = db.prepare(`SELECT chat_id, turn_id, decision, reason, created_at, sent_at
-  FROM outbox WHERE created_at BETWEEN ? AND ?`).all(dauNgay, cuoiNgay);
+  FROM outbox WHERE created_at BETWEEN ? AND ?`).all(dauNgayUtc, cuoiNgayUtc);
 
 const jobs = db.prepare(`SELECT pack, ma_luot, status, expires_at, done_at, created_at
-  FROM jobs WHERE created_at <= ?`).all(cuoiNgay);
+  FROM jobs WHERE created_at <= ?`).all(cuoiNgayUtc);
 
 const audit = db.prepare(`SELECT at, turn_id, chat_id, type, data
-  FROM audit WHERE at BETWEEN ? AND ?`).all(dauNgay, cuoiNgay);
+  FROM audit WHERE at BETWEEN ? AND ?`).all(dauNgayUtc, cuoiNgayUtc);
 
 db.close();
 console.log(`[giám sát] Dữ liệu: ${messages.length} tin · ${outbox.length} outbox · ${jobs.length} jobs · ${audit.length} audit`);
