@@ -36,8 +36,8 @@ Bảng đối chiếu toàn bộ 11 Functional Requirements (FR-001..FR-011) và
 
 | Yêu cầu | Nội dung đặc tả | Code hiện có (tệp:dòng) | Trạng thái | Mã task |
 |---|---|---|---|---|
-| **FR-001** | Tính các tín hiệu US1 bằng code từ db bot theo ngưỡng config | `scripts/giam-sat/tinh-hieu.js:5-15`, `scripts/giam-sat/tinh-hieu.js:37` | **Lệch** (ngưỡng fix cứng, mapping speaker lệch, chưa có test suite) | T703, T705 |
-| **FR-002** | Phát hiện có: mã, số đo, khoảng tg, `turn_id` bằng chứng, repo đích, fingerprint | `scripts/giam-sat/tinh-hieu.js:40-43`, `scripts/giam-sat/tinh-hieu.js:48` | **Lệch** (chưa có trường `fingerprint` rõ ràng, thiếu `turn_id` ở một số tín hiệu) | T705 |
+| **FR-001** | Tính các tín hiệu US1 bằng code từ db bot theo ngưỡng config | `scripts/giam-sat/tinh-hieu.js:63` | **Đã xong** (T703, T705: speaker chuẩn, test suite 9 tín hiệu) | T703, T705 |
+| **FR-002** | Phát hiện có: mã, số đo, khoảng tg, `turn_id` bằng chứng, repo đích, fingerprint | `scripts/giam-sat/tinh-hieu.js:63-66` | **Đã xong** (T705: fingerprint ổn định, turnIds và turn_id bằng chứng) | T705 |
 | **FR-003** | Mở GitHub issue đúng repo bằng token issues, chống trùng theo fingerprint | `scripts/giam-sat/issue.js:69-77`, `scripts/giam-sat/issue.js:98-195` | **Đã sửa** (T707, chống trùng theo nhãn `fp:<hash>`, tiêm ghClient) | T707 |
 | **FR-004** | Ẩn danh bằng chứng trước khi xuất: tên → nhãn, SĐT/STK → che, token → `***` | `scripts/giam-sat.mjs:12`, `scripts/giam-sat/issue.js:111` | **Lệch** (chỉ gọi `redact` thô, chưa che SĐT qua `core/sdt.js`, chưa che STK và tên khách) | T706 |
 | **FR-005** | MUST NOT sửa code, mở PR, ghi vào db của bot, hay gửi tin cho khách | `scripts/giam-sat.mjs:30-49` (`DatabaseSync` readOnly) | **Đã sửa** (T701, mở DatabaseSync readOnly, không openStore) | T701 |
@@ -46,12 +46,12 @@ Bảng đối chiếu toàn bộ 11 Functional Requirements (FR-001..FR-011) và
 | **FR-008** | Issue đã đóng mà tín hiệu vẫn vượt ngưỡng 3 ngày liền phải mở lại kèm số đo mới | `scripts/giam-sat/issue.js:48-54`, `scripts/giam-sat/issue.js:154-173` | **Đã xong** (T707, reopen issue đã đóng khi vượt ngưỡng 3 ngày) | T707 |
 | **FR-009** | Nguồn máy chủ Fanpage đọc bản sao db chỉ-đọc; nguồn Cổng OZ đọc log chỉ-đọc | Chưa có code | **Chưa làm** | T709, T710 |
 | **FR-010** | Bản tin ngày (07:30) và tuần (thứ Hai 08:00) giờ VN vào nhóm nhân viên qua cửa gửi 001 `kind: 'digest'` | `scripts/giam-sat.mjs:84-86`, `scripts/giam-sat/telegram.js:10` | **Lệch** (hiện gửi Telegram cho CEO, chưa gửi vào nhóm nhân viên qua Zalo digest) | T704 |
-| **FR-011** | Ghi bản ghi thực thi: nguồn đã đọc, số tin, số phát hiện, issue mở/bình luận, lỗi | `scripts/giam-sat.mjs:78-82` (chỉ lưu file markdown thô) | **Chưa làm** (chưa có lưu trữ có cấu trúc) | T712 |
-| **SC-001** | Bắt đủ 9 lỗi trên db mẫu cài sẵn, 0 phát hiện thừa | `scripts/giam-sat/tinh-hieu.js:37` | **Chưa làm** (chưa có bộ test fixture 9 lỗi) | T705 |
+| **FR-011** | Ghi bản ghi thực thi: nguồn đã đọc, số tin, số phát hiện, issue mở/bình luận, lỗi | `scripts/giam-sat/so-nhat-ky.js:59`, `scripts/giam-sat.mjs:74,113` | **Đã xong** (T712: sổ nhật ký SQLite độc lập giam-sat.db) | T712 |
+| **SC-001** | Bắt đủ 9 lỗi trên db mẫu cài sẵn, 0 phát hiện thừa | `scripts/giam-sat/tinh-hieu.js:63`, `test/helpers/giam-sat-fixture.mjs:8` | **Đạt** (T705: test fixture bắt đủ 9/9 lỗi, 0 phát hiện thừa) | T705 |
 | **SC-002** | 0 issue chứa SĐT, STK, token hay tên khách thật (quét tự động) | `scripts/giam-sat/issue.js:111` | **Chưa làm** (chưa có test quét rò rỉ dữ liệu) | T706 |
 | **SC-003** | ≥ 80% issue giám sát được gắn nhãn "đúng vấn đề" trong 4 tuần đầu | Cần theo dõi vận hành | **Chưa làm** | T712 |
 | **SC-004** | Lỗi lặp lại không sinh issue trùng: số issue mở / số fingerprint = 1 | `scripts/giam-sat/issue.js:139-153` | **Đã xong** (T707, comment dồn vào issue cũ cùng fingerprint, khoá bằng test) | T707 |
-| **SC-005** | Mỗi issue đã đóng có số đo trước/sau trong bản tin tuần kế tiếp | Chưa có code | **Chưa làm** | T711 |
+| **SC-005** | Mỗi issue đã đóng có số đo trước/sau trong bản tin tuần kế tiếp | `scripts/giam-sat/vong-lap.js:101` | **Đạt** (T711: test tự động đối chiếu số đo trước/sau) | T711 |
 | **SC-006** | Chi phí AI = 0 đồng (Gemini miễn phí), tối đa 1 lần gọi Gemini / tuần cho US3 | `scripts/giam-sat/gemini-cluster.js:116` | **Xong** | T708 |
 
 ---
@@ -202,7 +202,7 @@ Chuẩn hóa output của `tinhHieu`: mỗi phát hiện phải có mã, số đ
 **Interfaces — Produces:**
 - `tinhHieu(duLieu) -> Array<{ ma: string, cheDo?: string, soDo: string, repo: string, turnIds: string[], bangChung: any[], moTa: string, fingerprint: string }>`
 
-- [ ] **Step 1: Test đỏ (SC-001)**
+- [x] **Step 1: Test đỏ (SC-001)**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -219,10 +219,10 @@ test('T705 (SC-001): Bắt đủ 9 loại lỗi trên db mẫu, 0 phát hiện t
   }
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/giam-sat/tinh-hieu.test.mjs` → FAIL.
-- [ ] **Step 3:** Tạo helper `test/helpers/giam-sat-fixture.mjs` sinh dữ liệu mẫu đủ 9 lỗi (`GATE-LEAK`, `GATE-MONEY`, `TOOL-ERR`, `TOOL-EMPTY`, `JOB-EXPIRED`, `HOI-LAI`, `NGUOI-THAY`, `KHACH-BUC`, `XIN-LOI-TAY`). Nâng cấp `scripts/giam-sat/tinh-hieu.js` sinh trường `fingerprint` và `turnIds`.
-- [ ] **Step 4:** Chạy lại `node --test test/giam-sat/tinh-hieu.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(giam-sat): add fingerprints, turn_id tracking and 9-signal test suite (T705)"`
+- [x] **Step 2:** Chạy `node --test test/giam-sat/tinh-hieu.test.mjs` → FAIL.
+- [x] **Step 3:** Tạo helper `test/helpers/giam-sat-fixture.mjs` sinh dữ liệu mẫu đủ 9 lỗi (`GATE-LEAK`, `GATE-MONEY`, `TOOL-ERR`, `TOOL-EMPTY`, `JOB-EXPIRED`, `HOI-LAI`, `NGUOI-THAY`, `KHACH-BUC`, `XIN-LOI-TAY`). Nâng cấp `scripts/giam-sat/tinh-hieu.js` sinh trường `fingerprint` và `turnIds`.
+- [x] **Step 4:** Chạy lại `node --test test/giam-sat/tinh-hieu.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(giam-sat): add fingerprints, turn_id tracking and 9-signal test suite (T705)"`
 
 ---
 
@@ -336,7 +336,7 @@ Xây dựng module `scripts/giam-sat/vong-lap.js`: lấy danh sách các issue g
 **Interfaces — Produces:**
 - `doLuongTruocSau({ issueDaDong, db, ngayHienTai }) -> Array<{ issueNumber: number, ma: string, repo: string, soDoTruoc: string, soDoSau: string, giamThanhCong: boolean }>`
 
-- [ ] **Step 1: Test đỏ (SC-005)**
+- [x] **Step 1: Test đỏ (SC-005)**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -354,10 +354,10 @@ test('T711 (SC-005): So sánh chính xác số đo trước và sau khi đóng i
   assert.equal(ketQua[0].soDoSau, '2');
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/giam-sat/vong-lap.test.mjs` → FAIL.
-- [ ] **Step 3:** Tạo `scripts/giam-sat/vong-lap.js` hiện thực hóa logic truy vấn số đo đối chiếu trước/sau ngày đóng issue.
-- [ ] **Step 4:** Chạy lại `node --test test/giam-sat/vong-lap.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(giam-sat): closed-loop measurement for resolved issues (T711)"`
+- [x] **Step 2:** Chạy `node --test test/giam-sat/vong-lap.test.mjs` → FAIL.
+- [x] **Step 3:** Tạo `scripts/giam-sat/vong-lap.js` hiện thực hóa logic truy vấn số đo đối chiếu trước/sau ngày đóng issue.
+- [x] **Step 4:** Chạy lại `node --test test/giam-sat/vong-lap.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(giam-sat): closed-loop measurement for resolved issues (T711)"`
 
 ---
 
@@ -431,7 +431,7 @@ Xây dựng module ghi nhận lịch sử thực thi của Agent giám sát vào
 **Interfaces — Produces:**
 - `ghiNhatKy({ ngay, nguon, soTin, phatHien, ketQuaIssue, loi }) -> void`
 
-- [ ] **Step 1: Test đỏ (FR-011)**
+- [x] **Step 1: Test đỏ (FR-011)**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -443,7 +443,7 @@ test('T712 (FR-011): Ghi và đọc lại đầy đủ thông tin thực thi m�
   assert.ok(true);
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/giam-sat/so-nhat-ky.test.mjs` → FAIL.
-- [ ] **Step 3:** Tạo `scripts/giam-sat/so-nhat-ky.js` và cắm vào luồng kết thúc của `scripts/giam-sat.mjs`.
-- [ ] **Step 4:** Chạy lại `node --test test/giam-sat/so-nhat-ky.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(giam-sat): execution audit logging and resilience handling (T712)"`
+- [x] **Step 2:** Chạy `node --test test/giam-sat/so-nhat-ky.test.mjs` → FAIL.
+- [x] **Step 3:** Tạo `scripts/giam-sat/so-nhat-ky.js` và cắm vào luồng kết thúc của `scripts/giam-sat.mjs`.
+- [x] **Step 4:** Chạy lại `node --test test/giam-sat/so-nhat-ky.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(giam-sat): execution audit logging and resilience handling (T712)"`

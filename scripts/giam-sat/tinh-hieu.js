@@ -62,18 +62,22 @@ export function tinhHieu({ messages = [], outbox = [], jobs = [], audit = [], ng
   const ketQua = [];
   const push = (ma, cheDo, soDo, bangChung, moTa) => {
     const n = NGUONG[ma];
-    ketQua.push({ ma, cheDo, soDo, repo: n.repo, bangChung, moTa });
+    const fingerprint = `${ma}${cheDo ? `:${cheDo}` : ''}`;
+    const turnIds = Array.from(new Set(
+      bangChung.map(bc => bc.turn_id).filter(Boolean)
+    ));
+    ketQua.push({ ma, cheDo, soDo, repo: n.repo, bangChung, moTa, fingerprint, turnIds });
   };
 
   // ── GATE-LEAK + GATE-MONEY: từ outbox decision=block ──
   const leak = outbox.filter(o => o.decision === 'block' && String(o.reason || '').startsWith('leak:'));
   if (leak.length >= NGUONG['GATE-LEAK'].min)
-    push('GATE-LEAK', null, `${leak.length} lần`, leak.slice(0, 5).map(o => ({ chat_id: o.chat_id, reason: o.reason })),
+    push('GATE-LEAK', null, `${leak.length} lần`, leak.slice(0, 5).map(o => ({ turn_id: o.turn_id, chat_id: o.chat_id, reason: o.reason })),
       `Cửa gửi chặn ${leak.length} tin vì lộ thông tin nội bộ`);
 
   const money = outbox.filter(o => o.decision === 'block' && String(o.reason || '').startsWith('money'));
   if (money.length >= NGUONG['GATE-MONEY'].min)
-    push('GATE-MONEY', null, `${money.length} lần`, money.slice(0, 5).map(o => ({ chat_id: o.chat_id, reason: o.reason })),
+    push('GATE-MONEY', null, `${money.length} lần`, money.slice(0, 5).map(o => ({ turn_id: o.turn_id, chat_id: o.chat_id, reason: o.reason })),
       `Cửa gửi chặn ${money.length} tin vì số tiền không có căn cứ`);
 
   // ── TOOL-ERR + TOOL-EMPTY: từ audit type=tool_error / tool_empty ──
@@ -87,7 +91,7 @@ export function tinhHieu({ messages = [], outbox = [], jobs = [], audit = [], ng
   }
   for (const [tool, list] of Object.entries(toolErr)) {
     if (list.length >= NGUONG['TOOL-ERR'].min)
-      push('TOOL-ERR', tool, `${list.length} lần`, list.slice(0, 5).map(a => ({ at: a.at, chat_id: a.chat_id, error: 'đã che' })),
+      push('TOOL-ERR', tool, `${list.length} lần`, list.slice(0, 5).map(a => ({ turn_id: a.turn_id, at: a.at, chat_id: a.chat_id, error: 'đã che' })),
         `Công cụ ${tool} lỗi ${list.length} lần trong ngày`);
   }
 
@@ -101,14 +105,14 @@ export function tinhHieu({ messages = [], outbox = [], jobs = [], audit = [], ng
   }
   for (const [tool, list] of Object.entries(toolEmpty)) {
     if (list.length >= NGUONG['TOOL-EMPTY'].min)
-      push('TOOL-EMPTY', tool, `${list.length} lần`, list.slice(0, 5).map(a => ({ at: a.at })),
+      push('TOOL-EMPTY', tool, `${list.length} lần`, list.slice(0, 5).map(a => ({ turn_id: a.turn_id, at: a.at, chat_id: a.chat_id })),
         `Công cụ ${tool} trả rỗng ${list.length} lần cho đầu vào hợp lệ`);
   }
 
   // ── JOB-EXPIRED: job quá expires_at vẫn pending ──
   const expired = jobs.filter(j => j.status === 'pending' && j.expires_at < now);
   if (expired.length >= NGUONG['JOB-EXPIRED'].min)
-    push('JOB-EXPIRED', null, `${expired.length} việc`, expired.slice(0, 5).map(j => ({ pack: j.pack, ma_luot: j.ma_luot, expires_at: j.expires_at })),
+    push('JOB-EXPIRED', null, `${expired.length} việc`, expired.slice(0, 5).map(j => ({ turn_id: j.ma_luot, pack: j.pack, ma_luot: j.ma_luot, expires_at: j.expires_at })),
       `${expired.length} việc nền quá hạn không có kết quả`);
 
   // ── HOI-LAI: khách hỏi lại gần giống trong 30 phút sau bot trả lời ──
@@ -137,7 +141,7 @@ export function tinhHieu({ messages = [], outbox = [], jobs = [], audit = [], ng
         if (dt > 30 * 60_000) break;
         if (jaccard(m.text, m2.text) >= 0.8) {
           hoiLaiPhong.add(chat);
-          hoiLaiBangChung.push({ chat_id: chat, turn_1: m.text?.slice(0, 80), turn_2: m2.text?.slice(0, 80) });
+          hoiLaiBangChung.push({ turn_id: m2.turn_id || m.turn_id, chat_id: chat, turn_1: m.text?.slice(0, 80), turn_2: m2.text?.slice(0, 80) });
           break;
         }
       }
@@ -160,7 +164,7 @@ export function tinhHieu({ messages = [], outbox = [], jobs = [], audit = [], ng
           const dt = new Date(m.at) - new Date(msgs[i].at);
           if (dt >= 0 && dt <= 15 * 60_000) {
             nguoiThayPhong.add(chat);
-            nguoiThayBangChung.push({ chat_id: chat, bot_at: msgs[i].at, staff_at: m.at });
+            nguoiThayBangChung.push({ turn_id: msgs[i].turn_id || m.turn_id, chat_id: chat, bot_at: msgs[i].at, staff_at: m.at });
           }
           break;
         }
@@ -178,12 +182,12 @@ export function tinhHieu({ messages = [], outbox = [], jobs = [], audit = [], ng
   for (const m of messages) {
     if (laKhach(m) && m.text && BUC_PATTERN.test(m.text)) {
       bucPhong.add(m.chat_id);
-      bucBangChung.push({ chat_id: m.chat_id, text: m.text.slice(0, 80) });
+      bucBangChung.push({ turn_id: m.turn_id, chat_id: m.chat_id, text: m.text.slice(0, 80) });
     }
   }
   if (bucPhong.size >= NGUONG['KHACH-BUC'].min)
     push('KHACH-BUC', null, `${bucPhong.size} phòng`, bucBangChung.slice(0, 5),
-      `Kh khách bực / khó hiểu ở ${bucPhong.size} phòng`);
+      `Khách bực / khó hiểu ở ${bucPhong.size} phòng`);
 
   // ── XIN-LOI-TAY: staff gõ xin lỗi / gửi nhầm ngay sau tin bot ──
   const xinLoi = [];
@@ -192,7 +196,7 @@ export function tinhHieu({ messages = [], outbox = [], jobs = [], audit = [], ng
     for (let i = 1; i < msgs.length; i++) {
       if (laNhanVien(msgs[i]) && /xin lỗi|gửi nhầm|sorry/i.test(msgs[i].text || '')
           && msgs[i - 1].speaker === 'bot') {
-        xinLoi.push({ chat_id: chat, staff_text: msgs[i].text?.slice(0, 80) });
+        xinLoi.push({ turn_id: msgs[i].turn_id || msgs[i - 1]?.turn_id, chat_id: chat, staff_text: msgs[i].text?.slice(0, 80) });
       }
     }
   }

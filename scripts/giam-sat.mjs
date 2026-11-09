@@ -9,6 +9,7 @@ import { tinhHieu } from './giam-sat/tinh-hieu.js';
 import { guiTelegram, dungBanTin } from './giam-sat/telegram.js';
 import { layKhoangNgayVnUtc } from './giam-sat/time-util.js';
 import { xuLyIssue } from './giam-sat/issue.js';
+import { ghiNhatKy } from './giam-sat/so-nhat-ky.js';
 import { redact } from '../core/redact.js';
 
 const args = process.argv.slice(2);
@@ -71,6 +72,13 @@ console.log(`[giám sát] Phát hiện: ${phatHien.length}`);
 
 if (phatHien.length === 0) {
   console.log(`[giám sát] ✓ Ngày ${ngay} sạch — 0 phát hiện`);
+  ghiNhatKy({
+    ngay,
+    nguon: 'bot.db',
+    soTin: messages.length,
+    phatHien: 0,
+    ketQuaIssue: { moi: [], comment: [], boViGioiHan: [] },
+  }, { dbPath: join(DATA_DIR, 'giam-sat.db') });
   process.exit(0);
 }
 
@@ -100,3 +108,14 @@ if (!dryRun) {
 // Gửi Telegram cho CEO (im lặng nếu chưa cấu hình)
 const sent = await guiTelegram(banTin, { dryRun });
 console.log(`[giám sát] Telegram: ${sent ? '✓ đã gửi' : '(chưa cấu hình TELEGRAM_BOT_TOKEN/CHAT_ID)'}`);
+
+// ═══ 6. Ghi sổ nhật ký thực thi (FR-011) ═══
+ghiNhatKy({
+  ngay,
+  nguon: 'bot.db',
+  soTin: messages.length,
+  phatHien,
+  ketQuaIssue: ketQua,
+  loi: ketQua.loi,
+}, { dbPath: join(DATA_DIR, 'giam-sat.db') });
+console.log(`[giám sát] Sổ nhật ký: ${join(DATA_DIR, 'giam-sat.db')}`);
