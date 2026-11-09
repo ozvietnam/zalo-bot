@@ -79,7 +79,7 @@ export function createChannel({ pageToken, appSecret, verifyToken, baseUrl, fetc
 }
 ```
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -106,10 +106,10 @@ test('T501: Messenger verifyChallenge trả challenge khi verify_token khớp', 
   assert.deepEqual(channel.verifyChallenge(req), { ok: true, challenge: '11582012' });
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/channels/messenger.test.mjs` → FAIL (chưa có `channels/messenger.js`).
-- [ ] **Step 3:** Tạo `channels/messenger.js` (< 280 dòng), hiện thực `createChannel`, `verifyWebhook`, `verifyChallenge`, `parse`, `sendText`, `typing`.
-- [ ] **Step 4:** Chạy lại `node --test test/channels/messenger.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(channel): add Meta Messenger adapter (T501)"`
+- [x] **Step 2:** Chạy `node --test test/channels/messenger.test.mjs` → FAIL (chưa có `channels/messenger.js`).
+- [x] **Step 3:** Tạo `channels/messenger.js` (< 280 dòng), hiện thực `createChannel`, `verifyWebhook`, `verifyChallenge`, `parse`, `sendText`, `typing`.
+- [x] **Step 4:** Chạy lại `node --test test/channels/messenger.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(channel): add Meta Messenger adapter (T501)"`
 
 ---
 
