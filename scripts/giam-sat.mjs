@@ -154,7 +154,7 @@ export async function chayGiamSat(opts = {}) {
   if (phatHien.length === 0) {
     console.log(`[giám sát] ✓ Ngày ${ngay} sạch — 0 phát hiện`);
     const ketQuaRong = { moi: [], comment: [], reopen: [], boViGioiHan: [] };
-    const banTin0 = soanBanTin({ ngay, phatHien: [], ketQua: ketQuaRong, loai: loaiBanTin });
+    const banTin0 = soanBanTin({ ngay, phatHien: [], ketQua: ketQuaRong, loai: loaiBanTin, vongLap: ketQuaVongLap });
 
     let loiDigest0 = null;
     if (!dryRun) {
@@ -200,7 +200,7 @@ export async function chayGiamSat(opts = {}) {
   }
 
   // ═══ 5. Bản tin & Ghi sổ nhật ký thực thi (FR-010, FR-011) ═══
-  const banTin = soanBanTin({ ngay, phatHien, ketQua, loai: loaiBanTin });
+  const banTin = soanBanTin({ ngay, phatHien, ketQua, loai: loaiBanTin, vongLap: ketQuaVongLap });
   let loiDigest = null;
   if (!dryRun) {
     const hopThu = ghiHopThuDigest({ banTin, ngay, loai: loaiBanTin, dataDir });
