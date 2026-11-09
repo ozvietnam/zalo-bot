@@ -251,6 +251,20 @@ test('messages', () => {
   assert.equal(s.messages.recent('d', 5).length, 1);
 });
 
+test('messages.deleteConv: xoá theo conv_id (NGƯỜI), không xoá tin người khác trong cùng nhóm (T036)', () => {
+  const s = openStore();
+  // Nhóm g1 có hai người A và B; `deleteChat('g1')` sẽ xoá cả hai, `deleteConv` chỉ xoá một người.
+  s.messages.add({ conv_id: 'g1:A', chat_id: 'g1', speaker: 'khach', text: 'A hỏi', at: at(0) });
+  s.messages.add({ conv_id: 'g1:A', chat_id: 'g1', speaker: 'bot', text: 'bot trả lời A', at: at(1) });
+  s.messages.add({ conv_id: 'g1:B', chat_id: 'g1', speaker: 'khach', text: 'B hỏi', at: at(2) });
+
+  assert.equal(s.messages.deleteConv('g1:A'), 2);
+  assert.equal(s.messages.recent('g1:A', 5).length, 0);
+  assert.deepEqual(s.messages.recent('g1:B', 5).map((r) => r.text), ['B hỏi']);
+  // Người chưa có tin nào thì xoá 0 dòng, không ném lỗi.
+  assert.equal(s.messages.deleteConv('g1:C'), 0);
+});
+
 test('messages.lastPersonAt: mốc tin cuối của người, bỏ tin bot (T022)', () => {
   const s = openStore();
   assert.equal(s.messages.lastPersonAt('c'), null);

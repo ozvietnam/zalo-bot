@@ -45,6 +45,8 @@ export function messagesTable(db) {
   // trước đã nằm trong phiếu, lấy lại là chuyển trùng.
   const khachSince = db.prepare("SELECT * FROM messages WHERE conv_id = ? AND speaker = 'khach' AND at > ? ORDER BY at, id LIMIT ?");
   const del = db.prepare('DELETE FROM messages WHERE chat_id = ?');
+  // Xoá theo NGƯỜI (T036): trong nhóm, `/xoa-du-lieu` của một người không được xoá tin của người khác.
+  const delConv = db.prepare('DELETE FROM messages WHERE conv_id = ?');
   return {
     add: (m) => Number(ins.run(m.conv_id ?? m.chat_id, m.chat_id, m.turn_id ?? null, m.speaker, m.speaker_id ?? null, m.text ?? null, m.outbox_id ?? null, m.at).lastInsertRowid),
     recent: (convId, n) => recent.all(convId, n),
@@ -52,7 +54,15 @@ export function messagesTable(db) {
     khachSince: (convId, sinceIso, limit = 50) => khachSince.all(convId, sinceIso, limit),
     /** ISO của tin cuối do người nói trong cuộc trò chuyện, hoặc null nếu chưa có. */
     lastPersonAt: (convId) => lastPerson.get(convId)?.at ?? null,
+    /** Xoá tin theo PHÒNG (`chat_id`) — trong nhóm là tin của MỌI người, dùng khi dọn cả phòng. */
     deleteChat: (chatId) => Number(del.run(chatId).changes),
+    /**
+     * Xoá tin theo NGƯỜI (`conv_id`, FR-030) — đường của `/xoa-du-lieu` (T036). Trong nhóm `conv_id`
+     * là `chat_id:user_id`, nên `deleteChat` ở trên sẽ xoá cả tin của người khác trong cùng nhóm:
+     * một người xin xoá dữ liệu không được làm mất lịch sử của người ngồi cạnh.
+     * @returns {number} số dòng đã xoá
+     */
+    deleteConv: (convId) => Number(delConv.run(convId).changes),
   };
 }
 
