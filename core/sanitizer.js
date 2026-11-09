@@ -1,10 +1,15 @@
 // core/sanitizer.js — Mô-đun thuần che thông tin nhạy cảm & kiểm số theo giá trị.
 // Tuân thủ Điều VI Hiến pháp: hàm thuần túy, không I/O, không thư viện ngoài, < 300 dòng.
-// Chỉ export, chưa nối vào đường chạy hiện tại (dùng cho hợp đồng dùng chung và PR sau).
+// Đã nối vào đường chạy chính (packs/hs/editor.js, scripts/giam-sat/an-danh.js, eval/chung).
 
 const LOP_DAU = '.\\-\\s()';
 const CHAY_SO = new RegExp(`\\d+(?:[${LOP_DAU}]*\\d+)*`, 'g');
-const TU_KHOA_TK = /(?:stk|số\s+tài\s+khoản|so\s+tai\s+khoan|tài\s+khoản|tai\s+khoan|tk|ngân\s+hàng|bank)(?:\s+[A-Za-zÀ-ỹ]+){0,3}\s*[:#-]?\s*(\d[\d\s.\-]{5,20}\d|\d{6,19})/gi;
+const TU_KHOA_TK = '(?:stk|số\\s+tài\\s+khoản|so\\s+tai\\s+khoan|tài\\s+khoản|tai\\s+khoan|tk)';
+const NGAN_HANG = '(?:vietcombank|vcb|techcombank|tcb|mbbank|mb\\s+bank|mb|acb|bidv|agribank|tpbank|vpbank|sacombank|vietinbank|vib|ocb|shb|msb|hdbank|eximbank|scb|lienvietpostbank|lpbank|bac\\s*a\\s*bank|baoviet\\s*bank|pvcombank|kienlongbank|nam\\s*a\\s*bank|seabank|pg\\s*bank|saigonbank|shinhan(?:\\s*bank)?|woori(?:\\s*bank)?|ngân\\s+hàng|bank)';
+const TU_KHOA_NGAN_HANG = `(?:${TU_KHOA_TK}|${NGAN_HANG})`;
+
+const RE_STK_SAU = new RegExp(`(?:${TU_KHOA_NGAN_HANG})(?:\\s+[A-Za-zÀ-ỹ]+){0,3}\\s*[:#-]?\\s*(\\d[\\d\\s.-]{5,20}\\d|\\d{6,19})`, 'gi');
+const RE_STK_TRUOC = new RegExp(`(\\d[\\d\\s.-]{5,20}\\d|\\d{6,19})\\s*[:#-]?\\s*(?:${TU_KHOA_NGAN_HANG})`, 'gi');
 
 /** Mã HS có phải không? Dài 8 hoặc 10 số, không bắt đầu bằng `0`. */
 export function looksLikeHs(raw) {
@@ -91,9 +96,10 @@ export function cheSdt(text, mask = '***') {
 export function timKhoangStk(text) {
   const src = String(text ?? '');
   const spans = [];
-  TU_KHOA_TK.lastIndex = 0;
+
+  RE_STK_SAU.lastIndex = 0;
   let m;
-  while ((m = TU_KHOA_TK.exec(src)) !== null) {
+  while ((m = RE_STK_SAU.exec(src)) !== null) {
     const soRaw = m[1];
     const soChuan = soRaw.replace(/\D/g, '');
     if (soChuan.length >= 6 && soChuan.length <= 19) {
@@ -101,7 +107,27 @@ export function timKhoangStk(text) {
       spans.push([idx, idx + soRaw.length]);
     }
   }
-  return spans;
+
+  RE_STK_TRUOC.lastIndex = 0;
+  while ((m = RE_STK_TRUOC.exec(src)) !== null) {
+    const soRaw = m[1];
+    const soChuan = soRaw.replace(/\D/g, '');
+    if (soChuan.length >= 6 && soChuan.length <= 19) {
+      const idx = m.index + m[0].indexOf(soRaw);
+      spans.push([idx, idx + soRaw.length]);
+    }
+  }
+
+  if (spans.length <= 1) return spans;
+
+  const xep = spans.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const gop = [];
+  for (const [s, e] of xep) {
+    const cuoi = gop[gop.length - 1];
+    if (cuoi && s <= cuoi[1]) cuoi[1] = Math.max(cuoi[1], e);
+    else gop.push([s, e]);
+  }
+  return gop;
 }
 
 /** Che số tài khoản ngân hàng trong văn bản khi có ngữ cảnh từ khóa. */
