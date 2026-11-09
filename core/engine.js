@@ -97,7 +97,7 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
   const hsFooter = (ctx) => registry.available(null, { isStaff: true }).find((p) => p.id === 'hs')?.footer?.(ctx) || '';
 
   // `ganNhan`: đường "khách xin gặp người" nằm ở `engine-handoff.js` và gắn nhãn TRƯỚC khi mở phiếu.
-  const human = createHumanRoute({ store, handoff: ho, staffChatId: config.staffChatId, audit, reply,
+  const human = createHumanRoute({ store, handoff: ho, config, now, staffChatId: config.staffChatId, audit, reply,
     ganNhan: (convId, labels) => hoSo('gắn nhãn', () => customers.addLabels(convId, labels, 'auto')) });
 
   /**
@@ -122,7 +122,7 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
     const done = (r) => { store.inbox.markDone(key, now().toISOString()); return { ...r, turnId: key }; };
 
     const group = isGroup(u);
-    const convId = convIdOf({ chatId: u.chatId, userId: u.userId, isGroup: group });
+    const convId = convIdOf({ chatId: u.chatId, userId: u.userId, isGroup: group, channel: u.channel });
     // Trạng thái phòng đọc TRƯỚC khi ghi mốc tin mới (lý do ở `core/engine-handoff.js`, hàm `phong`).
     const state = human.phong(u.chatId, convId);
     store.chats.upsertSeen(u.chatId, group ? 'group' : 'user', group ? null : u.userName ?? null, atIso);
@@ -132,8 +132,8 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
     const namePrefix = group ? groupNameTag({ isGroup: true, userName: u.userName, userId: u.userId, members: store.convs.listByChat(u.chatId) }) : '';
     const isPhoto = /image|photo/i.test(u.event || '') && Boolean(u.photoUrl);
     const isVoice = /voice/i.test(u.event || '') || Boolean(u.voiceUrl);
-    const isText = !isPhoto && !isVoice && u.event === 'message.text.received' && Boolean(u.text);
-    const text = (isText || (isVoice && u.text)) ? stripMention(u.text, names) : null;
+    const isText = !isPhoto && !isVoice && (u.event === 'message.text.received' || u.isEcho) && Boolean(u.text);
+    const text = (isText || (isVoice && u.text) || (u.isEcho && u.text)) ? stripMention(u.text, names) : null;
     const caption = u.caption == null ? null : stripMention(u.caption, names);
     const turn = { turnId: key, chatId: u.chatId, convId, userId: u.userId ?? null, userName: u.userName ?? null, isGroup: group, receivedAt: atIso, namePrefix, replayed: replayedAt != null,
       text, caption, photoUrl: isPhoto ? u.photoUrl : null, voiceUrl: isVoice ? u.voiceUrl : null, isVoice, isStaff: staff.has(u.userId) };
@@ -141,6 +141,7 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
     // `at` của dòng audit là lúc GHI SỔ (giữ nguyên, đúng sự thật); `receivedAt` là lúc KHÁCH NHẮN.
     // Lượt phát lại hai mốc này lệch nhau, nên ghi cả hai mới tra lại được (Điều IV).
     const ghiVao = (s, extra = {}) => audit('inbound', turn.chatId, turn.convId, key, { event: u.event, isGroup: group, userId: turn.userId, receivedAt: turn.receivedAt, replayed: turn.replayed === true, sha1: sha1(s), head: redact(s ?? '').slice(0, 500), ...extra });
+    if (u.isEcho === true) return done(await human.echo(u, turn, ghiVao));
     let pack = null;
     let ctx = null;
     try {

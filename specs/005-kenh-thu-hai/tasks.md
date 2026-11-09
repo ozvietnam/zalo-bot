@@ -262,7 +262,7 @@ Tích hợp `human-detector` vào luồng `engine.process`:
 
 **Files:** Modify `core/engine.js` · Modify `core/engine-handoff.js` · Create `test/core/engine-human-echo.test.mjs`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -276,10 +276,10 @@ test('T505: Tin nhân viên gõ tay trên trang làm chuyển phòng sang human 
   // - tin nhắn được ghi vào messages với speaker = 'nhan-vien'
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/core/engine-human-echo.test.mjs` → FAIL.
-- [ ] **Step 3:** Cập nhật `core/engine.js` và `core/engine-handoff.js` xử lý luồng `update.isEcho`.
-- [ ] **Step 4:** Chạy lại `node --test test/core/engine-human-echo.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(core): auto-handoff to human when staff replies directly on page (T505)"`
+- [x] **Step 2:** Chạy `node --test test/core/engine-human-echo.test.mjs` → FAIL.
+- [x] **Step 3:** Cập nhật `core/engine.js` và `core/engine-handoff.js` xử lý luồng `update.isEcho`.
+- [x] **Step 4:** Chạy lại `node --test test/core/engine-human-echo.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(core): auto-handoff to human when staff replies directly on page (T505)"`
 
 ---
 
@@ -294,7 +294,7 @@ Mở rộng `core/webhook.js` và `server.js` để hỗ trợ đa kênh linh ho
 
 **Files:** Modify `core/webhook.js` · Modify `server.js` · Create `test/core/webhook-multi-channel.test.mjs`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -310,10 +310,10 @@ test('T506: Handler phân luồng đúng adapter cho từng endpoint webhook', a
   // Kỳ vọng: Mỗi kênh parse đúng, ghi inbox và trả 200
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/core/webhook-multi-channel.test.mjs` → FAIL.
-- [ ] **Step 3:** Cập nhật `core/webhook.js` và `server.js` hỗ trợ map đa kênh.
-- [ ] **Step 4:** Chạy lại `node --test test/core/webhook-multi-channel.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(webhook): multi-channel routing and challenge verification (T506)"`
+- [x] **Step 2:** Chạy `node --test test/core/webhook-multi-channel.test.mjs` → FAIL.
+- [x] **Step 3:** Cập nhật `core/webhook.js` và `server.js` hỗ trợ map đa kênh.
+- [x] **Step 4:** Chạy lại `node --test test/core/webhook-multi-channel.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(webhook): multi-channel routing and challenge verification (T506)"`
 
 ---
 
@@ -329,7 +329,7 @@ Bổ sung kịch bản kiểm thử hành vi end-to-end `eval/fixtures/messenger
 
 **Files:** Create `eval/fixtures/messenger-human-echo.jsonl` · Modify `eval/run.mjs` · Create `test/core/eval-messenger-echo.test.mjs`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -341,10 +341,10 @@ test('T507: Kịch bản eval messenger-human-echo đạt 100% (bot im khi ngư�
   assert.equal(result.botInterferenceCount, 0);
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/core/eval-messenger-echo.test.mjs` → FAIL.
-- [ ] **Step 3:** Tạo fixture JSONL và cập nhật runner hỗ trợ bước echo.
-- [ ] **Step 4:** Chạy lại `node --test test/core/eval-messenger-echo.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "test(eval): add messenger human echo evaluation scenario (T507)"`
+- [x] **Step 2:** Chạy `node --test test/core/eval-messenger-echo.test.mjs` → FAIL.
+- [x] **Step 3:** Tạo fixture JSONL và cập nhật runner hỗ trợ bước echo.
+- [x] **Step 4:** Chạy lại `node --test test/core/eval-messenger-echo.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "test(eval): add messenger human echo evaluation scenario (T507)"`
 
 ---
 
@@ -354,7 +354,7 @@ Lập tài liệu hướng dẫn cấu hình biến môi trường kết nối F
 
 **Files:** Create `specs/005-kenh-thu-hai/quickstart.md` · Create `test/core/sc-005.test.mjs`
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -367,7 +367,7 @@ test('T508: Đo lường SC-001 đến SC-006 đạt yêu cầu', async () => {
   // SC-006: 17/17 eval hiện tại tiếp tục xanh
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/core/sc-005.test.mjs` → FAIL.
-- [ ] **Step 3:** Soạn `specs/005-kenh-thu-hai/quickstart.md` và hiện thực bài đo kiểm `sc-005.test.mjs`.
-- [ ] **Step 4:** Chạy lại `node --test test/core/sc-005.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "docs(spec-005): add quickstart and success criteria measurement (T508)"`
+- [x] **Step 2:** Chạy `node --test test/core/sc-005.test.mjs` → FAIL.
+- [x] **Step 3:** Soạn `specs/005-kenh-thu-hai/quickstart.md` và hiện thực bài đo kiểm `sc-005.test.mjs`.
+- [x] **Step 4:** Chạy lại `node --test test/core/sc-005.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "docs(spec-005): add quickstart and success criteria measurement (T508)"`
