@@ -79,6 +79,19 @@ test('runSingleScenario: G4 1-1 tra cứu mã HS và ngữ cảnh nối tiếp �
   assert.equal(res.stepResults.length, 2);
   assert.equal(res.stepResults[0].ok, true);
   assert.equal(res.stepResults[1].ok, true);
+
+  // Khẳng định chi tiết GQ-03:
+  // Bước 1: Giọng Quyên (<= 7 dòng, mở đầu bằng "Dạ ", không bịa "công bố hợp quy" khi chính sách rỗng)
+  const step1Text = res.stepResults[0].sent.join('\n');
+  const step1Lines = step1Text.split('\n').filter((l) => l.trim().length > 0);
+  assert.ok(step1Lines.length <= 7, `Bước 1 phản hồi giọng Quyên phải <= 7 dòng, thực tế có ${step1Lines.length} dòng`);
+  assert.match(step1Text, /^Dạ\s/, 'Bước 1 phải mở đầu bằng "Dạ " theo giọng Quyên');
+  assert.doesNotMatch(step1Text, /công bố hợp quy/i, 'Bước 1 không được tự bịa lưu ý hợp quy khi chính sách rỗng');
+
+  // Bước 2: Kế thừa đúng mã 8537.10.99, không rơi vào "Các mã phù hợp"
+  const step2Text = res.stepResults[1].sent.join('\n');
+  assert.match(step2Text, /💰 Thuế — 8537\.10\.99/, 'Bước 2 phải kế thừa đúng mã 8537.10.99');
+  assert.doesNotMatch(step2Text, /Các mã phù hợp/i, 'Bước 2 không được rơi vào danh sách "Các mã phù hợp"');
 });
 
 test('runSingleScenario: G3 Ảnh đọc thông số tem nhãn đạt, không lộ tiếng Anh thô', async () => {

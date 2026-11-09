@@ -102,3 +102,57 @@ test('renderPhanLoaiGiongQuyen: khi có giả định thì nêu rõ giả địn
   assert.match(text, /theo giả định.*máy xay sinh tố/i);
   assert.match(text, /8509\.40\.00/);
 });
+
+test('renderPhanLoaiGiongQuyen: khi thuTuc rỗng hoặc policyLines rỗng, KHÔNG tự bịa dòng công bố hợp quy (Điều V & VIII)', () => {
+  const maList = ['84137090', '85044090', '85094000', '85167990', '84145999'];
+
+  for (const maHs of maList) {
+    const phanLoai = {
+      data: {
+        maHs,
+        ketQua: {
+          results: [{ hsCode: maHs, nameVi: `Hàng mẫu ${maHs}`, confidence: 0.9 }],
+        },
+      },
+    };
+
+    const thue = {
+      data: {
+        hsCode: maHs,
+        taxNkPreferential: 0,
+        taxVat: 10,
+      },
+    };
+
+    // Ca 1: thuTuc có chinhSach nhưng policyLines rỗng
+    const out1 = renderPhanLoaiGiongQuyen({
+      tenHang: `Hàng test ${maHs}`,
+      maHs,
+      phanLoai,
+      thue,
+      thuTuc: { data: { chinhSach: { policyLines: [] } } },
+    });
+    const text1 = plain(out1);
+    assert.doesNotMatch(
+      text1,
+      /công bố hợp quy/i,
+      `Mã ${maHs} khi policyLines rỗng không được tự bịa lưu ý công bố hợp quy (Điều V & VIII)`
+    );
+
+    // Ca 2: thuTuc rỗng / null
+    const out2 = renderPhanLoaiGiongQuyen({
+      tenHang: `Hàng test ${maHs}`,
+      maHs,
+      phanLoai,
+      thue,
+      thuTuc: null,
+    });
+    const text2 = plain(out2);
+    assert.doesNotMatch(
+      text2,
+      /công bố hợp quy/i,
+      `Mã ${maHs} khi thuTuc null không được tự bịa lưu ý công bố hợp quy (Điều V & VIII)`
+    );
+  }
+});
+

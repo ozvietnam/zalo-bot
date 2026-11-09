@@ -78,11 +78,6 @@ export function renderPhanLoaiGiongQuyen({
     let cb = cs.muc[0];
     if (cb.length > 70) cb = `${cb.slice(0, 68)}…`;
     lines.push(`• Lưu ý: ${cb}`);
-  } else {
-    // Nếu là đồ điện tử / gia dụng
-    if (/8509|8516|8413|8414|8504/i.test(maHs)) {
-      lines.push(`• Lưu ý: đồ điện gia dụng phải công bố hợp quy trước khi bán`);
-    }
   }
 
   // Dòng 5: Câu hỏi mở bước tiếp theo
