@@ -247,10 +247,10 @@ Trạng thái thật:
   (`packs/hs/miss-log.js:29`), không lưu mã chat hay người dùng (`packs/hs/miss-log.js:4`).
 - Bản tin giám sát hằng ngày: tệp Markdown trong `DATA_DIR` (`scripts/giam-sat.mjs:78`).
 
-Việc sao lưu có bản dựng riêng trong đặc tả (T036) **chưa làm**; chưa có tệp nào
-trong repo lo việc này. Vì vậy hiện chưa có lệnh sao lưu nào để chạy, và việc dữ liệu
-nằm trên volume có bị mất khi deploy lại hay không thì **chưa xác minh** — cần kiểm
-cấu hình volume thật ở Coolify.
+Việc sao lưu tự động (T036, PR #77 commit `da8ffbe`) **đã xong**: `core/backup.js:63`
+chạy khi 03:00 giờ VN qua bộ quét nền 5 giây (`server.js:102`), dùng
+`store.vacuumInto` (`core/store.js:58`) sao lưu db sang thư mục `DATA_DIR/backup/bot-<ngày VN>.db`
+và tự động giữ đúng 7 bản mới nhất (`core/backup.js:48`).
 
 ## 8. CI và quy trình mở PR
 
