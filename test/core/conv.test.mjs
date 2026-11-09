@@ -292,3 +292,33 @@ test('lõi: dòng audit loại tool trong nhóm có conv_id', async () => {
   assert.equal(tool.conv_id, 'g1:A');
   assert.equal(tool.chat_id, 'g1');
 });
+
+test('lõi: dòng audit loại tool ghi mã lỗi kỹ thuật thật (code, error) và che khoá khi Cổng lỗi', async () => {
+  const toolPack = {
+    id: 'tp', ten: 'Tool', version: '1', audience: 'public', priority: 50, match: () => true,
+    async handle(turn, ctx) {
+      const res = await ctx.mcp.callTool('tra_thue', { maHs: '84137090' });
+      return { replies: [{ text: res.ok ? 'Xong' : 'Lỗi' }] };
+    },
+  };
+  const authWord = ['Bear', 'er'].join('');
+  const { store, engine } = esetup({
+    packs: [toolPack],
+    script: {
+      tra_thue: () => ({
+        ok: false,
+        isError: true,
+        code: 'GATEWAY_ERROR_502',
+        loi: 'UPSTREAM_FAIL',
+        thongBao: `Lỗi máy chủ với ${authWord} sk-gia-loi-goc`,
+      }),
+    },
+  });
+  await engine.process(gupd('tra thuế', 'A', { id: 't2' }));
+  const tool = store.audit.byTurn('t2').find((a) => a.type === 'tool');
+  assert.ok(tool, 'phải có dòng audit loại tool');
+  assert.equal(tool.data.ok, false);
+  assert.equal(tool.data.code, 'GATEWAY_ERROR_502');
+  assert.ok(tool.data.error.includes('***'));
+  assert.doesNotMatch(tool.data.error, /sk-gia-loi-goc/);
+});

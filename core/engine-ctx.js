@@ -25,7 +25,7 @@ export function createToolCache({ mcp, now, log }) {
 const hashOf = (s) => createHash('sha1').update(s).digest('hex');
 const json = (v) => { try { return JSON.stringify(v) ?? 'null'; } catch { return String(v); } };
 
-/** MCP bọc: mỗi callTool ghi một dòng audit `tool` { name, args (đã che), ok, sha1, head (500 ký tự đầu, đã che) }. */
+/** MCP bọc: mỗi callTool ghi một dòng audit `tool` { name, args (đã che), ok, code (nếu lỗi), error (nếu lỗi), sha1, head (500 ký tự đầu, đã che) }. */
 export function auditedMcp({ mcp, store, now, chatId, convId, turnId }) {
   const add = (data) => store.audit.add({ at: now().toISOString(), turn_id: turnId, conv_id: convId ?? null, chat_id: chatId, type: 'tool', data });
   return {
@@ -35,11 +35,21 @@ export function auditedMcp({ mcp, store, now, chatId, convId, turnId }) {
       try {
         r = await mcp.callTool(name, args);
       } catch (e) {
-        add({ name, args: a, ok: false, error: redact(e?.message).slice(0, 500) });
+        const errMsg = redact(e?.message || String(e)).slice(0, 500);
+        const errCode = e?.code || e?.status ? String(e?.code || e?.status) : undefined;
+        add({ name, args: a, ok: false, error: errMsg, ...(errCode ? { code: redact(errCode).slice(0, 100) } : {}) });
         throw e;
       }
       const s = json(r);
-      add({ name, args: a, ok: r?.ok !== false, sha1: hashOf(s), head: redact(s).slice(0, 500) });
+      const isOk = r?.ok !== false && !r?.isError;
+      const data = { name, args: a, ok: isOk, sha1: hashOf(s), head: redact(s).slice(0, 500) };
+      if (!isOk) {
+        const maLoi = r?.code ?? r?.loi ?? r?.status ?? r?.errorCode ?? r?.error?.code ?? (r?.isError ? 'TOOL_ERROR' : null);
+        const loiMsg = r?.thongBao ?? r?.error?.message ?? r?.error ?? r?.message ?? r?.loi ?? r?.text ?? 'ok:false';
+        if (maLoi != null) data.code = redact(String(maLoi)).slice(0, 100);
+        if (loiMsg != null) data.error = redact(String(loiMsg)).slice(0, 500);
+      }
+      add(data);
       return r;
     },
     listTools: () => mcp.listTools(),

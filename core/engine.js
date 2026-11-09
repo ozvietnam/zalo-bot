@@ -46,6 +46,9 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
   const tools = createToolCache({ mcp, now, log });
   const hits = new Map();
   const ho = handoff ?? createHandoff({ store, gate, config, now, log: (...a) => log.error?.('[handoff]', ...a) });
+  // Hồ sơ khách (T035). `createCustomers` không giữ trạng thái trong bộ nhớ (mọi thứ ở `store.customers`),
+  // nên `core/handoff.js` dựng bản riêng cho phiếu mà hai bản vẫn đọc/ghi cùng một chỗ. Ngày nào
+  // `core/customers.js` có bộ nhớ đệm thì hai bản sẽ lệch nhau — lúc đó phải truyền một bản dùng chung.
   const customers = createCustomers({ store, config, now });
   const gn = giongNoi ?? createGiongNoi({ apiKey: config.geminiKey, model: config.geminiTtsModel, voice: config.geminiTtsVoice, prompt: config.geminiTtsPrompt, dataDir: config.dataDir, publicBaseUrl: config.publicBaseUrl, log });
   const voiceRoute = createVoiceRoute({ store, gate, giongNoi: gn, config, log, audit: (t, c, co, tu, d) => store.audit.add({ at: now().toISOString(), turn_id: tu, chat_id: c, conv_id: co ?? null, type: t, data: d }) });
@@ -85,7 +88,8 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
       idemKey: `r:${turn.convId}:${turn.turnId}:${i}`, chatId: turn.chatId, convId: turn.convId, isGroup: turn.isGroup,
       turnId: turn.turnId, kind,
       text: addressOf(turn, text), inReplyToAt: turn.receivedAt, pack: pack ? { id: pack.id, moneyCheck: pack.moneyCheck === true } : null, evidence,
-      // Lượt phát lại (T020): tin khách chưa ai trả lời → phòng đang nợ một câu (FR-005).
+      // Lượt phát lại (T020): tin khách chưa ai trả lời → phòng đang nợ một câu, nên cửa không được
+      // coi là "máy tự nhắn" (proactive-no-debt). Giờ yên vẫn hoãn tới 07:00, đúng FR-005.
       debt: turn.replayed === true,
     });
   }
@@ -96,14 +100,20 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
   const human = createHumanRoute({ store, handoff: ho, staffChatId: config.staffChatId, audit, reply,
     ganNhan: (convId, labels) => hoSo('gắn nhãn', () => customers.addLabels(convId, labels, 'auto')) });
 
-  /** Một lượt. `replayedAt` chỉ do recover() truyền (T020): mốc khách nhắn THẬT lấy từ `inbox.received_at`. */
+  /**
+   * Một lượt. `replayedAt` chỉ do recover() truyền (T020): mốc khách nhắn THẬT lấy từ `inbox.received_at`.
+   * Không được đóng dấu now() cho lượt phát lại — cửa sẽ coi tin cũ là "trả lời trực tiếp" và bỏ qua giờ yên
+   * (`core/gate-decide.js:27-31`), và bản ghi hội thoại sẽ ghi sai lúc khách nhắn (Điều IV).
+   */
   async function process(update, { replayedAt = null } = {}) {
     const nowIso = now().toISOString();
     const atIso = replayedAt ?? nowIso;
     const u = update && typeof update === 'object' && 'updateKey' in update ? update : channel.parse(update);
     if (!u || !u.chatId) return { skipped: 'no-chat', turnId: null };
     const key = u.updateKey;
-    // Chống trùng: server ghi inbox (pending) trước; claim pending → processing mới chạy gói.
+    // Mốc "khách nhắn lúc nào": lượt thường là bây giờ, lượt phát lại là lúc webhook đã ghi inbox.
+    // Chống trùng: server ghi inbox (pending) trước; gọi thẳng (test) thì lõi tự ghi. Chỉ ai claim được pending → processing
+    // mới chạy gói (cùng khoá đang chạy, done hay failed đều là trùng). Ghi + claim trong một giao dịch.
     const mine = store.tx(() => {
       if (!store.inbox.get(key)) store.inbox.insertIgnore({ update_key: key, chat_id: u.chatId, user_id: u.userId ?? null, raw: json(u.raw ?? u), received_at: atIso });
       return store.inbox.claim(key, nowIso);
@@ -128,11 +138,14 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
     const turn = { turnId: key, chatId: u.chatId, convId, userId: u.userId ?? null, userName: u.userName ?? null, isGroup: group, receivedAt: atIso, namePrefix, replayed: replayedAt != null,
       text, caption, photoUrl: isPhoto ? u.photoUrl : null, voiceUrl: isVoice ? u.voiceUrl : null, isVoice, isStaff: staff.has(u.userId) };
     const said = isPhoto ? `[ảnh] ${turn.photoUrl}${caption ? ` ${caption}` : ''}` : (isVoice ? `[thoại] ${turn.voiceUrl || ''}${caption ? ` ${caption}` : ''}` : text);
-    // `at` là lúc GHI SỔ, `receivedAt` là lúc KHÁCH NHẮN (Điều IV).
+    // `at` của dòng audit là lúc GHI SỔ (giữ nguyên, đúng sự thật); `receivedAt` là lúc KHÁCH NHẮN.
+    // Lượt phát lại hai mốc này lệch nhau, nên ghi cả hai mới tra lại được (Điều IV).
     const ghiVao = (s, extra = {}) => audit('inbound', turn.chatId, turn.convId, key, { event: u.event, isGroup: group, userId: turn.userId, receivedAt: turn.receivedAt, replayed: turn.replayed === true, sha1: sha1(s), head: redact(s ?? '').slice(0, 500), ...extra });
     let pack = null;
     let ctx = null;
     try {
+      // Lệnh nhân viên TRƯỚC danh sách ALLOW và bộ chặn tốc độ: `handoff.command` tự kiểm quyền, còn `/tl`
+      // bị chặn tốc độ thì lời nhân viên mất im lặng (trong nhóm không có câu "gửi hơi nhanh").
       const cmd = text ? await human.lenh(turn, ghiVao) : null;
       if (cmd) return done(cmd);
       if (allow.size && !allow.has(u.userId) && !allow.has(u.chatId)) return done({ skipped: 'not-allowed' });
@@ -147,6 +160,7 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
       // SĐT khách gõ — đó đúng lúc nhân viên cần hồ sơ nhất, và `human.im` mở phiếu in `summary()`.
       // Đứng SAU lệnh nhân viên (nhóm STAFF không phải khách) và SAU ALLOW (lõi không nhận lượt đó).
       hoSo('touch', () => customers.touch(turn));
+      // Người trước máy (Điều II, FR-011): phòng không phải 'bot' thì chỉ ghi tin + chuyển phiếu rồi im.
       if (state !== 'bot') return done(await human.im(turn, said || (isText ? null : `[${u.event || 'tin không phải chữ'}]`), state, ghiVao));
       if (!isPhoto && !isText && !isVoice) {
         if (group) return done({ skipped: 'group-non-text' });
@@ -158,7 +172,12 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
         await reply(turn, 'Dạ em đã nhận được tin nhắn thoại của bạn. Bạn vui lòng nhắn tin chữ để em hỗ trợ tra cứu nhanh nhất nhé.', 0, { kind: 'notice' });
         return done({ handled: 'voice-received' });
       }
-      // Bộ chặn tốc độ chỉ áp dụng cho lượt thường (cửa sổ 60s theo now), không áp cho recover (FR-016).
+      // Bộ chặn tốc độ chỉ hợp lý trên đường thường: nó là cửa sổ 60 giây theo now(). Lượt phát lại (T020)
+      // là tồn đọng rải ra HÀNG GIỜ nhưng chạy hết ở cùng một mốc now(), nên nếu đo thì từ tin thứ
+      // `rateLimitPerMin`+1 của cùng một người trở đi mọi lượt bị coi là "gửi quá nhanh": khách nhận câu
+      // "gửi hơi nhanh" thay cho câu trả lời, các lượt sau bị cửa drop vì trùng nội dung, mà dòng inbox vẫn
+      // markDone → tin khách MẤT VĨNH VIỄN (phá SC-001 và FR-016). Không đo, cũng không ghi vào cửa sổ:
+      // ghi thì lượt phát lại sẽ làm tin MỚI ngay sau đó bị chặn oan.
       if (!turn.replayed && limited(u.userId || u.chatId)) {
         if (!group) await reply(turn, RATE_LIMIT_TEXT, 0, { kind: 'notice' });
         return done({ handled: 'rate-limited' });
@@ -171,10 +190,12 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
       session.touch();
       const last = store.messages.recent(turn.convId, 1)[0];
       store.messages.add({ conv_id: turn.convId, chat_id: turn.chatId, turn_id: key, speaker: 'khach', speaker_id: turn.userId, text: said, at: turn.receivedAt });
+      // Chào kết ("cảm ơn ạ") ngay sau câu bot: im. Đang chờ xác nhận ảnh thì "ok" là câu trả lời, phải tới gói.
       if (!isPhoto && isCloser(text) && last?.speaker === 'bot' && !session.get().choXacNhanAnh) {
         audit('outbound', turn.chatId, turn.convId, key, { skipped: 'closer', results: [] });
         return done({ skipped: 'closer' });
       }
+      // "gặp nhân viên" / "người hay máy": câu cố định của lõi, TRƯỚC khi chọn gói (T026).
       const yKhach = await human.y(turn);
       if (yKhach) return done(yKhach);
 
@@ -185,7 +206,9 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
       Promise.resolve().then(() => channel.typing?.(turn.chatId)).catch(() => {});
       const res = (await pack.handle(turn, ctx)) ?? {};
       const evidence = [...(res.evidence ?? []), turn.text, turn.caption].filter((v) => v != null);
-      // Nhãn và món quan tâm ghi vào hồ sơ ngay trước khi gửi câu trả lời và trước goiChuyen.
+      // Nhãn và món quan tâm gói trả về (`contracts/pack.md`) ghi vào hồ sơ NGAY, trước khi gửi câu
+      // trả lời và trước `human.goiChuyen`: gói xin chuyển người thì phiếu mở ra phải thấy hồ sơ của
+      // chính lượt này (phiếu in `summary()`), không phải hồ sơ của lượt trước.
       ganKetQua(turn.convId, res);
       const results = [];
       for (const [i, r] of (res.replies ?? []).entries()) {

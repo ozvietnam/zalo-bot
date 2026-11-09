@@ -256,14 +256,27 @@ export function evaluateStep(stepDef, newMessages, scenario) {
   return { ok: true, sent: sentTexts };
 }
 
+/** Nhận diện bước có phân loại HS để áp dụng thời gian chờ lâu hơn (mặc định >= 120s) */
+export function laBuocPhanLoai(step, scenario = {}) {
+  if (typeof step.isClassify === 'boolean') return step.isClassify;
+  if (typeof step.phanLoai === 'boolean') return step.phanLoai;
+  if (step.kyVong?.coMaHsHoacHuongTra) return true;
+  const mieuTa = (step.mieuTa || '').toLowerCase();
+  const text = (step.text || '').toLowerCase();
+  if (mieuTa.includes('phân loại') || mieuTa.includes('mã hs')) return true;
+  if (text.includes('teaching box') || text.includes('phân loại') || text.includes('mã hs')) return true;
+  if (text.length > 50 && !/^\s*\d{4,8}\s*$/.test(text)) return true;
+  return false;
+}
+
 /** Chạy một kịch bản QA đơn lẻ. */
 export async function runSingleScenario(scenario, {
   env = {},
   isMock = false,
   now = () => new Date(),
   customMcp = null,
-  maxJobWaitMs = 90_000,
-  pollIntervalMs = 1_000,
+  maxJobWaitMs = 120_000,
+  pollIntervalMs = isMock ? 100 : 1_000,
 } = {}) {
   const tmpDir = mkdtempSync(join(tmpdir(), 'oz-qa-scenario-'));
   const dbPath = join(tmpDir, 'qa.db');
@@ -381,6 +394,9 @@ export async function runSingleScenario(scenario, {
 
   try {
     for (const [idx, step] of scenario.steps.entries()) {
+      const stepStart = Date.now();
+      const isPhanLoai = laBuocPhanLoai(step, scenario);
+      const stepTimeoutMs = step.timeoutMs || (isPhanLoai ? 120_000 : 30_000);
       const sentBefore = channel.sent.length;
       const isPhoto = Boolean(step.photoUrl);
       const isText = !isPhoto && Boolean(step.text);
@@ -401,16 +417,27 @@ export async function runSingleScenario(scenario, {
       const procRes = await engine.process(update);
       await engine.drain();
 
-      // Chờ việc nền (jobs) hoàn tất nếu có việc đang mở (waiting hoặc polling)
+      // Chờ tới khi có tin trả lời (hoặc xong việc nền) hoặc hết timeoutMs (mặc định >= 120s cho bước có phân loại)
       const hasOpenJobs = () => store.jobs.countWaiting() > 0 || store.jobs.polling().length > 0;
-      if (hasOpenJobs()) {
-        const waitStart = Date.now();
-        while (hasOpenJobs() && Date.now() - waitStart < maxJobWaitMs) {
+      const hasReplied = () => channel.sent.length > sentBefore;
+
+      if (step.kyVong?.botIm) {
+        while (hasOpenJobs() && Date.now() - stepStart < stepTimeoutMs) {
+          await new Promise((r) => setTimeout(r, pollIntervalMs));
+          await engine.drain();
+        }
+      } else {
+        while (Date.now() - stepStart < stepTimeoutMs) {
+          if (hasReplied() && !hasOpenJobs()) {
+            break;
+          }
           await new Promise((r) => setTimeout(r, pollIntervalMs));
           await engine.drain();
         }
       }
 
+      const durationMs = Date.now() - stepStart;
+      const durationSec = (durationMs / 1000).toFixed(1);
       const sentNow = channel.sent.slice(sentBefore);
       const evalRes = evaluateStep(step, sentNow, scenario);
 
@@ -421,6 +448,9 @@ export async function runSingleScenario(scenario, {
         sent: sentNow.map((m) => m.text),
         ok: evalRes.ok,
         lyDo: evalRes.lyDo || '',
+        durationMs,
+        durationText: `${durationSec}s`,
+        isPhanLoai,
       });
 
       if (!evalRes.ok) {
@@ -449,6 +479,7 @@ export async function runSingleScenario(scenario, {
     toolCalls,
     zaloApiCalls: channel.zaloApiCallCount,
     stepResults,
+    durationMs: stepResults.reduce((s, x) => s + (x.durationMs || 0), 0),
   };
 }
 
@@ -469,14 +500,15 @@ export function generateReportMarkdown({ results, startedAt, envMeta = {}, isMoc
     ``,
     `## 1. Bảng tổng hợp trạng thái`,
     ``,
-    `| Kịch bản | Đích | Trạng thái | Số lượt gọi công cụ | Kết quả chi tiết |`,
-    `|---|---|---|---|---|`,
+    `| Kịch bản | Đích | Trạng thái | Thời gian | Số lượt gọi công cụ | Kết quả chi tiết |`,
+    `|---|---|---|---|---|---|`,
   ];
 
   for (const r of results) {
     const statusIcon = r.ok ? '✅ **ĐẠT**' : '❌ **TRƯỢT**';
     const note = r.ok ? 'Đáp ứng toàn bộ tiêu chí' : r.lyDo.replace(/\|/g, '\\|');
-    lines.push(`| ${r.ten} | \`${r.dich}\` | ${statusIcon} | ${r.toolCallsCount} | ${note} |`);
+    const dur = `${(((r.durationMs || 0)) / 1000).toFixed(1)}s`;
+    lines.push(`| ${r.ten} | \`${r.dich}\` | ${statusIcon} | ${dur} | ${r.toolCallsCount} | ${note} |`);
   }
 
   lines.push(
@@ -502,6 +534,7 @@ export function generateReportMarkdown({ results, startedAt, envMeta = {}, isMoc
       lines.push(
         `#### Bước ${step.stepIndex}: ${step.mieuTa}`,
         `- **Khách gửi:** \`${step.input}\``,
+        `- **Thời gian phản hồi:** \`${step.durationText || `${(((step.durationMs || 0)) / 1000).toFixed(1)}s`}\``,
         `- **Trạng thái bước:** ${step.ok ? '✓ Đạt' : `✗ Trượt (${step.lyDo})`}`,
         `- **Nguyên văn bot gửi (${step.sent.length} tin):**`,
         step.sent.length

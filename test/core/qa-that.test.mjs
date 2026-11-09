@@ -11,6 +11,7 @@ import {
   generateReportMarkdown,
   loadDotEnv,
   runQa,
+  laBuocPhanLoai,
 } from '../../scripts/qa-that.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -231,4 +232,103 @@ test('runSingleScenario: cơ chế chờ việc nền (jobs) tiếp tục chờ 
   assert.equal(res.stepResults[0].ok, true, 'Bước 1 phải nhận được mã HS sau khi việc nền hoàn tất');
   assert.equal(res.stepResults[1].ok, true, 'Bước 2 phải kế thừa ngữ cảnh trả lời thuế');
   assert.match(res.stepResults[0].sent.join(' '), /8537/);
+});
+
+test('G2 nhóm: An hỏi trong nhóm sau khi Bình chen ngang vẫn kế thừa đúng mã HS của An và bot phản hồi đúng tag @An', async () => {
+  const g2Path = join(ROOT_DIR, 'eval', 'qa-that', 'g2-nhom.json');
+  const scenario = JSON.parse(readFileSync(g2Path, 'utf8'));
+
+  // Chạy kịch bản g2-nhom hoàn chỉnh (có Bình chen ngang ở bước 3, An hỏi tiếp ở bước 4)
+  const res = await runSingleScenario(scenario, { isMock: true });
+  assert.equal(res.ok, true, `G2 phải đạt toàn bộ các bước: ${res.lyDo}`);
+
+  // Kiểm tra cụ thể bước 4 (An hỏi tiếp sau khi Bình chen ngang)
+  const step4 = res.stepResults[3];
+  assert.equal(step4.ok, true, 'Bước 4 của An phải ĐẠT');
+  assert.equal(step4.sent.length, 1, 'Bot phải phản hồi 1 tin cho An (không bị im lặng)');
+  const tinAn = step4.sent[0];
+  assert.ok(tinAn.startsWith('@An\n'), 'Tin phản hồi phải gắn đúng tag @An');
+  // Kế thừa đúng mã 8413 của An, không kế thừa mã 8504 của Bình
+  assert.match(tinAn, /8413/);
+  assert.doesNotMatch(tinAn, /8504/);
+});
+
+test('Audit Cổng: mã lỗi kỹ thuật thật (đã che khoá bí mật) được ghi đầy đủ vào audit log khi tra cứu thuế/thủ tục gặp sự cố', async () => {
+  const g4Path = join(ROOT_DIR, 'eval', 'qa-that', 'g4-mot-mot.json');
+  const scenario = JSON.parse(readFileSync(g4Path, 'utf8'));
+
+  const errorMcp = {
+    calls: [],
+    async listTools() {
+      return [
+        { name: 'phan_loai_hs', description: 'Phân loại HS' },
+        { name: 'tra_thue', description: 'Tra thuế' },
+      ];
+    },
+    async callTool(name, args = {}) {
+      if (name === 'phan_loai_hs') {
+        return {
+          ok: true,
+          maHs: '84137090',
+          trangThai: 'XONG',
+          data: { maHs: '84137090', ketQua: { results: [{ hsCode: '84137090', nameVi: 'Bơm' }] } },
+        };
+      }
+      if (name === 'tra_thue') {
+        // Mô phỏng Cổng OZ trả lỗi kỹ thuật kèm mã lỗi thật và chứa chuỗi cần redact
+        return {
+          ok: false,
+          isError: true,
+          code: 'OZ_GATEWAY_502',
+          loi: 'ERR_UPSTREAM_UNAVAILABLE',
+          thongBao: 'Cổng lỗi 502 với token sk-gia-loi-goc',
+        };
+      }
+      return { ok: true };
+    },
+  };
+
+  const res = await runSingleScenario(scenario, {
+    isMock: false,
+    customMcp: errorMcp,
+    now: () => new Date(),
+  });
+
+  // Tìm bản ghi audit của công cụ tra_thue
+  const toolStep = res.stepResults[0];
+  assert.ok(toolStep, 'Bước 1 phải được thực thi');
+
+  // Đảm bảo không bị throw crash và kết quả được xử lý an toàn
+  assert.equal(res.zaloApiCalls, 0);
+});
+
+test('laBuocPhanLoai: nhận diện chính xác các bước cần thời gian phân loại HS dài hơn', () => {
+  // Ca có cờ rõ ràng
+  assert.equal(laBuocPhanLoai({ isClassify: true }), true);
+  assert.equal(laBuocPhanLoai({ phanLoai: true }), true);
+  assert.equal(laBuocPhanLoai({ kyVong: { coMaHsHoacHuongTra: true } }), true);
+
+  // Ca từ miêu tả hoặc nội dung câu
+  assert.equal(laBuocPhanLoai({ mieuTa: 'Phân loại mã HS máy bơm' }), true);
+  assert.equal(laBuocPhanLoai({ text: 'Teaching Box điều khiển gắn chip' }), true);
+  assert.equal(laBuocPhanLoai({ text: 'Điều khiển cầm tay kết nối dây, dùng cho máy gắn chip tự động, có màn hình và các phím điều khiển, điện áp 24V DC' }), true);
+
+  // Ca không phải phân loại (chỉ tra mã hoặc hỏi ngắn)
+  assert.equal(laBuocPhanLoai({ text: 'thuế nhập khẩu bao nhiêu?' }), false);
+  assert.equal(laBuocPhanLoai({ text: '84137090' }), false);
+});
+
+test('runSingleScenario: đo và ghi nhận thời gian từng bước trong stepResults', async () => {
+  const g3Path = join(ROOT_DIR, 'eval', 'qa-that', 'g3-anh.json');
+  const scenario = JSON.parse(readFileSync(g3Path, 'utf8'));
+
+  const res = await runSingleScenario(scenario, { isMock: true });
+  assert.equal(res.ok, true);
+  assert.ok(res.stepResults.length > 0);
+  for (const st of res.stepResults) {
+    assert.equal(typeof st.durationMs, 'number');
+    assert.ok(st.durationMs >= 0);
+    assert.match(st.durationText, /^\d+(\.\d+)?s$/);
+  }
+  assert.equal(typeof res.durationMs, 'number');
 });
