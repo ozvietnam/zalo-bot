@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Agent giám sát — chạy hằng ngày 07:30 (cron / Coolify scheduled task)
 // Đọc SQLite bot → tính 9 tín hiệu → mở/append GitHub issue đúng repo, không trùng, ẩn danh.
+// Ghi bản tin vào hộp thư riêng hop-thu-digest/ cho bot gửi kind: 'digest' (T704, FR-010, B2b).
 // Usage: node scripts/giam-sat.mjs [--dry-run] [--ngay=2026-11-06]
 import { existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
@@ -10,6 +11,7 @@ import { guiTelegram, dungBanTin } from './giam-sat/telegram.js';
 import { layKhoangNgayVnUtc } from './giam-sat/time-util.js';
 import { xuLyIssue } from './giam-sat/issue.js';
 import { ghiNhatKy } from './giam-sat/so-nhat-ky.js';
+import { soanBanTin, ghiHopThuDigest } from './giam-sat/digest.js';
 import { redact } from '../core/redact.js';
 
 const args = process.argv.slice(2);
@@ -19,6 +21,7 @@ const ngayYmd = ngayArg ? ngayArg.split('=')[1] : undefined;
 const { ngayVn: ngay, dauNgayUtc, cuoiNgayUtc } = layKhoangNgayVnUtc(ngayYmd);
 const DATA_DIR = process.env.DATA_DIR || './data';
 const DB_PATH = join(DATA_DIR, 'bot.db');
+const telegramEnabled = !/^(0|false|off|no)$/i.test(process.env.TELEGRAM_DIGEST_ENABLED || process.env.TELEGRAM_ENABLED || '1');
 
 if (!existsSync(DB_PATH)) {
   console.error(`[giám sát] Không tìm thấy ${DB_PATH} — chạy trên máy có bot.db`);
@@ -70,15 +73,39 @@ console.log(`[giám sát] Dữ liệu: ${messages.length} tin · ${outbox.length
 const phatHien = tinhHieu({ messages, outbox, jobs, audit, ngay });
 console.log(`[giám sát] Phát hiện: ${phatHien.length}`);
 
+// ═══ Lời gọi ghi sổ 1: Ngày 0 phát hiện (FR-011, GD) ═══
 if (phatHien.length === 0) {
   console.log(`[giám sát] ✓ Ngày ${ngay} sạch — 0 phát hiện`);
+  const ketQuaRong = { moi: [], comment: [], boViGioiHan: [] };
+  const banTin0 = soanBanTin({ ngay, phatHien: [], ketQua: ketQuaRong });
+
+  // Ghi vào hộp thư riêng TRƯỚC ghi sổ (T704, FR-010, GD)
+  let loiDigest0 = null;
+  if (!dryRun) {
+    const hopThu = ghiHopThuDigest({ banTin: banTin0, ngay, loai: 'ngay', dataDir: DATA_DIR });
+    if (!hopThu.ok) loiDigest0 = hopThu.error || 'digest-failed';
+    console.log(`[giám sát] Hộp thư digest: ${hopThu.inserted ? 'đã ghi' : 'đã có trước'}`);
+    const banTinPath = join(DATA_DIR, `giam-sat-${ngay}.md`);
+    writeFileSync(banTinPath, banTin0);
+  }
+
+  // Gửi Telegram dự phòng (nếu bật)
+  if (telegramEnabled) {
+    const banTinHtml0 = dungBanTin({ ngay, phatHien: [], ketQua: ketQuaRong });
+    const sent = await guiTelegram(banTinHtml0, { dryRun });
+    console.log(`[giám sát] Telegram: ${sent ? '✓ đã gửi' : '(chưa cấu hình hoặc gửi lỗi)'}`);
+  }
+
+  // Lời ghi sổ nhật ký 1 (FR-011)
   ghiNhatKy({
     ngay,
     nguon: 'bot.db',
     soTin: messages.length,
     phatHien: 0,
-    ketQuaIssue: { moi: [], comment: [], boViGioiHan: [] },
+    ketQuaIssue: ketQuaRong,
+    loi: loiDigest0,
   }, { dbPath: join(DATA_DIR, 'giam-sat.db') });
+
   process.exit(0);
 }
 
@@ -95,27 +122,45 @@ for (const m of ketQua.moi) console.log(`  ↗ MỚI: ${m.repo} — ${m.tieuDe}`
 for (const c of ketQua.comment) console.log(`  ↗ CŨ: ${c.repo}#${c.issue} — ${c.ma}`);
 for (const b of ketQua.boViGioiHan) console.log(`  ⊘ BỎ: ${b.repo} — ${b.ma} (${b.lyDo})`);
 
-// ═══ 5. Bản tin ngày (cho Telegram / lưu file) ═══
-const banTin = dungBanTin({ ngay, phatHien, ketQua });
+// ═══ 5. Bản tin ngày (Hộp thư Zalo digest / lưu file / Telegram) — Gửi TRƯỚC ghi sổ cuối (GD) ═══
+const banTin = soanBanTin({ ngay, phatHien, ketQua });
+
+// Ghi hộp thư riêng cho bot Zalo TRƯỚC ghi sổ cuối (T704, FR-010, GD)
+let loiDigest = null;
+if (!dryRun) {
+  const hopThu = ghiHopThuDigest({ banTin, ngay, loai: 'ngay', dataDir: DATA_DIR });
+  if (!hopThu.ok) loiDigest = hopThu.error || 'digest-failed';
+  console.log(`[giám sát] Hộp thư digest: ${hopThu.inserted ? 'đã ghi' : 'đã có trước'}`);
+}
 
 // Lưu file
 const banTinPath = join(DATA_DIR, `giam-sat-${ngay}.md`);
 if (!dryRun) {
-  writeFileSync(banTinPath, banTin.replace(/<[^>]+>/g, '')); // bỏ HTML tag cho file
+  writeFileSync(banTinPath, banTin);
   console.log(`[giám sát] Bản tin lưu: ${banTinPath}`);
 }
 
-// Gửi Telegram cho CEO (im lặng nếu chưa cấu hình)
-const sent = await guiTelegram(banTin, { dryRun });
-console.log(`[giám sát] Telegram: ${sent ? '✓ đã gửi' : '(chưa cấu hình TELEGRAM_BOT_TOKEN/CHAT_ID)'}`);
+// Gửi Telegram cho CEO nếu được bật (im lặng nếu chưa cấu hình)
+if (telegramEnabled) {
+  const banTinHtml = dungBanTin({ ngay, phatHien, ketQua });
+  const sent = await guiTelegram(banTinHtml, { dryRun });
+  console.log(`[giám sát] Telegram: ${sent ? '✓ đã gửi' : '(chưa cấu hình TELEGRAM_BOT_TOKEN/CHAT_ID)'}`);
+}
 
-// ═══ 6. Ghi sổ nhật ký thực thi (FR-011) ═══
+// ═══ Lời gọi ghi sổ 2: Ghi sổ nhật ký thực thi (FR-011, GD) ═══
+const danhSachLoi = [];
+if (ketQua.loi) {
+  const errText = typeof ketQua.loi === 'string' ? ketQua.loi : JSON.stringify(ketQua.loi);
+  danhSachLoi.push(errText);
+}
+if (loiDigest) danhSachLoi.push(`digest: ${loiDigest}`);
+
 ghiNhatKy({
   ngay,
   nguon: 'bot.db',
   soTin: messages.length,
   phatHien,
   ketQuaIssue: ketQua,
-  loi: ketQua.loi,
+  loi: danhSachLoi.length > 0 ? danhSachLoi.join('; ') : null,
 }, { dbPath: join(DATA_DIR, 'giam-sat.db') });
 console.log(`[giám sát] Sổ nhật ký: ${join(DATA_DIR, 'giam-sat.db')}`);

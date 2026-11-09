@@ -72,8 +72,15 @@ Hệ thống tuân thủ nghiêm ngặt nguyên tắc chỉ-đọc (FR-005), b�
   3. Khi ozplugin chưa có `/metrics`, tầng giám sát US1 (`TOOL-ERR`, `TOOL-EMPTY`) từ bảng `audit` của bot đã đáp ứng phần lớn nhu cầu đo lường từ phía client.
 
 ### 3. Xử lý 4 điểm lệch giữa code hiện tại và Spec
-1. **Gửi bản tin vào Telegram vs Cửa gửi 001 `kind: 'digest'` (Lệch `scripts/giam-sat.mjs:84-86` vs FR-010)**:
-   - *Giải pháp*: Tích hợp module gửi bản tin vào nhóm nhân viên Zalo qua cửa gửi lõi `core/gate.js` với `kind: 'digest'` và `chat_id: process.env.STAFF_CHAT_ID` (hoặc thông qua webhook nội bộ của bot). Kênh Telegram trong `scripts/giam-sat/telegram.js` được giữ lại làm kênh phụ tuỳ chọn (chỉ kích hoạt khi có đủ `TELEGRAM_BOT_TOKEN` và `TELEGRAM_CHAT_ID`).
+1. **Gửi bản tin vào Telegram vs Cửa gửi 001 `kind: 'digest'` (Lệch `scripts/giam-sat.mjs:84-86` vs FR-010) — Khảo sát và lựa chọn phương án (T704)**:
+   - **Phương án (a) — Hộp thư riêng (CHỌN)**:
+     - *Cơ chế*: CLI `giam-sat.mjs` ghi bản tin đã ẩn danh vào bảng `digest_outbox` trong cơ sở dữ liệu riêng `DATA_DIR/giam-sat.db` (tuyệt đối không ghi vào `bot.db`). Mỗi bản tin có khoá idempotent theo kỳ (`digest:ngay:YYYY-MM-DD` hoặc `digest:tuan:YYYY-Www`). Tiến trình bot quét định kỳ (trong vòng lặp 5 giây của `server.js`), gọi `gate.send({ kind: 'digest', chatId: STAFF_CHAT_ID, isGroup: true, idemKey, text })`, rồi cập nhật `status = 'sent'`.
+     - *Ưu điểm*: Tuân thủ trọn vẹn FR-005 (CLI chỉ đọc `bot.db`), tuân thủ Hiến pháp I (mọi tin nhắn đi qua cửa gửi duy nhất `gate.send`), không mở cổng mạng, an toàn khi hộp thư rỗng hoặc hỏng (bot không sập), tính năng tắt mặc định bằng biến môi trường `GIAM_SAT_DIGEST_ENABLED`. Kênh Telegram giữ vai trò dự phòng và có cờ bật/tắt `TELEGRAM_DIGEST_ENABLED`.
+   - **Phương án (b) — Mở endpoint HTTP mới trên bot (LOẠI BỎ)**:
+     - Mở endpoint nội bộ (vd `POST /internal/digest`). Bị loại bỏ vì mở rộng bề mặt tấn công (attack surface), đòi hỏi cấu hình xác thực/token nội bộ phức tạp, vi phạm nguyên tắc đơn giản không phụ thuộc.
+   - **Phương án (c) — Chạy toàn bộ giám sát trong tiến trình bot (LOẠI BỎ)**:
+     - Nhúng cron chạy giám sát trực tiếp trong `server.js`. Bị loại bỏ vì các tác vụ phân tích nặng (tính Jaccard, duyệt hội thoại, gọi Gemini) làm nghẽn event loop của bot, ảnh hưởng trực tiếp tới độ trễ trả lời khách; sự cố phân tích có thể kéo sập bot phục vụ khách.
+   - *Kết luận*: Thực thi theo phương án (a). Module `core/digest-scan.js` đảm nhiệm quét hộp thư, module `scripts/giam-sat/digest.js` đảm nhiệm soạn và ghi hộp thư.
 2. **Khởi tạo schema ghi db `openStore` vs Nguyên tắc chỉ-đọc (Lệch `scripts/giam-sat.mjs:30-31` vs FR-005)**:
    - *Giải pháp*: Loại bỏ hoàn toàn lệnh `openStore(DB_PATH)` trong script giám sát. Mở trực tiếp bằng `new DatabaseSync(DB_PATH, { readOnly: true })`. Nếu tệp `bot.db` chưa tồn tại hoặc thiếu bảng, script báo lỗi và thoát với mã 1 (tương tự pattern ở `scripts/audit.mjs:174`).
 3. **Ánh xạ người nói `speaker === 'bot_out'` vs Lõi bot (Lệch `scripts/giam-sat.mjs:38`)**:
