@@ -1,6 +1,6 @@
 # Nhật ký wiki
 
-> Cập nhật: 2026-11-09 · commit: c4d099d
+> Cập nhật: 2026-11-10 · commit: 14595d4
 
 Nhật ký thay đổi của bộ wiki trong docs/wiki. Mỗi dòng ghi: ngày, commit của mã nguồn
 đã đọc khi viết, và những trang bị thay đổi hoặc thêm mới.
@@ -11,6 +11,13 @@ Quy ước:
 - Ghi rõ **vì sao** đổi, không chỉ ghi "sửa lỗi".
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
+
+## 2026-11-10 — WIKI-02: Đồng bộ docs/wiki/an-toan.md và docs/wiki/kiem-thu.md theo code main (14595d4)
+
+- **Commit mã nguồn đã đọc:** `14595d4`.
+- **Trang wiki đã sửa:** `docs/wiki/an-toan.md`, `docs/wiki/kiem-thu.md`, `docs/wiki/log.md`.
+- **Vì sao:** đồng bộ toàn diện `docs/wiki/an-toan.md` và `docs/wiki/kiem-thu.md` (trước đó dậm chân ở commit `0842386` ngày 07/11/2026) theo đúng hiện trạng mã nguồn trên nhánh `main`; loại bỏ triệt để các nhận định cũ không còn đúng (nói chưa có `core/handoff.js`, `scripts/audit.mjs`, `/metrics`, `core/sdt.js`, `core/sanitizer.js` và bước `staff` trong `eval/run.mjs`); bổ sung bảng đối chiếu mục tiêu an toàn (`SC-001`, `SC-002`, `SC-007`), sơ đồ hệ thống lớp bảo vệ đa tầng; cập nhật đầy đủ cấu trúc 74 tệp test `node:test` (844 ca pass) + 34 test chuyển gói đạt 100%, cơ chế chạy eval 17/17 kịch bản (12 kịch bản fixtures và 5 ca kiểm trung lập), các công cụ CLI (`npm run audit`, `npm run do-sc`, `scripts/qa-that.mjs`); đồng bộ bảng đo lường 9 tiêu chí thành công theo `specs/001-nen-tang-chung/sc-do.md` (6/9 Đạt lab, 3/9 Đạt code chờ nghiệm thu chạy thật).
+- **Kiểm tra:** `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang), `npm test` 878 test xanh (844 test node:test + 34 test gói), `npm run eval` 17/17 kịch bản đạt.
 
 ## 2026-11-09 — WIKI-0911: Cập nhật docs/wiki/tien-do.md theo code main (lệch từ 07/11)
 
