@@ -257,7 +257,14 @@ export function evaluateStep(stepDef, newMessages, scenario) {
 }
 
 /** Chạy một kịch bản QA đơn lẻ. */
-export async function runSingleScenario(scenario, { env = {}, isMock = false, now = () => new Date() } = {}) {
+export async function runSingleScenario(scenario, {
+  env = {},
+  isMock = false,
+  now = () => new Date(),
+  customMcp = null,
+  maxJobWaitMs = 90_000,
+  pollIntervalMs = 1_000,
+} = {}) {
   const tmpDir = mkdtempSync(join(tmpdir(), 'oz-qa-scenario-'));
   const dbPath = join(tmpDir, 'qa.db');
   const store = openStore(dbPath);
@@ -266,7 +273,9 @@ export async function runSingleScenario(scenario, { env = {}, isMock = false, no
   // Đếm tool call
   const toolCalls = [];
   let mcp;
-  if (scenario.id === 'loi-cong-llm' || scenario.moPhongLoi === 'mcp-error') {
+  if (customMcp) {
+    mcp = customMcp;
+  } else if (scenario.id === 'loi-cong-llm' || scenario.moPhongLoi === 'mcp-error') {
     // Mô phỏng Cổng lỗi
     mcp = {
       calls: toolCalls,
@@ -392,12 +401,12 @@ export async function runSingleScenario(scenario, { env = {}, isMock = false, no
       const procRes = await engine.process(update);
       await engine.drain();
 
-      // Nếu có việc nền cần đợi kết quả từ Cổng thật
-      if (!isMock && procRes?.handled === 'hs') {
-        for (let poll = 0; poll < 10; poll++) {
-          const waitingJobs = store.jobs.due(now().toISOString());
-          if (!waitingJobs.length) break;
-          await new Promise((r) => setTimeout(r, 2000));
+      // Chờ việc nền (jobs) hoàn tất nếu có việc đang mở (waiting hoặc polling)
+      const hasOpenJobs = () => store.jobs.countWaiting() > 0 || store.jobs.polling().length > 0;
+      if (hasOpenJobs()) {
+        const waitStart = Date.now();
+        while (hasOpenJobs() && Date.now() - waitStart < maxJobWaitMs) {
+          await new Promise((r) => setTimeout(r, pollIntervalMs));
           await engine.drain();
         }
       }

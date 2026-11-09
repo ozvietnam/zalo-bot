@@ -200,10 +200,22 @@ export const PACKAGES = [
         const xx = findCountryInText(String(tenHang || '')) || 'CN';
         const ml = UUID.test(maLuot || '') ? maLuot : null;
         const [thue, thuTuc, moTa] = await Promise.all([
-          has(ctx, 'tra_thue') ? ctx.mcp.callTool('tra_thue', { maHs, xuatXu: xx }).catch(() => null) : null,
-          has(ctx, 'tra_thu_tuc_nhap_khau') ? ctx.mcp.callTool('tra_thu_tuc_nhap_khau', { maHs }).catch(() => null) : null,
+          has(ctx, 'tra_thue') ? ctx.mcp.callTool('tra_thue', { maHs, xuatXu: xx }).catch((err) => {
+            ctx.log?.error?.(`[hs] lỗi gọi tra_thue (${maHs}): ${err?.message || err}`);
+            return null;
+          }) : null,
+          has(ctx, 'tra_thu_tuc_nhap_khau') ? ctx.mcp.callTool('tra_thu_tuc_nhap_khau', { maHs }).catch((err) => {
+            ctx.log?.error?.(`[hs] lỗi gọi tra_thu_tuc_nhap_khau (${maHs}): ${err?.message || err}`);
+            return null;
+          }) : null,
           has(ctx, 'sinh_mo_ta_khai_bao') ? ctx.mcp.callTool('sinh_mo_ta_khai_bao', clean({ maHs, tenHang, maLuotPhanLoai: ml, thuongHieu, xuatXu: xx })).catch(() => null) : null,
         ]);
+        if (thue && (thue.ok === false || thue.isError)) {
+          ctx.log?.error?.(`[hs] Cổng trả lỗi tra_thue (${maHs}): ${thue.thongBao || thue.loi || thue.text || 'ok:false'}`);
+        }
+        if (thuTuc && (thuTuc.ok === false || thuTuc.isError)) {
+          ctx.log?.error?.(`[hs] Cổng trả lỗi tra_thu_tuc_nhap_khau (${maHs}): ${thuTuc.thongBao || thuTuc.loi || thuTuc.text || 'ok:false'}`);
+        }
         let full = renderPhanLoaiDayDu({ tenHang, maHs, phanLoai: r, thue, thuTuc, moTa, xuatXu: xx });
         if (thuongHieu && has(ctx, 'kiem_tra_shtt')) {
           const shtt = await ctx.mcp.callTool('kiem_tra_shtt', { tenNhan: thuongHieu, maHs, xuatXu: xx }).catch(() => null);
@@ -231,9 +243,21 @@ export const PACKAGES = [
         // (chủ repo bỏ 06/11: dài, khách chưa cần) — khách gõ "5" khi cần. Nhãn hiệu (gói 6) TÍNH ĐIỂM nên chỉ chạy khi
         // khách nêu thương hiệu và mã đã chốt (không chạy trên mã tạm).
         const [thue, thuTuc] = await Promise.all([
-          has(ctx, 'tra_thue') ? ctx.mcp.callTool('tra_thue', { maHs, xuatXu: xx }).catch(() => null) : null,
-          has(ctx, 'tra_thu_tuc_nhap_khau') ? ctx.mcp.callTool('tra_thu_tuc_nhap_khau', { maHs }).catch(() => null) : null,
+          has(ctx, 'tra_thue') ? ctx.mcp.callTool('tra_thue', { maHs, xuatXu: xx }).catch((err) => {
+            ctx.log?.error?.(`[hs] lỗi gọi tra_thue (${maHs}): ${err?.message || err}`);
+            return null;
+          }) : null,
+          has(ctx, 'tra_thu_tuc_nhap_khau') ? ctx.mcp.callTool('tra_thu_tuc_nhap_khau', { maHs }).catch((err) => {
+            ctx.log?.error?.(`[hs] lỗi gọi tra_thu_tuc_nhap_khau (${maHs}): ${err?.message || err}`);
+            return null;
+          }) : null,
         ]);
+        if (thue && (thue.ok === false || thue.isError)) {
+          ctx.log?.error?.(`[hs] Cổng trả lỗi tra_thue (${maHs}): ${thue.thongBao || thue.loi || thue.text || 'ok:false'}`);
+        }
+        if (thuTuc && (thuTuc.ok === false || thuTuc.isError)) {
+          ctx.log?.error?.(`[hs] Cổng trả lỗi tra_thu_tuc_nhap_khau (${maHs}): ${thuTuc.thongBao || thuTuc.loi || thuTuc.text || 'ok:false'}`);
+        }
         if (thue) out += `\n\n${renderResult(thue, { title: `💰 Thuế — ${fmtHs(maHs)} (xuất xứ ${xx})`, renderer: 'tax' })}`;
         if (thuTuc) out += `\n\n${renderResult(thuTuc, { title: '📋 Chính sách nhập khẩu', renderer: 'policy' })}`;
         if (thuongHieu && st !== 'CAN_DU_KIEN' && has(ctx, 'kiem_tra_shtt')) {
@@ -262,7 +286,14 @@ export const PACKAGES = [
     mau: '84137090\n(hoặc: 84137090 JP — tra theo xuất xứ khác; hoặc gõ tên hàng để tìm mã)',
     async chay(text, ctx) {
       let maHs = firstHs8(text) || (text.match(/(?<!\d)\d{4}(?:\d{2})?(?!\d)/) || [])[0];
-      if (!maHs && /^\s*$/.test(text.replace(/\b(thue|thuế|thủ tục|tra)\b/gi, '')) && ctx.session.last?.maHs) maHs = ctx.session.last.maHs;
+      if (!maHs && ctx.session.last?.maHs) {
+        const n = norm(text);
+        const conLai = n.replace(/\b(thue|thue suat|thu tuc|tra|xem|cho hoi|hoi|bao nhieu|bn|nhieu|the nao|may|suat|phan tram|sao)\b|[?.,!%]/g, '').trim();
+        const laNoiTiep = conLai.length === 0
+          || /^(thue|thue suat)\s*(bao nhieu|bn|the nao|sao|\?)/.test(n)
+          || /^bao nhieu\s*%/.test(n);
+        if (laNoiTiep) maHs = ctx.session.last.maHs;
+      }
       if (!maHs) {
         if (has(ctx, 'tim_ma_hs') && norm(text).length >= 2) {
           const r = await ctx.mcp.callTool('tim_ma_hs', { tuKhoa: text.slice(0, 200), gioiHan: 6 });
@@ -273,8 +304,17 @@ export const PACKAGES = [
       const xuatXu = countryCode(text.replace(/[\d.\s]{4,}/, '').trim()) || findCountryInText(text) || 'CN';
       const [thue, thuTuc] = await Promise.all([
         ctx.mcp.callTool('tra_thue', { maHs, xuatXu }),
-        maHs.length === 8 && has(ctx, 'tra_thu_tuc_nhap_khau') ? ctx.mcp.callTool('tra_thu_tuc_nhap_khau', { maHs }).catch(() => ({ ok: false, loi: 'CONG_KHONG_TRA_LOI', transport: true })) : null,
+        maHs.length === 8 && has(ctx, 'tra_thu_tuc_nhap_khau') ? ctx.mcp.callTool('tra_thu_tuc_nhap_khau', { maHs }).catch((err) => {
+          ctx.log?.error?.(`[hs] lỗi gọi tra_thu_tuc_nhap_khau (${maHs}): ${err?.message || err}`);
+          return { ok: false, loi: 'CONG_KHONG_TRA_LOI', transport: true };
+        }) : null,
       ]);
+      if (thue && (thue.ok === false || thue.isError)) {
+        ctx.log?.error?.(`[hs] Cổng trả lỗi tra_thue (${maHs}): ${thue.thongBao || thue.loi || thue.text || 'ok:false'}`);
+      }
+      if (thuTuc && (thuTuc.ok === false || thuTuc.isError)) {
+        ctx.log?.error?.(`[hs] Cổng trả lỗi tra_thu_tuc_nhap_khau (${maHs}): ${thuTuc.thongBao || thuTuc.loi || thuTuc.text || 'ok:false'}`);
+      }
       const parts = [renderResult(thue, { title: `💰 Thuế — ${fmtHs(maHs)} (xuất xứ ${xuatXu})`, renderer: 'tax' })];
       if (thuTuc) parts.push(renderResult(thuTuc, { title: '📋 Chính sách nhập khẩu', renderer: 'policy' }));
       const pv = nhacPhongVe(thue, thuTuc);

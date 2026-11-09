@@ -93,21 +93,24 @@ test('runSingleScenario: G3 Ảnh đọc thông số tem nhãn đạt, không l�
   assert.match(res.stepResults[0].sent.join(' '), /Thông số/);
 });
 
-test('runSingleScenario: G2 Nhóm phát hiện chính xác lỗi bot không im khi không nhắc tên', async () => {
+test('runSingleScenario: G2 Nhóm đạt 100% (4/4 bước), bot im khi không nhắc tên và tách mạch riêng', async () => {
   const g2Path = join(ROOT_DIR, 'eval', 'qa-that', 'g2-nhom.json');
   assert.ok(existsSync(g2Path), 'Tệp eval/qa-that/g2-nhom.json phải tồn tại');
   const scenario = JSON.parse(readFileSync(g2Path, 'utf8'));
 
   const res = await runSingleScenario(scenario, { isMock: true });
-  // Theo đúng thiết kế và kết quả chạy thật của lõi: Bước 1 (không nhắc bot) bot chưa im nên trượt
-  assert.equal(res.ok, false);
-  assert.match(res.lyDo, /Kỳ vọng bot im lặng/);
+  assert.equal(res.ok, true, `G2 phải đạt toàn bộ 4/4 bước nhưng trượt vì: ${res.lyDo}`);
   assert.equal(res.zaloApiCalls, 0);
-  // Các bước có nhắc tên bot phải gắn đúng tag @Tên
-  assert.equal(res.stepResults[1].ok, true);
+  assert.equal(res.stepResults.length, 4);
+  assert.equal(res.stepResults[0].ok, true, 'Bước 1: bot phải im khi không nhắc tên');
+  assert.equal(res.stepResults[0].sent.length, 0);
+  assert.equal(res.stepResults[1].ok, true, 'Bước 2: An gọi bot');
   assert.match(res.stepResults[1].sent[0], /^@An\n/);
-  assert.equal(res.stepResults[2].ok, true);
+  assert.equal(res.stepResults[2].ok, true, 'Bước 3: Bình hỏi xen kẽ');
   assert.match(res.stepResults[2].sent[0], /^@Bình\n/);
+  assert.equal(res.stepResults[3].ok, true, 'Bước 4: An hỏi tiếp mạch riêng');
+  assert.match(res.stepResults[3].sent[0], /^@An\n/);
+  assert.match(res.stepResults[3].sent[0], /8413|bơm/i);
 });
 
 test('runSingleScenario: Kịch bản lỗi Cổng phản hồi câu báo lỗi chuẩn, không bịa mã', async () => {
@@ -158,4 +161,74 @@ test('generateReportMarkdown: sinh báo cáo đầy đủ, không lộ bí mật
   assert.match(md, /Mã đề xuất 84137090/);
   // Không được chứa chuỗi lộ bí mật dài
   assert.doesNotMatch(md, /sk-[a-zA-Z0-9_-]{16,}/);
+});
+
+test('runSingleScenario: cơ chế chờ việc nền (jobs) tiếp tục chờ đến khi hoàn tất, không thoát sớm', async () => {
+  const g4Path = join(ROOT_DIR, 'eval', 'qa-that', 'g4-mot-mot.json');
+  const scenario = JSON.parse(readFileSync(g4Path, 'utf8'));
+
+  const calls = [];
+  const backgroundMcp = {
+    calls,
+    async listTools() {
+      return [
+        { name: 'phan_loai_hs', description: 'Phân loại HS' },
+        { name: 'ket_qua_phan_loai', description: 'Kết quả phân loại' },
+        { name: 'tra_thue', description: 'Tra cứu thuế' },
+        { name: 'tim_ma_hs', description: 'Tìm mã HS' },
+      ];
+    },
+    async callTool(name, args = {}) {
+      calls.push({ name, args, at: new Date() });
+      if (name === 'phan_loai_hs') {
+        return {
+          ok: true,
+          maLuot: 'ML-TEST-BACKGROUND',
+          trangThai: 'DANG_XU_LY',
+        };
+      }
+      if (name === 'ket_qua_phan_loai') {
+        return {
+          ok: true,
+          maLuot: 'ML-TEST-BACKGROUND',
+          trangThai: 'XONG',
+          maHs: '85371099',
+          doChac: 0.95,
+          data: {
+            maHs: '85371099',
+            ketQua: {
+              results: [
+                { hsCode: '85371099', nameVi: 'Thiết bị điều khiển cầm tay', confidence: 0.95 },
+              ],
+            },
+          },
+        };
+      }
+      if (name === 'tra_thue') {
+        return {
+          ok: true,
+          data: {
+            hsCode: '85371099',
+            nameVi: 'Thiết bị điều khiển cầm tay',
+            taxNkPreferential: 0,
+            taxVat: 10,
+          },
+        };
+      }
+      return { ok: true };
+    },
+  };
+
+  const res = await runSingleScenario(scenario, {
+    isMock: false,
+    customMcp: backgroundMcp,
+    now: () => new Date(),
+  });
+
+  assert.equal(res.ok, true, `Kịch bản có việc nền phải đạt, nhưng trượt vì: ${res.lyDo}`);
+  assert.equal(res.zaloApiCalls, 0);
+  assert.equal(res.stepResults.length, 2);
+  assert.equal(res.stepResults[0].ok, true, 'Bước 1 phải nhận được mã HS sau khi việc nền hoàn tất');
+  assert.equal(res.stepResults[1].ok, true, 'Bước 2 phải kế thừa ngữ cảnh trả lời thuế');
+  assert.match(res.stepResults[0].sent.join(' '), /8537/);
 });
