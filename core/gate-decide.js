@@ -7,6 +7,7 @@ export const DEFAULT_RULES = Object.freeze({
   capChatDay: 8,
   capGroupDay: 200,
   capAllDay: 300,
+  capVoiceDay: 50,
   similarity: 0.8,
   directReplyMs: 600_000,
   dupDirectMs: 60_000,
@@ -16,7 +17,7 @@ export const DEFAULT_RULES = Object.freeze({
 });
 
 const NEVER_PROACTIVE = new Set(['staff_relay', 'ticket', 'digest']);
-const CAPPED = new Set(['reply', 'notice', 'job_result']);
+const CAPPED = new Set(['reply', 'notice', 'job_result', 'voice']);
 
 const out = (decision, reason, extra) => ({ decision, reason, ...extra });
 
@@ -104,6 +105,9 @@ export function decide(msg, facts = {}, rules = {}) {
     }
     // 4, 5
     if (CAPPED.has(msg.kind)) {
+      if (msg.kind === 'voice' && r.capVoiceDay !== undefined && (facts.sentTodayVoice ?? 0) >= r.capVoiceDay) {
+        return out('defer', 'cap:voice');
+      }
       if ((facts.sentTodayChat ?? 0) >= r.capChatDay) return out('defer', 'cap:chat');
       if ((facts.isGroup === true) && (facts.sentTodayGroup ?? 0) >= r.capGroupDay) return out('defer', 'cap:group');
       if ((facts.sentTodayAll ?? 0) >= r.capAllDay) return out('defer', 'cap:all');

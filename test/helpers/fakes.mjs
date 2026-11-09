@@ -3,14 +3,21 @@
 export function fakeChannel({ failOn } = {}) {
   let n = 0;
   const sent = [];
+  const voices = [];
   return {
     name: 'fake',
     maxText: 2000,
     sent,
+    voices,
     async sendText(chatId, text) {
       n += 1;
       if (failOn && failOn(chatId, text, n)) throw new Error(`fake channel: send failed (#${n})`);
       sent.push({ chatId, text });
+    },
+    async sendVoice(chatId, voiceUrl) {
+      n += 1;
+      if (failOn && failOn(chatId, voiceUrl, n)) throw new Error(`fake channel: sendVoice failed (#${n})`);
+      voices.push({ chatId, voiceUrl });
     },
     async typing() {},
     async getMe() { return { id: 'bot', name: 'Bot' }; },

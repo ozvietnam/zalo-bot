@@ -64,6 +64,7 @@ export function outboxTable(db) {
   const cntConv = db.prepare(`SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND ${CAP_KINDS} AND conv_id = ? AND sent_at >= ?`);
   const cntChat = db.prepare(`SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND ${CAP_KINDS} AND chat_id = ? AND sent_at >= ?`);
   const cntAll = db.prepare(`SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND ${CAP_KINDS} AND sent_at >= ?`);
+  const cntVoice = db.prepare("SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND kind = 'voice' AND conv_id = ? AND sent_at >= ?");
   const queued = db.prepare("SELECT * FROM outbox WHERE status = 'queued' ORDER BY id");
   const byId = db.prepare('SELECT * FROM outbox WHERE id = ?');
   const due = db.prepare(`SELECT * FROM outbox WHERE (status = 'deferred' AND not_before <= ?1)
@@ -93,6 +94,7 @@ export function outboxTable(db) {
     /** Tin bot gần đây kèm mốc gửi, để cửa tự lọc cửa sổ chống trùng theo loại tin (gate-decide bước 6). */
     recentBotMsgs: (convId, sinceIso, limit) => recent.all(convId, sinceIso, limit).map((r) => ({ text: r.text, at: r.sent_at })),
     countSent: (convId, sinceIso) => (convId === null || convId === undefined ? cntAll.get(sinceIso) : cntConv.get(convId, sinceIso)).n,
+    countSentVoice: (convId, sinceIso) => cntVoice.get(convId, sinceIso).n,
     /** Đếm tin đã gửi theo phòng (cả nhóm, không tách theo người) — dùng cho trần ngày của nhóm. */
     countSentChat: (chatId, sinceIso) => cntChat.get(chatId, sinceIso).n,
     due: (nowIso) => due.all(nowIso).map(outOut),

@@ -42,6 +42,7 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
       sentTodayChat: store.outbox.countSent(m.convId, dayStart),
       sentTodayGroup: isGroup ? store.outbox.countSentChat(m.chatId, dayStart) : 0,
       sentTodayAll: store.outbox.countSent(null, dayStart),
+      sentTodayVoice: store.outbox.countSentVoice ? store.outbox.countSentVoice(m.convId, dayStart) : 0,
       isGroup,
       now: nowIso,
       ...extra,
@@ -65,7 +66,7 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
   function signal(chatId, convId, d) {
     const { decision, reason } = d;
     if ((decision === 'reject' && reason.startsWith('leak:')) || (decision === 'defer' && (reason === 'cap:all' || reason === 'cap:group'))) safe(onAlert, chatId, reason);
-    else if ((decision === 'defer' && reason === 'cap:chat') || (decision === 'reject' && reason.startsWith('money:'))) safe(onTicket, convId, reason);
+    else if ((decision === 'defer' && (reason === 'cap:chat' || reason === 'cap:voice')) || (decision === 'reject' && reason.startsWith('money:'))) safe(onTicket, convId, reason);
   }
 
   /** Gửi các phần còn thiếu của một dòng outbox. Không ném; trả status cuối. */
@@ -75,11 +76,19 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
     const parts = splitText(o.text, channel.maxText ?? 2000);
     let sent = o.parts_sent ?? 0;
     try {
-      for (; sent < parts.length; sent++) {
+      if (o.kind === 'voice' || o.ctx?.voiceUrl) {
+        const vUrl = o.ctx?.voiceUrl || o.text;
         try {
-          await channel.sendText(o.chat_id, parts[sent]);
+          await channel.sendVoice(o.chat_id, vUrl);
         } catch (err) { throw Object.assign(new Error(err?.message), { channelError: true }); }
-        store.outbox.update(id, { parts_sent: sent + 1 }); // lỗi db ở đây KHÔNG phải lỗi kênh
+        store.outbox.update(id, { parts_sent: 1 });
+      } else {
+        for (; sent < parts.length; sent++) {
+          try {
+            await channel.sendText(o.chat_id, parts[sent]);
+          } catch (err) { throw Object.assign(new Error(err?.message), { channelError: true }); }
+          store.outbox.update(id, { parts_sent: sent + 1 }); // lỗi db ở đây KHÔNG phải lỗi kênh
+        }
       }
     } catch (err) {
       if (!err.channelError) throw err;
@@ -95,9 +104,10 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
     store.tx(() => {
       store.outbox.update(id, { status: 'sent', sent_at: at, next_retry_at: null });
       if (o.kind !== 'ticket' && o.kind !== 'digest') {
+        const msgText = (o.kind === 'voice' && o.ctx?.voiceUrl) ? `[thoại] ${o.ctx.voiceUrl} ${o.text}` : o.text;
         store.messages.add({
           conv_id: o.conv_id ?? o.chat_id, chat_id: o.chat_id, turn_id: o.turn_id, speaker: o.kind === 'staff_relay' ? 'nhan-vien' : 'bot',
-          speaker_id: extra.staffId ?? null, text: o.text, outbox_id: id, at,
+          speaker_id: extra.staffId ?? null, text: msgText, outbox_id: id, at,
         });
       }
     });
@@ -135,6 +145,7 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
       debt: f.hasOpenJob,
       staffId: msg.staffId ?? null,
       isGroup,
+      voiceUrl: msg.voiceUrl ?? null,
     };
     let id;
     try {

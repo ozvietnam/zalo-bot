@@ -64,6 +64,15 @@ test('sendText: một lần POST tới <base>/bot<token>/sendMessage, không chi
   assert.deepEqual(calls[0].body, { chat_id: '42', text: long });
 });
 
+test('sendVoice: POST tới <base>/bot<token>/sendVoice với chat_id và voice_url', async () => {
+  const { calls, fetchImpl } = fake();
+  const ch = createChannel({ token: 'TOK', baseUrl: 'https://api.test/', fetchImpl, secret: 's' });
+  await ch.sendVoice('42', 'https://zalo-bot.uythacnhapkhau.com/am-thanh/abc.aac');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://api.test/botTOK/sendVoice');
+  assert.deepEqual(calls[0].body, { chat_id: '42', voice_url: 'https://zalo-bot.uythacnhapkhau.com/am-thanh/abc.aac' });
+});
+
 test('typing: gọi sendChatAction và nuốt lỗi', async () => {
   const { calls, fetchImpl } = fake();
   const ch = createChannel({ token: 'TOK', baseUrl: 'https://api.test', fetchImpl, secret: 's' });

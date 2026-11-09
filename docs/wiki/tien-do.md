@@ -82,6 +82,7 @@ Toàn bộ 9 nguyên tắc của Hiến pháp đã được thi hành và bảo 
 | 009 — Agent tra cứu hải quan | **Chỉ có spec** | `specs/009-agent-tra-cuu/spec.md:7` (Draft); não hiện tại ở `packs/hs/brain.js` chỉ chọn một gói, chưa phải vòng lặp gọi nhiều công cụ |
 | 010 — Giao việc cho thợ ngoài (Antigravity, Muse Code) | **Đóng — đã hiện thực ở tầng văn phòng (ADR-0022)** | `specs/010-giao-viec-antigravity/spec.md:9`; 5 câu hỏi đã giải quyết theo thực tế hạ tầng bể thợ Google AI Ultra của văn phòng (ADR-0022); đóng spec 010 trong repo, Muse Code gác lại |
 | 011 — Khung đề xuất bus (ZB-01) | **Chỉ có spec** | `specs/011-de-xuat-bus/spec.md:7` (Draft); khung tài liệu dự thảo ZB-01, không đổi mã chạy, không chặn 007/005; ZB-05/ZB-06 giữ trạng thái chờ |
+| Issue #125 — Bot trả lời bằng tin thoại (bé Quyên) | **Xong** | `core/giong-noi.js:1` (chuẩn hoá câu đọc, TTS, AAC, cache băm), `core/engine-voice.js:1`, `channels/zalo-bot.js:29` (`sendVoice`), `core/webhook.js:68` (`GET /am-thanh/<băm>.aac`), `core/gate.js:77`, `test/core/giong-noi.test.mjs:1`, `test/core/engine-voice.test.mjs:1` |
 
 ## 4. Việc nên làm tiếp theo
 
