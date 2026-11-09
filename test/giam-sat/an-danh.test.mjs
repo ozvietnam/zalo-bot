@@ -1,7 +1,7 @@
 // Test module ẩn danh bằng chứng giám sát (T706 — FR-004, SC-002)
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { anDanhVanBan, anDanhBangChung } from '../../scripts/giam-sat/an-danh.js';
+import { anDanhVanBan, anDanhBangChung, taoBangKhach, sinhNhanKhach } from '../../scripts/giam-sat/an-danh.js';
 import { dichVanBan, xuLyIssue } from '../../scripts/giam-sat/issue.js';
 
 // Dựng động các chuỗi nhạy cảm để không bị cổng quét bí mật chặn
@@ -196,4 +196,36 @@ test('T706: Tích hợp xuLyIssue({ dryRun: true }) che sạch SĐT, STK, khoá,
   assert.equal(body.includes(STK_10_SO), false, 'Lộ STK');
   assert.equal(body.includes(KHOA_SK), false, 'Lộ khoá');
   assert.equal(body.includes(PATH_HOME), false, 'Lộ đường dẫn');
+});
+
+test('T706/T710: taoBangKhach trích xuất tên khách từ tin nhắn và display_name', () => {
+  const tinNhan = [
+    { speaker: 'khach', text: 'Khách Nguyễn Văn An hỏi giá lô hàng' },
+    { speaker: 'bot', text: 'Chào anh An' },
+    { speaker: 'khach', text: 'Tôi là Phạm Văn Cương, sđt 09' + '12345678' },
+    { speaker: 'khach', display_name: 'Trần Thị Bình', text: 'cần tư vấn thuế' },
+    { speaker: 'nhan-vien', text: 'Em chào anh' },
+  ];
+
+  const mapKhach = taoBangKhach(tinNhan);
+  assert.ok(mapKhach instanceof Map);
+  assert.equal(mapKhach.has('Nguyễn Văn An'), true);
+  assert.equal(mapKhach.has('Phạm Văn Cương'), true);
+  assert.equal(mapKhach.has('Trần Thị Bình'), true);
+  assert.equal(mapKhach.get('Nguyễn Văn An'), 'Khách A');
+  assert.equal(mapKhach.get('Phạm Văn Cương'), 'Khách B');
+  assert.equal(mapKhach.get('Trần Thị Bình'), 'Khách C');
+
+  // Test an toàn với mảng rỗng hoặc falsy
+  const mapRong = taoBangKhach([]);
+  assert.equal(mapRong.size, 0);
+  const mapNull = taoBangKhach(null);
+  assert.equal(mapNull.size, 0);
+});
+
+test('T706/T710: sinhNhanKhach sinh nhãn tuần tự Khách A -> Khách Z -> Khách AA', () => {
+  assert.equal(sinhNhanKhach(0), 'Khách A');
+  assert.equal(sinhNhanKhach(1), 'Khách B');
+  assert.equal(sinhNhanKhach(25), 'Khách Z');
+  assert.equal(sinhNhanKhach(26), 'Khách AA');
 });
