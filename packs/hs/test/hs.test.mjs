@@ -102,9 +102,9 @@ test('onJobResult(job, {trangThai:"XONG", ...}) → form đầy đủ có mã HS
   assert.equal(mt.thuongHieu, 'Pentax'); assert.equal(mt.xuatXu, 'CN');
 });
 
-test('onJobResult gói 1 (tự động chọn) mở đầu bằng "🔍 Hàng:", không kèm dòng "Tự động chọn gói"', async () => {
+test('onJobResult gói 1 với form nhãn chuẩn mở đầu bằng "🔍 Hàng:", không kèm dòng "Tự động chọn gói"', async () => {
   const { ctx } = fakeCtx({ phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' } });
-  const { jobs: [job] } = await hs.handle(turn('máy bơm nước ly tâm 1.5HP'), ctx);
+  const { jobs: [job] } = await hs.handle(turn('Tên hàng: máy bơm nước ly tâm 1.5HP'), ctx);
   const r = await hs.onJobResult(job, { ok: true, trangThai: 'XONG', data: { maDeXuat: '84137090' } }, ctx);
   assert.match(plain(r.replies[0].text), /^🔍 Hàng: "máy bơm nước ly tâm 1\.5HP"/);
 });
@@ -158,7 +158,7 @@ test('CAN_DU_KIEN → người dùng trả lời → bo_sung_du_kien đúng mã 
       ketQua: { status: 'NEED_FACTS', results: [{ hs: '84137090', reason: 'Nếu là bơm ly tâm.' }, { hs: '84135090', reason: 'Nếu là bơm piston.' }] } } },
     bo_sung_du_kien: { ok: true, maLuot: MB, trangThai: 'DANG_XU_LY' },
   });
-  const a = await hs.handle(turn('máy bơm nước'), ctx);
+  const a = await hs.handle(turn('Tên hàng: máy bơm nước'), ctx);
   assert.match(a.replies[0].text, /Bơm ly tâm hay bơm piston/); assert.match(a.replies[0].text, /không trừ điểm thêm/);
   assert.deepEqual(store.choBoSung, { maLuot: MB, tenHang: 'máy bơm nước' });
   const b = await hs.handle(turn('bơm ly tâm, cánh gang'), ctx);
@@ -333,7 +333,7 @@ test('lỗi nghiệp vụ của Cổng (gọi thành công, ok:false) vẫn hi�
 test('gói 1 xong có mã: KHÔNG tự kèm chú giải + tiền lệ (chủ repo bỏ 06/11); vẫn kèm thuế + chính sách', async () => {
   const { ctx, calls } = fakeCtx({ phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' }, tra_thue: TAX,
     tra_thu_tuc_nhap_khau: { ok: true, data: { maHs: '84137090', kiemTraChuyenNganh: [], giayPhep: [], vanBanQuanLy: [] } } });
-  const { jobs: [job] } = await hs.handle(turn('máy bơm nước ly tâm 1.5HP'), ctx);
+  const { jobs: [job] } = await hs.handle(turn('Tên hàng: máy bơm nước ly tâm 1.5HP'), ctx);
   const r = await hs.onJobResult(job, { ok: true, trangThai: 'XONG', data: { maDeXuat: '84137090' } }, ctx);
   const s = plain(r.replies[0].text);
   assert.ok(!calls.some((c) => ['tra_chu_giai', 'tra_tien_le'].includes(c.name)), 'không gọi chú giải/tiền lệ');
@@ -359,7 +359,7 @@ test('form ảnh 3: phân loại XONG → đủ mục theo thứ tự, tự kèm
   const { ctx, calls } = fakeCtx({ phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' }, tra_thue: THUE_8504,
     tra_thu_tuc_nhap_khau: CS_8504, sinh_mo_ta_khai_bao: MO_TA });
   ctx.editor = { chot: async () => { chot++; return 'BẢN CHỐT AI'; } };
-  const { jobs: [job] } = await hs.handle(turn('máy hút bụi cầm tay nhập từ TQ mã gì'), ctx);
+  const { jobs: [job] } = await hs.handle(turn('Tên hàng: máy hút bụi cầm tay nhập từ TQ mã gì'), ctx);
   const r = await hs.onJobResult(job, KQ_XONG, ctx);
   const s = plain(r.replies[0].text);
   assert.equal(chot, 0); assert.doesNotMatch(s, /BẢN CHỐT AI|"chi tiết"/);
@@ -380,7 +380,7 @@ test('form ảnh 3: không có dữ liệu chính sách → "✅ Chính sách qu
   const { ctx } = fakeCtx({ phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' }, tra_thue: THUE_8504,
     tra_thu_tuc_nhap_khau: { ok: true, data: { maHs: '85044090', kiemTraChuyenNganh: [], giayPhep: [], vanBanQuanLy: [] } },
     sinh_mo_ta_khai_bao: () => { throw new Error('MCP lỗi HTTP 502'); } });
-  const { jobs: [job] } = await hs.handle(turn('máy hút bụi cầm tay'), ctx);
+  const { jobs: [job] } = await hs.handle(turn('Tên hàng: máy hút bụi cầm tay'), ctx);
   const s = plain((await hs.onJobResult(job, KQ_XONG, ctx)).replies[0].text);
   assert.match(s, /✅ Chính sách quản lý\nCổng OZ chưa ghi nhận chính sách quản lý chuyên ngành/);
   assert.doesNotMatch(s, /📝 Mô tả khai báo gợi ý|HTTP 502/);
@@ -390,7 +390,7 @@ test('form ảnh 3: không có dữ liệu chính sách → "✅ Chính sách qu
 test('gõ "2" / "3" ngay sau khi phân loại → chạy luôn với mã + tên hàng vừa tra (không hiện mẫu)', async () => {
   const { ctx, calls } = fakeCtx({ phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' }, tra_thue: THUE_8504,
     tra_thu_tuc_nhap_khau: CS_8504, sinh_mo_ta_khai_bao: MO_TA });
-  const { jobs: [job] } = await hs.handle(turn('máy hút bụi cầm tay'), ctx);
+  const { jobs: [job] } = await hs.handle(turn('Tên hàng: máy hút bụi cầm tay'), ctx);
   await hs.onJobResult(job, KQ_XONG, ctx);
   const n = calls.length;
   const ba = plain((await hs.handle(turn('3'), ctx)).replies[0].text);
@@ -403,4 +403,41 @@ test('gõ "2" / "3" ngay sau khi phân loại → chạy luôn với mã + tên 
   // Chưa phân loại gì → "3" vẫn hiện mẫu như cũ
   const moi = fakeCtx();
   assert.match(plain((await hs.handle(turn('3'), moi.ctx)).replies[0].text), /Gửi thông tin theo mẫu/);
+});
+
+test('GQ-02: gói 1 khi hỏi tự nhiên mặc định trả lời bằng giọng Quyên <= 7 dòng, không chèn tự động chọn gói 1, không footer menu', async () => {
+  const { ctx } = fakeCtx({
+    phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' },
+    tra_thue: THUE_8504,
+    tra_thu_tuc_nhap_khau: CS_8504,
+    sinh_mo_ta_khai_bao: MO_TA,
+  });
+  const textHoi = 'Điều khiển cầm tay (Teaching Box) kết nối dây, dùng cho máy gắn chip tự động, có màn hình và các phím điều khiển, điện áp 24V DC';
+  const { jobs: [job] } = await hs.handle(turn(textHoi), ctx);
+  const r = await hs.onJobResult(job, KQ_XONG, ctx);
+  const s = plain(r.replies[0].text);
+  const dong = s.split('\n').filter((d) => d.trim().length > 0);
+  assert.ok(dong.length <= 7, `Giọng Quyên phải <= 7 dòng, thực tế có ${dong.length} dòng:\n${s}`);
+  assert.match(s, /^Dạ /);
+  assert.match(s, /8504\.40\.90/);
+  assert.doesNotMatch(s, /Tự động chọn gói/);
+  assert.doesNotMatch(s, /Gõ "menu"/);
+});
+
+test('GQ-02: hỏi nối tiếp sang Gói 2 ở chế độ tự động không chèn "(Tự động chọn gói 2...)" và không gắn footer menu', async () => {
+  const { ctx } = fakeCtx({
+    phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' },
+    tra_thue: TAX,
+    tra_thu_tuc_nhap_khau: { ok: true, data: { maHs: '84137090', kiemTraChuyenNganh: [], giayPhep: [], vanBanQuanLy: [] } },
+  });
+  const textHoi = 'máy bơm nước ly tâm gang 1.5HP 220V';
+  const { jobs: [job] } = await hs.handle(turn(textHoi), ctx);
+  await hs.onJobResult(job, { ok: true, trangThai: 'XONG', data: { maDeXuat: '84137090' } }, ctx);
+
+  // Hỏi nối tiếp về thuế
+  const resThue = await hs.handle(turn('thuế nhập khẩu bao nhiêu?'), ctx);
+  const sThue = plain(resThue.replies[0].text);
+  assert.match(sThue, /8413\.70\.90/);
+  assert.doesNotMatch(sThue, /Tự động chọn gói 2/);
+  assert.doesNotMatch(sThue, /Gõ "menu"/);
 });
