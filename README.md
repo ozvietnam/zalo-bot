@@ -1,11 +1,54 @@
 # zalo-hs-bot — Bot Zalo tra cứu hải quan OZ
 
 Bot Zalo (Zalo Bot Platform chính thức) nối với **Cổng OZ** qua MCP (`https://mcp.uythacnhapkhau.com/mcp`).
-Bot tự đọc danh sách công cụ của Cổng (`tools/list`), nên Cổng thêm tính năng mới thì bot dùng được mà không cần
-sửa phần kết nối. Node 20+, không thư viện ngoài.
+Bot tự đọc danh sách công cụ của Cổng (`tools/list`), nên Cổng thêm tính năng mới thì bot dùng được mà không cần sửa phần kết nối.
+Yêu cầu hệ thống: **Node >= 22.13**, ESM thuần, không phụ thuộc thư viện ngoài (`node:sqlite`, `node:test`).
 
 📚 **Wiki tri thức của repo**: [docs/wiki/index.md](docs/wiki/index.md) — kiến trúc, luồng tin nhắn, gói nghiệp vụ, não AI, an toàn, tiến độ thật.
-## Các gói người dùng chọn
+
+---
+
+## Kiến trúc: Mô hình Lõi / Gói / Kênh
+
+Hệ thống được thiết kế phân tầng rõ ràng nhằm bảo đảm an toàn dữ liệu và tính mở rộng:
+
+```
+[ Khách Zalo ]  <--->  [ Kênh channels/ ]  <--->  [ Lõi core/engine.js ]
+                                                        |
+                              +-------------------------+-------------------------+
+                              |                         |                         |
+                    [ Router registry.js ]     [ Người cầm phòng handoff ]   [ Hồ sơ khách customers ]
+                              |
+                    [ Gói packs/hs/, echo/ ]
+                              |
+                              v
+                    [ CỬA GỬI DUY NHẤT core/gate.js ]  ---> [ Kênh channels/zalo-bot.js ]
+                              |
+                      (Audit / Outbox / Store)
+```
+
+1. **Lớp Kênh (`channels/`)**:
+   - Nhận sự kiện từ Zalo Bot Platform (`channels/zalo-bot.js`), chuẩn hoá payload thành đối tượng `Update` dùng chung.
+   - Tách biệt hoàn toàn giao thức mạng với logic nghiệp vụ.
+2. **Lớp Lõi (`core/`)**:
+   - **Bền hoá webhook trước khi phản hồi**: `core/webhook.js` ghi nhận update vào bảng `inbox` SQLite rồi mới trả HTTP 200 cho Zalo, tránh mất tin khi có sự cố.
+   - **Hàng đợi theo người (`core/queue.js`, `core/conv.js`)**: Tuần tự hoá xử lý theo `conv_id` (từng người một, kể cả trong nhóm đông người) để tránh tranh chấp trạng thái.
+   - **Điều phối (`core/engine.js`)**: Quản lý vòng đời lượt xử lý, nạp hồ sơ khách (`core/customers.js`), kiểm tra trạng thái phòng (`core/handoff.js`), xử lý ý định xin gặp người (`core/intents.js`), và gọi router chọn gói.
+   - **Định tuyến gói (`core/registry.js`)**: Tự động nạp các gói nghiệp vụ trong thư mục `packs/`, chọn gói xử lý dựa trên độ ưu tiên (`priority`), phạm vi đối tượng (`audience`: `'public'` hoặc `'staff'`) và hàm khớp lệnh `match(turn)`.
+   - **Một cửa gửi duy nhất (`core/gate.js`)**: **Mọi** tin nhắn bot gửi ra ngoài bắt buộc phải đi qua `gate.send()`. Không một tệp nghiệp vụ hay gói nào được gọi trực tiếp `channel.sendText()`. Cửa gửi thi hành nghiêm ngặt:
+     - Luật giờ yên: Không nhắn tin chủ động từ 23:00 đến 07:00 giờ VN (`core/gate-decide.js`).
+     - Trần hạn mức tin nhắn ngày: `CAP_CHAT_DAY` (cho phòng 1-1), `CAP_GROUP_DAY` (cho nhóm) và `CAP_ALL_DAY` (toàn hệ thống).
+     - Chống gửi trùng lặp nội dung (`core/gate-decide.js`): Cửa sổ 60 giây cho câu trả lời trực tiếp, 15 phút cho tin chủ động.
+     - Lưới an toàn dữ liệu: Che bí mật và số điện thoại (`core/redact.js`, `core/sdt.js`), kiểm tra căn cứ số tiền (`evidence`).
+     - Ghi nhận sổ cái: Bền hoá vào `outbox`, `messages`, và nhật ký kiểm toán `audit`.
+   - **Khôi phục tự động & Việc nền (`core/jobs.js`, `gate.recover()`, `engine.recover()`)**: Khi khởi động lại, hệ thống tự động hoàn tất các tin nhắn dở dang và thăm dò kết quả việc nền từ Cổng OZ.
+   - **Giám sát vận hành (`core/ops.js`)**: Cung cấp endpoint `/health` (kiểm tra trạng thái SQLite, Cổng OZ, Zalo), `/metrics` (đo lường lượt xử lý, tỷ lệ quyết định cửa gửi, số phiếu mở) và bản tin gộp định kỳ 08:00 và 17:00 giờ VN gửi nhóm nhân viên.
+3. **Lớp Gói (`packs/`)**:
+   - Chứa logic nghiệp vụ độc lập, đọc dữ liệu ngữ cảnh từ `ctx`, gọi công cụ Cổng OZ và trả về kết quả (danh sách tin nhắn, việc nền hoặc yêu cầu chuyển người). Gói không tự ý gửi tin ra kênh.
+
+---
+
+## Các gói nghiệp vụ hải quan (`packs/hs/`)
 
 Cuối mỗi tin trả lời luôn có dòng menu gói; gõ số để chuyển gói, `menu` để xem chi tiết, `0` để bot tự chọn.
 
@@ -20,90 +63,154 @@ Cuối mỗi tin trả lời luôn có dòng menu gói; gõ số để chuyển 
 | 7 | 📄 Hồ sơ giải trình mã HS | `soan_ho_so_giai_trinh` | mã đã khai, mã HQ áp, mô tả, lý do HQ |
 
 - Gói chỉ hiện khi Cổng có đủ công cụ của gói đó.
-- **Tự động** (chưa chọn gói): mã 8 số → gói 2; số hiệu văn bản → 5; "nhãn hiệu" → 6; "giải trình / áp mã" → 7;
-  còn lại → gói 1.
-- Phân loại chốt được mã → một tin theo **form cố định do code dựng** (không qua AI biên tập):
-  🔍 Hàng → ✅ Mã HS đề xuất (tên trong biểu, đơn vị tính, lý do) → 📝 Mô tả khai báo gợi ý (tự gọi gói 3,
-  **có thể tính điểm**) → 💰 Thuế suất → 🔴/✅ Chính sách quản lý (kèm văn bản, còn/hết hiệu lực) → 🔁 Mã khác cần cân nhắc.
-  Mục nào Cổng lỗi thì bỏ mục đó. Chú giải + tiền lệ (gói 5) không tự kèm — gõ "5" khi cần. Mô tả có **thương hiệu**
-  thì tự kiểm rủi ro nhãn hiệu (gói 6, **tính điểm**).
-- Ngay sau khi phân loại, gõ **"2"** hoặc **"3"** là chạy luôn với mã + tên hàng vừa tra (không phải gõ lại theo mẫu).
-- Gói nhớ theo từng người (trong nhóm: từng người một) trong 2 giờ. Gói 1 xong, gói 2/3/4 dùng lại mã vừa phân loại.
-- Công việc chạy nền (phân loại, kiểm sâu): bot **không gửi câu chờ**, xong thì tự gửi kết quả. Lâu quá thì gõ `kết quả <mã lượt>`.
-- Thêm gói mới: thêm một mục vào `PACKAGES` trong `packs/hs/packages.js`. Công cụ mới chưa có mẫu hiển thị riêng vẫn hiện
-  được nhờ bộ dựng chung trong `packs/hs/render.js`.
+- **Tự động** (chưa chọn gói): mã 8 số → gói 2; số hiệu văn bản → 5; "nhãn hiệu" → 6; "giải trình / áp mã" → 7; còn lại → gói 1.
+- Phân loại chốt được mã → một tin theo form cố định do code dựng:
+  🔍 Hàng → ✅ Mã HS đề xuất (tên trong biểu, đơn vị tính, lý do) → 📝 Mô tả khai báo gợi ý → 💰 Thuế suất → 🔴/✅ Chính sách quản lý → 🔁 Mã khác cần cân nhắc.
+- Công việc chạy nền (phân loại, kiểm sâu): bot không gửi câu chờ thừa, xong việc tự động giao kết quả qua một cửa `core/gate.js`.
 
-## Não hiểu câu hỏi (AI)
-
-Ở chế độ **Tự động**, câu tự do của khách được Gemini (AI Studio, function calling) hiểu trước khi tra:
-chọn gói và chép dữ kiện (tên hàng, mã HS, xuất xứ…) thành văn bản theo mẫu — gói chạy như thể khách gõ đúng khuôn.
-Chưa rõ ý hoặc thiếu dữ kiện → bot **hỏi lại một câu** thay vì đoán mò; chào hỏi/xã giao → trả lời ngắn, dẫn về menu.
-
-- Dùng chung `GEMINI_API_KEY` với đọc ảnh; đổi mẫu bằng `GEMINI_BRAIN_MODEL` (mặc định `gemini-flash-lite-latest`); tắt bằng `GEMINI_BRAIN=0`.
-- AI chỉ được chọn trong các gói khả dụng và điền dữ kiện khách đã nêu; code kiểm lại khuôn (mã HS, độ tin cậy ≥ 0.5) trước khi chạy.
-- Gemini lỗi/quá tải → tự rơi về bộ dò từ khoá như trước, bot không chết; lệnh chắc chắn (menu, "gói 2", hỏi kết quả) và gói khách đã chọn không tốn lượt AI.
-
-## Não biên tập kết quả (AI)
-
-Kết quả phân loại + thuế (bản dài: nhiều mã ứng viên, lý do từng dòng) được Gemini viết lại thành **bản chốt 4–7 dòng** — mã chính, lý do ngắn, thuế suất, cảnh báo. Gõ **"chi tiết"** để xem lại bản phân tích đầy đủ của lượt gần nhất (giữ trong phiên ~2 giờ).
-
-- An toàn số liệu (Hiến chương III): **code kiểm từng con số** trong bản chốt phải khớp kết quả gốc; không khớp hoặc Gemini lỗi → gửi bản đầy đủ như cũ.
-- Mẫu: `GEMINI_EDITOR_MODEL` (mặc định `gemini-flash-latest`); tắt: `GEMINI_EDITOR=0`. Không biên tập khi đang hỏi dữ kiện bổ sung (câu hỏi của Cổng tới khách nguyên văn).
-- Bot lọc bỏ mệnh đề lẫn ký tự Trung trong lý do do engine Cổng trả về (che tạm, đã báo bên `hs-code-api`).
-
-## Khoá dự phòng (LLM thứ hai)
-
-Khi Gemini lỗi, quá tải hoặc quá giờ, não định tuyến và não biên tập tự chuyển sang một cổng LLM khác theo chuẩn OpenAI (`/chat/completions`) — `packs/hs/llm2.js`.
-
-- Cấu hình chung, không gắn nhà cung cấp: `LLM2_BASE_URL` (phần trước `/chat/completions`), `LLM2_API_KEY`, `LLM2_MODEL`; tuỳ chọn `LLM2_TIMEOUT_MS` (mặc định 20000). Thiếu 1 trong 3 biến = tắt.
-- Có dự phòng thì chỉ thử 1 mẫu Gemini rồi chuyển. Kết quả dự phòng qua đúng các luật như Gemini: lọc mã HS tự đoán, ngưỡng `doChac`, code kiểm từng con số của bản chốt.
-- Không có `GEMINI_API_KEY` mà có dự phòng → hai não chạy thẳng bằng dự phòng. Đọc ảnh vẫn chỉ dùng Gemini.
-- `LLM_CHINH=llm2` → đảo vai: khoá llm2 chạy chính cho hai não, Gemini chỉ cứu khi llm2 lỗi/quá giờ. Câu trả lời của llm2 bị luật loại thì không hỏi thêm Gemini (không tốn hai lượt).
-- Lưu ý: mọi câu khách gửi tới não sẽ đi qua nhà cung cấp này — chỉ dùng nhà cung cấp công ty đã đồng ý.
-
-## Giao diện trả về (rich text)
-
-Bot dùng `text_styles` của Zalo Bot API (in đậm, màu, cỡ chữ) — nên tin nhắn có **chữ đậm và màu**,
-không phải text thuần.
-
-- Mọi nội dung giao diện viết bằng thẻ: `{b}đậm{/b}`, `{red}…{/red}`, `{orange}…{/orange}`, `{green}…{/green}`, `{yellow}…{/yellow}`.
-- `packs/hs/style.js` bỏ thẻ và dịch sang `text_styles` (offset tính theo **UTF-16 code unit** như Zalo yêu cầu — emoji tính 2 đơn vị).
-- Thẻ lạ / thẻ không khớp / dữ liệu MCP chứa `{` `}` → **giữ nguyên chữ**, không mất dữ liệu.
-- Tin >2000 ký tự được chia đoạn, mỗi đoạn giữ đúng định dạng; thẻ bị cắt dở được cân bằng trước khi gửi.
-- Thêm màu mới: mở `CODES` trong `packs/hs/style.js` (mã màu Zalo: `c_db342e` đỏ, `c_f27806` cam, `c_f7b503` vàng, `c_15a85f` xanh).
-
-## 1. Tạo bot Zalo
-
-1. Vào `bot.zapps.me` (Zalo Bot Creator) → **Tạo bot** → nhận **Bot Token**. Giữ bí mật.
-2. Lấy khoá/tài khoản OZ cho bot → điền `OZ_MCP_TOKEN`. Công cụ tính điểm trừ vào tài khoản này cho **mọi**
-   người dùng bot → nên giới hạn `ALLOW_USERS` nếu chỉ dùng nội bộ.
-
-## 2. Chạy thử trên máy (không cần tên miền)
-
-```bash
-cp .env.example .env    # điền ZALO_BOT_TOKEN, OZ_MCP_TOKEN
-node --env-file=.env server.js
+### Cách thêm gói mới
+Xem đặc tả chi tiết giao diện hợp đồng tại [specs/001-nen-tang-chung/contracts/pack.md](specs/001-nen-tang-chung/contracts/pack.md).
+Mỗi gói nằm trong một thư mục riêng thuộc `packs/<tên-gói>/` và export mặc định manifest:
+```javascript
+export default {
+  id: 'ten-goi',              // Mã định danh duy nhất
+  name: 'Tên hiển thị gói',
+  audience: 'public',         // 'public' (mọi người) hoặc 'staff' (chỉ nhân viên)
+  priority: 10,               // Số nguyên lớn hơn thì ưu tiên xét trước
+  match(turn) { ... },        // Trả boolean: có nhận lượt này không
+  async handle(turn, ctx) {   // Xử lý lượt, trả { replies, jobs, handoff, labels, interests }
+    return { replies: [{ text: 'Kết quả' }] };
+  }
+};
 ```
-Khởi động đúng sẽ có: `[bot] đăng nhập: …`, `[mcp] Cổng OZ có N công cụ; gói khả dụng: 1, 2, …`.
-Gỡ lỗi: `set DEBUG=1` (Windows) rồi chạy lại để in mọi gói tin.
+Lõi `core/registry.js` sẽ tự động quét và nạp gói khi khởi động hệ thống mà không cần sửa đổi mã nguồn lõi.
 
-## 3. Dùng trong nhóm Zalo
+---
 
-1. Zalo Bot Creator → chọn bot → **Mời Bot vào nhóm** → chia sẻ link vào nhóm; **trưởng nhóm** bấm link → xác nhận.
-2. Trong nhóm bot chỉ nhận tin khi được **@nhắc tên** hoặc khi có người **trả lời tin của bot**:
-   `@Tên bot 84137090`, `@Tên bot 6`, `@Tên bot máy bơm nước ly tâm 1.5HP`.
+## Handoff & Lệnh nhân viên (`core/handoff.js`)
 
-## 4. Triển khai Coolify (chạy 24/7)
+Khi khách hàng có yêu cầu gặp người (`core/intents.js` phát hiện ý định xin gặp nhân viên) hoặc gói nghiệp vụ chủ động chuyển giao, hệ thống sẽ chuyển phòng sang trạng thái `'human'` và tạo phiếu yêu cầu hỗ trợ gửi vào nhóm Zalo nhân viên (`STAFF_CHAT_ID`).
 
-1. Đẩy thư mục lên repo (vd `ozvietnam/zalo-hs-bot`) → Coolify: Application → Dockerfile, cổng 3000, health `/health`.
-2. Biến môi trường: `ZALO_BOT_TOKEN`, `ZALO_MODE=webhook`, `ZALO_WEBHOOK_SECRET` (32 ký tự ngẫu nhiên), `OZ_MCP_TOKEN`.
-3. Tắt bản chạy thử trên máy, rồi đăng ký webhook:
-   `node --env-file=.env scripts/set-webhook.mjs set https://<tên-miền>/webhook/zalo`
+Nhân viên có tên trong danh sách `STAFF_USERS` thực hiện các lệnh quản trị và tương tác trực tiếp trong nhóm:
 
-## 5. Kiểm thử
+| Lệnh | Cú pháp | Ý nghĩa & Hành vi |
+|---|---|---|
+| `/cho` | `/cho` | Liệt kê các phiếu hỗ trợ đang mở (`status='open'`) kèm thời gian khách đã chờ (phút). |
+| `/nhan` | `/nhan <mã>` | Nhân viên nhận xử lý phiếu (`status='claimed'`), phòng chuyển sang `'human'`. |
+| `/tl` | `/tl <mã> <nội dung>` | Gửi tin nhắn trả lời tới khách hàng qua cửa gửi duy nhất `core/gate.js`. Đặt lại bộ đếm lặng 2 giờ. |
+| `/tra-bot` | `/tra-bot <mã>` | Đóng phiếu (`status='closed'`), trả phòng về cho bot tự động phục vụ tiếp. |
+| `/chan` | `/chan <mã>` | Chuyển phòng khách sang `'blocked'`. Bot im lặng hoàn toàn, không xử lý và không chuyển phiếu. |
+| `/chan-nhom` | `/chan-nhom <chat_id>` | Chặn toàn bộ nhóm Zalo của khách hàng. |
+| `/ho-so` | `/ho-so <mã>` | Xem tóm tắt hồ sơ khách hàng (tên, SĐT, nhãn, số lượt, quan tâm) kèm 20 tin nhắn gần nhất theo giờ VN. |
+| `/gan` | `/gan <mã> <nhãn>` | Gắn thêm nhãn quản lý cho khách hàng (nguồn `staff:<id>`, hệ thống tự động không được phép gỡ). |
+| `/go` | `/go <mã> <nhãn>` | Gỡ nhãn do nhân viên đã gắn trên hồ sơ khách hàng. |
+| `/ghi` | `/ghi <mã> <nội dung>` | Thêm ghi chú nghiệp vụ vào hồ sơ khách hàng. |
+| `/xoa-du-lieu` | `/xoa-du-lieu <mã>` | Xoá toàn bộ lịch sử tin nhắn và hồ sơ của người dùng theo `conv_id` (đảm bảo quyền riêng tư). |
 
+*(Lưu ý: `<mã>` có thể là mã phiếu dạng `P12`, `p12`, số `12` hoặc mã `conv_id`).*
+
+---
+
+## Não hiểu câu hỏi và Não biên tập (AI)
+
+- **Não hiểu câu hỏi (Định tuyến thông minh)**: Ở chế độ Tự động, câu hỏi tự do của khách được Gemini (hoặc LLM2 dự phòng) phân tích, trích xuất dữ kiện (mã HS, tên hàng, xuất xứ...) và điền vào khuôn của gói tương ứng.
+- **Não biên tập kết quả**: Bản phân tích phân loại dài được tóm tắt thành bản chốt ngắn gọn 4–7 dòng. **Code kiểm tra từng con số** để đảm bảo khớp 100% với dữ liệu gốc của Cổng OZ trước khi gửi ra ngoài.
+- **Khoá dự phòng (`packs/hs/llm2.js`)**: Chuẩn OpenAI tương thích, tự động thay thế khi Gemini quá tải hoặc gặp sự cố.
+
+---
+
+## Biến môi trường cấu hình
+
+Sao chép `.env.example` thành `.env` và thiết lập các biến phù hợp:
+
+### 1. Cấu hình lõi và vận hành (Spec 001)
+- `STAFF_USERS`: Danh sách `user_id` nhân viên được phép sử dụng lệnh quản trị (ngăn cách bằng dấu phẩy).
+- `STAFF_CHAT_ID`: Mã định danh phòng/nhóm Zalo nội bộ nhận phiếu hỗ trợ, cảnh báo lỗi và bản tin gộp.
+- `DATA_DIR`: Thư mục lưu trữ cơ sở dữ liệu SQLite (`bot.db`) và các bản sao lưu (mặc định `./data`).
+- `CAP_CHAT_DAY`: Trần số tin nhắn bot chủ động gửi tới một phòng 1-1 trong ngày (mặc định `8`).
+- `CAP_GROUP_DAY`: Trần số tin nhắn bot gửi trong một nhóm trong ngày (mặc định `200`).
+- `CAP_ALL_DAY`: Trần số tin nhắn bot gửi trên toàn hệ thống trong ngày (mặc định `300`).
+- `BANNED_PATTERNS`: Danh sách biểu thức chính quy (regex) cấm để lộ ra cho khách (ngăn cách bằng dấu chấm phẩy `;`).
+- `SESSION_TTL_MS`: Thời gian duy trì phiên hội thoại với gói nghiệp vụ (mili giây, mặc định `7200000` = 2 giờ).
+- `HUMAN_IDLE_MS`: Khoảng thời gian im lặng để phòng có nhân viên tự động trao quyền lại cho bot (mili giây, mặc định `7200000` = 2 giờ).
+- `COMPANY_PHONES`: Danh sách số điện thoại nội bộ công ty OZ (ngăn cách bằng dấu phẩy) để bot không nhận diện nhầm thành số khách.
+
+### 2. Cấu hình Kênh và Kết nối Cổng
+- `ZALO_BOT_TOKEN`: Mã token bot được cấp từ Zalo Bot Creator (`bot.zapps.me`).
+- `ZALO_MODE`: Chế độ hoạt động: `webhook` (triển khai máy chủ production) hoặc `polling` (chạy thử nghiệm local).
+- `ZALO_WEBHOOK_PATH`: Đường dẫn tiếp nhận webhook Zalo (mặc định `/webhook/zalo`).
+- `ZALO_WEBHOOK_SECRET`: Chuỗi bí mật xác thực webhook từ Zalo.
+- `PORT`: Cổng máy chủ HTTP lắng nghe (mặc định `3010`).
+- `ALLOW_USERS`: Danh sách ID tài khoản hoặc nhóm được phép dùng bot (để trống = công khai).
+- `RATE_LIMIT_PER_MIN`: Giới hạn tốc độ tin nhắn từ một người trong 1 phút (mặc định `10`).
+- `OZ_MCP_URL`: Địa chỉ Cổng OZ MCP (`https://mcp.uythacnhapkhau.com/mcp`).
+- `OZ_MCP_TOKEN`: Token tài khoản OZ sử dụng các công cụ tính điểm.
+- `OZ_MCP_AUTH_HEADER`: Tiêu đề xác thực gửi Cổng OZ (mặc định `Authorization`).
+
+### 3. Cấu hình AI & Khoá dự phòng
+- `GEMINI_API_KEY`: Khoá API Google AI Studio cho đọc ảnh và não AI.
+- `GEMINI_MODEL`, `GEMINI_BRAIN_MODEL`, `GEMINI_EDITOR_MODEL`: Tên mô hình Gemini tương ứng.
+- `LLM2_BASE_URL`, `LLM2_API_KEY`, `LLM2_MODEL`, `LLM2_TIMEOUT_MS`: Cấu hình LLM dự phòng chuẩn OpenAI.
+- `LLM_CHINH`: Đặt `llm2` nếu muốn dùng LLM2 làm kênh chính, Gemini làm kênh cứu hộ.
+
+---
+
+## Chạy thử và Kiểm thử
+
+### 1. Khởi chạy trên máy phát triển
 ```bash
-npm test     # không cần mạng (Zalo + Cổng OZ giả lập)
+cp .env.example .env    # Điền ZALO_BOT_TOKEN, OZ_MCP_TOKEN...
+npm run dev             # Chạy với ZALO_MODE=polling qua server.js
+```
+Kiểm tra sức khoẻ hệ thống:
+```bash
+curl -s http://localhost:3010/health | jq
+```
+Mong đợi:
+```json
+{
+  "ok": true,
+  "db": "ok",
+  "mcp": { "tools": 7 },
+  "zalo": "ok",
+  "inboxPending": 0
+}
 ```
 
-Kết quả là tham khảo; mã HS là **gợi ý**, không thay thế ý kiến phân loại của Hải quan.
+Xem số liệu thống kê vận hành:
+```bash
+curl -s http://localhost:3010/metrics | jq
+```
+
+### 2. Kiểm thử tự động
+```bash
+npm test                 # Chạy toàn bộ test suites (node:test + test.mjs)
+npm run eval             # Chạy 12 kịch bản đánh giá hội thoại chuyên sâu
+node scripts/kiem-wiki.mjs --nghiem  # Cổng kiểm định wiki tri thức nội bộ
+```
+
+### 3. Tra cứu kiểm toán (Audit CLI)
+Hệ thống cung cấp công cụ dòng lệnh chỉ-đọc để tra soát nhật ký xử lý, tự động che mờ dữ liệu nhạy cảm:
+```bash
+npm run audit -- --chat <chat_id> --limit 20
+npm run audit -- --turn <turn_id>
+```
+
+### 4. Kiểm tay Quickstart
+Hướng dẫn thực hiện đầy đủ 6 bước kiểm thử bằng tay có tại [specs/001-nen-tang-chung/quickstart.md](specs/001-nen-tang-chung/quickstart.md).
+
+---
+
+## Triển khai Coolify (Production 24/7)
+
+1. Thiết lập ứng dụng trong Coolify trỏ vào repo: Application → Dockerfile, cổng `3010`, volume gắn vào `./data` (thư mục `DATA_DIR`).
+2. Điền biến môi trường: `ZALO_BOT_TOKEN`, `ZALO_MODE=webhook`, `ZALO_WEBHOOK_SECRET`, `OZ_MCP_TOKEN`, `STAFF_CHAT_ID`, `STAFF_USERS`...
+3. Kiểm tra health check tại đường dẫn `/health`.
+4. Đăng ký webhook chính thức với máy chủ Zalo:
+   ```bash
+   node --env-file=.env scripts/set-webhook.mjs set https://<domain-cua-ban>/webhook/zalo
+   ```
+
+---
+
+Lưu ý: Mọi kết quả phân loại mã HS do bot đưa ra mang tính chất **gợi ý tham khảo**, không thay thế quyết định phân loại chính thức của cơ quan Hải quan.
