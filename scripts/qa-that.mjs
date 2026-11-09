@@ -392,12 +392,15 @@ export async function runSingleScenario(scenario, { env = {}, isMock = false, no
       const procRes = await engine.process(update);
       await engine.drain();
 
-      // Nếu có việc nền cần đợi kết quả từ Cổng thật
-      if (!isMock && procRes?.handled === 'hs') {
-        for (let poll = 0; poll < 10; poll++) {
-          const waitingJobs = store.jobs.due(now().toISOString());
-          if (!waitingJobs.length) break;
-          await new Promise((r) => setTimeout(r, 2000));
+      // Nếu có việc nền cần đợi kết quả (chờ đúng vòng đời việc nền đến khi hoàn tất, không ngắt sớm khi chưa due)
+      if (store.jobs.countWaiting() > 0) {
+        for (let poll = 0; poll < 20; poll++) {
+          if (store.jobs.countWaiting() === 0) break;
+          const nextAt = store.jobs.nextDue();
+          const waitMs = nextAt
+            ? Math.max(500, Math.min(8000, new Date(nextAt).getTime() - Date.now() + 200))
+            : 2000;
+          await new Promise((r) => setTimeout(r, waitMs));
           await engine.drain();
         }
       }

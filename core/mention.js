@@ -40,3 +40,23 @@ export function stripMention(text, botNames = []) {
   if (/^@\S+/.test(t) && !names.length) t = t.replace(/^@\S+[\s,:;-]*/, '');
   return t.trim();
 }
+
+/**
+ * Kiểm tra xem tin nhắn có nhắc tên bot hay không (chứa một trong các tên cấu hình trong botNames, có hoặc không có @).
+ * @param {string|null} text
+ * @param {string[]} botNames
+ * @returns {boolean}
+ */
+export function hasMention(text, botNames = []) {
+  const t = String(text || '').trim();
+  if (!t) return false;
+  const names = (botNames || []).filter(Boolean).map((n) => String(n).trim()).filter(Boolean);
+  if (!names.length) return false;
+  for (const n of names) {
+    const esc = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`(^|[^\\p{L}\\p{N}])@?${esc}(?=[^\\p{L}\\p{N}]|$)`, 'iu');
+    if (re.test(t)) return true;
+  }
+  return false;
+}
+
