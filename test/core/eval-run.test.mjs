@@ -64,3 +64,64 @@ test('eval: hỗ trợ bước staff thực hiện lệnh nhân viên', () => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('eval: T040 — SC-008 tự động đối chiếu messages và in số tin vào + ra', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'eval-'));
+  const lai = { step: 'in', update: { id: 'w1', text: 'xin chào' } };
+  try {
+    writeFileSync(join(dir, 'dung.jsonl'), jsonl([lai, { step: 'expect', sentTo: 'c1', count: 1 }]));
+    const r = run(dir);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /✓ dung \(c1: vào 1 \+ ra 1 = 2\)/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('eval: T040 — bước expect có trường messages kiểm tra đúng số dòng', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'eval-'));
+  const lai = { step: 'in', update: { id: 'w1', text: 'xin chào' } };
+  try {
+    writeFileSync(join(dir, 'dung-msg.jsonl'), jsonl([lai, { step: 'expect', sentTo: 'c1', messages: 2 }]));
+    writeFileSync(join(dir, 'sai-msg.jsonl'), jsonl([lai, { step: 'expect', sentTo: 'c1', messages: 99 }]));
+    const r = run(dir);
+    assert.equal(r.status, 1);
+    assert.match(r.stdout, /✓ dung-msg/);
+    assert.match(r.stdout, /✗ sai-msg: .*messages cần 99, có 2/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('eval: T040 — checkMessages phát hiện lệch số tin hoặc lọt tin bị drop/reject', async () => {
+  const { checkMessages } = await import('../../eval/run.mjs');
+  const { openStore } = await import('../../core/store.js');
+  const tmp = mkdtempSync(join(tmpdir(), 'eval-chk-'));
+  const dbPath = join(tmp, 'test.db');
+  try {
+    const store = openStore(dbPath);
+    // Chuẩn bị 1 tin inbox done và 1 tin outbox sent
+    store.inbox.insertIgnore({ update_key: 'k1', chat_id: 'c1', user_id: 'u1', raw: '{}', status: 'pending', received_at: '2026-11-04T03:00:00Z' });
+    store.inbox.claim('k1', '2026-11-04T03:00:01Z');
+    store.inbox.markDone('k1', '2026-11-04T03:00:02Z');
+    const outId = store.outbox.insert({
+      idem_key: 'idem1', conv_id: 'c1', chat_id: 'c1', turn_id: 'k1', kind: 'reply', text: 'bot tl',
+      decision: 'send', reason: null, status: 'sent', created_at: '2026-11-04T03:00:02Z', sent_at: '2026-11-04T03:00:03Z',
+    });
+    // Ghi messages đúng: 1 khách + 1 bot
+    store.messages.add({ conv_id: 'c1', chat_id: 'c1', turn_id: 'k1', speaker: 'khach', text: 'khach', at: '2026-11-04T03:00:00Z' });
+    store.messages.add({ conv_id: 'c1', chat_id: 'c1', turn_id: 'k1', speaker: 'bot', text: 'bot tl', outbox_id: outId, at: '2026-11-04T03:00:03Z' });
+    store.close();
+
+    const okRes = checkMessages(dbPath, 'staff-chat');
+    assert.equal(okRes.ok, true);
+    assert.deepEqual(okRes.stats, [{ chatId: 'c1', inDone: 1, outSent: 1, msgTotal: 2 }]);
+
+    // Thử làm lệch: thêm 1 tin rác vào messages
+    const store2 = openStore(dbPath);
+    store2.messages.add({ conv_id: 'c1', chat_id: 'c1', turn_id: 'k2', speaker: 'khach', text: 'thừa', at: '2026-11-04T03:00:04Z' });
+    store2.close();
+
+    const failRes = checkMessages(dbPath, 'staff-chat');
+    assert.equal(failRes.ok, false);
+    assert.match(failRes.why, /SC-008: phòng c1/);
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+});
+
+
+
