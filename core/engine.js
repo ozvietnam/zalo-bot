@@ -4,7 +4,7 @@
 import { createHash } from 'node:crypto';
 import { redact } from './redact.js';
 import { isCloser } from './text.js';
-import { isGroup, stripMention, groupNameTag } from './mention.js';
+import { isGroup, stripMention, groupNameTag, hasMention } from './mention.js';
 import { convIdOf } from './conv.js';
 import { createToolCache, buildCtx, sessionApi } from './engine-ctx.js';
 import { createJobs } from './jobs.js';
@@ -42,6 +42,7 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
   const allow = toSet(config.allowUsers);
   const staff = toSet(config.staffUsers);
   const names = [...(config.botNames ?? [])];
+  const isPublicBot = registry.available().some((p) => p.id === 'hs');
   const tools = createToolCache({ mcp, now, log });
   const hits = new Map();
   const ho = handoff ?? createHandoff({ store, gate, config, now, log: (...a) => log.error?.('[handoff]', ...a) });
@@ -134,9 +135,17 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
     try {
       const cmd = text ? await human.lenh(turn, ghiVao) : null;
       if (cmd) return done(cmd);
+      if (allow.size && !allow.has(u.userId) && !allow.has(u.chatId)) return done({ skipped: 'not-allowed' });
+      // Trong nhóm, bot chỉ trả lời khi tin nhắn nhắc tên bot (hoặc là lệnh nhân viên đã xử lý ở trên)
+      if (group && names.length > 0 && isPublicBot && !hasMention(u.text, names) && !hasMention(u.caption, names)) {
+        return done({ skipped: 'group-unmentioned' });
+      }
+      // Lệnh tắt/bật giọng: SAU ALLOW và SAU kiểm nhắc tên — trong nhóm không gọi bot thì im (G2, #127).
       const vCmd = text ? await voiceRoute.lenh(turn, reply) : null;
       if (vCmd) return done(vCmd);
-      if (allow.size && !allow.has(u.userId) && !allow.has(u.chatId)) return done({ skipped: 'not-allowed' });
+      // Hồ sơ khách (T035) ghi TRƯỚC khi rẽ nhánh phòng: phòng do người cầm vẫn phải đếm lượt và lấy
+      // SĐT khách gõ — đó đúng lúc nhân viên cần hồ sơ nhất, và `human.im` mở phiếu in `summary()`.
+      // Đứng SAU lệnh nhân viên (nhóm STAFF không phải khách) và SAU ALLOW (lõi không nhận lượt đó).
       hoSo('touch', () => customers.touch(turn));
       if (state !== 'bot') return done(await human.im(turn, said || (isText ? null : `[${u.event || 'tin không phải chữ'}]`), state, ghiVao));
       if (!isPhoto && !isText && !isVoice) {
