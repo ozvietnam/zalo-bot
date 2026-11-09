@@ -6,7 +6,7 @@
 
 **Created**: 2026-11-07
 
-**Status**: Nghiên cứu — chưa code (chờ anh Thắng chốt 5 câu ở Assumptions)
+**Status**: Đóng — đã hiện thực ở tầng văn phòng (ADR-0022)
 
 **Input**: anh Thắng (07/11/2026): "Nghiên cứu việc claude kết nối cli với anty giao việc sao cho mượt mà" → "Dựng vào repo Zalo-bot, ghi thành một thẻ riêng để nghiên cứu."
 · anh Thắng (07/11/2026): "Nghiên cứu luôn cách kết nối với muse AI. Anh cũng muốn trả phí để tuyển bạn ấy về cho em trực tiếp sai việc."
@@ -193,7 +193,38 @@ Kèm theo: **đọc code bốn repo bên thứ ba ở trên để học**, đừ
 
 ## Clarifications
 
-*(Chưa có. Năm câu cần anh Thắng chốt nằm ở mục Assumptions, đánh dấu NEEDS CLARIFICATION.)*
+Căn cứ thực tế vận hành văn phòng theo **ADR-0022** (bể thợ Google AI Ultra nhiều tài khoản + trạm kiểm soát dữ liệu + cổng máy, CI và người soát khác model trước khi gộp): 5 câu hỏi trước đây cần làm rõ đã được trả lời chính thức như sau:
+
+1. **Nhà cung cấp và mức gói**:
+   - *Câu trả lời*: Chọn **Antigravity**, sử dụng gói **Google AI Ultra** hiện có của văn phòng (hạ tầng bể thợ nhiều tài khoản). Muse Code gác lại, chưa mua.
+   - *Căn cứ*: ADR-0022. Gói Google AI Ultra đã có sẵn, đáp ứng tốt nhu cầu giải quyết công việc khối lượng lớn mà không tốn thêm chi phí mua thêm dịch vụ mới.
+
+2. **Hình thức xác thực**:
+   - *Câu trả lời*: Xác thực theo **gói thuê bao (oauth / oauth-personal)**, không dùng API key tính theo token (`GEMINI_API_KEY`).
+   - *Căn cứ*: ADR-0022. Đảm bảo chi phí cố định theo gói Ultra đã trả trước, không phát sinh chi phí token ngoài ngân sách.
+
+3. **Xử lý khi hết hạn mức gói (`useG1Credits`)**:
+   - *Câu trả lời*: Giữ nguyên **`useG1Credits: false`**.
+   - *Căn cứ*: ADR-0022. Khi một tài khoản hết hạn mức thì dừng hoặc chuyển tài khoản khác trong bể thợ; tuyệt đối không tự ý bật tiêu credits ngoài gói. Muốn tiêu thêm tiền ngoài gói thì phải hỏi và được CEO duyệt.
+
+4. **Phạm vi repo và vùng mã nguồn được chạm**:
+   - *Câu trả lời*: Thợ ngoài được chạm vào các repo theo danh sách cho phép của văn phòng (bao gồm repo `zalo-bot` cho các phần việc khối lượng lớn, độc lập, có tiêu chí rõ ràng). Tuân thủ nghiêm ngặt danh sách repo và vùng cấm / vùng nhạy cảm: **tuyệt đối cấm** thợ ngoài sửa các tệp lõi cửa gửi (`core/gate.js`, `core/gate-decide.js`), các tệp cấu hình bảo mật (`.env*`), hiến pháp (`.specify/`), và cấu hình CI (`.github/`).
+   - *Căn cứ*: ADR-0022, Hiến pháp repo (Điều I, Điều IX), và quy tắc thợ văn phòng OZ.
+
+5. **Môi trường / máy chạy**:
+   - *Câu trả lời*: Chạy trên **hạ tầng bể thợ của văn phòng** theo kiến trúc ADR-0022 (kết hợp trạm kiểm soát dữ liệu và phân tách môi trường, cổng máy độc lập, CI và người soát khác model trước khi gộp code). Tuân thủ nguyên tắc an toàn: không ghi tên tài khoản, email, địa chỉ máy, IP hay đường dẫn máy chủ vào repo công khai.
+   - *Căn cứ*: ADR-0022 và quy tắc bảo mật thông tin nội bộ của văn phòng OZ.
+
+## Việc còn mở (Open Items)
+
+Dù thẻ spec 010 được đóng ở tầng repo vì đã được hiện thực ở tầng hạ tầng văn phòng (ADR-0022), các yêu cầu chức năng (FR) sau đây chưa được phủ trực tiếp trong repo `zalo-bot` và được ghi nhận làm căn cứ để mở thẻ/spec riêng trong tương lai nếu có nhu cầu:
+
+1. **FR-001, FR-002, FR-003, FR-004 (MCP server `scripts/mcp-tho.mjs` tự viết trong repo)**:
+   - *Lý do chưa phủ*: Việc điều phối và giao việc cho thợ ngoài được giải quyết trực tiếp tại tầng hạ tầng văn phòng (bể thợ văn phòng bên ngoài container phòng code), không cần duy trì script hay MCP server cục bộ trong mã nguồn `zalo-bot`.
+2. **FR-008, FR-009, FR-014 (Các yêu cầu đặc thù cho Muse Code)**:
+   - *Lý do chưa phủ*: Văn phòng chưa mua và tạm gác lại việc sử dụng Muse Code (chỉ sử dụng bể thợ Google AI Ultra theo ADR-0022). Nếu sau này văn phòng quyết định mua gói Muse Code, các yêu cầu về biến `META_API_KEY`, `--contributor-mode off` và kiểm tra `bubblewrap` sẽ được mở lại trong thẻ riêng.
+3. **FR-015 (Hook tự động `.agents/hooks.json` hoặc `.muse/hooks.json`)**:
+   - *Lý do chưa phủ*: Hệ thống kiểm soát hiện tại đã được bảo đảm bằng cổng máy (`npm test`, `npm run eval`, `node scripts/kiem-wiki.mjs`), CI GitHub Actions và quy trình soát chéo chéo model độc lập trước khi gộp PR, không cần cấu hình hook cục bộ trong repo.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -409,11 +440,11 @@ thời gian trung bình một việc, chi phí một việc.
 - Server MCP không nằm trong đường chạy của bot ⇒ không cần test đỏ trước theo nghĩa của Điều IV; nhưng vẫn phải qua `node scripts/kiem-wiki.mjs` và không làm đỏ `npm test`.
 - Tài liệu `antigravity.google/docs` và `dev.meta.ai` đọc ngày 07/11/2026 là nguồn duy nhất cho mọi con số và tên khoá trong thẻ này. Chỗ nào tài liệu không nói, thẻ ghi rõ "tài liệu không nói" và chuyển sang mục phải tự đo (US5).
 - Bốn repo bên thứ ba ở mục Bối cảnh chỉ để **đọc học**; không cài, không phụ thuộc, nên chúng có đổi hay biến mất cũng không ảnh hưởng thiết kế.
-- **[NEEDS CLARIFICATION: Chọn nhà cung cấp nào trước, và mức gói nào? Antigravity ~100 USD (đã có Google AI Ultra) hay Muse Code 15 USD High / 50 USD Power? Đề xuất: thử Muse Code mức 15 USD trên `zalo-bot` trước vì nó đọc được `CLAUDE.md`, mã thoát rõ ràng, và có cam kết worktree — nhưng BẮT BUỘC tắt contributor mode.]**
-- **[NEEDS CLARIFICATION: Xác thực `oauth-personal` (tiêu hạn mức gói Ultra ~100 USD đã mua) hay `GEMINI_API_KEY` (Gemini API trả theo token)? Hai cách tiêu hai túi tiền khác nhau. Đề xuất: `oauth-personal`.]**
-- **[NEEDS CLARIFICATION: Khi hạn mức Ultra cạn giữa việc — bật `useG1Credits` (tự tiêu thêm AI credits) hay để `false` và dừng? Đề xuất: `false` cho tới khi đo xong hành vi.]**
-- **[NEEDS CLARIFICATION: Cho thợ ngoài chạm những repo nào? Đề xuất: `zalo-bot` và `oz-wiki-plhq` trước; `erp-xnk` chỉ sau khi chạy ổn, vì repo đó gộp vào `develop` là ra khách ngay. Riêng `oz-wiki-plhq`: chỉ nhánh của mình, không chạy trên PR của người ngoài.]**
-- **[NEEDS CLARIFICATION: Máy nào chạy thợ ngoài — máy anh Thắng (có màn hình, đăng nhập dễ), VPS 201, hay máy chủ Dell của văn phòng? Linux không màn hình cần D-Bus + keyring sống cho Antigravity, và cần bubblewrap cho Muse. Tài liệu Antigravity không nói một tài khoản Ultra dùng được mấy máy / mấy phiên song song; Muse giới hạn theo team, không theo key.]**
+- ~~[NEEDS CLARIFICATION: Chọn nhà cung cấp nào trước, và mức gói nào? Antigravity ~100 USD (đã có Google AI Ultra) hay Muse Code 15 USD High / 50 USD Power? Đề xuất: thử Muse Code mức 15 USD trên `zalo-bot` trước vì nó đọc được `CLAUDE.md`, mã thoát rõ ràng, và có cam kết worktree — nhưng BẮT BUỘC tắt contributor mode.]~~ → **Đã giải quyết theo ADR-0022**: Chọn Antigravity với gói Google AI Ultra hiện có của văn phòng (hạ tầng bể thợ nhiều tài khoản); Muse Code gác lại, chưa mua (chi tiết tại mục Clarifications).
+- ~~[NEEDS CLARIFICATION: Xác thực `oauth-personal` (tiêu hạn mức gói Ultra ~100 USD đã mua) hay `GEMINI_API_KEY` (Gemini API trả theo token)? Hai cách tiêu hai túi tiền khác nhau. Đề xuất: `oauth-personal`.]~~ → **Đã giải quyết theo ADR-0022**: Xác thực theo gói thuê bao (oauth / oauth-personal), không dùng API key tính theo token (chi tiết tại mục Clarifications).
+- ~~[NEEDS CLARIFICATION: Khi hạn mức Ultra cạn giữa việc — bật `useG1Credits` (tự tiêu thêm AI credits) hay để `false` và dừng? Đề xuất: `false` cho tới khi đo xong hành vi.]~~ → **Đã giải quyết theo ADR-0022**: Giữ `useG1Credits: false`; khi hết hạn mức tài khoản thì dừng hoặc đổi thợ trong bể, muốn tiêu thêm tiền ngoài gói phải hỏi và được CEO duyệt (chi tiết tại mục Clarifications).
+- ~~[NEEDS CLARIFICATION: Cho thợ ngoài chạm những repo nào? Đề xuất: `zalo-bot` và `oz-wiki-plhq` trước; `erp-xnk` chỉ sau khi chạy ổn, vì repo đó gộp vào `develop` là ra khách ngay. Riêng `oz-wiki-plhq`: chỉ nhánh của mình, không chạy trên PR của người ngoài.]~~ → **Đã giải quyết theo ADR-0022**: Thợ ngoài được chạm vào các repo theo danh sách cho phép của văn phòng (bao gồm `zalo-bot` cho việc khối lượng lớn, rõ ràng); tuyệt đối cấm chạm vùng nhạy cảm (`core/gate.js`, `core/gate-decide.js`, `.env*`, `.specify/`, `.github/`) (chi tiết tại mục Clarifications).
+- ~~[NEEDS CLARIFICATION: Máy nào chạy thợ ngoài — máy anh Thắng (có màn hình, đăng nhập dễ), VPS 201, hay máy chủ Dell của văn phòng? Linux không màn hình cần D-Bus + keyring sống cho Antigravity, và cần bubblewrap cho Muse. Tài liệu Antigravity không nói một tài khoản Ultra dùng được mấy máy / mấy phiên song song; Muse giới hạn theo team, không theo key.]~~ → **Đã giải quyết theo ADR-0022**: Chạy trên hạ tầng bể thợ của văn phòng, kết hợp trạm kiểm soát dữ liệu, cổng máy và CI trước khi gộp; không ghi thông tin IP/máy nội bộ lên repo công khai (chi tiết tại mục Clarifications).
 
 ## Không làm (và lý do)
 
