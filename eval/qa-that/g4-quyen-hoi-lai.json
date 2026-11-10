@@ -28,8 +28,8 @@
     },
     {
       "step": 2,
-      "mieuTa": "(b) Khách trả lời đủ thông số → tin kết quả <= 7 dòng đúng giọng Quyên",
-      "text": "đúng, 350W 220V",
+      "mieuTa": "(b) Khách trả lời đủ thông số KÈM nước → tin kết quả <= 7 dòng đúng giọng Quyên. Có tên nước là TIỀN ĐỀ bắt buộc của kỳ vọng 'C/O mẫu E': chưa biết xuất xứ thì bot bị cấm nêu ưu đãi FTA ([S3] của #168), ca chưa-biết-nước nằm ở packs/hs/test/can-cu-xuat-xu.test.mjs.",
+      "text": "đúng, 350W 220V, nhập từ Trung Quốc",
       "kyVong": {
         "phaiCoPhanHoi": true,
         "phaiChua": [

@@ -14,6 +14,20 @@ export const WAIT_JOB_MAX_MS = 10 * 60_000;
 
 /** Câu báo việc nền đang chạy (lượt đầu gửi câu này, kết quả gửi sau). */
 export const notice = (label = 'Đang xử lý') => `⏳ ${label}… thường mất 1–3 phút, bot sẽ gửi kết quả ngay khi xong.`;
+
+/**
+ * Câu báo "đang tra" gửi NGAY trong lượt khách (issue #136 mục 5): việc phân loại của Cổng mất
+ * 1–3 phút, im lặng cả phút là khách tưởng bot chết. Phải ngắn, một dòng, có xưng hô của khách.
+ * @param {string} xungHo 'anh' | 'chị' | 'anh/chị'
+ */
+export const cauDangTra = (xungHo = 'anh/chị') => `Dạ ${xungHo} chờ em tra chút nhé`;
+
+/**
+ * Câu báo tiến độ khi quá `PROGRESS_AFTER_MS` (`core/jobs.js:22`) mà Cổng chưa xong (issue #136 mục 5): nhắc MỘT lần,
+ * để khách biết bot vẫn đang làm chứ không bỏ rơi. Lõi gọi qua `pack.onJobProgress`.
+ * @param {string} xungHo 'anh' | 'chị' | 'anh/chị'
+ */
+export const cauTienDo = (xungHo = 'anh/chị') => `Dạ ca này Cổng tra lâu hơn bình thường, em vẫn đang tra ${xungHo} nhé, có kết quả em gửi ngay ạ`;
 /** Kết quả thay thế khi việc nền hết hạn mà chưa xong. */
 export const hetHan = (maLuot, maxMs = WAIT_JOB_MAX_MS) => {
   const t = `Chưa có kết quả sau ${Math.round(maxMs / 60000)} phút. Mã lượt: ${maLuot} — hỏi lại sau bằng cách gõ: kết quả ${maLuot}`;

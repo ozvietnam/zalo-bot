@@ -67,11 +67,13 @@ test('menu: chào hỏi → lời chào + menu RÚT GỌN; gõ "menu" mới ra m
   assert.ok(plain(c.replies[0].text).endsWith(FOOTER)); assert.deepEqual(c.labels, []);
 });
 
-test('phan_loai_hs trả DANG_XU_LY → handle trả jobs [{maLuot, resultTool:"ket_qua_phan_loai"}] và KHÔNG câu chờ', async () => {
+test('phan_loai_hs trả DANG_XU_LY → handle trả jobs [{maLuot, resultTool:"ket_qua_phan_loai"}] + câu chờ ngắn', async () => {
   const { ctx, calls } = fakeCtx({ phan_loai_hs: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' } });
   const r = await hs.handle(turn('Tên hàng: máy bơm nước ly tâm\nChất liệu: gang\nThông số: công suất 1.5HP, điện áp 220V'), ctx);
   assert.deepEqual(calls, [{ name: 'phan_loai_hs', args: { tenHang: 'máy bơm nước ly tâm', chatLieu: 'gang', thongSo: { 'công suất': '1.5HP', 'điện áp': '220V' }, nguonThongSo: 'CHU' } }]);
-  assert.deepEqual(r.replies, []);   // không gửi câu chờ "⏳ Đang phân loại…" (chủ repo bỏ 06/11): chỉ gửi kết quả
+  // Câu chờ "⏳ Đang phân loại…" bị bỏ 06/11, nhưng issue #168 (mở lại #136 mục 5) buộc báo "đang tra"
+  // ngay trong lượt: khách chờ Cổng 1–3 phút mà bot im là tưởng bot chết. Câu mới ngắn, không có "⏳".
+  assert.deepEqual(r.replies, [{ text: 'Dạ anh/chị chờ em tra chút nhé' }]);
   assert.equal(r.jobs.length, 1);
   assert.equal(r.jobs[0].maLuot, ML); assert.equal(r.jobs[0].resultTool, 'ket_qua_phan_loai');
   assert.deepEqual(r.labels, ['tra-cuu-hs']);
@@ -94,7 +96,10 @@ test('onJobResult(job, {trangThai:"XONG", ...}) → form đầy đủ có mã HS
   assert.ok(s.endsWith(FOOTER));
   assert.deepEqual(calls.filter((c) => ['tra_thue', 'tra_thu_tuc_nhap_khau'].includes(c.name)).map((c) => c.name).sort(), ['tra_thu_tuc_nhap_khau', 'tra_thue']);
   assert.deepEqual(r.labels, ['tra-cuu-hs']); assert.deepEqual(r.interests, [{ mon: 'máy bơm nước ly tâm', hs: '84137090' }]);
-  assert.deepEqual(store.last, { tenHang: 'máy bơm nước ly tâm', maHs: '84137090', maLuotPhanLoai: ML });
+  // `xuatXu` + `xuatXuBiet` thêm theo [S1] của #168: lượt "căn cứ" sau này phải tra lại Cổng theo đúng
+  // xuất xứ lô hàng, và phải biết đó là nước khách NÓI hay chỉ là mặc định. Mô tả này không có nước nên
+  // `xuatXuBiet: false`. Bất biến cũ (ba khoá kia) giữ nguyên, chỉ bổ sung tồn kho khoá.
+  assert.deepEqual(store.last, { tenHang: 'máy bơm nước ly tâm', maHs: '84137090', xuatXu: 'CN', xuatXuBiet: false, maLuotPhanLoai: ML });
   await hs.handle(turn('3'), ctx);
   await hs.handle(turn('Thương hiệu: Pentax\nXuất xứ: Trung Quốc'), ctx);
   const mt = calls.filter((c) => c.name === 'sinh_mo_ta_khai_bao').at(-1).args;
@@ -164,7 +169,7 @@ test('CAN_DU_KIEN → người dùng trả lời → bo_sung_du_kien đúng mã 
   const b = await hs.handle(turn('bơm ly tâm, cánh gang'), ctx);
   assert.equal(calls.filter((c) => c.name === 'phan_loai_hs').length, 1);
   assert.deepEqual(calls.at(-1), { name: 'bo_sung_du_kien', args: { maLuot: MB, boSung: 'bơm ly tâm, cánh gang' } });
-  assert.deepEqual(b.replies, []);   // không gửi câu chờ, chỉ gửi kết quả phân loại lại
+  assert.deepEqual(b.replies, [{ text: 'Dạ anh/chị chờ em tra chút nhé' }]);   // phân loại lại cũng chạy nền → báo chờ (#168)
   assert.equal(b.jobs[0].maLuot, MB); assert.equal(b.jobs[0].resultTool, 'ket_qua_phan_loai');
   assert.equal(store.choBoSung, null);
   const c = await hs.onJobResult(b.jobs[0], { ok: true, trangThai: 'XONG', data: { maDeXuat: '84137090' } }, ctx);
@@ -175,7 +180,8 @@ test('CAN_DU_KIEN → người dùng trả lời → bo_sung_du_kien đúng mã 
 test('kiểm sâu gói 4 → job ket_qua_soat; "kết quả <mã lượt>" hỏi thẳng Cổng', async () => {
   const { ctx, calls } = fakeCtx({ kiem_ma_to_khai: { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' }, ket_qua_phan_loai: { ok: true, data: { maDeXuat: '84137090' } } });
   const r = await hs.handle(turn('gói 4 Mã HS: 84137090\nMô tả: Máy bơm\nKiểm sâu: có'), ctx);
-  assert.equal(r.jobs[0].resultTool, 'ket_qua_soat'); assert.deepEqual(r.replies, []);   // không câu chờ
+  assert.equal(r.jobs[0].resultTool, 'ket_qua_soat');
+  assert.deepEqual(r.replies, [{ text: 'Dạ anh/chị chờ em tra chút nhé' }]);   // kiểm sâu cũng chạy nền → báo chờ (#168)
   const d = await hs.onJobResult(r.jobs[0], { ok: true, data: { k2: 'khớp' } }, ctx);
   assert.match(plain(d.replies[0].text), /^✅ Kiểm sâu — 8413\.70\.90/); assert.ok(plain(d.replies[0].text).endsWith(FOOTER));
   const k = await hs.handle(turn(`kết quả ${ML}`), ctx);

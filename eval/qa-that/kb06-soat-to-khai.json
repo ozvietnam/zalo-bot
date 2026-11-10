@@ -1,0 +1,29 @@
+{
+  "id": "kb06-soat-to-khai",
+  "dich": "KB6",
+  "ten": "KB6 · Soát tờ khai: cảnh báo lồng trong từng dòng hàng không được bị ăn mất",
+  "moTa": "Nghiệm thu #168 mục C+D. Cổng trả cảnh báo NẰM TRONG phần tử của mảng dongHang[]; lỗi sản phẩm đã sửa ở #168: renderer chung bỏ qua dongHang[].ketLuan và canhBao[] lồng, khách tưởng tờ khai sạch. Ca này chốt kết luận, cảnh báo kèm mức độ, và điểm tuân thủ đều tới được khách.",
+  "chatType": "PRIVATE",
+  "chatId": "kb06_khach",
+  "userId": "kb06_khach",
+  "userName": "Khách KB6",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "Khách nhờ soát tờ khai → in kết luận dòng hàng + cảnh báo lồng + điểm",
+      "text": "soát tờ khai giúp em\nMã HS: 85094000\nMô tả: Máy xay thực phẩm 350W 220V\nXuất xứ: CN",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "8509\\.40\\.00 — Mô tả đủ chỉ tiêu 1\\.78",
+          "Chưa nêu nhãn hiệu trong mô tả — Hải quan có thể yêu cầu bổ sung",
+          "NOTICE",
+          "Điểm: 78"
+        ],
+        "khongChua": [
+          "mock-ok"
+        ]
+      }
+    }
+  ]
+}

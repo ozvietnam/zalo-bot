@@ -1,0 +1,25 @@
+// KB9 (#136 mục C, mở lại ở #168): khách nhờ OZ nhập hộ / xin báo giá trọn gói.
+//
+// ĐO THẬT ngày 10/11/2026: repo KHÔNG có đường code nào cho ý này, cũng không có luật UX nào trong
+// `docs/hop-dong/luat-ung-xu.md` (UX-01…UX-07 không phủ). Câu khách rơi vào gói 1 và bị coi là MÔ TẢ HÀNG,
+// nên bot hỏi lại "dùng cho gia đình hay công nghiệp" — lạc đề nhưng không phạm luật nào.
+//
+// Ca này KHÔNG chốt câu chữ của lời đáp (chọn lời đáp nào là việc của người: liên quan tiền dịch vụ và
+// cách đối xử với khách — xem `.van-phong/ghi-chu.md`). Nó chốt các BẤT BIẾN đã có luật, là phần mà
+// mọi lời đáp tương lai đều phải giữ:
+//   1. Hiến pháp III + `gioiHan.khongBaoGiaCoDinh` (`docs/hop-dong/luoc-do-nhan-vat.md:40`):
+//      bot KHÔNG tự ra con số tiền / cước / phí dịch vụ nào.
+//   2. Hiến pháp VIII: không hứa việc bot không làm được (không "bên em nhận nhập hộ", không cam kết
+//      thời gian thông quan).
+//   3. Hiến pháp V: không bịa mã HS hay số văn bản khi Cổng chưa trả gì (kiểm chống bịa của eval tự soát).
+{"step":"mcp","tool":"phan_loai_hs","returns":[{"ok":true,"maLuot":"11111111-2222-4333-8444-555555555555","trangThai":"DANG_XU_LY"}]}
+{"step":"mcp","tool":"ket_qua_phan_loai","returns":[{"ok":true,"trangThai":"CAN_DU_KIEN","data":{"trangThai":"CAN_DU_KIEN","cauHoi":["Anh/chị cần tra mã HS cho mặt hàng nào, chất liệu và công dụng là gì?"]}}]}
+{"step":"in","update":{"id":"k1","text":"bên mình nhập hộ máy xay từ Trung Quốc được không, cho em xin báo giá trọn gói"}}
+{"step":"expect","sentTo":"c1","count":1}
+// 1. Không con số tiền/cước/phí nào trong lời đáp.
+{"step":"expect","sentTo":"c1","notMatch":"\\d[\\d.,]*\\s*(?:usd|vnd|đ|đồng|tr|triệu|nghìn|k)\\b"}
+// 2. Không hứa nhận dịch vụ, không cam kết mốc thời gian thông quan.
+{"step":"expect","sentTo":"c1","notMatch":"(?:bên em|OZ|chúng tôi)[^\\n]{0,40}(?:nhận|lo|làm) (?:nhập|trọn gói)"}
+{"step":"expect","sentTo":"c1","notMatch":"(?:cam kết|bảo đảm|đảm bảo)[^\\n]{0,30}thông quan"}
+// 3. Cổng chưa trả mã nào → không được hiện mã HS.
+{"step":"expect","sentTo":"c1","notMatch":"\\d{4}\\.\\d{2}\\.\\d{2}"}

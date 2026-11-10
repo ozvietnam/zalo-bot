@@ -1,0 +1,14 @@
+// KB3 (#136 mục C, mở lại ở #168): khách hỏi thủ tục / giấy phép / kiểm tra chuyên ngành.
+// Luật UX-02 quy tắc 2: văn bản hết hiệu lực hoặc đã bị bãi bỏ PHẢI ghi chú rõ cho khách.
+// Ở đây `08/2023/TT-BCT` hết hiệu lực một phần và bị bãi bỏ bởi `48/2026/TT-BCT` → chính sách dẫn từ nó
+// phải gắn nhãn "căn cứ đã hết hiệu lực", và nó KHÔNG được vào dòng `Căn cứ:` của tin đầu (mục B quy tắc 4).
+{"step":"mcp","tool":"tra_thue","returns":[{"ok":true,"data":{"hsCode":"85161090","nameVi":"Bình đun nước nóng kiểu tức thời","unitVi":"Chiếc","taxNkPreferential":"20","taxVat":"8","canCuChiTiet":{"mfn":{"vanBan":"26/2023/NĐ-CP","hieuLuc":"15/07/2023"},"vat":{"vanBan":"181/2025/NĐ-CP","hieuLuc":"01/07/2025"}},"hsListings":[{"soHieu":"36/2026/TT-BKHCN","ten":"Danh mục sản phẩm, hàng hoá phải chứng nhận hợp quy","loaiTacDong":"CONG_BO_HOP_QUY","tinhTrang":"CON_HIEU_LUC","effectiveFrom":"2026-03-01"}]}}]}
+{"step":"mcp","tool":"tra_thu_tuc_nhap_khau","returns":[{"ok":true,"data":{"hsCode":"85161090","chinhSach":{"policyLines":[{"text":"Chứng nhận hợp quy và dán nhãn CR trước khi thông quan","soHieu":"36/2026/TT-BKHCN"},{"text":"Dán nhãn năng lượng","soHieu":"08/2023/TT-BCT"}]},"vanBanQuanLy":[{"soHieu":"36/2026/TT-BKHCN","hieuLuc":{"soHieu":"36/2026/TT-BKHCN","ten":"Danh mục sản phẩm, hàng hoá phải chứng nhận hợp quy","tinhTrang":"CON_HIEU_LUC"}},{"soHieu":"08/2023/TT-BCT","hieuLuc":{"soHieu":"08/2023/TT-BCT","ten":"Quy định dán nhãn năng lượng","tinhTrang":"HET_HIEU_LUC_MOT_PHAN","hetHieuLucTu":"2026-06-01","biBaiBoBoi":["48/2026/TT-BCT"]}}]}}]}
+{"step":"in","update":{"id":"k1","text":"85161090 cần giấy phép gì không ạ"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"CÓ chính sách quản lý chuyên ngành"}
+{"step":"expect","sentTo":"c1","match":"Chứng nhận hợp quy và dán nhãn CR"}
+{"step":"expect","sentTo":"c1","match":"Dán nhãn năng lượng \\(căn cứ đã hết hiệu lực\\)"}
+{"step":"expect","sentTo":"c1","match":"08/2023/TT-BCT[^\\n]*hết hiệu lực một phần[^\\n]*bãi bỏ bởi 48/2026/TT-BCT"}
+{"step":"expect","sentTo":"c1","match":"36/2026/TT-BKHCN[^\\n]*còn hiệu lực"}
+// Văn bản đã bãi bỏ không được làm căn cứ chính của tin đầu.
+{"step":"expect","sentTo":"c1","match":"Căn cứ: NĐ 26/2023 \\(thuế NK\\), NĐ 181/2025 \\(VAT\\), TT 36/2026 \\(công bố hợp quy\\)"}

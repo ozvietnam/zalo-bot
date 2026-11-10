@@ -1,0 +1,12 @@
+// KB8 (#136 mục C, mở lại ở #168): khách bị Hải quan áp mã khác mã đã khai → bot soạn hồ sơ giải trình.
+// Hiến pháp VIII: phải ghi rõ đây là BẢN NHÁP, người khai tự rà soát; không hứa thắng.
+// CA NÀY KHÔNG PHỦ ĐƯỢC LỖI LÁI GÓI: fixture chỉ khai 1 công cụ nên `availablePackages`
+// (`packs/hs/packages.js:537`) chỉ còn gói 7, mọi câu đều về đó. Trên Cổng thật (đủ công cụ) mẫu
+// "Mã khai: … / Mã Hải quan áp: …" từng rơi vào gói 1 — lỗi đó chốt bằng test đơn vị
+// `packs/hs/test/router-mau-goi.test.mjs` (chạy với PACKAGES đầy đủ).
+{"step":"mcp","tool":"soan_ho_so_giai_trinh","returns":[{"ok":true,"data":{"maKhai":"85094000","maHaiQuan":"85098000","danY":["Quy tắc 1: nhóm 8509 ghi rõ máy xay thực phẩm","Quy tắc 3a: mã 8509.40 cụ thể hơn 8509.80"],"congVan":"Kính gửi Chi cục Hải quan… (bản nháp)","hoSoKemTheo":["Catalogue nhà sản xuất","Hợp đồng mua bán","Ảnh hàng thực tế"],"diemYeu":["Chưa có kết quả phân tích phân loại của Hải quan"]}}]}
+{"step":"in","update":{"id":"k1","text":"Mã khai: 85094000\nMã Hải quan áp: 85098000\nMô tả hàng: Máy xay thực phẩm gia dụng vỏ nhựa 350W 220V\nLý do Hải quan: cho rằng là thiết bị gia dụng khác\nTài liệu có: catalogue, hợp đồng"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"khai 8509\\.40\\.00 / HQ áp 8509\\.80\\.00"}
+{"step":"expect","sentTo":"c1","match":"Quy tắc 3a: mã 8509\\.40 cụ thể hơn 8509\\.80"}
+{"step":"expect","sentTo":"c1","match":"Đây là BẢN NHÁP"}
+{"step":"expect","sentTo":"c1","match":"Chưa có kết quả phân tích phân loại của Hải quan"}

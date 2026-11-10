@@ -1,0 +1,9 @@
+// KB6 (#136 mục C, mở lại ở #168): khách gửi dòng hàng nhờ soát trước khi khai.
+// Lỗ hổng đo được ngày 10/11: bộ dựng chung ăn mất `ketLuan` và `canhBao[]` của từng dòng hàng
+// (chỉ còn "• 8509.40.00" + "Điểm: 78") → khách tưởng tờ khai sạch trong khi Cổng đã cảnh báo.
+// Đã sửa (test đơn vị: packs/hs/test/soat-to-khai.test.mjs); ca này chốt ở mức luồng thật.
+{"step":"mcp","tool":"soat_to_khai","returns":[{"ok":true,"data":{"dongHang":[{"stt":1,"maHs":"85094000","ketLuan":"Mô tả đủ chỉ tiêu 1.78","canhBao":[{"level":"NOTICE","messageVi":"Chưa nêu nhãn hiệu trong mô tả — Hải quan có thể yêu cầu bổ sung"}]}],"diemTuanThu":{"score":78,"level":"TRUNG_BINH"}}}]}
+{"step":"in","update":{"id":"k1","text":"soát tờ khai giúp em\nMã HS: 85094000\nMô tả: Máy xay thực phẩm gia dụng, vỏ nhựa, 350W, 220V, mới 100%\nXuất xứ: CN"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"8509\\.40\\.00 — Mô tả đủ chỉ tiêu 1\\.78"}
+{"step":"expect","sentTo":"c1","match":"Chưa nêu nhãn hiệu trong mô tả — Hải quan có thể yêu cầu bổ sung \\(NOTICE\\)"}
+{"step":"expect","sentTo":"c1","match":"Điểm: 78"}

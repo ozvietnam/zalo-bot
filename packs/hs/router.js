@@ -17,6 +17,12 @@ export function route(text, { session = {}, pkgs = [] } = {}) {
   if (/^(hi|hello|xin chao|chao|alo)( bot| ban)?[!. ]*$/.test(n)) return { kind: 'chao' };
   // Mở lại bản phân tích đầy đủ của lượt phân loại gần nhất (bản chốt ngắn đã thay bản dài trong tin chính).
   if (/^(chi tiet|xem chi tiet|chi tiet day du|chi tiet day|giay to|xem giay to|giay to chi tiet)$/.test(n)) return { kind: 'chi-tiet' };
+  // Khách xin căn cứ pháp lý đầy đủ (issue #136 mục B): tin đầu chỉ 3 căn cứ ngắn, hỏi mới đưa đủ.
+  // Phải đặt TRƯỚC nhánh chọn gói: "căn cứ" không có số nên không đụng, nhưng "văn bản nào" thì
+  // chonGoi() sẽ lái sang gói 5 (pháp luật) — nhánh này chặn trước để trả đúng căn cứ của lượt vừa tra.
+  if (/^(can cu|can cu phap ly|can cu nao|xem can cu|chi tiet can cu|can cu chi tiet|can cu dau|cho (xin|em xem) can cu|xin can cu|dua vao (van ban|dau|co so) ?(nao)?|van ban nao|theo van ban nao)[?.! ]*$/.test(n)) {
+    return { kind: 'can-cu' };
+  }
   // Chọn gói: "7", "gói 7", "chọn gói 7", "chọn gói số 7", "dùng gói 7", "chọn 7", "gói 7: <nội dung>"
   const CHON = /^(?:(?:chon|dung|vao|mo|sang|chuyen)\s+)?(?:goi\s*(?:so\s*)?)?(\d)(?=$|[\s:.,\-])/;
   const chon = n.match(CHON);
@@ -50,12 +56,19 @@ export function chonGoi(text, pkgs) {
   const n = norm(text);
   const onlyCode = /^[\d.\s]{4,14}(\s+[a-z]{2})?$/i.test(text.trim());
   // Từ khoá phải đứng thành TỪ (\b): đã bỏ dấu thì "nhập máy" = "nh-ap ma-y" sẽ khớp nhầm "ap ma" (áp mã).
-  if (/\b(giai trinh|ap ma|tham van|tranh chap)\b/.test(n) && by('giai-trinh')) return { pkg: by('giai-trinh'), chac: false };
+  // MẪU NHẬP LIỆU của gói 7 dùng NHÃN ("Mã khai: …", "Mã Hải quan áp: …", khách gõ tắt "Mã HQ: …")
+  // và không chứa chữ "áp mã" nào, nên luật từ khoá một mình để mẫu do chính bot in ra rơi vào gói 1 —
+  // bot trả về "mã phù hợp nhất" đúng bằng mã khách đang bị Hải quan bác, không hề biết đang có tranh chấp.
+  const nhanGiaiTrinh = /\bma (?:hai quan ap|hai quan|hq)\b\s*:/.test(n) || /\bma khai\b\s*:/.test(n);
+  if ((nhanGiaiTrinh || /\b(giai trinh|ap ma|tham van|tranh chap)\b/.test(n)) && by('giai-trinh')) return { pkg: by('giai-trinh'), chac: false };
+  // Ý khách nói THẲNG ("viết/soạn mô tả khai báo") phải thắng mọi nhãn thuộc tính đi kèm: mẫu gói 3 có
+  // dòng "Thương hiệu:", trước đây luật nhãn hiệu chặn trước nên khách xin mô tả khai báo lại nhận
+  // bản đánh giá rủi ro nhãn hiệu (gói 6). Mẫu gói 6 không có chữ "mô tả" nào nên không bị luật này đụng.
+  if (/\b(mo ta khai|viet mo ta|soan mo ta)\b/.test(n) && by('mo-ta')) return { pkg: by('mo-ta'), chac: false };
   if (/\b(nhan hieu|thuong hieu|so huu tri tue|shtt|hang gia|brand)\b/.test(n) && by('shtt')) return { pkg: by('shtt'), chac: false };
   if (soHieuList(text).length && by('phap-luat')) return { pkg: by('phap-luat'), chac: false };
   if (/\b(chu giai|tien le|hieu luc|van ban|thong tu|nghi dinh)\b/.test(n) && by('phap-luat')) return { pkg: by('phap-luat'), chac: false };
   if (/\b(soat|kiem tra mo ta|to khai)\b/.test(n) && firstHs8(text) && by('kiem-tra')) return { pkg: by('kiem-tra'), chac: false };
-  if (/\b(mo ta khai|viet mo ta|soan mo ta)\b/.test(n) && by('mo-ta')) return { pkg: by('mo-ta'), chac: false };
   // CHỈ có mã (kèm nước tuỳ chọn) → gói 2 tự bóc mã và xuất xứ: não không thêm được gì.
   if (onlyCode && by('thue-thu-tuc')) return { pkg: by('thue-thu-tuc'), chac: true };
   if (/^(thue|thu tuc|thue suat|bao nhieu %|bao nhieu phan tram)\b/.test(n) && by('thue-thu-tuc')) return { pkg: by('thue-thu-tuc'), chac: false };

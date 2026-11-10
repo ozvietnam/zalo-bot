@@ -404,7 +404,7 @@ test('T033: tin trong nhóm lưu đúng conv_id theo từng người (chat_id:us
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// Tiêu chí 6: Đáp ứng SC-008 trên toàn bộ 12 kịch bản eval
+// Tiêu chí 6: Đáp ứng SC-008 trên TOÀN BỘ kịch bản eval
 // Số tin trong messages = tin khách vào + tin đã gửi thành công
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -415,10 +415,15 @@ function parseJsonl(file) {
     .map((l) => JSON.parse(l));
 }
 
-test('T033: SC-008 — số tin trong messages khớp tin khách vào + tin đã gửi trên toàn bộ 12 fixture eval', async () => {
+test('T033: SC-008 — số tin trong messages khớp tin khách vào + tin đã gửi trên toàn bộ fixture eval', async () => {
   const dir = join(process.cwd(), 'eval/fixtures');
   const files = readdirSync(dir).filter((f) => f.endsWith('.jsonl') && f !== 'messenger-human-echo.jsonl').sort();
-  assert.equal(files.length, 12, 'phải đủ 12 fixture eval');
+  // Ý của ca này là "SC-008 đúng trên MỌI fixture", không phải chốt tồn kho fixture: trước đây ca ghi
+  // cứng 12 và vỡ khi #168 thêm 10 ca KB1–KB10. Dùng mốc SÀN, không dùng số khớp chính xác, để thêm
+  // fixture mới không phải sửa ca này — nhưng fixture BỊ MẤT thì phải gãy.
+  // Mốc nâng 12 → 22 theo góp ý [S9]: #168 đã thêm KB1–KB10, để nguyên 12 thì mất 10 fixture vẫn xanh.
+  // 22 = số .jsonl hiện có trừ messenger-human-echo (đo bằng `ls eval/fixtures/*.jsonl | wc -l` = 23).
+  assert.ok(files.length >= 22, `phải có ít nhất 22 fixture eval, thấy ${files.length}`);
 
   for (const f of files) {
     const steps = parseJsonl(join(dir, f));

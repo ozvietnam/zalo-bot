@@ -1,0 +1,34 @@
+{
+  "id": "kb07-nhan-hieu-shtt",
+  "dich": "KB7",
+  "ten": "KB7 · Nhãn hiệu / sở hữu trí tuệ: trả đèn rủi ro và việc cần làm, không hứa chắc thông quan",
+  "moTa": "Nghiệm thu #168 mục C+D. Khách nêu nhãn hiệu + mã HS. Bot trả đèn rủi ro và kết luận đúng như Cổng ghi; Hiến pháp VIII cấm hứa chắc 'không bị giữ' hay bảo đảm thông quan. Sau khi gộp #171 (issue #169) khối SHTT nói tiếng Việt, nên ca này đo 🟡 + câu kết luận của Cổng thay vì nguyên văn 'VANG' — đổi cách đo, không hạ bất biến, và thêm hai mục khongChua để chặn việc đổ lại khoá thô.",
+  "chatType": "PRIVATE",
+  "chatId": "kb07_khach",
+  "userId": "kb07_khach",
+  "userName": "Khách KB7",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "Khách nêu nhãn hiệu + mã → đèn rủi ro + việc cần làm",
+      "text": "Nhãn hiệu: Philips\nMã HS: 85094000\nXuất xứ: CN",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Philips",
+          "8509\\.40\\.00",
+          "🟡",
+          "đăng ký gần giống ở VN",
+          "giấy uỷ quyền hoặc hợp đồng phân phối"
+        ],
+        "khongChua": [
+          "mock-ok",
+          "chắc chắn thông quan",
+          "không bị giữ",
+          "Đèn rủi ro:",
+          "nhanRuiRo"
+        ]
+      }
+    }
+  ]
+}

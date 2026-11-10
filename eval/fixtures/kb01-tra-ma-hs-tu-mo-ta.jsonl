@@ -1,0 +1,24 @@
+// KB1 (issue #136 mục C, mở lại ở #168): khách tả hàng bằng câu tự do → bot chốt mã HS gợi ý.
+// Phải có: câu "đang tra" ngay trong lượt (mục A3), dòng `Căn cứ:` tối đa 3 văn bản một dòng (mục A1),
+// thuế FTA luôn kèm điều kiện C/O, và câu nhắc "mã HS là gợi ý" (Hiến pháp VIII).
+// Câu khách là TỰ DO (không dùng form "Tên hàng:") vì chỉ nhánh giọng Quyên mới in dòng căn cứ.
+// Số văn bản trong câu trả lời được `kiemBiaSoVanBan` của eval/run.mjs soát tự động: phải có trong dữ liệu Cổng lượt này.
+{"step":"mcp","tool":"phan_loai_hs","returns":[{"ok":true,"maLuot":"11111111-2222-4333-8444-555555555555","trangThai":"DANG_XU_LY"}]}
+{"step":"mcp","tool":"ket_qua_phan_loai","returns":[{"ok":true,"trangThai":"XONG","data":{"maDeXuat":"85094000","tenVi":"Máy xay thực phẩm dùng trong gia đình","doTinCay":"CAO","lyDo":"Theo quy tắc 1, nhóm 8509 gồm thiết bị cơ điện gia dụng có động cơ điện gắn liền."}}]}
+{"step":"mcp","tool":"tra_thue","returns":[{"ok":true,"data":{"hsCode":"85094000","nameVi":"Máy xay, nghiền thực phẩm","unitVi":"Chiếc","taxNkPreferential":"25","taxVat":"8","canCu":{"mfn":{"vanBan":"NĐ 26/2025/NĐ-CP (biểu thuế 2026)"}},"canCuChiTiet":{"mfn":{"vanBan":"26/2023/NĐ-CP","hieuLuc":"15/07/2023"},"acfta":{"vanBan":"118/2022/NĐ-CP","hieuLuc":"30/12/2022"},"vat":{"vanBan":"181/2025/NĐ-CP","hieuLuc":"01/07/2025"}},"acfta":{"forOrigin":{"eligible":true,"rate":"0","origin":"CN"}}}}]}
+{"step":"mcp","tool":"tra_thu_tuc_nhap_khau","returns":[{"ok":true,"data":{"hsCode":"85094000","giayPhep":[],"kiemTraChuyenNganh":[]}}]}
+{"step":"mcp","tool":"sinh_mo_ta_khai_bao","returns":[{"ok":true,"data":{"moTa":"Máy xay thực phẩm gia dụng, vỏ nhựa, động cơ điện 300W, mới 100%"}}]}
+// Câu khách NÓI RÕ nước ("nhập từ Trung Quốc") — đúng như ca song sinh `eval/qa-that/kb01-….json`.
+// Bản đầu của ca này bỏ tên nước mà vẫn đòi dòng `Căn cứ:` có `118/2022 (ACFTA…)`: chốt sai, vì chưa
+// biết xuất xứ thì không được mời ưu đãi FTA ([S3] của #168). Bất biến ca muốn khoá — "căn cứ FTA
+// luôn kèm điều kiện C/O" — giữ nguyên, chỉ sửa TIỀN ĐỀ cho đúng. Ca "chưa biết nước" nằm ở
+// `packs/hs/test/can-cu-xuat-xu.test.mjs`.
+{"step":"in","update":{"id":"k1","text":"cho em hỏi máy xay thực phẩm gia dụng vỏ nhựa động cơ điện 300W mới 100% nhập từ Trung Quốc thì mã hs là gì ạ"},"drain":false}
+{"step":"expect","sentTo":"c1","count":1,"match":"chờ em tra"}
+{"step":"advance","by":"5s"}
+{"step":"expect","sentTo":"c1","count":2,"match":"8509\\.40\\.00"}
+{"step":"expect","sentTo":"c1","match":"Căn cứ: NĐ 26/2023 \\(thuế NK\\), NĐ 118/2022 \\(ACFTA, cần C/O mẫu E\\), NĐ 181/2025 \\(VAT\\)"}
+{"step":"expect","sentTo":"c1","match":"C/O mẫu E"}
+{"step":"expect","sentTo":"c1","match":"Mã HS là gợi ý tham khảo"}
+// Mục E: `canCu.mfn` ghi "NĐ 26/2025" còn `canCuChiTiet.mfn` ghi "26/2023" → phải lấy bản chi tiết.
+{"step":"expect","sentTo":"c1","notMatch":"26/2025"}

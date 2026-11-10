@@ -1,0 +1,51 @@
+{
+  "id": "kb03-thu-tuc-giay-phep",
+  "dich": "KB3",
+  "ten": "KB3 · Thủ tục / giấy phép / kiểm tra chuyên ngành: văn bản hết hiệu lực không được làm căn cứ chính",
+  "moTa": "Nghiệm thu #168 mục B+C+D. Hàng 8516 có hai chính sách: một dẫn từ 36/2026/TT-BKHCN (còn hiệu lực), một dẫn từ 08/2023/TT-BCT (hết hiệu lực một phần, đã bị bãi bỏ). Luật UX-02 quy tắc 2: phải gắn nhãn tình trạng cho khách thấy. Dòng Căn cứ tin đầu chỉ lấy văn bản còn hiệu lực; văn bản đã bãi bỏ chỉ xuất hiện ở mục 'KHÔNG dùng làm căn cứ chính' của bản đầy đủ. Hàng này Cổng KHÔNG nêu ACFTA → bot không được tự thêm căn cứ FTA.",
+  "chatType": "PRIVATE",
+  "chatId": "kb03_khach",
+  "userId": "kb03_khach",
+  "userName": "Khách KB3",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "Khách gõ mã → thuế + chính sách chuyên ngành, chính sách dẫn từ văn bản hết hiệu lực bị gắn nhãn",
+      "text": "85161090",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "8516\\.10\\.90",
+          "chính sách quản lý chuyên ngành",
+          "Chứng nhận hợp quy và dán nhãn CR",
+          "Dán nhãn năng lượng \\(căn cứ đã hết hiệu lực\\)",
+          "36/2026/TT-BKHCN.*\\(còn hiệu lực\\)",
+          "08/2023/TT-BCT.*hết hiệu lực một phần, đã bị bãi bỏ bởi 48/2026/TT-BCT",
+          "Căn cứ: NĐ 26/2023 \\(thuế NK\\), NĐ 181/2025 \\(VAT\\), TT 36/2026 \\(công bố hợp quy\\)"
+        ],
+        "khongChua": [
+          "26/2025",
+          "Căn cứ:.*08/2023",
+          "ACFTA",
+          "C/O mẫu E"
+        ]
+      }
+    },
+    {
+      "step": 2,
+      "mieuTa": "Khách xin căn cứ → văn bản đã bãi bỏ nằm ở mục 'KHÔNG dùng làm căn cứ chính'",
+      "text": "căn cứ",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "36/2026/TT-BKHCN — công bố hợp quy, hiệu lực từ 01/03/2026",
+          "KHÔNG dùng làm căn cứ chính",
+          "08/2023/TT-BCT — hết hiệu lực một phần từ 01/06/2026, đã bị bãi bỏ bởi 48/2026/TT-BCT"
+        ],
+        "khongChua": [
+          "26/2025"
+        ]
+      }
+    }
+  ]
+}

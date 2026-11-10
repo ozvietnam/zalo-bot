@@ -1,0 +1,16 @@
+// KB2 (#136 mục C, mở lại ở #168): khách đưa thẳng mã HS 8 số → bot trả thuế + chính sách.
+// Phải có: dòng `Căn cứ:` (mục A1 — trước #168 gói 2 trả thuế mà KHÔNG nêu căn cứ), thuế FTA kèm C/O,
+// và câu nói thật khi Cổng chưa ghi nhận chính sách (không được hiểu thành "chắc chắn miễn thủ tục").
+// Mục E: `canCu.mfn` = "NĐ 26/2025" lệch với `canCuChiTiet.mfn` = "26/2023" → phải chọn bản chi tiết.
+{"step":"mcp","tool":"tra_thue","returns":[{"ok":true,"data":{"hsCode":"85094000","nameVi":"Máy xay, nghiền thực phẩm","unitVi":"Chiếc","taxNkPreferential":"25","taxNkTt":"37.5","taxVat":"8","canCu":{"mfn":{"vanBan":"NĐ 26/2025/NĐ-CP (biểu thuế 2026)"}},"canCuChiTiet":{"mfn":{"vanBan":"26/2023/NĐ-CP","hieuLuc":"15/07/2023"},"acfta":{"vanBan":"118/2022/NĐ-CP","hieuLuc":"30/12/2022"},"vat":{"vanBan":"181/2025/NĐ-CP","hieuLuc":"01/07/2025"},"tt":{"vanBan":"15/2023/QĐ-TTg"}},"acfta":{"forOrigin":{"eligible":true,"rate":"0","origin":"CN"}}}}]}
+{"step":"mcp","tool":"tra_thu_tuc_nhap_khau","returns":[{"ok":true,"data":{"hsCode":"85094000","giayPhep":[],"kiemTraChuyenNganh":[]}}]}
+// Khách đưa mã KÈM nước, đúng như ca song sinh `eval/qa-that/kb02-….json` ("85094000 thuế nhập từ
+// Trung Quốc bao nhiêu ạ"). Bản đầu chỉ gõ mã trần mà vẫn đòi `118/2022 (ACFTA…)` trong dòng
+// `Căn cứ:` — chốt sai: chưa biết xuất xứ thì cấm nêu ưu đãi ([S3] của #168). Sửa TIỀN ĐỀ, giữ
+// nguyên bất biến (FTA kèm C/O, lấy `canCuChiTiet` chứ không lấy `canCu`).
+{"step":"in","update":{"id":"k1","text":"85094000 nhập từ Trung Quốc"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"8509\\.40\\.00"}
+{"step":"expect","sentTo":"c1","match":"Căn cứ: NĐ 26/2023 \\(thuế NK\\), NĐ 118/2022 \\(ACFTA, cần C/O mẫu E\\), NĐ 181/2025 \\(VAT\\)"}
+{"step":"expect","sentTo":"c1","match":"ACFTA \\(C/O mẫu E"}
+{"step":"expect","sentTo":"c1","match":"không có nghĩa là chắc chắn miễn thủ tục"}
+{"step":"expect","sentTo":"c1","notMatch":"26/2025"}

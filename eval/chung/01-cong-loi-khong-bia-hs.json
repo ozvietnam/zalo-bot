@@ -30,8 +30,9 @@
       }
     }
   },
+  "_ghiChu": "Từ 10/11/2026 (issue #168, mở lại #136 mục 5): lượt phải nhờ Cổng chạy nền được báo 'đang tra' ngay trong lượt, nên 2 tin = 1 câu chờ + 1 câu báo lỗi trung thực. Điều ca kiểm chốt vẫn là KHÔNG bịa mã HS.",
   "kyVong": {
-    "soTinNhan": 1,
+    "soTinNhan": 2,
     "phaiChua": ["AI bận|lỗi|thử lại"],
     "khongChua": ["\\b\\d{4}\\.\\d{2}\\.\\d{2}\\b", "Mã đề xuất"]
   }

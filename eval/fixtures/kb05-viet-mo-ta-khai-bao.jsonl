@@ -1,0 +1,11 @@
+// KB5 (#136 mục C, mở lại ở #168): khách nhờ viết mô tả khai báo.
+// Mô tả phải lấy nguyên văn từ Cổng (Hiến pháp V), không được bot tự soạn thêm chỉ tiêu.
+// CA NÀY KHÔNG PHỦ ĐƯỢC LỖI LÁI GÓI: fixture chỉ khai 1 công cụ nên `availablePackages`
+// (`packs/hs/packages.js:537`) lọc bỏ gói 6, luật nhãn hiệu không còn để chặn trước luật mô tả.
+// Trên Cổng thật (đủ công cụ) dòng "Thương hiệu:" từng lái câu này sang gói 6 — lỗi đó chốt bằng
+// test đơn vị `packs/hs/test/router-mau-goi.test.mjs` (chạy với PACKAGES đầy đủ).
+{"step":"mcp","tool":"sinh_mo_ta_khai_bao","returns":[{"ok":true,"data":{"maHs":"85094000","customsDescription":"Máy xay thực phẩm gia dụng, nhãn hiệu Philips, model HR2051, vỏ nhựa, động cơ điện 350W, điện áp 220V, mới 100%","diemTuanThu":{"score":92,"level":"TOT"}}}]}
+{"step":"in","update":{"id":"k1","text":"viết mô tả khai báo giúp em với\nMã HS: 85094000\nTên hàng: Máy xay thực phẩm\nThương hiệu: Philips\nModel: HR2051\nXuất xứ: CN\nThông số: công suất 350W, điện áp 220V\nTình trạng: mới 100%"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"Mô tả khai báo: Máy xay thực phẩm gia dụng, nhãn hiệu Philips, model HR2051, vỏ nhựa, động cơ điện 350W, điện áp 220V, mới 100%"}
+{"step":"expect","sentTo":"c1","match":"8509\\.40\\.00"}
+{"step":"expect","sentTo":"c1","match":"Điểm: 92"}
