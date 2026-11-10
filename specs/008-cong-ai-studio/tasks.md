@@ -311,7 +311,7 @@ Thiết lập cấu trúc Addon Chrome Manifest V3 tuân thủ quyền hạn t�
 }
 ```
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -333,10 +333,10 @@ test('T804: selectors.json có đầy đủ các trường thiết yếu và phi
   assert.ok(s.inputPrompt && s.runButton && s.responseContainer && s.copyButton && s.rateLimitBanner && s.loginIndicator);
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/gateway/selectors-schema.test.mjs` → FAIL.
-- [ ] **Step 3:** Tạo `addon/manifest.json` và `addon/selectors.json` với đầy đủ các bộ chọn DOM và metadata phiên bản.
-- [ ] **Step 4:** Chạy lại `node --test test/gateway/selectors-schema.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(addon): create manifest v3 and versioned DOM selectors configuration (T804)"`
+- [x] **Step 2:** Chạy `node --test test/gateway/selectors-schema.test.mjs` → FAIL.
+- [x] **Step 3:** Tạo `addon/manifest.json` và `addon/selectors.json` với đầy đủ các bộ chọn DOM và metadata phiên bản.
+- [x] **Step 4:** Chạy lại `node --test test/gateway/selectors-schema.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(addon): create manifest v3 and versioned DOM selectors configuration (T804)"`
 
 ---
 

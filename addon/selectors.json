@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-11-10",
+  "selectors": {
+    "inputPrompt": "textarea[aria-label*=\"Prompt\"], div[contenteditable=\"true\"]",
+    "systemInstruction": "textarea[aria-label*=\"System instructions\"]",
+    "runButton": "button[aria-label*=\"Run\"], button.run-button",
+    "responseContainer": "div.model-response-text, ms-response-root",
+    "loadingSpinner": "mat-progress-spinner, [aria-label*=\"Loading\"]",
+    "copyButton": "button[aria-label*=\"Copy response\"], button[aria-label*=\"Sao chép\"]",
+    "rateLimitBanner": "div:has-text(\"Quota exceeded\"), div:has-text(\"Resource exhausted\")",
+    "loginIndicator": "form[action*=\"accounts.google.com\"], a[href*=\"accounts.google.com\"]"
+  }
+}
