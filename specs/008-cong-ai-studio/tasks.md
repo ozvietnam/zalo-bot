@@ -358,7 +358,7 @@ export function createTabPool({ chromeTabsApi, minTabs = 3, maxTabs = 8, idleClo
 }
 ```
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -385,10 +385,10 @@ test('T805: Tab pool khởi tạo 3 tab mặc định và phân bổ tab độc 
   assert.equal(pool.getActiveTabCount(), 3);
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/gateway/tab-pool.test.mjs` → FAIL.
-- [ ] **Step 3:** Tạo `addon/tab-pool.js` quản lý danh sách tab theo ID, trạng thái `idle`/`busy`, điều hướng tab về `new_chat` khi release, scale tự động theo ngưỡng.
-- [ ] **Step 4:** Chạy lại `node --test test/gateway/tab-pool.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(addon): implement tab pool lifecycle and session isolation (T805)"`
+- [x] **Step 2:** Chạy `node --test test/gateway/tab-pool.test.mjs` → FAIL.
+- [x] **Step 3:** Tạo `addon/tab-pool.js` quản lý danh sách tab theo ID, trạng thái `idle`/`busy`, điều hướng tab về `new_chat` khi release, scale tự động theo ngưỡng.
+- [x] **Step 4:** Chạy lại `node --test test/gateway/tab-pool.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(addon): implement tab pool lifecycle and session isolation (T805)"`
 
 ---
 
