@@ -1,6 +1,7 @@
 // packs/hs/flow-photo.js — lượt ảnh của gói hs (như handlePhoto trong lib/bot.js cũ).
 // Gói 6 → kiểm nhãn hiệu bằng ảnh logo; còn lại → đọc thông số (Gemini) để người dùng xác nhận trước khi tra.
-import { renderResult, clipReply } from './render.js';
+import { clipReply } from './render.js';
+import { renderShtt } from './render-shtt.js';
 import { specsToText } from './vision.js';
 import { result } from './flow-turn.js';
 
@@ -11,7 +12,10 @@ export async function photoFlow(turn, ctx, st) {
   const footer = st.footer;
   if (s.goi === 6 && (!tn || tn.has('kiem_tra_shtt_anh'))) {
     const k = await st.mcp.callTool('kiem_tra_shtt_anh', { urlAnh: turn.photoUrl });
-    return result(st, [clipReply(`${renderResult(k, { title: '®️ So logo với nhãn hiệu đã đăng ký (CN, VN)' })}\nℹ️ So hình bằng máy, chỉ để tham khảo, không phải ý kiến pháp lý.\n\n${footer}`)]);
+    // renderShtt tự dán câu miễn trừ "So logo bằng máy…" đúng MỘT lần (issue #169).
+    const tieuDe = '{b}®️ So logo với nhãn hiệu đã đăng ký (CN, VN){/b}';
+    s.chiTiet = { text: `${tieuDe}\n${renderShtt(k, { anh: true, chiTiet: true })}`, at: Date.now() };
+    return result(st, [clipReply(`${tieuDe}\n${renderShtt(k, { anh: true })}\n\n${footer}`)]);
   }
   if (!ctx.vision) {
     const shtt = !tn || tn.has('kiem_tra_shtt_anh') ? '\n• Muốn kiểm nhãn hiệu bằng ảnh logo: gõ "6" rồi gửi ảnh.' : '';
