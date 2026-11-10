@@ -1,8 +1,8 @@
 # Tiến độ
 
-> Cập nhật: 2026-11-11 · commit: c74556a
+> Cập nhật: 2026-11-11 · commit: dc03bfb
 
-Trang này ghi **trạng thái thật**, đối chiếu với **code** ở commit `c74556a`, không tin tài liệu.
+Trang này ghi **trạng thái thật**, đối chiếu với **code** ở commit `dc03bfb`, không tin tài liệu.
 Nguyên tắc: mỗi việc T0xx ghi rõ **xong / dở / chưa làm**, kèm bằng chứng `tệp:dòng`.
 Chỗ nào chưa kiểm được thì ghi "chưa xác minh".
 T016 (nối `server.js` vào lõi, xoá `lib/`) **đã xong** ở commit `0842386` (bản nối xong ở `6a9cf5e`) — xem [Nhật ký](log.md).
@@ -79,7 +79,7 @@ Toàn bộ 9 nguyên tắc của Hiến pháp đã được thi hành và bảo 
 |---|---|---|
 | 005 — Kênh thứ hai (Fanpage Messenger & Zalo OA) | **Xong** — Hoàn tất trọn vẹn T501–T508 (adapter Messenger & Zalo OA, phát hiện người gõ tay vào Lõi, định tuyến webhook đa kênh, eval echo 18/18 kịch bản và 6/6 tiêu chí SC-001..SC-006 đạt 100%) | `channels/messenger.js:1`, `channels/zalo-oa.js:1`, `core/human-detector.js:26`, `core/engine-handoff.js:106`, `core/webhook.js:27`, `test/core/sc-005.test.mjs:1` |
 | 007 — Agent giám sát | Đã có spec, plan, tasks (T701–T713); toàn bộ T701–T713 đã xong (db chỉ-đọc, giờ VN, chuẩn hoá speaker, gửi bản tin kind: 'digest' qua hộp thư riêng digest_outbox, fingerprint + turnIds 9 tín hiệu, ẩn danh bằng chứng, chống trùng issue, gom nhóm Gemini, đọc số đo Cổng OZ và bắt TOOL-SLOW ở T710, kiểm SC-002, khép vòng lặp tuần SC-005 đo lường trước/sau và hiển thị lên bản tin ở T713, lập bảng đo nghiệm thu 6 tiêu chí SC-001..SC-006, đọc bản sao Fanpage chỉ-đọc ở T709, sổ nhật ký giam-sat.db), test spec 007 đưa vào CI qua npm test | `specs/007-giam-sat-nang-cap/plan.md:1`, `specs/007-giam-sat-nang-cap/sc-do.md:1`; db chỉ-đọc ở `scripts/giam-sat.mjs:42`, đọc bản sao Fanpage chỉ-đọc ở `scripts/giam-sat/nguon-fanpage.js:1`, gửi bản tin digest qua hộp thư riêng ở `scripts/giam-sat/digest.js:52`, hiển thị vòng lặp ở `scripts/giam-sat/digest.js:68`, 9 tín hiệu có fingerprint và turn_id ở `scripts/giam-sat/tinh-hieu.js:63`, Cổng OZ metrics ở `scripts/giam-sat/cong-oz.js:1`, kiểm SC-002 ở `scripts/giam-sat/sc-002.js:1`, test Cổng OZ ở `test/giam-sat/cong-oz.test.mjs:1`, test nguồn Fanpage ở `test/giam-sat/nguon-fanpage.test.mjs:1`, đo lường vòng lặp ở `scripts/giam-sat/vong-lap.js:139`, sổ nhật ký ở `scripts/giam-sat/so-nhat-ky.js:59`, cắm vào `scripts/giam-sat.mjs:84`, test spec 007 đưa vào CI ở `package.json:13` |
-| 008 — Cổng AI Studio | **Đang làm** — Đã xong T804 (Manifest V3 quyền hạn tối thiểu và 8 bộ chọn DOM có phiên bản tại `addon/manifest.json`, `addon/selectors.json`; test `test/gateway/selectors-schema.test.mjs`) | `specs/008-cong-ai-studio/spec.md:7`, `specs/008-cong-ai-studio/tasks.md:289`, `addon/manifest.json:1`, `addon/selectors.json:1`, `test/gateway/selectors-schema.test.mjs:1` |
+| 008 — Cổng AI Studio | **Đang làm** — Đã xong T801, T804, T805 (T801: SQLite Queue DB với cơ chế thuê nguyên tử tại `gateway/queue-db.js`; T804: Manifest V3 quyền hạn tối thiểu và 8 bộ chọn DOM có phiên bản tại `addon/manifest.json`, `addon/selectors.json`; T805: Quản lý vòng đời tab pool và cô lập phiên tại `addon/tab-pool.js`) | `specs/008-cong-ai-studio/spec.md:7`, `specs/008-cong-ai-studio/tasks.md:72`, `gateway/queue-db.js:1`, `addon/manifest.json:1`, `addon/selectors.json:1`, `addon/tab-pool.js:1`, `test/gateway/queue-db.test.mjs:1`, `test/gateway/selectors-schema.test.mjs:1`, `test/gateway/tab-pool.test.mjs:1` |
 | 003 — Gói CSKH bốn nấc | **Đã có spec, plan, tasks (S003-01)** — Hoàn tất đặc tả phễu 4 nấc CSKH (báo cước + link sàn, hướng dẫn tự tìm nguồn, dịch vụ ủy thác OZ, khóa đào tạo 1-1), ranh giới handoff đo được, `moneyCheck: true`, bộ 32 kịch bản eval | `specs/003-cskh-bon-nac/spec.md:1`, `specs/003-cskh-bon-nac/plan.md:1`, `specs/003-cskh-bon-nac/tasks.md:1`, `specs/003-cskh-bon-nac/sc-do.md:1` |
 | 009 — Agent tra cứu hải quan | **Chỉ có spec** | `specs/009-agent-tra-cuu/spec.md:7` (Draft); não hiện tại ở `packs/hs/brain.js` chỉ chọn một gói, chưa phải vòng lặp gọi nhiều công cụ |
 | 010 — Giao việc cho thợ ngoài (Antigravity, Muse Code) | **Đóng — đã hiện thực ở tầng văn phòng (ADR-0022)** | `specs/010-giao-viec-antigravity/spec.md:9`; 5 câu hỏi đã giải quyết theo thực tế hạ tầng bể thợ Google AI Ultra của văn phòng (ADR-0022); đóng spec 010 trong repo, Muse Code gác lại |
@@ -120,12 +120,12 @@ Toàn bộ 9 nguyên tắc của Hiến pháp đã được thi hành và bảo 
 Thứ tự chạy thật của spec 001 ghi ở `specs/001-nen-tang-chung/tasks.md:833`:
 T001–T015 → **T037–T038** → T016–T026 → T033–T036 → T027–T032.
 
-Bám theo trạng thái code hiện tại (11/11/2026, commit `c74556a`):
+Bám theo trạng thái code hiện tại (11/11/2026, commit `dc03bfb`):
 
 1. **Spec 001** đã hoàn tất toàn bộ code T001–T040, đã đo đủ 9 chỉ số SC-001…SC-009 tại `specs/001-nen-tang-chung/sc-do.md:11` (6/9 Đạt trọn vẹn trong lab, 3/9 Đạt về code chờ chạy thật: SC-002, SC-007, SC-009); T040 (đo SC-008 tự động qua `eval/run.mjs:148`, `eval/run.mjs:166`) đã hoàn thành.
 2. **Spec 007 (Agent giám sát)** đã hoàn tất T701–T713 và nghiệm thu số liệu đo lường 6 chỉ số SC-001..SC-006 tại `specs/007-giam-sat-nang-cap/sc-do.md:3` (5/6 Đạt trọn vẹn trong lab, 1/6 Đạt về code chờ theo dõi 4 tuần chạy thật).
 3. **Spec 005 (Kênh thứ hai)** đã hoàn tất T501–T508 và nghiệm thu 6 chỉ số SC-001..SC-006 tại `specs/005-kenh-thu-hai/sc-do.md:3` (6/6 Đạt trọn vẹn Tự động hóa 100%).
-4. **Nhánh main** đã gộp các PR: PR #171 (khối SHTT tiếng Việt và xử lý OEM), PR #174 (hotline công ty khi xin gặp nhân viên), PR #176 (hồ sơ mặt hàng theo mạch hội thoại của khách).
+4. **Nhánh main** đã gộp các PR: PR #171 (khối SHTT tiếng Việt và xử lý OEM), PR #174 (hotline công ty khi xin gặp nhân viên), PR #176 (hồ sơ mặt hàng theo mạch hội thoại của khách), cùng các PR Spec 008: PR #186 (T801: SQLite Queue DB), PR #193 (T805: Quản lý vòng đời Tab Pool), PR #194 (T804: Manifest V3 & selectors).
 5. Bước tiếp theo: Theo dõi vận hành thực tế khi kết nối Cổng OZ và chuẩn bị cho các spec tiếp theo theo lộ trình `docs/ROADMAP.md:20` (**008 trước 003**, và **003 trước 002**).
 
 ## 5. Mâu thuẫn giữa tài liệu và code

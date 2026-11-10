@@ -1,6 +1,6 @@
 # Nhật ký wiki
 
-> Cập nhật: 2026-11-10 · commit: 14595d4
+> Cập nhật: 2026-11-11 · commit: dc03bfb
 
 Nhật ký thay đổi của bộ wiki trong docs/wiki. Mỗi dòng ghi: ngày, commit của mã nguồn
 đã đọc khi viết, và những trang bị thay đổi hoặc thêm mới.
@@ -11,6 +11,13 @@ Quy ước:
 - Ghi rõ **vì sao** đổi, không chỉ ghi "sửa lỗi".
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
+
+## 2026-11-11 — WIKI-04: Cập nhật docs/wiki/tien-do.md ghi nhận T801, T804, T805 Spec 008 đã gộp
+
+- **Commit mã nguồn đã đọc:** `dc03bfb`.
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md`, `docs/wiki/log.md`.
+- **Vì sao:** cập nhật bảng trạng thái mục 3 Spec 008 tại `docs/wiki/tien-do.md:82` phản ánh trung thực 3 nhiệm vụ T801, T804, T805 của Spec 008 (Cổng AI Studio) đã hoàn thành và gộp vào nhánh `main` qua các PR #186 (T801: SQLite Queue DB với cơ chế thuê nguyên tử tại `gateway/queue-db.js:1`), PR #194 (T804: Manifest V3 quyền hạn tối thiểu và 8 bộ chọn DOM có phiên bản tại `addon/manifest.json:1`, `addon/selectors.json:1`), PR #193 (T805: Quản lý vòng đời tab pool và cô lập phiên tại `addon/tab-pool.js:1`); kèm các tệp test chuẩn xác (`test/gateway/queue-db.test.mjs:1`, `test/gateway/selectors-schema.test.mjs:1`, `test/gateway/tab-pool.test.mjs:1`); đồng bộ mốc commit và ngày cập nhật trên đầu trang `docs/wiki/tien-do.md` và `docs/wiki/log.md` theo commit `dc03bfb` mới nhất trên nhánh `main`.
+- **Kiểm tra:** `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang), `node --test test/gateway/queue-db.test.mjs test/gateway/selectors-schema.test.mjs test/gateway/tab-pool.test.mjs` (17/17 test xanh).
 
 ## 2026-11-10 — WIKI-02: Đồng bộ docs/wiki/an-toan.md và docs/wiki/kiem-thu.md theo code main (14595d4)
 
