@@ -2,8 +2,9 @@
 // Mỗi gói gom 1 hoặc nhiều công cụ của Cổng OZ (MCP). Muốn thêm gói khi Cổng có công cụ mới:
 // thêm một mục vào PACKAGES (so, ten, congCu, mau, chay). Gói chỉ hiện khi Cổng có đủ công cụ bắt buộc.
 // Gói có việc nền (1, 4) tách chay thành batDau (gọi Cổng, không chờ) + xong (dựng chữ từ kết quả) để index.js giao việc cho lõi.
-import { parseLabeled, firstHs8, allHs8, soHieuList, countryCode, findCountryInText, norm } from './input.js';
+import { parseLabeled, firstHs8, allHs8, soHieuList, countryCode, findCountryInText, norm, laNhanChung } from './input.js';
 import { renderResult, renderClassify, nhacPhongVe, renderPhanLoaiDayDu } from './render.js';
+import { renderShtt, nhacNhanChung, donNhanChung } from './render-shtt.js';
 import { plain } from './style.js';
 import { fmtHs } from './format.js';
 import { chayCho } from './jobs.js';
@@ -68,6 +69,8 @@ export function lamGonCauHoi(s) {
 }
 
 const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v != null && v !== ''));
+/** Chữ đưa vào mô tả khai báo khi khách nói hàng không có nhãn hiệu ("hiệu oem") — issue #169. */
+const KHONG_NHAN = 'không nhãn hiệu';
 const ask = (msg, mau) => `{b}❓ ${msg}{/b}\n\n{b}Gửi theo mẫu:{/b}\n${mau}`;
 const clipS = (s, n) => { const t = String(s ?? '').replace(/\s+/g, ' ').trim(); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
 /** Ghi lượt "trượt từ vựng" (nếu bot có bật sổ ghi) — không bao giờ làm hỏng câu trả lời. */
@@ -235,7 +238,11 @@ export const PACKAGES = [
         return ask('Anh/chị cho em biết tên hàng và công dụng để em tra đúng nhé.', this.mau);
       }
       const ts = { ...(thongSoObj(v.thongSo) || {}) };
-      if (v.thuongHieu) ts['Thương hiệu'] = v.thuongHieu;
+      // "hiệu oem", "no brand"… là cách khách nói KHÔNG có nhãn hiệu (issue #169): ghi đúng như vậy cho Cổng,
+      // không coi là một nhãn hiệu cụ thể (sẽ không kiểm sở hữu trí tuệ, không trừ điểm).
+      const nhanChung = v.thuongHieu && laNhanChung(v.thuongHieu) ? v.thuongHieu : null;
+      const hieuThat = nhanChung ? null : v.thuongHieu || null;
+      if (v.thuongHieu) ts['Thương hiệu'] = nhanChung ? KHONG_NHAN : v.thuongHieu;
       if (v.model) ts.Model = v.model;
       const args = clean({ tenHang, chatLieu: v.chatLieu?.slice(0, 200), congDung: v.congDung?.slice(0, 300),
         thongSo: Object.keys(ts).length ? ts : null, nguonThongSo: ctx.nguonThongSo || 'CHU' });
@@ -251,13 +258,15 @@ export const PACKAGES = [
       }
       const r = await ctx.mcp.callTool('phan_loai_hs', args);
       const chonNhanh = !ctx.session.daHoiLai && !ctx.session.giaDinh && (ctx.session.goi === 1 || coNhanChuan || laLegacyTest);
+      // #170: lệnh "tra hs …" phải bắt lấy LỜI KHÁCH vừa gõ (`cauKhach`), không phải bản gộp mô tả
+      // (`text` luôn khác lời khách nên mọi tin sau lượt đầu sẽ bị ghi nhầm là "gõ lại" — S24).
       const giongQuyen = Boolean(ctx.session.daHoiLai || ctx.session.giaDinh || (!laLegacyTest && !ctx.session.goi && !coNhanChuan) || /tra\s*hs/i.test(cauKhach || ''));
-      return { r, resultTool: 'ket_qua_phan_loai', label: 'Đang phân loại mã HS', cauCho: 'Dạ anh chờ em tra chút nhé', context: { tenHang, boSung: false, cauMoi: cauKhach, thuongHieu: v.thuongHieu || null, chonNhanh, giongQuyen, daHoiLai: ctx.session.daHoiLai, giaDinh: ctx.session.giaDinh } };
+      return { r, resultTool: 'ket_qua_phan_loai', label: 'Đang phân loại mã HS', cauCho: 'Dạ anh chờ em tra chút nhé', context: { tenHang, boSung: false, cauMoi: cauKhach, thuongHieu: hieuThat, nhanChung, chonNhanh, giongQuyen, daHoiLai: ctx.session.daHoiLai, giaDinh: ctx.session.giaDinh } };
     },
     /** Kết quả cuối (đã xong, hoặc lỗi/hết hạn) → chữ trả lời; ghi phiên last/choBoSung.
      *  Có mã HS → tự chạy tiếp thuế + thủ tục (tra cứu miễn phí) ngay trong tin: khách "vất hàng vào" là ra hết,
      *  không phải gõ "2". Gói 3/4 tính điểm nên vẫn để khách chủ động gọi. */
-    async xong(r, { tenHang, boSung = false, cauMoi, thuongHieu = null, chonNhanh = false, giongQuyen = false }, ctx) {
+    async xong(r, { tenHang, boSung = false, cauMoi, thuongHieu = null, nhanChung = null, chonNhanh = false, giongQuyen = false }, ctx) {
       const maHs = pickHs(r);
       const maLuot = r?.maLuot || r?.chiPhi?.maLuot || r?.data?.maLuot;
       ctx.session.last = { tenHang, maHs, maLuotPhanLoai: UUID.test(maLuot || '') ? maLuot : null };
@@ -285,7 +294,7 @@ export const PACKAGES = [
             ctx.log?.error?.(`[hs] lỗi gọi tra_thu_tuc_nhap_khau (${maHs}): ${err?.message || err}`);
             return null;
           }) : null,
-          has(ctx, 'sinh_mo_ta_khai_bao') ? ctx.mcp.callTool('sinh_mo_ta_khai_bao', clean({ maHs, tenHang, maLuotPhanLoai: ml, thuongHieu, xuatXu: xx })).catch(() => null) : null,
+          has(ctx, 'sinh_mo_ta_khai_bao') ? ctx.mcp.callTool('sinh_mo_ta_khai_bao', clean({ maHs, tenHang, maLuotPhanLoai: ml, thuongHieu: thuongHieu || (nhanChung ? KHONG_NHAN : null), xuatXu: xx })).catch(() => null) : null,
         ]);
         if (thue && (thue.ok === false || thue.isError)) {
           ctx.log?.error?.(`[hs] Cổng trả lỗi tra_thue (${maHs}): ${thue.thongBao || thue.loi || thue.text || 'ok:false'}`);
@@ -294,22 +303,31 @@ export const PACKAGES = [
           ctx.log?.error?.(`[hs] Cổng trả lỗi tra_thu_tuc_nhap_khau (${maHs}): ${thuTuc.thongBao || thuTuc.loi || thuTuc.text || 'ok:false'}`);
         }
         let full = renderPhanLoaiDayDu({ tenHang, maHs, phanLoai: r, thue, thuTuc, moTa, xuatXu: xx });
+        // "hiệu oem" → chỉ nhắc một dòng, KHÔNG gọi kiem_tra_shtt (đèn ĐỎ sai + trừ điểm vô ích) — issue #169.
+        if (nhanChung) full = `${donNhanChung(full)}\n\n${nhacNhanChung(nhanChung)}`;
+        let fullChiTiet = full;
         if (thuongHieu && has(ctx, 'kiem_tra_shtt')) {
           const shtt = await ctx.mcp.callTool('kiem_tra_shtt', { tenNhan: thuongHieu, maHs, xuatXu: xx }).catch(() => null);
-          if (shtt) full += `\n\n${renderResult(shtt, { title: `®️ Rủi ro nhãn hiệu "${thuongHieu}"` })}`;
+          if (shtt) {
+            const tieuDe = `{b}®️ Rủi ro nhãn hiệu "${thuongHieu}"{/b}`;
+            full += `\n\n${tieuDe}\n${renderShtt(shtt, { tenNhan: thuongHieu })}`;
+            fullChiTiet += `\n\n${tieuDe}\n${renderShtt(shtt, { tenNhan: thuongHieu, chiTiet: true })}`;
+          }
         }
-        const traLoi = `${full}\n\n{b}👉{/b} Thêm thương hiệu/model cho mô tả: gõ {b}"3"{/b} · xuất xứ khác: gõ {b}"2"{/b} kèm nước\n${LUU_Y}`;
+        const duoi = `\n\n{b}👉{/b} Thêm thương hiệu/model cho mô tả: gõ {b}"3"{/b} · xuất xứ khác: gõ {b}"2"{/b} kèm nước\n${LUU_Y}`;
+        const traLoi = `${full}${duoi}`;
         // Lưu bản đầy đủ để lệnh "chi tiết" mở lại được: trước đây lệnh này luôn trả lời
         // "Chưa có bản chi tiết nào" vì chỉ có nhánh AI biên tập mới ghi phiên — mà nhánh đó
         // không chạy nữa (form cố định đã thay). Khách cuộn mất tin thì gõ "chi tiết" là lấy lại.
-        ctx.session.chiTiet = { text: traLoi, at: Date.now() };
+        ctx.session.chiTiet = { text: `${fullChiTiet}${duoi}`, at: Date.now() };
 
         // Giọng Quyên (issue #136, mục 2 & 3): trả bản ngắn gọn <= 6-7 dòng khi thuộc luồng giọng Quyên
         if (giongQuyen && !chonNhanh) {
           const giaDinh = ctx.session.giaDinh || null;
           ctx.session.giaDinh = null;
           ctx.session.daHoiLai = null;
-          return renderPhanLoaiGiongQuyen({ tenHang, maHs, phanLoai: r, thue, thuTuc, moTa, xuatXu: xx, giaDinh });
+          const ngan = renderPhanLoaiGiongQuyen({ tenHang, maHs, phanLoai: r, thue, thuTuc, moTa, xuatXu: xx, giaDinh });
+          return nhanChung ? `${donNhanChung(ngan)}\n${nhacNhanChung(nhanChung)}` : ngan;
         }
         return traLoi;
       }
@@ -347,10 +365,13 @@ export const PACKAGES = [
         if (thuTuc) out += `\n\n${renderResult(thuTuc, { title: '📋 Chính sách nhập khẩu', renderer: 'policy' })}`;
         if (thuongHieu && st !== 'CAN_DU_KIEN' && has(ctx, 'kiem_tra_shtt')) {
           const shtt = await ctx.mcp.callTool('kiem_tra_shtt', { tenNhan: thuongHieu, maHs, xuatXu: xx }).catch(() => null);
-          if (shtt) out += `\n\n${renderResult(shtt, { title: `®️ Rủi ro nhãn hiệu "${thuongHieu}" — ${fmtHs(maHs)}` })}`;
+          if (shtt) out += `\n\n{b}®️ Rủi ro nhãn hiệu "${thuongHieu}" — ${fmtHs(maHs)}{/b}\n${renderShtt(shtt, { tenNhan: thuongHieu })}`;
         }
         out += `\n\n{b}👉 Tiếp theo:{/b} gõ "3" để viết mô tả khai báo · xuất xứ khác: gõ "2" kèm mã HS và nước.`;
       }
+      // Dán lời nhắc ở ĐÂY chứ không trong nhánh `if (maHs)`: nhánh CAN_DU_KIEN (Cổng hỏi thêm
+      // dữ kiện, chưa có mã) cũng phải nhắc, nếu không khách trả lời vòng sau vẫn gõ "OEM" (soát #169 [S5]).
+      if (nhanChung) out = `${donNhanChung(out)}\n\n${nhacNhanChung(nhanChung)}`;
       out += '\n{orange}ℹ️ Mã HS là GỢI Ý tham khảo, không thay thế ý kiến phân loại của Hải quan.{/orange}';
       // Não biên tập (ctx.editor): bản chốt ngắn thay bản dài, bản đầy lưu cho lệnh "chi tiết".
       // Không áp khi đang hỏi dữ kiện (câu hỏi của Cổng phải tới khách nguyên văn). Editor lỗi/số không khớp → giữ bản đầy.
@@ -421,14 +442,17 @@ export const PACKAGES = [
       const tenHang = (v.tenHang || conLai.replace(/(?<!\d)\d{4}[.\s]?\d{2}[.\s]?\d{2}(?!\d)/, '').trim() || last.tenHang || '').slice(0, 500);
       if (!maHs) return ask('Cần mã HS 8 số (hoặc dùng gói 1 để phân loại trước).', this.mau);
       if (tenHang.length < 2) return ask('Cần tên hàng.', this.mau);
+      // Khách gõ "Thương hiệu: OEM" → mô tả khai báo phải ghi "không nhãn hiệu", không ghi "nhãn hiệu OEM" (issue #169).
+      const nhanChung = v.thuongHieu && laNhanChung(v.thuongHieu) ? v.thuongHieu : null;
       const args = clean({
         maHs, tenHang, chatLieu: v.chatLieu, congDung: v.congDung, thongSo: thongSoObj(v.thongSo),
-        thuongHieu: v.thuongHieu, model: v.model, xuatXu: v.xuatXu ? countryCode(v.xuatXu) : null,
+        thuongHieu: nhanChung ? KHONG_NHAN : v.thuongHieu, model: v.model, xuatXu: v.xuatXu ? countryCode(v.xuatXu) : null,
         tinhTrang: v.tinhTrang, kichThuoc: v.kichThuoc, nhaSanXuat: v.nhaSanXuat, quyCachDongGoi: v.quyCachDongGoi,
         maLuotPhanLoai: last.maHs === maHs ? last.maLuotPhanLoai : null,
       });
       const r = await ctx.mcp.callTool('sinh_mo_ta_khai_bao', args);
       let out = renderResult(r, { title: `📝 Mô tả khai báo — ${fmtHs(maHs)}` });
+      if (nhanChung) out = `${donNhanChung(out)}\n\n${nhacNhanChung(nhanChung)}`;
       if (r?.banNhap || r?.data?.banNhap) out += '\n\n{orange}⚠️ Đây là BẢN NHÁP{/orange} vì hồ sơ chưa đủ căn cứ — trả lời các câu hỏi rồi gửi lại, không dùng bản nháp để khai.';
       return out;
     },
@@ -505,11 +529,16 @@ export const PACKAGES = [
       const maHs = firstHs8(v.maHs || '') || (conLai.match(/(?<!\d)\d{4}(?:\d{2}){0,2}(?!\d)/) || [])[0] || null;
       const tenNhan = (v.tenNhan || conLai.replace(/(?<!\d)\d{4,8}(?!\d)/g, '').replace(/\b[A-Z]{2}\b\s*$/, '').trim()).slice(0, 200);
       if (!tenNhan) return ask('Cần tên nhãn hiệu.', this.mau);
+      // Từ chung chung ("oem", "no brand"…): không gọi Cổng, không trừ điểm — issue #169.
+      if (laNhanChung(tenNhan)) return `${nhacNhanChung(tenNhan)}\n\nAnh/chị gửi đúng nhãn in trên hàng (hoặc ảnh logo) để em kiểm giúp nhé.`;
       // Chỉ gửi xuất xứ khi khách thực sự đưa (dòng "Xuất xứ:" hoặc mã nước cuối tin "Nike 64041190 CN") — không đoán.
       const cuoi = (conLai.match(/\b([A-Z]{2})\s*$/) || [])[1];
       const xuatXu = (v.xuatXu && countryCode(v.xuatXu)) || (cuoi && countryCode(cuoi)) || null;
       const r = await ctx.mcp.callTool('kiem_tra_shtt', clean({ tenNhan, maHs, xuatXu, tenNguoiNhap: v.tenNguoiNhap }));
-      return renderResult(r, { title: `®️ Rủi ro nhãn hiệu "${tenNhan}"${maHs ? ` — ${fmtHs(maHs)}` : ''}` });
+      const tieuDe = `{b}®️ Rủi ro nhãn hiệu "${tenNhan}"${maHs ? ` — ${fmtHs(maHs)}` : ''}{/b}`;
+      // Bản đầy (chứng cứ, nguồn, mốc dữ liệu) để khách gõ "chi tiết" xem lại; tin chính chỉ 4 dòng.
+      ctx.session.chiTiet = { text: `${tieuDe}\n${renderShtt(r, { tenNhan, chiTiet: true })}`, at: Date.now() };
+      return `${tieuDe}\n${renderShtt(r, { tenNhan })}`;
     },
   },
   {

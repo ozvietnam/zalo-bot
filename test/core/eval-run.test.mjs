@@ -48,14 +48,15 @@ test('eval: hỗ trợ bước staff thực hiện lệnh nhân viên', () => {
   const dir = mkdtempSync(join(tmpdir(), 'eval-'));
   try {
     writeFileSync(join(dir, 'staff.jsonl'), jsonl([
-      { step: 'in', update: { id: 'm1', text: 'cho em gặp nhân viên với' } },
-      { step: 'expect', sentTo: 'c1', count: 1, match: 'chuyển cuộc trò chuyện' },
-      { step: 'staff', text: '/nhan P1' },
+      { step: 'in', update: { id: 'm1', text: 'gặp nhân viên' } },
+      { step: 'expect', sentTo: 'c1', count: 1, match: 'hotline OZ' },
+      { step: 'staff', text: '/tl c1 Chào bạn, mình là nhân viên OZ hỗ trợ bạn nhé' },
+      { step: 'expect', sentTo: 'c1', count: 2, match: 'hỗ trợ bạn nhé' },
       { step: 'in', update: { id: 'm2', text: 'alo bot' } },
-      { step: 'expect', sentTo: 'c1', count: 1 },
-      { step: 'staff', text: '/tra-bot P1' },
-      { step: 'in', update: { id: 'm3', text: 'xin chào' } },
       { step: 'expect', sentTo: 'c1', count: 2 },
+      { step: 'staff', text: '/tra-bot c1' },
+      { step: 'in', update: { id: 'm3', text: 'xin chào' } },
+      { step: 'expect', sentTo: 'c1', count: 3, match: 'tra cứu' },
     ]));
     const r = run(dir);
     assert.equal(r.status, 0, r.stdout + '\n' + r.stderr);

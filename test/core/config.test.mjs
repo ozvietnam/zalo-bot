@@ -20,6 +20,7 @@ test('mặc định với env tối thiểu', () => {
   assert.equal(cfg.voiceReplies, 'summary');
   assert.equal(cfg.geminiTtsVoice, 'Aoede');
   assert.equal(cfg.capVoiceDay, 50);
+  assert.equal(cfg.hotline, '0972 433 318');
   assert.ok(cfg.allowUsers instanceof Set && cfg.allowUsers.size === 0);
   assert.ok(cfg.staffUsers instanceof Set);
   assert.ok(cfg.companyPhones instanceof Set && cfg.companyPhones.size === 0);
@@ -71,4 +72,9 @@ test('HUMAN_IDLE_MS là biến riêng, không dính SESSION_TTL_MS (T022)', () =
 test('ZALO_MODE không phân biệt hoa thường', () => {
   assert.equal(loadConfig({ ...min, ZALO_MODE: 'Polling' }).mode, 'polling');
   assert.equal(loadConfig({ ...min, ZALO_MODE: 'WEBHOOK' }).mode, 'webhook');
+});
+
+test('HOTLINE nạp từ biến môi trường, có mặc định', () => {
+  assert.equal(loadConfig(min).hotline, '0972 433 318');
+  assert.equal(loadConfig({ ...min, HOTLINE: '0912345678' }).hotline, '0912345678');
 });

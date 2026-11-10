@@ -66,6 +66,7 @@ export function loadConfig(env = process.env) {
     // Khoảng lặng để phòng 'human' tự về 'bot' (Điều II). Biến riêng, KHÔNG dùng SESSION_TTL_MS: hết hạn
     // phiên hội thoại và nhường phòng cho người là hai việc khác nhau, vận hành chỉnh độc lập.
     humanIdleMs: int(env, 'HUMAN_IDLE_MS', 7_200_000, 1),
+    hotline: str(env, 'HOTLINE', '0972 433 318'),
     bannedPatterns: Object.freeze(patterns(env, 'BANNED_PATTERNS')),
     botNames: Object.freeze(list(env, 'BOT_NAMES')),
     publicBaseUrl: str(env, 'PUBLIC_BASE_URL', 'https://zalo-bot.uythacnhapkhau.com'),

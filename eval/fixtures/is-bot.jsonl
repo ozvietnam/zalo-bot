@@ -4,4 +4,4 @@
 {"step":"in","update":{"id":"ib2","text":"xin chào"}}
 {"step":"expect","sentTo":"c1","count":2,"match":"tra cứu"}
 {"step":"in","update":{"id":"ib3","text":"gặp nhân viên"}}
-{"step":"expect","sentTo":"c1","count":3,"match":"chuyển cuộc trò chuyện cho nhân viên"}
+{"step":"expect","sentTo":"c1","count":3,"match":"hotline OZ"}

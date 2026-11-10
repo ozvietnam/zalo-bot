@@ -1,11 +1,9 @@
 // US7 (FR-025, FR-030): dữ kiện tương tác của khách (SĐT, nhãn) được ghi nhận vào hồ sơ customers và hiển thị trong phiếu nhân viên
 {"step":"in","update":{"id":"hs1","text":"em cần tư vấn nhập khẩu sđt em 0912345678, cho em gặp nhân viên với","userName":"Khách VIP"}}
-{"step":"expect","sentTo":"c1","count":1,"match":"nhân viên OZ"}
+{"step":"expect","sentTo":"c1","count":1,"match":"hotline OZ"}
+{"step":"staff","text":"/ho-so c1"}
 {"step":"expect","sentTo":"staff-chat","count":1,"match":"0912345678"}
 {"step":"expect","sentTo":"staff-chat","match":"co-sdt"}
 {"step":"expect","sentTo":"staff-chat","match":"xin-nguoi"}
-{"step":"staff","text":"/cho"}
-{"step":"expect","sentTo":"staff-chat","count":2,"match":"P1"}
-{"step":"staff","text":"/nhan P1"}
-{"step":"staff","text":"/tl P1 Chào anh Khách VIP, em đã nhận thông tin sđt 0912345678 của anh"}
+{"step":"staff","text":"/tl c1 Chào anh Khách VIP, em đã nhận thông tin sđt 0912345678 của anh"}
 {"step":"expect","sentTo":"c1","count":2,"match":"0912345678"}
