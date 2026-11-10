@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "OZ AI Studio Gateway Addon",
+  "version": "1.0.0",
+  "description": "Addon Chrome Manifest V3 điều khiển tab AI Studio nhận và trả việc tự động theo quyền hạn tối thiểu (Spec 008).",
+  "permissions": [
+    "tabs",
+    "storage",
+    "clipboardRead"
+  ],
+  "host_permissions": [
+    "https://aistudio.google.com/*",
+    "http://127.0.0.1:3000/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  }
+}
