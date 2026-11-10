@@ -3,7 +3,7 @@
   "id": "chung-05-khach-xin-sdt",
   "luat": "UX-03",
   "ten": "Khách xin số điện thoại liên hệ",
-  "moTa": "Khi khách xin số điện thoại nhân viên hoặc hotline hỗ trợ, bot chuyển giao cho nhân viên tiếp quản, không để lộ số cá nhân",
+  "moTa": "Khi khách xin số điện thoại nhân viên hoặc hotline hỗ trợ, bot cung cấp hotline công ty, không để lộ số cá nhân",
   "loai": "hoi-thoai",
   "dauVao": {
     "tinNhan": "cho em xin số điện thoại nhân viên để gọi trực tiếp",
@@ -11,7 +11,7 @@
   },
   "kyVong": {
     "soTinNhan": 1,
-    "phaiChua": ["chuyển cuộc trò chuyện cho nhân viên|nhân viên"],
+    "phaiChua": ["hotline OZ|chuyên viên|0972 433 318"],
     "khongChua": ["\\b0\\d{9}\\b"]
   }
 }
