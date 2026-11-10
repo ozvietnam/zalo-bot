@@ -90,7 +90,7 @@ export function createQueueDb(dbPathOrInstance) -> {
 }
 ```
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -134,10 +134,10 @@ test('T801: reclaimExpiredLeases thu hồi việc bị treo quá 120s về trạ
   assert.equal(job.assigned_tab, null);
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/gateway/queue-db.test.mjs` → FAIL (chưa có tệp `gateway/queue-db.js`).
-- [ ] **Step 3:** Tạo `gateway/queue-db.js` với các bảng `gateway_jobs`, `gateway_cache`, câu lệnh `BEGIN IMMEDIATE TRANSACTION` khi lease, truy vấn `ORDER BY priority ASC, created_at ASC`, hỗ trợ `heartbeatJob` và `reclaimExpiredLeases`.
-- [ ] **Step 4:** Chạy lại `node --test test/gateway/queue-db.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(gateway): implement persistent sqlite queue database with atomic lease (T801)"`
+- [x] **Step 2:** Chạy `node --test test/gateway/queue-db.test.mjs` → FAIL (chưa có tệp `gateway/queue-db.js`).
+- [x] **Step 3:** Tạo `gateway/queue-db.js` với các bảng `gateway_jobs`, `gateway_cache`, câu lệnh `BEGIN IMMEDIATE TRANSACTION` khi lease, truy vấn `ORDER BY priority ASC, created_at ASC`, hỗ trợ `heartbeatJob` và `reclaimExpiredLeases`.
+- [x] **Step 4:** Chạy lại `node --test test/gateway/queue-db.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(gateway): implement persistent sqlite queue database with atomic lease (T801)"`
 
 ---
 
