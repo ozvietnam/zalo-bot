@@ -408,7 +408,7 @@ export function createAiStudioDriver({ domDocument, clipboardApi, selectors, min
 }
 ```
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -451,10 +451,10 @@ test('T806: Driver điền nội dung, bấm Run và trích xuất kết quả v
   assert.equal(clickCount, 1, 'Nút Run phải được bấm đúng 1 lần');
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/gateway/driver-simulation.test.mjs` → FAIL.
-- [ ] **Step 3:** Viết mã `addon/driver.js` với các hàm `sleepRandom(min, max)`, mô phỏng focus/input event, poll trạng thái spinner biến mất, kích hoạt click nút copy và đọc clipboard.
-- [ ] **Step 4:** Chạy lại `node --test test/gateway/driver-simulation.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(addon): implement human-like driver simulation and clipboard copy extraction (T806)"`
+- [x] **Step 2:** Chạy `node --test test/gateway/driver-simulation.test.mjs` → FAIL.
+- [x] **Step 3:** Viết mã `addon/driver.js` với các hàm `sleepRandom(min, max)`, mô phỏng focus/input event, poll trạng thái spinner biến mất, kích hoạt click nút copy và đọc clipboard.
+- [x] **Step 4:** Chạy lại `node --test test/gateway/driver-simulation.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(addon): implement human-like driver simulation and clipboard copy extraction (T806)"`
 
 ---
 
