@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { openStore } from '../../core/store.js';
 import { createGate } from '../../core/gate.js';
+import { createHandoff } from '../../core/handoff.js';
 import { createRegistry } from '../../core/registry.js';
 import { createEngine } from '../../core/engine.js';
 import { fakeChannel, fakeClock, fakeMcp } from '../helpers/fakes.mjs';
@@ -45,8 +46,9 @@ function setup({ packOpts = {}, config = {}, log = silent } = {}) {
   const { seen, pack } = customerPack(packOpts);
   const registry = createRegistry([pack]);
   const gate = createGate({ store, channel, now: clock.now });
-  const engine = createEngine({ config: { staffChatId: 'STAFF', staffUsers: ['s1'], ...config }, store, channel, mcp, vision: null, registry, gate, now: clock.now, log });
-  return { store, clock, channel, engine, seen };
+  const handoff = createHandoff({ store, gate, config: { staffChatId: 'STAFF', staffUsers: ['s1'], ...config }, now: clock.now });
+  const engine = createEngine({ config: { staffChatId: 'STAFF', staffUsers: ['s1'], ...config }, store, channel, mcp, vision: null, registry, gate, now: clock.now, log, handoff });
+  return { store, clock, channel, engine, seen, handoff };
 }
 
 let seq = 0;
@@ -81,7 +83,7 @@ test('T035: khách dùng gói hs → hồ sơ có nhãn tra-cuu-hs, interest kè
 // 2. Khách xin gặp người → nhãn xin-nguoi, phiếu có summary()
 // ------------------------------------------------
 test('T035: khách xin gặp người → nhãn xin-nguoi, phiếu kèm summary()', async () => {
-  const { store, channel, engine } = setup({
+  const { store, channel, engine, handoff } = setup({
     packOpts: { labels: ['tra-cuu-hs'], interests: [{ mon: 'máy bơm', hs: '84137090' }] },
   });
   // Lượt 1: tra cứu để tạo hồ sơ với nhãn
@@ -91,7 +93,8 @@ test('T035: khách xin gặp người → nhãn xin-nguoi, phiếu kèm summary(
   const cust = store.customers.get('c1');
   const labels = cust.labels.map((l) => l.nhan);
   assert.ok(labels.includes('xin-nguoi'), 'nhãn xin-nguoi khi khách xin gặp người');
-  // Phiếu phải kèm summary: kiểm trong tin gửi nhóm nhân viên
+  // Khi mở phiếu cho khách: phiếu phải kèm summary (kiểm trong tin gửi nhóm nhân viên)
+  await handoff.open('c1', 'khach-xin-nguoi');
   const phieu = channel.sent.find((s) => s.chatId === 'STAFF' && s.text.includes('P'));
   assert.ok(phieu, 'phải có tin phiếu gửi nhóm');
   assert.ok(phieu.text.includes('Hồ sơ khách'), 'phiếu kèm summary hồ sơ');
@@ -203,11 +206,12 @@ test('T035: mã HS về ở việc nền (onJobResult) → hồ sơ vẫn nhận
 // (`core/handoff-ticket.js:112`), nên nếu hồ sơ vào phiếu mà không che từng dòng thì khách chỉ cần
 // đặt tên Zalo có dạng khoá là nhân viên mất sạch phiếu — không biết khách nào đang chờ (Điều II).
 test('T035: hồ sơ vào phiếu che TỪNG DÒNG, phần còn lại của phiếu vẫn tới nhân viên', async () => {
-  const { store, channel, engine } = setup({ packOpts: { labels: [], interests: [] } });
+  const { store, channel, engine, handoff } = setup({ packOpts: { labels: [], interests: [] } });
   // Khách đặt tên Zalo có dạng ĐƯỜNG DẪN máy chủ — `findLeak` bắt loại 'path' (`core/redact.js:28`).
   // Dùng đường dẫn chứ không dùng chuỗi dạng khoá: khoá giả phải đủ dài (16+ ký tự) mới bị bắt, mà
   // chuỗi dài dạng khoá trong test lại bị cổng quét của repo công khai chặn.
   await engine.process(upd('cho em gặp nhân viên', { id: 'g1', userName: 'Lan /home/oz/bi-mat' }));
+  await handoff.open('c1', 'khach-xin-nguoi');
   const phieu = channel.sent.filter((s) => s.chatId === 'STAFF');
   assert.equal(phieu.length, 1, 'phiếu vẫn tới nhóm nhân viên');
   const text = phieu[0].text;

@@ -4,7 +4,7 @@
 // (máy bơm, nhân viên văn phòng, bột mì, đóng gói lại, vận chuyển cho người nhận).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { wantsHuman, asksIfBot, REPLY_HANDOFF, REPLY_IS_BOT } from '../../core/intents.js';
+import { wantsHuman, asksIfBot, REPLY_HANDOFF, REPLY_IS_BOT, replyHandoff, replyIsBot } from '../../core/intents.js';
 
 // ---- Bộ khẳng định của tasks.md:408-415 (nguyên văn) ----
 
@@ -42,9 +42,19 @@ test('ví dụ xin gặp người không bị coi là hỏi người hay máy, v
 
 // ---- Câu lõi tự soạn phải dùng được ----
 
-test('REPLY_IS_BOT mời gặp người và chỉ đúng câu mà wantsHuman nhận ra', () => {
-  assert.match(REPLY_IS_BOT, /gặp nhân viên/);          // câu hướng dẫn khách gõ
-  assert.equal(wantsHuman('gặp nhân viên'), true);      // gõ đúng câu đó thì lõi nhận ra
+test('REPLY_IS_BOT hướng dẫn liên hệ hotline OZ khi cần gặp chuyên viên', () => {
+  assert.match(REPLY_IS_BOT, /hotline OZ/i);
+  assert.match(REPLY_IS_BOT, /0972 433 318/);
+  assert.doesNotMatch(REPLY_IS_BOT, /gõ "gặp nhân viên"/);
+});
+
+test('replyHandoff và replyIsBot nhận hotline động', () => {
+  const h1 = replyHandoff('0912 345 678');
+  assert.match(h1, /0912 345 678/);
+  assert.match(h1, /chuyên viên/);
+  const h2 = replyIsBot('0912 345 678');
+  assert.match(h2, /0912 345 678/);
+  assert.match(h2, /trợ lý tự động của OZ/);
 });
 
 test('REPLY_HANDOFF không hứa mốc thời gian, không hứa việc bot không làm được (Điều VIII)', () => {

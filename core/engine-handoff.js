@@ -2,14 +2,14 @@
 // chuyển người. Thi hành Điều II, Điều VIII và FR-011, FR-012, FR-014, FR-032 (`specs/001-nen-tang-chung/spec.md:229`).
 // Tách khỏi `core/engine.js` để tệp đó dưới 300 dòng (Điều VI) — cùng lối `engine-ctx.js`.
 // Tệp này KHÔNG tự gửi: câu cho khách đi qua `reply` của engine (tức `gate.send`), phiếu qua `handoff`.
-import { wantsHuman, asksIfBot, REPLY_HANDOFF, REPLY_IS_BOT } from './intents.js';
+import { wantsHuman, asksIfBot, replyHandoff, replyIsBot, REPLY_HANDOFF, REPLY_IS_BOT } from './intents.js';
 import { createHumanDetector } from './human-detector.js';
 
 /**
  * @param {object} o
  * @param {object} o.store
  * @param {object} o.handoff       `core/handoff.js` (stateOf, toHuman, command, open, forward)
- * @param {object} [o.config]      cấu hình (fbAppId, zaloOaAppId)
+ * @param {object} [o.config]      cấu hình (fbAppId, zaloOaAppId, hotline)
  * @param {()=>Date} [o.now]       đồng hồ
  * @param {string} [o.staffChatId] nhóm nhân viên
  * @param {(type:string, chatId:string, convId:string|null, turnId:string, data:object)=>void} o.audit
@@ -19,6 +19,7 @@ import { createHumanDetector } from './human-detector.js';
  */
 export function createHumanRoute({ store, handoff, config = {}, now = () => new Date(), staffChatId = '', audit, reply, ganNhan = null }) {
   const staffChat = String(staffChatId || '').trim();
+  const hotline = config?.hotline || '0972 433 318';
   const detector = createHumanDetector({ store, config, now });
   const kq = (turn, i, g) => ({ idemKey: `r:${turn.convId}:${turn.turnId}:${i}`, decision: g?.decision, reason: g?.reason, status: g?.status });
 
@@ -71,8 +72,9 @@ export function createHumanRoute({ store, handoff, config = {}, now = () => new 
 
   /**
    * Hai ý lõi tự nhận (T023), xét TRƯỚC `registry.pick`. Xin gặp người xét trước: bỏ sót lời xin gặp người
-   * nặng hơn (FR-014). Câu trả lời gửi TRƯỚC khi đổi phòng — đổi trước thì cửa chặn chính câu đó (`chat-human`).
-   * Không nối footer của gói (`core/intents.js:194`).
+   * nặng hơn (FR-014).
+   * CEO 10/11: "gặp nhân viên" chỉ hiện hotline OZ, không chuyển phòng sang 'human', bot vẫn tiếp tục trả lời.
+   * Vẫn gắn nhãn `xin-nguoi` vào hồ sơ khách để thống kê.
    */
   async function y(turn) {
     // Nhóm nhân viên không phải khách: "gặp nhân viên" gõ trong đó không mở phiếu cho chính nhân viên.
@@ -80,23 +82,29 @@ export function createHumanRoute({ store, handoff, config = {}, now = () => new 
     const muon = wantsHuman(turn.text) ? 'wants-human' : asksIfBot(turn.text) ? 'asks-bot' : null;
     if (!muon) return null;
     audit('route', turn.chatId, turn.convId, turn.turnId, { pack: null, intent: muon });
-    const g = await reply(turn, muon === 'wants-human' ? REPLY_HANDOFF : REPLY_IS_BOT, 0);
+    const text = muon === 'wants-human' ? replyHandoff(hotline) : replyIsBot(hotline);
+    const g = await reply(turn, text, 0);
     // Nhãn `xin-nguoi` (T035): khách đã từng xin gặp người. Khác `co-sdt` (hồ sơ tự gắn khi thấy số),
     // nhãn này do lõi gắn vì chỉ lõi biết ý "gặp người" (`core/intents.js`).
-    if (muon === 'wants-human') await chuyen(turn, 'khach', 'khach-xin-nguoi', 'xin-nguoi');
+    // CEO 10/11: Hiện hotline, KHÔNG chuyển phòng sang 'human', KHÔNG mở phiếu.
+    if (muon === 'wants-human') {
+      if (ganNhan) ganNhan(turn.convId, ['xin-nguoi']);
+    }
     audit('outbound', turn.chatId, turn.convId, turn.turnId, { intent: muon, results: [kq(turn, 0, g)] });
     return { handled: muon };
   }
 
   /**
    * Gói trả `handoff: { reason }` (`contracts/pack.md:26`): gói không tự viết câu hứa (`contracts/pack.md:69`),
-   * nên lõi báo khách bằng câu cố định (khoá idem `r:<conv>:<turn>:h`) rồi chuyển người.
+   * nên lõi báo khách bằng câu cố định (khoá idem `r:<conv>:<turn>:h`).
+   * CEO 10/11: Gói trả handoff cũng chỉ hiện hotline, KHÔNG chuyển phòng sang 'human', KHÔNG mở phiếu.
+   * Vẫn gắn nhãn `xin-nguoi` vào hồ sơ khách để thống kê.
    * @returns {Promise<object>} kết quả cửa của câu báo, để engine ghi vào audit `outbound`
    */
   async function goiChuyen(turn, pack, h, evidence) {
     const reason = String(h?.reason ?? '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'handoff';
-    const g = await reply(turn, REPLY_HANDOFF, 'h', { pack, evidence });
-    await chuyen(turn, `pack:${pack.id}`, reason);
+    const g = await reply(turn, replyHandoff(hotline), 'h', { pack, evidence });
+    if (ganNhan) ganNhan(turn.convId, ['xin-nguoi']);
     return { ...kq(turn, 'h', g), handoff: reason };
   }
 

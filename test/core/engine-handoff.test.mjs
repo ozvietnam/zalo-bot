@@ -59,9 +59,11 @@ const tin = (channel, chatId) => channel.sent.filter((m) => m.chatId === chatId)
 const goiCong = (mcp, name) => mcp.calls.filter((c) => name == null || c.name === name).length;
 
 test('phòng human: 10 tin khách → kênh nhận 0 tin tới khách, mcp.calls.length === 0, nhóm nhận 1 phiếu + ≤ 2 tin gộp', async () => {
-  const { store, clock, channel, mcp, engine } = setup();
-  await engine.process(upd('cho em gặp nhân viên'));
-  assert.deepEqual(tin(channel, 'c1'), [REPLY_HANDOFF]);
+  const { store, clock, channel, mcp, handoff, engine } = setup();
+  store.convs.upsertSeen('c1', 'c1', 'u1', 'Tuấn', START);
+  await handoff.open('c1', 'tiep-quan');
+  handoff.toHuman('c1', 'nv1', 'nhan');
+  channel.sent.length = 0; // dọn tin thông báo mở phiếu
   const loi = [];
   for (let i = 1; i <= 10; i++) {
     clock.advance('1m');
@@ -76,33 +78,49 @@ test('phòng human: 10 tin khách → kênh nhận 0 tin tới khách, mcp.calls
   clock.advance('6m');
   await engine.drain();   // drain() chạy cả bộ quét phiếu (flushDue)
 
-  assert.deepEqual(tin(channel, 'c1'), [REPLY_HANDOFF], 'không tin nào của bot tới khách khi người cầm phòng');
+  assert.deepEqual(tin(channel, 'c1'), [], 'không tin nào của bot tới khách khi người cầm phòng');
   assert.equal(mcp.calls.length, 0, 'không gọi Cổng OZ');
   const nhom = tin(channel, STAFF);
-  assert.equal(nhom.filter((t) => t.startsWith('🎫 P1 · phiếu mới')).length, 1);
   const gop = nhom.filter((t) => t.includes('khách nhắn tiếp'));
   assert.ok(gop.length >= 1 && gop.length <= 2, `cần 1–2 tin gộp, có ${gop.length}`);
   for (const s of loi) assert.ok(gop.join('\n').includes(s), `mất tin khách: ${s}`);
   assert.equal(store.convs.get('c1').state, 'human');
 });
 
-test('"cho em gặp nhân viên" → khách nhận REPLY_HANDOFF, phòng human, phiếu mở', async () => {
+test('"cho em gặp nhân viên" → khách nhận REPLY_HANDOFF (chứa hotline), phòng vẫn bot, không mở phiếu, tin kế tiếp vẫn được trả lời', async () => {
   const { pack, seen } = traPack();
   const { store, channel, mcp, handoff, engine } = setup({ pack });
   const r = await engine.process(upd('cho em gặp nhân viên'));
   assert.equal(r.handled, 'wants-human');
   assert.deepEqual(tin(channel, 'c1'), [REPLY_HANDOFF]);
-  assert.equal(handoff.stateOf('c1'), 'human');
-  const phieu = store.tickets.openFor('c1');
-  assert.equal(phieu.reason, 'khach-xin-nguoi');
-  assert.equal(phieu.chat_id, 'c1');
-  assert.match(tin(channel, STAFF)[0], /cho em gặp nhân viên/);
+  assert.match(tin(channel, 'c1')[0], /0972 433 318/);
+  assert.equal(handoff.stateOf('c1'), 'bot');
+  assert.equal(store.tickets.openFor('c1'), null, 'không mở phiếu vào nhóm');
+  assert.deepEqual(tin(channel, STAFF), []);
   assert.equal(seen.handle, 0, 'không gọi gói');
   assert.equal(mcp.calls.length, 0);
-  assert.ok(store.audit.byChat('c1', 50).some((a) => a.type === 'state-change' && a.data.to === 'human' && a.data.reason === 'khach-xin-nguoi'));
-  // Tin kế tiếp: bot im (Điều II).
-  await engine.process(upd('alo có ai không'));
-  assert.deepEqual(tin(channel, 'c1'), [REPLY_HANDOFF]);
+  const labels = (store.customers.get('c1')?.labels ?? []).map((l) => l.nhan);
+  assert.ok(labels.includes('xin-nguoi'), 'vẫn gắn nhãn xin-nguoi');
+  // Tin kế tiếp: bot vẫn trả lời bình thường (không bị im).
+  await engine.process(upd('thuế máy bơm nước'));
+  assert.equal(seen.handle, 1);
+  assert.match(tin(channel, 'c1')[1], /^Kết quả số 1 cho: thuế máy bơm nước/);
+});
+
+test('HOTLINE thay đổi được qua config/env khi khách xin gặp người', async () => {
+  const { pack } = traPack();
+  const store = openStore();
+  const clock = fakeClock(START);
+  const channel = fakeChannel();
+  const mcp = fakeMcp({ tra: () => ({ n: 1 }) });
+  const config = { staffChatId: STAFF, staffUsers: new Set(['nv1']), hotline: '0912 345 678' };
+  const gate = createGate({ store, channel, now: clock.now });
+  const handoff = createHandoff({ store, gate, config, now: clock.now });
+  const engine = createEngine({ config, store, channel, mcp, registry: createRegistry([pack]), gate, now: clock.now, log: silent, handoff });
+
+  await engine.process(upd('gặp nhân viên'));
+  assert.match(tin(channel, 'c1')[0], /0912 345 678/);
+  assert.equal(handoff.stateOf('c1'), 'bot');
 });
 
 test('"bạn là người hay máy" → khách nhận REPLY_IS_BOT, phòng vẫn bot', async () => {
@@ -155,21 +173,33 @@ test('nhóm khách: /tl vào conv g1:B gửi vào nhóm với @tên của B; ch�
   assert.equal(seen.handle, 3);
 });
 
-test('gói trả handoff:{reason} → phòng human, phiếu mở với reason của gói', async () => {
-  const { pack } = traPack({ async handle() { return { replies: [{ text: 'Dạ câu này cần kiểm tra hồ sơ gốc.' }], handoff: { reason: 'can-kiem-ho-so' } }; } });
+test('gói trả handoff:{reason} → bot gửi hotline, phòng vẫn bot, không mở phiếu, gắn nhãn xin-nguoi', async () => {
+  let goiCount = 0;
+  const { pack } = traPack({
+    async handle() {
+      goiCount++;
+      return { replies: [{ text: 'Dạ câu này cần kiểm tra hồ sơ gốc.' }], handoff: { reason: 'can-kiem-ho-so' } };
+    },
+  });
   const { store, channel, handoff, engine } = setup({ pack });
   const r = await engine.process(upd('lô hàng của em bị giữ ở cảng'));
   assert.equal(r.handled, 'tra');
   assert.deepEqual(tin(channel, 'c1'), ['Dạ câu này cần kiểm tra hồ sơ gốc.', REPLY_HANDOFF]);
-  assert.equal(handoff.stateOf('c1'), 'human');
-  assert.equal(store.tickets.openFor('c1').reason, 'can-kiem-ho-so');
-  assert.match(tin(channel, STAFF)[0], /Lý do: can-kiem-ho-so/);
-  assert.ok(store.audit.byChat('c1', 50).some((a) => a.type === 'state-change' && a.data.by === 'pack:tra'));
+  assert.equal(handoff.stateOf('c1'), 'bot');
+  assert.equal(store.tickets.openFor('c1'), null);
+  assert.deepEqual(tin(channel, STAFF), []);
+  const labels = (store.customers.get('c1')?.labels ?? []).map((l) => l.nhan);
+  assert.ok(labels.includes('xin-nguoi'), 'vẫn gắn nhãn xin-nguoi');
+  assert.equal(goiCount, 1);
+  // Tin kế tiếp vẫn được xử lý bình thường
+  await engine.process(upd('thuế máy bơm nước'));
+  assert.equal(goiCount, 2);
 });
 
 test('phòng human lặng quá 2 giờ: tin khách kế tiếp được bot trả lời (đọc trạng thái TRƯỚC khi ghi mốc tin mới)', async () => {
-  const { channel, handoff, engine, clock } = setup();
-  await engine.process(upd('cho em gặp nhân viên'));
+  const { channel, handoff, engine, clock, store } = setup();
+  store.convs.upsertSeen('c1', 'c1', 'u1', 'Tuấn', START);
+  handoff.toHuman('c1', 'nv1', 'nhan');
   clock.advance(HUMAN_IDLE_MS + 60_000);
   const r = await engine.process(upd('thuế máy bơm nước'));
   assert.equal(r.handled, 'tra');

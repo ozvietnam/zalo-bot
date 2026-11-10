@@ -193,12 +193,26 @@ export function asksIfBot(text) {
 // ---------- Hai câu do LÕI tự soạn ----------
 // Lõi không nối footer của gói vào đây (contract `contracts/pack.md:37`).
 
-/** Trả lời khi chuyển phòng cho người. Không hứa mốc thời gian, không hứa việc bot không làm được. */
-export const REPLY_HANDOFF =
-  'Dạ em đã chuyển cuộc trò chuyện này cho nhân viên OZ. Anh/chị chờ nhân viên vào trả lời giúp em nhé, '
-  + 'trong lúc đó em tạm dừng trả lời tự động ạ.';
+export const DEFAULT_HOTLINE = '0972 433 318';
 
-/** Trả lời khi khách hỏi người hay máy: nói thật, rồi chỉ đúng câu mà `wantsHuman` nhận ra. */
-export const REPLY_IS_BOT =
-  'Dạ em là trợ lý tự động của OZ, không phải người thật ạ. Em tra cứu mã HS, thuế và thủ tục hải quan; '
-  + 'cần người thật thì anh/chị gõ "gặp nhân viên", em chuyển cuộc trò chuyện cho nhân viên OZ.';
+/** Trả lời khi khách xin gặp người hoặc gói xin chuyển người (giọng Quyên, kèm hotline). */
+export function replyHandoff(hotline = DEFAULT_HOTLINE) {
+  return (
+    `Dạ anh/chị gọi hoặc nhắn Zalo hotline OZ ${hotline} để gặp chuyên viên ạ. `
+    + 'Em vẫn ở đây, cần tra mã HS, thuế hay thủ tục cứ hỏi em tiếp nhé.'
+  );
+}
+
+/** Trả lời khi khách hỏi người hay máy: nói thật, rồi cung cấp hotline OZ. */
+export function replyIsBot(hotline = DEFAULT_HOTLINE) {
+  return (
+    'Dạ em là trợ lý tự động của OZ, không phải người thật ạ. Em tra cứu mã HS, thuế và thủ tục hải quan; '
+    + `cần gặp chuyên viên anh/chị gọi hoặc nhắn Zalo hotline OZ ${hotline} nhé.`
+  );
+}
+
+/** Trả lời khi khách xin gặp người hoặc gói yêu cầu (chuỗi tĩnh mặc định). */
+export const REPLY_HANDOFF = replyHandoff(DEFAULT_HOTLINE);
+
+/** Trả lời khi khách hỏi người hay máy (chuỗi tĩnh mặc định). */
+export const REPLY_IS_BOT = replyIsBot(DEFAULT_HOTLINE);

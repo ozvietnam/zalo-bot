@@ -292,9 +292,9 @@ test('T033: webhook gửi lặp (trùng update_key) bị bỏ qua KHÔNG ghi l�
 test('T033: lệnh /tl ghi speaker:nhan-vien, speaker_id là nhân viên kèm outbox_id', async () => {
   const { store, clock, handoff, engine } = setup();
 
-  // Khách nhắn xin gặp người
-  await engine.process(upd('cho em gặp nhân viên với ạ', { id: 'khach-1' }));
-  assert.equal(handoff.stateOf('c1'), 'human');
+  // Khách nhắn và có phiếu mở
+  await engine.process(upd('chào bot', { id: 'khach-1' }));
+  await handoff.open('c1', 'khach-xin-nguoi');
 
   // Nhân viên dùng /tl trả lời khách từ nhóm staff
   clock.advance('30s');
@@ -314,6 +314,7 @@ test('T033: lệnh /tl ghi speaker:nhan-vien, speaker_id là nhân viên kèm ou
     chatType: staffTurn.chatType,
   }));
   assert.equal(r.handled, 'staff-cmd');
+  assert.equal(handoff.stateOf('c1'), 'human');
 
   const msgs = store.messages.recent('c1', 10);
   const staffMsg = msgs.find((m) => m.speaker === 'nhan-vien');
