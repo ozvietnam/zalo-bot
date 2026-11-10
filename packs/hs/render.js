@@ -57,7 +57,7 @@ function sachCau(s) {
   const giu = String(s).split(/(?<=[.;!?])\s*/).filter((p) => !CJK.test(p));
   return giu.length ? giu.join(' ').trim() : '…';
 }
-const clip = (s, n) => { const t = sachCau(String(s ?? '').replace(/\s+/g, ' ').trim()); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
+export const clip = (s, n) => { const t = sachCau(String(s ?? '').replace(/\s+/g, ' ').trim()); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
 const scalar = (k, v) => {
   if (typeof v === 'boolean') return v ? 'có' : 'không';
   if (isHsKey(k) && /^\d{6,8}$/.test(String(v))) return fmtHs(v);
@@ -267,6 +267,8 @@ export function renderPolicy(d) {
   if (cs.cu) l.push(CANH_BAO_CU);
   return l.join('\n');
 }
+
+// ——— Rủi ro nhãn hiệu (kiem_tra_shtt, kiem_tra_shtt_anh): xem ./render-shtt.js (tách ra để giữ Điều VI) ———
 
 /** Dữ liệu một kết quả công cụ thành công ({ok, data}) — lỗi/không có → null. */
 const duLieu = (r) => (r && r.ok !== false && !r.isError ? (r.data ?? r) : null);
