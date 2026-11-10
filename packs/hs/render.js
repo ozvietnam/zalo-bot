@@ -6,6 +6,7 @@ import { fmtHs } from './format.js';
 // Ngoại lệ có chủ ý với luật "gói chỉ import core/types.js": dùng đúng một bộ dò lộ của cửa gửi (Hiến pháp IX), không chép bản thứ hai.
 import { findLeak } from '../../core/redact.js';
 import { b, balanceTags } from './style.js';
+import { cauTinhTrangHieuLuc } from './can-cu.js';
 
 export const MAX_REPLY = 5600;   // ~3 tin Zalo
 
@@ -69,10 +70,14 @@ const scalar = (k, v) => {
 function itemLine(o) {
   if (o == null || typeof o !== 'object') return clip(o, 300);
   const code = o.hsCode || o.maHs || o.ma || o.soHieu || o.code;
-  const name = o.nameVi || o.tenVi || o.titleVi || o.ten || o.tenHang || o.title || o.tieuDe || o.moTa || o.messageVi || o.warningVi || o.noiDung || o.text;
+  const name = o.nameVi || o.tenVi || o.titleVi || o.ten || o.tenHang || o.title || o.tieuDe || o.moTa || o.messageVi || o.warningVi || o.noiDung || o.text || o.ketLuan;
   const extra = [];
   if (o.confidence != null || o.doTinCay != null) extra.push(scalar('confidence', o.confidence ?? o.doTinCay));
   if (o.trangThai) extra.push(String(o.trangThai));
+  // Tình trạng hiệu lực của văn bản: bỏ qua thì một văn bản ĐÃ BỊ BÃI BỎ hiện ra như bình thường
+  // và khách dùng làm căn cứ khai báo (UX-02, Hiến pháp VIII). Câu tiếng Việt dùng chung với căn cứ.
+  const hl = cauTinhTrangHieuLuc(o);
+  if (hl) extra.push(hl);
   if (o.mucDo || o.severity) extra.push(String(o.mucDo || o.severity));
   else if (/^(BLOCKING|NOTICE|WARNING|INFO)$/i.test(String(o.level || ''))) extra.push(String(o.level).toUpperCase());
   // Điều kiện phải đi CÙNG dòng: nghĩa vụ (vd giấy phép in) có thể chỉ áp cho một phần hàng thuộc mã.
@@ -85,12 +90,31 @@ function itemLine(o) {
     .map(([k, v]) => `${label(k)}: ${scalar(k, v)}`).join('; ');
 }
 
+/**
+ * Cảnh báo lồng trong một phần tử mảng (`dongHang[].canhBao[]` của soat_to_khai/kiem_ma_to_khai).
+ * `itemLine` chỉ dựng được MỘT dòng nên mảng lồng bị bỏ — mà đây đúng là phần khách cần nhất:
+ * im lặng bớt cảnh báo là để khách khai một tờ khai Cổng đã báo có vấn đề (Hiến pháp IV & VIII).
+ */
+function dongCanhBao(o) {
+  const ds = [o?.canhBao, o?.canhBaoChiTiet, o?.warnings].find((x) => Array.isArray(x) && x.length) || [];
+  return ds.slice(0, 6).map((c) => {
+    if (c == null || typeof c !== 'object') return clip(c, 260);
+    const t = c.messageVi || c.warningVi || c.noiDung || c.text || c.ten || c.label;
+    if (!t) return itemLine(c);
+    const mucDo = /^(BLOCKING|NOTICE|WARNING|INFO)$/i.test(String(c.level || '')) ? String(c.level).toUpperCase() : (c.mucDo || c.severity || null);
+    return `${clip(t, 260)}${mucDo ? ` (${mucDo})` : ''}`;
+  }).filter(Boolean);
+}
+
 /** Bộ dựng chung: duyệt object tối đa 3 tầng. */
 export function renderGeneric(value, depth = 0, out = [], indent = '') {
   if (value == null) return out;
   if (typeof value !== 'object') { out.push(indent + clip(value, 600)); return out; }
   if (Array.isArray(value)) {
-    for (const it of value.slice(0, 8)) out.push(`${indent}• ${itemLine(it)}`);
+    for (const it of value.slice(0, 8)) {
+      out.push(`${indent}• ${itemLine(it)}`);
+      for (const cb of dongCanhBao(it)) out.push(`${indent}  ⚠️ ${cb}`);
+    }
     if (value.length > 8) out.push(`${indent}… và ${value.length - 8} mục khác`);
     return out;
   }

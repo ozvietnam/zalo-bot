@@ -1,0 +1,32 @@
+{
+  "id": "kb08-hai-quan-ap-ma-khac",
+  "dich": "KB8",
+  "ten": "KB8 · Bị Hải quan áp mã khác: mẫu nhập liệu dạng nhãn phải vào gói hồ sơ giải trình",
+  "moTa": "Nghiệm thu #168 mục C+D. Khách gõ theo đúng MẪU bot in ra cho gói 7 ('Mã khai: … / Mã Hải quan áp: …'); mẫu này không chứa chữ 'áp mã' nên trước #168 rơi vào gói 1 — bot trả 'mã phù hợp nhất' đúng bằng mã đang bị Hải quan bác, không hề biết đang có tranh chấp. Ca này chốt: vào gói 7, nêu cả hai mã, dàn ý theo quy tắc phân loại, và ghi rõ BẢN NHÁP + điểm yếu (Hiến pháp VIII: không hứa thắng).",
+  "chatType": "PRIVATE",
+  "chatId": "kb08_khach",
+  "userId": "kb08_khach",
+  "userName": "Khách KB8",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "Khách gõ mẫu dạng nhãn của gói 7 → hồ sơ giải trình, không phải kết quả phân loại",
+      "text": "Mã khai: 85094000\nMã Hải quan áp: 85098000\nMô tả hàng: Máy xay thực phẩm gia dụng 350W 220V\nLý do Hải quan: cho rằng là máy chế biến khác\nTài liệu có: catalogue, hợp đồng",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Hồ sơ giải trình",
+          "khai 8509\\.40\\.00 / HQ áp 8509\\.80\\.00",
+          "Quy tắc 3a: mã 8509\\.40 cụ thể hơn 8509\\.80",
+          "Đây là BẢN NHÁP",
+          "Chưa có kết quả phân tích phân loại của Hải quan"
+        ],
+        "khongChua": [
+          "mã phù hợp nhất",
+          "chắc chắn thắng",
+          "mock-ok"
+        ]
+      }
+    }
+  ]
+}

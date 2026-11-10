@@ -8,6 +8,10 @@ import { norm } from './input.js';
 import { photoFlow } from './flow-photo.js';
 import { loiAnhChoKhach } from './vision.js';
 import { openTurn, result } from './flow-turn.js';
+import { phanTichCanCu, khoiCanCuDayDu } from './can-cu.js';
+import { fmtHs } from './format.js';
+import { xungHoCuaKhach } from './xung-ho.js';
+import { cauTienDo } from './jobs.js';
 
 const JOB_TTL_MS = 30 * 60_000;   // lõi bỏ chờ việc nền sau 30 phút (core/jobs.js); câu hết hạn ghi đúng số phút
 
@@ -27,11 +31,11 @@ async function runPkg(st, pkg, text, { head = '', nguonThongSo } = {}) {
   const t = toJob(b.r, b.resultTool, pctx);
   if (!t.job) return reply(await pkg.xong(t.result, b.context, pctx), b.context);
   // Kết quả phân loại (gói 1) theo form "🔍 Hàng: …" — không kèm dòng "(Tự động chọn gói 1)".
-  const job = { ...t.job, context: { goi: pkg.so, head: pkg.so === 1 ? '' : head, ...b.context } };
-  // Báo đang tra (issue #136, mục 5): trong 3 giây gửi 1 câu ngắn kiểu "Dạ anh chờ em tra chút nhé"
-  // Áp dụng cho luồng giọng Quyên (hỏi lại / tra hs) khi không phải chonNhanh và không phải bổ sung dữ kiện
-  const laHoiLaiTraHs = Boolean(b.context?.daHoiLai || b.context?.giaDinh || /tra\s*hs/i.test(b.context?.cauMoi || ''));
-  const cauCho = (pkg.so === 1 && b.context?.giongQuyen && laHoiLaiTraHs && !b.context?.chonNhanh && !b.context?.boSung) ? (b.cauCho || 'Dạ anh chờ em tra chút nhé') : null;
+  // `xungHo` đi theo việc nền để câu báo tiến độ (onJobProgress) gọi khách đúng như trong lượt.
+  const job = { ...t.job, context: { goi: pkg.so, head: pkg.so === 1 ? '' : head, xungHo: st.session.xungHo || null, ...b.context } };
+  // Báo "đang tra" (issue #136 mục 5): lượt phải nhờ Cổng chạy nền thì khách nhận NGAY một câu ngắn,
+  // không ngồi im 1–3 phút. Câu do gói con soạn trong `batDau` (ở đó mới biết luồng nào được phép im).
+  const cauCho = b.cauCho || null;
   return result(st, cauCho ? [cauCho] : [], { jobs: [job], known: b.context });
 }
 
@@ -89,6 +93,33 @@ async function textFlow(turn, ctx, st) {
         ctx.log?.info?.(`[hs] gói ${r.pkg.so} chat=${String(turn.chatId ?? '').slice(-4)}`);
         return out;
       }
+      case 'can-cu': {   // khách xin căn cứ pháp lý đầy đủ (issue #136 mục B)
+        const maHs = s.last?.maHs;
+        if (!maHs) {
+          return one('Dạ hiện chưa có mã HS nào trong phiên này để em nêu căn cứ ạ. Anh/chị gửi mô tả hàng hoặc mã HS trước, em tra rồi dẫn căn cứ nhé.');
+        }
+        // Tra LẠI Cổng trong chính lượt này (ba công cụ đều miễn phí theo docs/hop-dong/cong-cu-cong-oz.md):
+        // vừa đúng luật "chỉ trích số văn bản có trong dữ liệu Cổng của chính lượt đó", vừa lấy tình trạng
+        // hiệu lực mới nhất — căn cứ pháp lý đọc từ bộ nhớ phiên có thể đã cũ.
+        const tn = ctx.tools;
+        const coCongCu = (n) => !tn || tn.has(n);
+        // Xuất xứ phải là xuất xứ lô hàng của chính khách. Trước đây mặc định 'CN' khi không biết, nên
+        // khách tra hàng KR rồi gõ "căn cứ" lại nhận căn cứ ACFTA + lời mời C/O mẫu E cho lô không được
+        // hưởng ([S1] của #168). Giờ: không biết thì KHÔNG gửi xuất xứ nào và bỏ hẳn căn cứ FTA, kèm một
+        // câu hỏi lại để khách cho biết nước xuất xứ.
+        const xxBiet = s.last?.xuatXuBiet ? s.last.xuatXu : null;
+        const [thue, thuTuc, tienLe] = await Promise.all([
+          coCongCu('tra_thue') ? st.mcp.callTool('tra_thue', xxBiet ? { maHs, xuatXu: xxBiet } : { maHs }).catch(() => null) : null,
+          coCongCu('tra_thu_tuc_nhap_khau') ? st.mcp.callTool('tra_thu_tuc_nhap_khau', { maHs }).catch(() => null) : null,
+          coCongCu('tra_tien_le') ? st.mcp.callTool('tra_tien_le', { maHs }).catch(() => null) : null,
+        ]);
+        const khoi = khoiCanCuDayDu(phanTichCanCu({ thue, thuTuc, tienLe, boFta: !xxBiet }));
+        if (!khoi) return one(`Dạ Cổng OZ chưa ghi nhận căn cứ pháp lý cho mã ${fmtHs(maHs)} ạ. Em không nêu số văn bản khi chưa có dữ liệu để tránh dẫn sai.`);
+        const xh = s.xungHo || 'anh/chị';
+        // Chưa biết xuất xứ: đã bỏ căn cứ FTA ở trên, nên phải nói rõ và hỏi lại, không im lặng bỏ qua.
+        const hoiXx = xxBiet ? '' : `\n\nƯu đãi thuế theo hiệp định (FTA) phụ thuộc xuất xứ nên em chưa nêu ạ. ${xh} cho em biết hàng từ nước nào, em tra lại căn cứ ưu đãi nhé.`;
+        return one(clipReply(`Dạ căn cứ của mã ${fmtHs(maHs)} ạ:\n\n${khoi}${hoiXx}`));
+      }
       case 'chi-tiet':   // mở lại bản phân tích đầy đủ của lượt phân loại gần nhất (khách cuộn mất tin)
         return one(s.chiTiet?.text
           ? `🔎 Bản chi tiết lượt gần nhất:\n\n${clipReply(s.chiTiet.text)}`
@@ -122,6 +153,9 @@ export default {
   async handle(turn, ctx) {
     const st = openTurn(ctx);
     try {
+      // Xưng hô của khách (issue #136 mục 4): chốt MỘT lần đầu lượt rồi để trong phiên, vì câu chờ,
+      // câu kết quả và câu báo tiến độ (ở lượt khác, qua việc nền) đều phải gọi khách y như nhau.
+      st.session.xungHo = xungHoCuaKhach({ customer: ctx.customer, session: st.session, text: turn.text || turn.caption || '' });
       if (!turn.photoUrl && !turn.text) {
         return result(st, turn.isGroup ? [] : ['Bot đọc tin nhắn chữ và ảnh. Gõ "menu" để xem các gói tra cứu.']);
       }
@@ -136,6 +170,15 @@ export default {
     } finally {
       st.save();
     }
+  },
+
+  /**
+   * Việc nền chạy quá lâu (lõi gọi khi quá `PROGRESS_AFTER_MS`, ĐÚNG MỘT LẦN — `core/jobs.js`).
+   * Gói soạn câu nhắc ngắn; lõi chỉ gửi. Không gọi Cổng, không ghi phiên: đây chưa phải kết quả.
+   */
+  async onJobProgress(job) {
+    const xungHo = job?.context?.xungHo || undefined;
+    return { replies: [{ text: cauTienDo(xungHo) }], evidence: [], jobs: [], handoff: null, labels: [], interests: [] };
   },
 
   /** result = kết quả resultTool khi đã hết DANG_XU_LY; null/undefined = hết hạn (lõi không chờ nữa). */

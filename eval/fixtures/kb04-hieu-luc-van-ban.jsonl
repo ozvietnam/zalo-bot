@@ -1,0 +1,8 @@
+// KB4 (#136 mục C, mở lại ở #168): khách hỏi "văn bản này còn hiệu lực không".
+// Lỗ hổng đo được ngày 10/11: bộ dựng chung `render.js itemLine()` ăn mất `tinhTrang`/`biBaiBoBoi`,
+// nên một văn bản ĐÃ BỊ BÃI BỎ hiện ra như bình thường (trái UX-02 quy tắc 2, Hiến pháp VIII).
+// Đã sửa (test đơn vị: packs/hs/test/hieu-luc-van-ban.test.mjs); ca này chốt ở mức luồng thật.
+{"step":"mcp","tool":"tra_hieu_luc_van_ban","returns":[{"ok":true,"data":{"registry":{"registryVersion":"2026-11-09","total":2436},"items":[{"soHieu":"08/2023/TT-BCT","ten":"Quy định dán nhãn năng lượng","tinhTrang":"HET_HIEU_LUC_MOT_PHAN","hetHieuLucTu":"2026-06-01","biBaiBoBoi":["48/2026/TT-BCT"],"hieuLucDaDoiChieu":true,"xacMinh":"NGUON_A"},{"soHieu":"36/2026/TT-BKHCN","ten":"Danh mục sản phẩm, hàng hoá phải chứng nhận hợp quy","tinhTrang":"CON_HIEU_LUC","hieuLucDaDoiChieu":true,"xacMinh":"NGUON_A"}]}}]}
+{"step":"in","update":{"id":"k1","text":"08/2023/TT-BCT và 36/2026/TT-BKHCN còn hiệu lực không ạ"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"08/2023/TT-BCT[^\\n]*hết hiệu lực một phần từ 01/06/2026[^\\n]*bãi bỏ bởi 48/2026/TT-BCT"}
+{"step":"expect","sentTo":"c1","match":"36/2026/TT-BKHCN[^\\n]*còn hiệu lực"}

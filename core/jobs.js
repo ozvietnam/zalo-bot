@@ -18,6 +18,8 @@ import { groupNameTag } from './mention.js';
 export const FIRST_POLL_MS = 6_000;
 export const MAX_POLL_MS = 60_000;
 export const JOB_TTL_MS = 30 * 60_000;
+/** Quá mốc này mà việc chưa xong → hỏi gói một câu báo tiến độ, gửi ĐÚNG MỘT LẦN (issue #136 mục 5). */
+export const PROGRESS_AFTER_MS = 60_000;
 
 const stateOf = (r) => r?.trangThai || r?.data?.trangThai;
 const backoff = (attempts) => Math.min(FIRST_POLL_MS * 2 ** attempts, MAX_POLL_MS);
@@ -98,6 +100,41 @@ export function createJobs({ store, mcp, registry, gate, now, log = console, too
     store.jobs.update(row.id, { status: 'waiting', attempts, next_poll_at: iso(nowMs + backoff(attempts)) });
   };
 
+  /**
+   * Việc đã chạy quá PROGRESS_AFTER_MS mà Cổng còn DANG_XU_LY: xin gói một câu báo tiến độ và gửi
+   * ĐÚNG MỘT LẦN (issue #136 mục 5). Cờ "đã báo" ghi vào `context.tienDoAt` — cột `context` là cột
+   * duy nhất của bảng jobs vừa patch được vừa không mang nghĩa trạng thái, nên khởi động lại giữa
+   * chừng cũng không báo lại lần hai. Gói không có `onJobProgress` thì lõi IM (lõi không soạn chữ).
+   */
+  async function baoTienDo(row, pack, job, ctx, nowMs, turnId) {
+    if (!pack?.onJobProgress) return;
+    const c = row.context ?? {};
+    if (c.tienDoAt) return;
+    const batDau = Date.parse(row.created_at ?? row.expires_at ?? '') || nowMs;
+    const choMs = nowMs - batDau;
+    if (choMs < PROGRESS_AFTER_MS) return;
+    let res;
+    try {
+      res = await pack.onJobProgress(job, { choMs }, ctx);
+    } catch (e) {
+      log.error?.(`[jobs] onJobProgress việc ${row.id}: ${redact(e?.message)}`);
+      return;
+    }
+    const text = res?.replies?.[0]?.text;
+    // Ghi cờ TRƯỚC khi gửi: cửa chặn (giờ yên, phòng sang người) vẫn không được biến thành báo lại mỗi nhịp.
+    store.jobs.update(row.id, { context: { ...c, tienDoAt: iso(nowMs) } });
+    if (!text) return;
+    const prefix = c.isGroup === true
+      ? groupNameTag({ isGroup: true, userName: c.userName, userId: c.userId, members: store.convs.listByChat(row.chat_id) })
+      : '';
+    const g = await gate.send({
+      idemKey: `j:${row.conv_id}:${row.ma_luot}:td`, chatId: row.chat_id, convId: row.conv_id, isGroup: c.isGroup === true,
+      turnId, kind: 'job_result', text: prefix + text, inReplyToAt: c.receivedAt ?? null,
+      pack: { id: pack.id, moneyCheck: pack.moneyCheck === true }, evidence: [],
+    });
+    audit(turnId, row.chat_id, row.conv_id, 'job-progress', { job: row.id, maLuot: row.ma_luot, choMs, decision: g.decision, reason: g.reason });
+  }
+
   /** Hỏi mọi việc đến hạn một lượt. Trả số việc đã nhận xử lý (0 = không có việc). */
   async function tick() {
     const nowDate = now();
@@ -129,6 +166,7 @@ export function createJobs({ store, mcp, registry, gate, now, log = console, too
         if (!expired) {
           result = await ctx.mcp.callTool(row.result_tool, { maLuot: row.ma_luot });
           if (stateOf(result) === 'DANG_XU_LY') {
+            await baoTienDo(row, pack, job, ctx, nowDate.getTime(), turnId);
             hoanLai(row, nowDate.getTime());
             continue;
           }

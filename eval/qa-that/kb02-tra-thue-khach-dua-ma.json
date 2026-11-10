@@ -1,0 +1,49 @@
+{
+  "id": "kb02-tra-thue-khach-dua-ma",
+  "dich": "KB2",
+  "ten": "KB2 · Khách đưa mã sẵn, xin thuế: tin đầu tối đa 3 căn cứ, hỏi mới đưa bản đầy đủ",
+  "moTa": "Nghiệm thu #168 mục B+C+D. Bước 1: tin đầu chỉ được 3 căn cứ trên MỘT dòng. Bước 2: khách gõ 'căn cứ' → bản đầy đủ có số hiệu nguyên vẹn, hiệu lực từng văn bản, và tiền lệ TB-TCHQ tách khỏi căn cứ pháp lý. Mọi số văn bản đều phải có trong dữ liệu Cổng của lượt.",
+  "chatType": "PRIVATE",
+  "chatId": "kb02_khach",
+  "userId": "kb02_khach",
+  "userName": "Khách KB2",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "Khách đưa mã + nước, xin thuế → tin ngắn, dòng Căn cứ đúng 3 văn bản, FTA kèm C/O",
+      "text": "85094000 thuế nhập từ Trung Quốc bao nhiêu ạ",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "8509\\.40\\.00",
+          "Thuế NK 25%, có C/O mẫu E thì còn 5%",
+          "VAT 8%",
+          "Căn cứ: NĐ 26/2023 \\(thuế NK\\), NĐ 118/2022 \\(ACFTA, cần C/O mẫu E\\), NĐ 181/2025 \\(VAT\\)"
+        ],
+        "khongChua": [
+          "26/2025",
+          "5676/TCHQ-TXNK",
+          "36/2026",
+          "08/2023"
+        ]
+      }
+    },
+    {
+      "step": 2,
+      "mieuTa": "Khách gõ 'căn cứ' → bản đầy đủ: số hiệu nguyên vẹn + ngày hiệu lực + tiền lệ ghi riêng",
+      "text": "căn cứ",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "26/2023/NĐ-CP — thuế NK, hiệu lực từ 15/07/2023",
+          "118/2022/NĐ-CP — ACFTA, cần C/O mẫu E, hiệu lực từ 30/12/2022",
+          "181/2025/NĐ-CP — VAT, hiệu lực từ 01/07/2025",
+          "5676/TCHQ-TXNK — tiền lệ phân loại"
+        ],
+        "khongChua": [
+          "26/2025"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "id": "kb01-tra-ma-hs-tu-mo-ta",
+  "dich": "KB1",
+  "ten": "KB1 · Tra mã HS từ mô tả hàng: mã + thuế + căn cứ pháp lý trong một tin ngắn",
+  "moTa": "Nghiệm thu #168 mục C+D. Khách tả hàng bằng câu tự do, không có mã. Bot phải trả mã (kèm lời nhắc mã chỉ là gợi ý — Hiến pháp VIII), thuế, và dòng Căn cứ chỉ gồm số văn bản Cổng trả trong CHÍNH lượt đó. Mục E: Cổng trả canCu.mfn='NĐ 26/2025 (biểu thuế 2026)' lệch với canCuChiTiet.mfn='26/2023/NĐ-CP' → phải lấy canCuChiTiet, tuyệt đối không in 26/2025. Thuế FTA luôn kèm điều kiện C/O. Xưng hô mặc định anh/chị.",
+  "chatType": "PRIVATE",
+  "chatId": "kb01_khach",
+  "userId": "kb01_khach",
+  "userName": "Khách KB1",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "Khách tả hàng bằng câu tự do → bot báo đang tra rồi trả mã + thuế + căn cứ",
+      "text": "em nhập máy bơm nước ly tâm thân gang 1.5HP 220V từ Trung Quốc, mã HS là gì ạ",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "8413\\.70\\.90",
+          "C/O mẫu E",
+          "VAT 10%",
+          "Căn cứ: NĐ 26/2023 \\(thuế NK\\), NĐ 118/2022 \\(ACFTA, cần C/O mẫu E\\), NĐ 181/2025 \\(VAT\\)",
+          "gợi ý tham khảo",
+          "anh/chị"
+        ],
+        "khongChua": [
+          "26/2025",
+          "biểu thuế 2026",
+          "\\banh nhé\\b",
+          "Căn cứ:.*\\n.*Căn cứ:"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+// KB7 (#136 mục C, mở lại ở #168): khách hỏi rủi ro nhãn hiệu (sở hữu trí tuệ) khi nhập hàng có thương hiệu.
+// Phải nêu đèn rủi ro + kết luận của Cổng, không bot tự phán "nhập được / không nhập được".
+{"step":"mcp","tool":"kiem_tra_shtt","returns":[{"ok":true,"data":{"tenNhan":"Philips","maHs":"85094000","den":"VANG","nhanRuiRo":"Nhãn hiệu đã đăng ký tại Việt Nam, chưa thấy yêu cầu kiểm soát biên giới","ketLuan":"Cần giấy uỷ quyền hoặc hợp đồng phân phối để tránh bị tạm giữ"}}]}
+{"step":"in","update":{"id":"k1","text":"Nhãn hiệu: Philips\nMã HS: 85094000\nXuất xứ: CN"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"Đèn rủi ro: VANG"}
+{"step":"expect","sentTo":"c1","match":"Nhãn hiệu đã đăng ký tại Việt Nam"}
+{"step":"expect","sentTo":"c1","match":"Cần giấy uỷ quyền hoặc hợp đồng phân phối"}

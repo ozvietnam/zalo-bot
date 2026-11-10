@@ -404,7 +404,7 @@ test('T033: tin trong nhóm lưu đúng conv_id theo từng người (chat_id:us
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// Tiêu chí 6: Đáp ứng SC-008 trên toàn bộ 12 kịch bản eval
+// Tiêu chí 6: Đáp ứng SC-008 trên TOÀN BỘ kịch bản eval
 // Số tin trong messages = tin khách vào + tin đã gửi thành công
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -415,10 +415,12 @@ function parseJsonl(file) {
     .map((l) => JSON.parse(l));
 }
 
-test('T033: SC-008 — số tin trong messages khớp tin khách vào + tin đã gửi trên toàn bộ 12 fixture eval', async () => {
+test('T033: SC-008 — số tin trong messages khớp tin khách vào + tin đã gửi trên toàn bộ fixture eval', async () => {
   const dir = join(process.cwd(), 'eval/fixtures');
   const files = readdirSync(dir).filter((f) => f.endsWith('.jsonl') && f !== 'messenger-human-echo.jsonl').sort();
-  assert.equal(files.length, 12, 'phải đủ 12 fixture eval');
+  // Ý của ca này là "SC-008 đúng trên MỌI fixture", không phải chốt tồn kho fixture: trước đây ca ghi
+  // cứng 12 và vỡ khi #168 thêm 10 ca KB1–KB10. Chỉ chặn trường hợp thư mục rỗng / đọc sai đường dẫn.
+  assert.ok(files.length >= 12, `phải có ít nhất 12 fixture eval, thấy ${files.length}`);
 
   for (const f of files) {
     const steps = parseJsonl(join(dir, f));

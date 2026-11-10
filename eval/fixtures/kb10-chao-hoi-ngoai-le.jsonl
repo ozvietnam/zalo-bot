@@ -1,0 +1,12 @@
+// KB10 (#136 mục C, mở lại ở #168): khách chào hỏi, hỏi "em là ai", nói chuyện ngoài lề.
+// Luật UX-04 (Hiến pháp VIII): bot phải thừa nhận là trợ lý tự động và chỉ cách gặp người thật.
+// Xưng hô mặc định "anh/chị" khi hồ sơ chưa biết khách là anh hay chị (mục 5 của #168).
+// Giới hạn đã đo: không có `ctx.brain` (eval không có Gemini) thì router không có nhánh "ngoài lề",
+// nên ca này chỉ chốt hai lượt có luật: chào hỏi + hỏi danh tính.
+{"step":"in","update":{"id":"k1","text":"xin chào"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"Chào anh/chị"}
+{"step":"expect","sentTo":"c1","match":"bot tra cứu hải quan OZ"}
+{"step":"advance","by":"30s"}
+{"step":"in","update":{"id":"k2","text":"em là người hay bot đấy"}}
+{"step":"expect","sentTo":"c1","count":2,"match":"trợ lý tự động của OZ, không phải người thật"}
+{"step":"expect","sentTo":"c1","match":"gặp nhân viên"}

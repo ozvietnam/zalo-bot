@@ -1,0 +1,31 @@
+{
+  "id": "kb05-viet-mo-ta-khai-bao",
+  "dich": "KB5",
+  "ten": "KB5 · Viết mô tả khai báo: lấy nguyên văn của Cổng, nhãn 'Thương hiệu:' không được lái sang gói nhãn hiệu",
+  "moTa": "Nghiệm thu #168 mục C+D. Tin của khách có nhãn 'Thương hiệu: Philips'; trước #168 luật nhãn hiệu chặn trước luật mô tả nên khách xin mô tả khai báo lại nhận bản đánh giá rủi ro nhãn hiệu (gói 6). Ca này chốt: ý khách nói thẳng thắng nhãn thuộc tính đi kèm, và mô tả phải là nguyên văn Cổng soạn (Hiến pháp V). Lỗi lái gói chốt thêm bằng test đơn vị packs/hs/test/router-mau-goi.test.mjs.",
+  "chatType": "PRIVATE",
+  "chatId": "kb05_khach",
+  "userId": "kb05_khach",
+  "userName": "Khách KB5",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "Khách nhờ viết mô tả khai báo, tin có dòng 'Thương hiệu:' → phải vào gói 3, không phải gói 6",
+      "text": "viết mô tả khai báo giúp em\nMã HS: 85094000\nTên hàng: Máy xay thực phẩm\nThương hiệu: Philips\nModel: HR2051\nXuất xứ: CN\nTình trạng: mới 100%",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Mô tả khai báo",
+          "8509\\.40\\.00",
+          "động cơ điện 350W, điện áp 220V, mới 100%",
+          "Điểm: 92"
+        ],
+        "khongChua": [
+          "Rủi ro nhãn hiệu",
+          "Sở hữu trí tuệ",
+          "Đèn rủi ro"
+        ]
+      }
+    }
+  ]
+}

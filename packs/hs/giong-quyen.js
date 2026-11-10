@@ -4,6 +4,8 @@
 import { fmtHs } from './format.js';
 import { b } from './style.js';
 import { phanTichChinhSach } from './render.js';
+import { phanTichCanCu, dongCanCu } from './can-cu.js';
+import { XUNG_HO_MAC_DINH, hoaDau } from './xung-ho.js';
 
 const pct = (v) => (v == null || v === '' ? '—' : /^\d+(\.\d+)?$/.test(String(v)) ? `${v}%` : String(v));
 
@@ -18,9 +20,16 @@ export function renderPhanLoaiGiongQuyen({
   thue,
   thuTuc,
   moTa,
-  xuatXu = 'CN',
+  tienLe,
+  // `xuatXu` = xuất xứ THẬT của lô hàng, `null` nghĩa là KHÁCH CHƯA NÓI ([S3] của #168). Mặc định
+  // `null` là cố ý: nơi gọi phải nói rõ mình biết nước, chứ không được để hàm tự nhận vơ 'CN' — chính
+  // giá trị mặc định ở chỗ tính là nguyên nhân gốc của lỗi này (`.van-phong/nghien-cuu.md` mục 1).
+  xuatXu = null,
   giaDinh = null,
+  xungHo = XUNG_HO_MAC_DINH,
 } = {}) {
+  const xh = String(xungHo || XUNG_HO_MAC_DINH);
+  const bietXuatXu = Boolean(xuatXu);
   const top = phanLoai?.data && typeof phanLoai.data === 'object' ? phanLoai.data : phanLoai || {};
   const kq = top.ketQua && typeof top.ketQua === 'object' ? top.ketQua : top;
   const list = (Array.isArray(kq.results) && kq.results) || (Array.isArray(kq.suggestions) && kq.suggestions) || [];
@@ -47,17 +56,22 @@ export function renderPhanLoaiGiongQuyen({
   const lines = [];
   const maHsFmt = b(fmtHs(maHs));
   if (giaDinh) {
-    lines.push(`Dạ theo giả định ${giaDinh} thì mã phù hợp nhất là ${maHsFmt} (${tenTrongBieu}) anh nhé.`);
+    lines.push(`Dạ theo giả định ${giaDinh} thì mã phù hợp nhất là ${maHsFmt} (${tenTrongBieu}) ${xh} nhé.`);
   } else {
     const tenHien = String(tenHang || '').trim();
-    lines.push(`Dạ ${tenHien} thì mã phù hợp nhất là ${maHsFmt} (${tenTrongBieu}) anh nhé.`);
+    lines.push(`Dạ ${tenHien} thì mã phù hợp nhất là ${maHsFmt} (${tenTrongBieu}) ${xh} nhé.`);
   }
 
   // Dòng 2: Thuế NK & ACFTA
   if (tx) {
     const mfn = pct(tx.taxNkPreferential);
     const fo = tx.acfta?.forOrigin || tx.taxAcftaChina;
-    if (fo && fo.eligible === true) {
+    if (fo && fo.eligible === true && !bietXuatXu) {
+      // Khách CHƯA nói nước: bảng thuế trên được tra theo một xuất xứ MỐC, nên mức ưu đãi của nó
+      // không phải mức của lô hàng này. Nêu MFN và nói rõ ưu đãi phụ thuộc xuất xứ, KHÔNG mời C/O
+      // mẫu E — mời là kết luận cho lô hàng mình chưa biết nước ([S3] của #168, Hiến pháp VIII).
+      lines.push(`• Thuế NK ${mfn}; mức ưu đãi FTA còn tuỳ xuất xứ ${xh} cho em biết nhé`);
+    } else if (fo && fo.eligible === true) {
       lines.push(`• Thuế NK ${mfn}, có C/O mẫu E thì còn ${pct(fo.rate)}`);
     } else if (fo && fo.eligible === false) {
       lines.push(`• Thuế NK ${mfn} (C/O mẫu E không ưu đãi, áp MFN)`);
@@ -80,11 +94,19 @@ export function renderPhanLoaiGiongQuyen({
     lines.push(`• Lưu ý: ${cb}`);
   }
 
-  // Dòng 5: Câu hỏi mở bước tiếp theo
-  lines.push(`Anh muốn em soạn luôn mô tả khai báo, hay xem chi tiết giấy tờ cần làm ạ?`);
+  // Dòng 5: Căn cứ pháp lý (issue #136 mục B) — tối đa 3 văn bản, chỉ số hiệu Cổng trả trong CHÍNH lượt này.
+  // Không có dữ liệu căn cứ thì bỏ hẳn dòng, không bịa.
+  // `boFta`: chưa biết xuất xứ thì dòng này KHÔNG được dẫn văn bản ưu đãi — nó không có nhãn xuất xứ
+  // nên khách đọc như kết luận cho lô hàng của mình ([S3] của #168; xem `.van-phong/nghien-cuu.md`).
+  const cc = phanTichCanCu({ thue, thuTuc, tienLe, boFta: !bietXuatXu });
+  const dongCc = dongCanCu(cc);
+  if (dongCc) lines.push(dongCc);
 
-  // Dòng 6: Cảnh báo gợi ý gọn 1 dòng
-  lines.push(`(Mã HS là gợi ý tham khảo, anh/chị đối chiếu thực tế khi khai báo nhé ạ)`);
+  // Dòng 6: Câu hỏi mở bước tiếp theo
+  lines.push(`${hoaDau(xh)} muốn em soạn luôn mô tả khai báo, hay xem chi tiết giấy tờ cần làm ạ?`);
+
+  // Dòng 7: Cảnh báo gợi ý gọn 1 dòng
+  lines.push(`(Mã HS là gợi ý tham khảo, ${xh} đối chiếu thực tế khi khai báo nhé ạ)`);
 
   return lines.join('\n');
 }

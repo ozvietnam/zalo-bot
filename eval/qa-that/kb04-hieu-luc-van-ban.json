@@ -1,0 +1,29 @@
+{
+  "id": "kb04-hieu-luc-van-ban",
+  "dich": "KB4",
+  "ten": "KB4 · Hiệu lực văn bản: trả đúng tình trạng, ngày hết hiệu lực và văn bản thay thế",
+  "moTa": "Nghiệm thu #168 mục C+D. Khách hỏi một thông tư cụ thể còn hiệu lực hay không. Bot phải trả tình trạng Cổng ghi, ngày hết hiệu lực và số hiệu văn bản bãi bỏ nó — không được trả lời bằng ký ức LLM. Lỗi sản phẩm đã sửa ở #168: renderer chung từng ăn mất tình trạng hiệu lực, văn bản đã bãi bỏ hiện như bình thường (trái UX-02 quy tắc 2).",
+  "chatType": "PRIVATE",
+  "chatId": "kb04_khach",
+  "userId": "kb04_khach",
+  "userName": "Khách KB4",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "Khách hỏi hiệu lực một thông tư → trả tình trạng + ngày + văn bản bãi bỏ",
+      "text": "Thông tư 08/2023/TT-BCT còn hiệu lực không ạ",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "08/2023/TT-BCT",
+          "Quy định dán nhãn năng lượng",
+          "hết hiệu lực một phần từ 01/06/2026",
+          "đã bị bãi bỏ bởi 48/2026/TT-BCT"
+        ],
+        "khongChua": [
+          "còn hiệu lực\\)"
+        ]
+      }
+    }
+  ]
+}

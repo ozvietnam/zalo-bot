@@ -2,6 +2,13 @@
 // Yêu cầu issue #136, #138 (GQ-02): thiếu ý quan trọng hoặc nghi gõ nhầm → hỏi tối đa 2 câu trong 1 tin ngắn,
 // tối đa 2 vòng hỏi. Khách nói "không rõ / cứ tra đi" → tra luôn và nói rõ giả định.
 import { norm } from './input.js';
+import { XUNG_HO_MAC_DINH, hoaDau } from './xung-ho.js';
+
+/** Xưng hô dùng cho câu hỏi lại: chỉ nhận "anh"/"chị", còn lại về mặc định "anh/chị" (mục 5 của #168). */
+const xh = (v) => {
+  const s = String(v || '').trim().toLowerCase();
+  return s === 'anh' || s === 'chị' ? s : XUNG_HO_MAC_DINH;
+};
 
 const CU_TRA_RE = /(khong|ko)\s*(ro|biet|chac|quan\s*tam|sao)|cu\s*(tra|lam|chay|tim|cho)|tra\s*(luon|di|nhanh)|mac\s*dinh|sao\s*cung\s*duoc|chiu/i;
 
@@ -47,10 +54,12 @@ export function nhanDienCuTraDi(text) {
 /**
  * Kiểm tra xem mô tả hàng có thiếu thông tin cốt lõi hoặc nghi gõ nhầm không.
  * @param {string} text Mô tả hàng khách gửi
- * @param {{ vongHoi?: number, goi?: number }} opts
+ * @param {{ vongHoi?: number, goi?: number, xungHo?: string }} opts `xungHo` lấy từ hồ sơ/phiên khách.
  */
-export function kiemTraThongTinPhanLoai(text, { vongHoi = 0, goi = null } = {}) {
+export function kiemTraThongTinPhanLoai(text, { vongHoi = 0, goi = null, xungHo = null } = {}) {
   const s = String(text || '').trim();
+  const ai = xh(xungHo);
+  const Ai = hoaDau(ai);
   if (!s) return { canHoi: false, giaDinh: null, thieu: [] };
 
   // Khách đang chọn gói số 1 hoặc gõ form có nhãn chuẩn: không hỏi lại
@@ -98,8 +107,8 @@ export function kiemTraThongTinPhanLoai(text, { vongHoi = 0, goi = null } = {}) 
       if (!coCongSuat) thieu.push('congSuat');
       if (!coDienAp) thieu.push('dienAp');
 
-      const cau1 = `Dạ anh ơi, em hiểu là **${item.chuan}**${item.moRong ? ` (${item.moRong})` : ''} đúng không ạ?`;
-      const cau2 = `Anh cho em xin thêm công suất (W) và điện áp nhé — có thì em chốt mã chuẩn hơn, mô tả khai báo cũng đủ ý luôn ạ.`;
+      const cau1 = `Dạ ${ai} ơi, em hiểu là **${item.chuan}**${item.moRong ? ` (${item.moRong})` : ''} đúng không ạ?`;
+      const cau2 = `${Ai} cho em xin thêm công suất (W) và điện áp nhé — có thì em chốt mã chuẩn hơn, mô tả khai báo cũng đủ ý luôn ạ.`;
       return {
         canHoi: true,
         tenGoc: s,
@@ -138,20 +147,20 @@ export function kiemTraThongTinPhanLoai(text, { vongHoi = 0, goi = null } = {}) 
       let giaDinh = '';
 
       if (/n[oồổỗộ]i\s*chi[eêếềểễệ]n/i.test(sSach)) {
-        cau1 = 'Dạ anh cho em hỏi nồi chiên này dùng cho gia đình hay công nghiệp ạ?';
-        cau2 = 'Anh cho em xin thêm dung tích (lít) và công suất (W) nhé — có thì em chốt mã chuẩn hơn ạ.';
+        cau1 = `Dạ ${ai} cho em hỏi nồi chiên này dùng cho gia đình hay công nghiệp ạ?`;
+        cau2 = `${Ai} cho em xin thêm dung tích (lít) và công suất (W) nhé — có thì em chốt mã chuẩn hơn ạ.`;
         giaDinh = 'nồi chiên không dầu gia dụng, dung tích ~5L, công suất 1500W, điện áp 220V';
       } else if (/m[aáàảãạ]y\s*b[oơớờởỡợ]m/i.test(sSach)) {
-        cau1 = 'Dạ anh cho em hỏi máy bơm này dùng cho gia đình hay công nghiệp ạ?';
-        cau2 = 'Anh cho em xin thêm công suất (HP/kW) và điện áp nhé — có thì em chốt mã chuẩn hơn ạ.';
+        cau1 = `Dạ ${ai} cho em hỏi máy bơm này dùng cho gia đình hay công nghiệp ạ?`;
+        cau2 = `${Ai} cho em xin thêm công suất (HP/kW) và điện áp nhé — có thì em chốt mã chuẩn hơn ạ.`;
         giaDinh = 'máy bơm nước ly tâm gia đình, điện áp 220V';
       } else if (/qu[aạ]t\s*[đd]i[eệ]n|qu[aạ]t/i.test(sSach)) {
-        cau1 = 'Dạ anh cho em hỏi quạt điện này là loại gia dụng hay công nghiệp ạ?';
-        cau2 = 'Anh cho em xin thêm công suất (W) và điện áp nhé — có thì em chốt mã chuẩn hơn ạ.';
+        cau1 = `Dạ ${ai} cho em hỏi quạt điện này là loại gia dụng hay công nghiệp ạ?`;
+        cau2 = `${Ai} cho em xin thêm công suất (W) và điện áp nhé — có thì em chốt mã chuẩn hơn ạ.`;
         giaDinh = 'quạt điện gia dụng công suất ~50W, điện áp 220V';
       } else {
-        cau1 = `Dạ anh cho em hỏi ${sSach} này dùng cho gia đình hay công nghiệp ạ?`;
-        cau2 = 'Anh cho em xin thêm công suất (W) và điện áp nhé — có thì em chốt mã chuẩn hơn ạ.';
+        cau1 = `Dạ ${ai} cho em hỏi ${sSach} này dùng cho gia đình hay công nghiệp ạ?`;
+        cau2 = `${Ai} cho em xin thêm công suất (W) và điện áp nhé — có thì em chốt mã chuẩn hơn ạ.`;
         giaDinh = `${sSach} loại thông dụng trong gia đình, điện áp 220V`;
       }
 
@@ -175,15 +184,15 @@ export function kiemTraThongTinPhanLoai(text, { vongHoi = 0, goi = null } = {}) 
 
       if (/van(\s*bi)?/i.test(sSach)) {
         cau1 = 'Dạ van bi này chất liệu bằng đồng, inox hay nhựa ạ?';
-        cau2 = 'Anh cho em xin thêm kích thước đường kính (DN) hoặc mục đích dùng nhé — có thì em chốt mã chuẩn hơn ạ.';
+        cau2 = `${Ai} cho em xin thêm kích thước đường kính (DN) hoặc mục đích dùng nhé — có thì em chốt mã chuẩn hơn ạ.`;
         giaDinh = 'van bi đồng hoặc inox dùng cho đường ống nước thông thường';
       } else if (/[oố]ng(\s*th[eé]p)?/i.test(sSach)) {
         cau1 = 'Dạ ống thép này là loại đúc hay hàn, có mạ kẽm không ạ?';
-        cau2 = 'Anh cho em xin thêm đường kính và độ dày nhé — có thì em chốt mã chuẩn hơn ạ.';
+        cau2 = `${Ai} cho em xin thêm đường kính và độ dày nhé — có thì em chốt mã chuẩn hơn ạ.`;
         giaDinh = 'ống thép hàn, không mạ kẽm, quy cách thông dụng';
       } else {
-        cau1 = `Dạ anh cho em hỏi ${sSach} này làm bằng chất liệu gì ạ?`;
-        cau2 = 'Anh cho em xin thêm quy cách kích thước hoặc công dụng nhé — có thì em chốt mã chuẩn hơn ạ.';
+        cau1 = `Dạ ${ai} cho em hỏi ${sSach} này làm bằng chất liệu gì ạ?`;
+        cau2 = `${Ai} cho em xin thêm quy cách kích thước hoặc công dụng nhé — có thì em chốt mã chuẩn hơn ạ.`;
         giaDinh = `${sSach} chất liệu thông dụng trong công nghiệp`;
       }
 

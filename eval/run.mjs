@@ -23,6 +23,9 @@ import { createEngine } from '../core/engine.js';
 import hsPack from '../packs/hs/index.js';
 import { fakeChannel, fakeClock } from '../test/helpers/fakes.mjs';
 import { kiemSoTheoGiaTri, cheThongTinNhayCam, chuaThongTinNhayCam } from '../core/sanitizer.js';
+// Bộ kiểm chống bịa căn cứ nằm ở tệp riêng; xuất lại để nơi gọi cũ (test, script) không phải đổi.
+export { kiemBiaSoVanBan } from './kiem-can-cu.mjs';
+import { kiemBiaSoVanBan } from './kiem-can-cu.mjs';
 
 const START = '2026-11-04T03:00:00.000Z';   // 10:00 giờ VN, mặc định của mọi kịch bản
 const DEFAULT_STAFF_CHAT = 'staff-chat';
@@ -39,12 +42,15 @@ function scriptedMcp(script) {
   const counts = {};
   return {
     calls: [],
+    ketQua: [],   // mọi kết quả Cổng đã trả trong kịch bản — nguồn đối chiếu của kiểm chống bịa
     async callTool(name, args = {}) {
       this.calls.push({ name, args });
       const list = script[name];
       if (!list) throw new Error(`eval: Cổng giả không có công cụ ${name}`);
       counts[name] = (counts[name] || 0) + 1;
-      return structuredClone(list[Math.min(counts[name], list.length) - 1]);
+      const r = structuredClone(list[Math.min(counts[name], list.length) - 1]);
+      this.ketQua.push(r);
+      return r;
     },
     async listTools() { return Object.keys(script).map((name) => ({ name })); },
   };
@@ -112,6 +118,7 @@ export async function runScenario(steps, { start = START, config: userConfig = {
   };
   /** Khởi động lại ĐÚNG như server.js: mở lại db → gate.recover() → jobs.recover() → engine.recover() (T020). */
   const boot = async () => { open(); gate.recover(); engine.jobs.recover(); await engine.recover(); };
+  const chuKhach = [];   // mọi câu khách gõ: bot nhắc lại số văn bản khách hỏi thì không phải bịa
   try {
     open();
     for (const [i, s] of steps.entries()) {
@@ -120,6 +127,8 @@ export async function runScenario(steps, { start = START, config: userConfig = {
         case 'mcp': break;
         case 'config': Object.assign(config, s.config ?? s); break;
         case 'in':
+          if (s.update?.text) chuKhach.push(String(s.update.text));
+          if (s.update?.caption) chuKhach.push(String(s.update.caption));
           await engine.process(toUpdate(s.update));
           if (s.drain !== false) await engine.drain();
           break;
@@ -161,7 +170,11 @@ export async function runScenario(steps, { start = START, config: userConfig = {
     store = null;
     const chk = checkMessages(dbPath, config.staffChatId);
     if (!chk.ok) return chk;
-    return { ok: true, stats: chk.stats };
+    // Kiểm chống bịa căn cứ: chạy TỰ ĐỘNG cho mọi kịch bản, không cần khai trong .jsonl.
+    const tinBot = channel.sent.filter((m) => m.chatId !== config.staffChatId).map((m) => m.text);
+    const cc = kiemBiaSoVanBan(tinBot, mcp.ketQua, chuKhach);
+    if (!cc.ok) return { ok: false, why: cc.why };
+    return { ok: true, stats: chk.stats, canCuQuet: cc.quet };
   } catch (e) {
     return { ok: false, why: `lỗi: ${e?.message ?? e}` };
   } finally {
@@ -323,9 +336,11 @@ async function main() {
       r = { ok: false, why: `đọc tệp lỗi: ${e.message}` };
     }
     if (r.ok) pass++;
-    const statStr = r.stats?.length
-      ? ` (${r.stats.map((s) => `${s.chatId}: vào ${s.inDone} + ra ${s.outSent} = ${s.msgTotal}`).join(', ')})`
-      : '';
+    const phan = [
+      ...(r.stats || []).map((s) => `${s.chatId}: vào ${s.inDone} + ra ${s.outSent} = ${s.msgTotal}`),
+      r.canCuQuet ? `căn cứ: ${r.canCuQuet}` : null,
+    ].filter(Boolean);
+    const statStr = phan.length ? ` (${phan.join(', ')})` : '';
     console.log(r.ok ? `✓ ${item.name}${statStr}` : `✗ ${item.name}: ${r.why}`);
   }
   console.log(`eval: ${pass}/${files.length} kịch bản đạt`);

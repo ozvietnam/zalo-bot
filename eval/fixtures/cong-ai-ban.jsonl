@@ -1,5 +1,6 @@
 // 06/11/2026: máy phân loại của Cổng bị nhà cung cấp AI chặn (429) → báo "AI bận", KHÔNG bịa mã
+// 10/11 (#168): 2 tin = câu chờ "đang tra" (gửi ngay trong lượt) + câu báo "AI bận".
 {"step":"mcp","tool":"phan_loai_hs","returns":[{"ok":true,"data":{"maLuot":"ml-0001-eval","trangThai":"DANG_XU_LY"}}]}
 {"step":"mcp","tool":"ket_qua_phan_loai","returns":[{"ok":true,"data":{"maLuot":"ml-0001-eval","trangThai":"XONG","ketQua":{"status":"NEEDS_EXPERT","results":[],"nextAction":{"type":"RETRY","reasonVi":"AI bận hoặc quá thời gian — gọi lại sau ít phút.","reasonCode":"ENGINE_TIMEOUT"}}}}]}
 {"step":"in","update":{"id":"a1","text":"máy hút bụi cầm tay"}}
-{"step":"expect","sentTo":"c1","count":1,"match":"AI bận","notMatch":"Mã đề xuất|\\\\d{4}\\\\.\\\\d{2}\\\\.\\\\d{2}"}
+{"step":"expect","sentTo":"c1","count":2,"match":"AI bận","notMatch":"Mã đề xuất|\\\\d{4}\\\\.\\\\d{2}\\\\.\\\\d{2}"}
