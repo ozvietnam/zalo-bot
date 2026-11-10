@@ -38,6 +38,17 @@ const CONG_DUNG_RE = /\b(d[uù]ng\s*cho|d[uù]ng\s*trong|d[uù]ng\s*[đd][eể]|
 const QUY_CACH_RE = /\b(tay\s*g[aạ]t|m[aạ]\s*k[eẽ]m|[đd][uú]c|h[aà]n|kh[oô]ng\s*d[aầ]u)\b/i;
 const FORM_NHAN_RE = /^(t[eê]n\s*h[aà]ng|ten\s*hang|m[oô]\s*t[aả]|mo\s*ta|ch[aấ]t\s*li[eệ]u|chat\s*lieu|th[oô]ng\s*s[oố]|thong\s*so|model)\s*:/im;
 
+/**
+ * Mệnh đề có THÔNG SỐ ĐO ĐƯỢC không (công suất, điện áp, dung tích, kích thước)?
+ * Dùng ở `loc-tap-am.js`: một mệnh đề chỉ có thông số ("350W 220V") là DỮ KIỆN MẶT HÀNG,
+ * không phải tạp âm hội thoại — bỏ nó thì hồ sơ mất thông tin khách vừa cung cấp
+ * (yêu cầu 1 và 4 của issue #170: hồ sơ tích luỹ, "xem lại từ đầu" phải dựng lại được).
+ */
+export function coThongSo(s) {
+  const t = String(s || '');
+  return CONG_SUAT_RE.test(t) || DIEN_AP_RE.test(t) || DUNG_TICH_RE.test(t) || KICH_THUOC_RE.test(t);
+}
+
 /** Nhận diện câu khách nói "không rõ / cứ tra đi / tra luôn đi". */
 export function nhanDienCuTraDi(text) {
   const n = norm(String(text || ''));

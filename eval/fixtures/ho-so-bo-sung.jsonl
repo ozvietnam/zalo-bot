@@ -1,0 +1,22 @@
+// #170 (10/11): lượt CAN_DU_KIEN đang mở, khách gửi THÊM thông số của CHÍNH món đó
+// → phải đi vào bo_sung_du_kien cùng mã lượt (không mở lượt mới) và PHẢI có phản hồi.
+// Trước đây câu có chữ "hs code" bị coi là câu hỏi món mới, tin bổ sung rơi lọt im lặng.
+{"step":"mcp","tool":"phan_loai_hs","returns":[{"ok":true,"data":{"maLuot":"44444444-2222-4333-8444-555555555555","trangThai":"CAN_DU_KIEN","hoi":[{"questionVi":"Chốt này là chốt kẹp cơ khí hay công tắc điện ạ?"}],"ketQua":{"status":"NEED_FACTS","results":[{"hs":"83024200","reason":"Nếu là chốt kẹp cơ khí."},{"hs":"85365099","reason":"Nếu là công tắc điện."}]}}}]}
+{"step":"mcp","tool":"bo_sung_du_kien","returns":[{"ok":true,"maLuot":"44444444-2222-4333-8444-555555555555","trangThai":"DANG_XU_LY"}]}
+{"step":"mcp","tool":"ket_qua_phan_loai","returns":[{"ok":true,"data":{"maLuot":"44444444-2222-4333-8444-555555555555","trangThai":"XONG","ketQua":{"status":"OK","results":[{"hs":"83024200","reason":"Chốt kẹp cơ khí bằng kim loại cơ bản."}]}}}]}
+{"step":"mcp","tool":"tra_thue","returns":[{"ok":true,"data":{"hsCode":"83024200","nameVi":"Chốt kẹp bằng kim loại cơ bản","unitVi":"Cái","taxNkPreferential":"0","taxVat":"8"}}]}
+{"step":"mcp","tool":"tra_thu_tuc_nhap_khau","returns":[{"ok":true,"data":{"hsCode":"83024200","giayPhep":[],"ghiChu":"Không thuộc danh mục quản lý chuyên ngành."}}]}
+{"step":"mcp","tool":"sinh_mo_ta_khai_bao","returns":[{"ok":true,"data":{"moTaEcus":"Chốt kẹp xoay 1/4 vòng, thép không gỉ, núm ABS, mới 100%"}}]}
+
+// Tin 1: mô tả → Cổng cần dữ kiện, bot hỏi lại
+{"step":"in","update":{"id":"b1","text":"Tên hàng: chốt kẹp xoay 1/4 vòng QCTHL0525-10S\nCông dụng: cố định vỏ máy"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"cơ khí hay công tắc điện"}
+
+// Tin 2: khách gửi thêm thông số của chính món đó, có kèm chữ "hs code"
+{"step":"advance","by":"2m"}
+{"step":"in","update":{"id":"b2","text":"chốt kẹp cơ khí, chất liệu thép không gỉ, núm nhựa ABS, hs code là gì ạ"}}
+
+// Phải có phản hồi, và mã CHỐT LẠI là mã chốt kẹp cơ khí
+// (8536.50 vẫn được phép xuất hiện ở tin 1 trong danh sách "mã có thể, chưa chốt").
+{"step":"expect","sentTo":"c1","count":2,"match":"Mã HS đề xuất: 8302\\.42"}
+{"step":"expect","sentTo":"c1","notMatch":"Mã HS đề xuất: 8536\\.50"}

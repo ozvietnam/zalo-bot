@@ -3,11 +3,17 @@
 //
 // Một dòng .jsonl là một bước:
 //   {"step":"mcp","tool":"phan_loai_hs","returns":[r1, r2, …]}   lần gọi thứ n trả returns[n-1] (hết thì lặp phần tử cuối)
+//   {"step":"mcp","tool":"phan_loai_hs","rules":[{"match":"<regex>","result":r}]}  luật NHẠY THAM SỐ: lần gọi
+//                                             đầu tiên có tham số khớp regex trả `result` (không đi vào returns)
 //   {"step":"in","update":{"id":"m1","text":"…","chatId":"c1"},"drain":true}   khách nhắn; mặc định chạy việc nền tới khi xong
 //   {"step":"advance","by":"10m"} | {"step":"at","time":"2026-11-04T15:50:00Z"}   nhảy đồng hồ (UTC) rồi chạy việc đến hạn
 //   {"step":"restart"}     đóng lõi, mở lại cùng tệp SQLite rồi gate.recover() + jobs.recover() + engine.recover() như server.js
 //   {"step":"expect","sentTo":"c1","count":1,"match":"8413","notMatch":"C:\\\\"}   đếm/so chữ mọi tin đã gửi tới phòng
+//   {"step":"expect","mcpTool":"phan_loai_hs","mcpCount":1,"mcpMatch":"…","mcpNotMatch":"…"}  đo ở TẦNG MÃ:
+//                                             số lần gọi Cổng và TÊN HÀNG thật đã gửi đi
 //   {"step":"staff","text":"/nhan P1"}   lệnh nhân viên (/tl, /nhan, /tra-bot, /chan, /cho) gửi trong nhóm staffChatId
+//   {"step":"vision","returns":[s1, s2, …]}   đọc ảnh giả: lần gọi thứ n trả returns[n-1] (hết thì lặp phần tử cuối);
+//                                             không có bước này = bot chưa bật đọc ảnh, như khi thiếu GEMINI_API_KEY
 //
 // Dùng: npm run eval  |  node eval/run.mjs --dir <thư mục .jsonl>
 import { readdirSync, readFileSync, mkdtempSync, rmSync } from 'node:fs';
@@ -34,16 +40,34 @@ function argDir(argv) {
   return i >= 0 && argv[i + 1] ? argv[i + 1] : join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 }
 
-/** Cổng OZ giả: tool → danh sách kết quả theo lượt gọi. Công cụ không có kịch bản = Cổng không có công cụ đó. */
+/**
+ * Cổng OZ giả: tool → danh sách kết quả theo lượt gọi. Công cụ không có kịch bản = Cổng không có công cụ đó.
+ *
+ * `rules` (tuỳ chọn): luật NHẠY THAM SỐ — `{"match":"<regex>","result":{…}}`. Lần gọi đầu tiên có
+ * `match` khớp tham số gửi đi (đối chiếu trên JSON của tham số, nên khớp được cả `tenHang` lẫn
+ * `maLuot`) trả `result` của luật đó, KHÔNG đi vào danh sách `returns`. Nhờ vậy bộ giả lập mô phỏng
+ * được Cổng thật: mô tả hàng lọt chữ của ảnh ("bật tắt") thì Cổng ra mã điện, còn mô tả sạch thì ra
+ * mã cơ khí. Không có luật này, mọi ca đều trả một mã hằng ⇒ phép thử "không rơi vào 8538" chỉ
+ * chứng minh được ở TẦNG VĂN BẢN (tin nhắn gửi khách), không chứng minh được ở TẦNG MÃ (tên hàng
+ * gửi Cổng) — điểm [S26] của người soát.
+ */
 function scriptedMcp(script) {
   const counts = {};
   return {
     calls: [],
     async callTool(name, args = {}) {
       this.calls.push({ name, args });
-      const list = script[name];
-      if (!list) throw new Error(`eval: Cổng giả không có công cụ ${name}`);
+      const item = script[name];
+      if (!item) throw new Error(`eval: Cổng giả không có công cụ ${name}`);
+      const list = item.returns ?? [];
+      const rules = item.rules ?? [];
+      // Luật nhạy tham số được xét TRƯỚC và KHÔNG tiêu tốn lượt thứ n của danh sách `returns`.
+      for (const r of rules) {
+        if (!r?.match) continue;
+        if (new RegExp(r.match, 'i').test(JSON.stringify(args))) return structuredClone(r.result);
+      }
       counts[name] = (counts[name] || 0) + 1;
+      if (!list.length) throw new Error(`eval: Cổng giả không có kết quả cho ${name}`);
       return structuredClone(list[Math.min(counts[name], list.length) - 1]);
     },
     async listTools() { return Object.keys(script).map((name) => ({ name })); },
@@ -75,10 +99,22 @@ export async function runScenario(steps, { start = START, config: userConfig = {
   const tmp = mkdtempSync(join(tmpdir(), 'oz-eval-'));
   const dbPath = join(tmp, 'eval.db');
   const script = {};
-  for (const s of steps) if (s.step === 'mcp') script[s.tool] = Array.isArray(s.returns) ? s.returns : [s.returns];
+  for (const s of steps) if (s.step === 'mcp') {
+    script[s.tool] = {
+      returns: s.returns == null ? [] : (Array.isArray(s.returns) ? s.returns : [s.returns]),
+      rules: s.rules ?? [],
+    };
+  }
   const clock = fakeClock(start);
   const channel = fakeChannel();
   const mcp = scriptedMcp(script);
+  // Đọc ảnh giả (không gọi Gemini, không mạng): chỉ bật khi kịch bản có bước "vision".
+  const visionReturns = steps.filter((s) => s.step === 'vision')
+    .flatMap((s) => (Array.isArray(s.returns) ? s.returns : [s.returns]));
+  let visionN = 0;
+  const vision = visionReturns.length
+    ? { async readSpecs() { return structuredClone(visionReturns[Math.min(++visionN, visionReturns.length) - 1]); } }
+    : null;
 
   const staffUsers = userConfig.staffUsers ?? new Set([DEFAULT_STAFF_USER]);
   const config = {
@@ -106,7 +142,7 @@ export async function runScenario(steps, { start = START, config: userConfig = {
     });
     handoff = createHandoff({ store, gate, config, now: clock.now, log: silent });
     engine = createEngine({
-      config, store, channel, mcp, registry: createRegistry([hsPack]), gate, handoff, now: clock.now, log: silent,
+      config, store, channel, mcp, vision, registry: createRegistry([hsPack]), gate, handoff, now: clock.now, log: silent,
       advance: (ms) => { if (ms > clock.now().getTime()) clock.set(ms); },
     });
   };
@@ -117,7 +153,7 @@ export async function runScenario(steps, { start = START, config: userConfig = {
     for (const [i, s] of steps.entries()) {
       const at = `bước ${i + 1} (${s.step})`;
       switch (s.step) {
-        case 'mcp': break;
+        case 'mcp': case 'vision': break;
         case 'config': Object.assign(config, s.config ?? s); break;
         case 'in':
           await engine.process(toUpdate(s.update));
@@ -151,6 +187,24 @@ export async function runScenario(steps, { start = START, config: userConfig = {
           if (s.messages != null) {
             const msgs = store.messages.recent(s.sentTo ?? 'c1', 1000);
             if (msgs.length !== s.messages) return { ok: false, why: `${at}: messages cần ${s.messages}, có ${msgs.length}` };
+          }
+          // Đo ở TẦNG MÃ: tham số thật gửi Cổng, không phải tin nhắn gửi khách.
+          //   mcpTool    — tên công cụ cần đo (vd "phan_loai_hs")
+          //   mcpCount   — số lần gọi đúng bằng số này
+          //   mcpMatch   — ÍT NHẤT một tên hàng gửi đi khớp regex
+          //   mcpNotMatch— KHÔNG tên hàng gửi đi nào được khớp regex (chặt: áp cho MỌI lần gọi)
+          if (s.mcpTool) {
+            const calls = mcp.calls.filter((c) => c.name === s.mcpTool);
+            if (s.mcpCount != null && calls.length !== s.mcpCount) {
+              return { ok: false, why: `${at}: ${s.mcpTool} cần ${s.mcpCount} lần gọi, có ${calls.length}` };
+            }
+            const tens = calls.map((c) => String(c.args?.tenHang ?? JSON.stringify(c.args ?? {})));
+            if (s.mcpMatch && !tens.some((t) => new RegExp(s.mcpMatch, 'i').test(t))) {
+              return { ok: false, why: `${at}: không tên hàng nào gửi ${s.mcpTool} khớp /${s.mcpMatch}/: ${JSON.stringify(tens).slice(0, 300)}` };
+            }
+            if (s.mcpNotMatch && tens.some((t) => new RegExp(s.mcpNotMatch, 'i').test(t))) {
+              return { ok: false, why: `${at}: tên hàng gửi ${s.mcpTool} khớp /${s.mcpNotMatch}/ (không được có): ${JSON.stringify(tens).slice(0, 300)}` };
+            }
           }
           break;
         }

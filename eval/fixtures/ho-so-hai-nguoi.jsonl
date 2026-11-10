@@ -1,0 +1,27 @@
+// #170 (10/11): nhóm có 2 người hỏi 2 món XEN KẼ, kèm ảnh → hai hồ sơ mặt hàng KHÔNG lẫn nhau.
+// Lõi tách phiên theo convId (`chatId:userId` trong nhóm), nên hồ sơ của mỗi người là riêng.
+{"step":"config","config":{"botNames":["bot"]}}
+{"step":"vision","returns":[{"tenHang":"Núm vặn khoá bật tắt ON OFF","chatLieu":"thép không gỉ + núm nhựa ABS","chuTrongAnh":"ON  OFF","khongChac":[]},{"tenHang":"Bút bi vỏ nhựa","chatLieu":"nhựa ABS","thongSo":{"Mực":"xanh"},"khongChac":[]}]}
+{"step":"mcp","tool":"phan_loai_hs","returns":[{"ok":true,"data":{"maLuot":"11111111-2222-4333-8444-555555555555","trangThai":"DANG_XU_LY"}},{"ok":true,"data":{"maLuot":"22222222-2222-4333-8444-555555555555","trangThai":"DANG_XU_LY"}},{"ok":true,"data":{"maLuot":"33333333-2222-4333-8444-555555555555","trangThai":"DANG_XU_LY"}}]}
+{"step":"mcp","tool":"ket_qua_phan_loai","returns":[{"ok":true,"data":{"maLuot":"11111111-2222-4333-8444-555555555555","trangThai":"XONG","ketQua":{"status":"OK","results":[{"hs":"83024200","reason":"Chốt kẹp kim loại cơ bản."}]}}},{"ok":true,"data":{"maLuot":"22222222-2222-4333-8444-555555555555","trangThai":"XONG","ketQua":{"status":"OK","results":[{"hs":"96081010","reason":"Bút bi."}]}}},{"ok":true,"data":{"maLuot":"33333333-2222-4333-8444-555555555555","trangThai":"XONG","ketQua":{"status":"OK","results":[{"hs":"96081010","reason":"Bút bi."}]}}}]}
+{"step":"mcp","tool":"tra_thue","returns":[{"ok":true,"data":{"hsCode":"83024200","nameVi":"Chốt kẹp bằng kim loại cơ bản","unitVi":"Cái","taxNkPreferential":"0","taxVat":"8"}},{"ok":true,"data":{"hsCode":"96081010","nameVi":"Bút bi","unitVi":"Cái","taxNkPreferential":"10","taxVat":"8"}},{"ok":true,"data":{"hsCode":"96081010","nameVi":"Bút bi","unitVi":"Cái","taxNkPreferential":"10","taxVat":"8"}}]}
+{"step":"mcp","tool":"tra_thu_tuc_nhap_khau","returns":[{"ok":true,"data":{"hsCode":"83024200","giayPhep":[],"ghiChu":"Không thuộc danh mục quản lý chuyên ngành."}},{"ok":true,"data":{"hsCode":"96081010","giayPhep":[],"ghiChu":"Không thuộc danh mục quản lý chuyên ngành."}}]}
+{"step":"mcp","tool":"sinh_mo_ta_khai_bao","returns":[{"ok":true,"data":{"moTaEcus":"Chốt kẹp xoay 1/4 vòng, mới 100%"}}]}
+
+// Người A (u1) mô tả món cơ khí
+{"step":"in","update":{"id":"g1","chatId":"g1","chatType":"GROUP","userId":"u1","userName":"Anh A","text":"@bot Chốt kẹp xoay 1/4 vòng loại núm thấp, mã QCTHL0525-10S, cố định vỏ máy"}}
+// Người B (u2) chen vào món khác
+{"step":"in","update":{"id":"g2","chatId":"g1","chatType":"GROUP","userId":"u2","userName":"Chị B","text":"@bot Tên hàng: bút bi vỏ nhựa, mực xanh"}}
+// A gửi ảnh món của A (chữ ON OFF) — chỉ được vào hồ sơ của A
+{"step":"advance","by":"1m"}
+{"step":"in","update":{"id":"g3","chatId":"g1","chatType":"GROUP","userId":"u1","userName":"Anh A","event":"message.image.received","photoUrl":"https://photo-stal-14.zdn.vn/no/jpg/a.jpg","caption":"@bot chất liệu: thép không gỉ + núm nhựa ABS"}}
+// B gõ lệnh ngắn → phải tra món của B, không phải món của A
+{"step":"advance","by":"1m"}
+{"step":"in","update":{"id":"g4","chatId":"g1","chatType":"GROUP","userId":"u2","userName":"Chị B","text":"@bot tra hs"}}
+
+// Hai hồ sơ không lẫn: có cả hai mã, và lệnh ngắn của B không bao giờ kéo món của A sang
+{"step":"expect","sentTo":"g1","match":"8302\\.42"}
+{"step":"expect","sentTo":"g1","match":"9608\\.10"}
+{"step":"expect","sentTo":"g1","match":"Em đang tra:.*bút bi"}
+{"step":"expect","sentTo":"g1","notMatch":"Em đang tra:.*bút bi.*[Cc]hốt kẹp"}
+{"step":"expect","sentTo":"g1","notMatch":"Em đang tra:.*[Cc]hốt kẹp.*bút bi"}

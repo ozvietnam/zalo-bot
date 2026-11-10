@@ -24,6 +24,22 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT_DIR = join(__dirname, '..');
 
+const DON_VI_THOI_GIAN = { s: 1_000, m: 60_000, h: 3_600_000, d: 86_400_000 };
+
+/**
+ * Đọc khoảng cách thời gian của bước (`"5m"`, `"90s"`, hay số milli giây).
+ * Mạch thật của khách cách nhau vài phút; bộ QA bơm cả kịch bản trong một giây nên cửa gửi
+ * coi tin sau là trùng tin trước và CHẶN (`core/gate-decide.js:130`). Bước khai `cachTruoc`
+ * để đồng hồ của kịch bản tiến lên đúng như ngoài đời.
+ */
+export function docKhoangCach(x) {
+  if (x == null) return 0;
+  if (typeof x === 'number') return Number.isFinite(x) && x > 0 ? x : 0;
+  const m = /^\s*(\d+)\s*([smhd])\s*$/.exec(String(x));
+  if (!m) throw new Error(`cachTruoc không đọc được: ${x} (dùng dạng "90s", "5m", "2h")`);
+  return Number(m[1]) * DON_VI_THOI_GIAN[m[2]];
+}
+
 /** Đọc cấu hình từ tệp .env nếu tồn tại, không ném lỗi nếu thiếu. */
 export function loadDotEnv(filePath = join(ROOT_DIR, '.env')) {
   if (!existsSync(filePath)) return {};
@@ -75,6 +91,9 @@ export function createQaChannel() {
   };
 }
 
+/** Bỏ dấu + chữ thường: nhận diện món trong bộ giả lập không phụ thuộc dấu tiếng Việt. */
+const normMock = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
+
 /** Cổng OZ giả phục vụ chế độ --mock khi không có kết nối mạng thật. */
 function createMockMcp() {
   const tools = [
@@ -95,11 +114,19 @@ function createMockMcp() {
       this.calls.push({ name, args, at: new Date() });
       if (name === 'phan_loai_hs') {
         const text = String(args.tenHang || args.moTa || '');
-        const is8413 = text.includes('8413') || text.includes('bơm');
-        const is8504 = text.includes('8504') || text.includes('biến đổi');
-        const is8509 = text.includes('8509') || text.includes('xay') || text.includes('sinh tố');
-        const maHs = is8413 ? '84137090' : (is8504 ? '85044090' : (is8509 ? '85094000' : '85371099'));
-        const nameVi = is8413 ? 'Máy bơm ly tâm' : (is8504 ? 'Bộ biến đổi tĩnh điện' : (is8509 ? 'Máy xay, ép trái cây gia dụng' : 'Bàn điều khiển cầm tay'));
+        const n = normMock(text);
+        const is8413 = n.includes('8413') || n.includes('bom');
+        const is8504 = n.includes('8504') || n.includes('bien doi');
+        const is8509 = n.includes('8509') || n.includes('xay') || n.includes('sinh to');
+        // Chốt kẹp cơ khí (case G5 của issue #170): mã thật của Cổng là 8302.42.00, KHÔNG phải
+        // 8537.10.99 ("thiết bị điều khiển cầm tay" — nhóm hàng điện). Không có nhánh này thì bộ
+        // giả lập rơi vào mã dự phòng của mình và báo cáo QA ra một mã sai mặt hàng (người soát
+        // đo, điểm [S23]) — báo cáo đó là BẰNG CHỨNG cho người đọc, không được sai.
+        // Nhận diện bằng chuỗi ĐÃ BỎ DẤU: regex có dấu dễ trượt ("kẹp" ≠ "kệp") và lỡ mất
+        // nhánh thì báo cáo lại ra mã của món khác.
+        const is8302 = n.includes('8302') || n.includes('chot kep') || n.includes('chot xoay') || n.includes('chot ');
+        const maHs = is8413 ? '84137090' : (is8504 ? '85044090' : (is8509 ? '85094000' : (is8302 ? '83024200' : '85371099')));
+        const nameVi = is8413 ? 'Máy bơm ly tâm' : (is8504 ? 'Bộ biến đổi tĩnh điện' : (is8509 ? 'Máy xay, ép trái cây gia dụng' : (is8302 ? 'Khớp nối, giá đỡ, chốt kẹp bằng kim loại cơ bản khác' : 'Bàn điều khiển cầm tay')));
         return {
           ok: true,
           maLuot: 'ML-TEST-' + maHs,
@@ -118,8 +145,8 @@ function createMockMcp() {
       }
       if (name === 'ket_qua_phan_loai') {
         const ml = String(args.maLuot || '');
-        const maHs = ml.includes('8509') ? '85094000' : (ml.includes('8413') ? '84137090' : (ml.includes('8504') ? '85044090' : '85371099'));
-        const nameVi = maHs === '85094000' ? 'Máy xay, ép trái cây gia dụng' : (maHs === '84137090' ? 'Máy bơm ly tâm' : 'Bảng, bàn điều khiển cầm tay');
+        const maHs = ml.includes('8509') ? '85094000' : (ml.includes('8413') ? '84137090' : (ml.includes('8504') ? '85044090' : (ml.includes('8302') ? '83024200' : '85371099')));
+        const nameVi = maHs === '85094000' ? 'Máy xay, ép trái cây gia dụng' : (maHs === '84137090' ? 'Máy bơm ly tâm' : (maHs === '83024200' ? 'Khớp nối, giá đỡ, chốt kẹp bằng kim loại cơ bản khác' : 'Bảng, bàn điều khiển cầm tay'));
         return {
           ok: true,
           maHs,
@@ -140,7 +167,7 @@ function createMockMcp() {
           ok: true,
           data: {
             hsCode: ma,
-            nameVi: is8509 ? 'máy xay, ép trái cây gia dụng' : (ma.startsWith('8413') ? 'Máy bơm ly tâm khác' : (ma.startsWith('8504') ? 'Bộ biến đổi tĩnh điện khác' : 'Thiết bị điều khiển cầm tay')),
+            nameVi: is8509 ? 'máy xay, ép trái cây gia dụng' : (ma.startsWith('8413') ? 'Máy bơm ly tâm khác' : (ma.startsWith('8504') ? 'Bộ biến đổi tĩnh điện khác' : (ma.startsWith('8302') ? 'Khớp nối, giá đỡ, chốt kẹp bằng kim loại cơ bản khác' : 'Thiết bị điều khiển cầm tay'))),
             taxNkPreferential: is8509 ? 25 : 0,
             taxVat: is8509 ? 8 : 10,
             vatReduction: is8509 ? { noteVi: 'áp tới hết 2026' } : null,
@@ -300,6 +327,11 @@ export async function runSingleScenario(scenario, {
   const store = openStore(dbPath);
   const channel = createQaChannel();
 
+  // Đồng hồ của kịch bản: giờ thật + phần bù do các bước khai `cachTruoc`. Lõi/cửa gửi đọc
+  // đồng hồ này, nên hai tin cách nhau "5m" trong kịch bản cũng cách nhau 5 phút với cửa gửi.
+  let buThoiGian = 0;
+  const dongHo = () => new Date(now().getTime() + buThoiGian);
+
   // Đếm tool call
   const toolCalls = [];
   let mcp;
@@ -367,7 +399,7 @@ export async function runSingleScenario(scenario, {
   const gate = createGate({
     store,
     channel,
-    now,
+    now: dongHo,
     rules: {
       capChatDay: config.capChatDay,
       capGroupDay: config.capGroupDay,
@@ -386,7 +418,7 @@ export async function runSingleScenario(scenario, {
     store,
     gate,
     config,
-    now,
+    now: dongHo,
     log: { info() {}, warn() {}, error() {} },
   });
 
@@ -401,7 +433,7 @@ export async function runSingleScenario(scenario, {
     registry: createRegistry([hsPack]),
     gate,
     handoff,
-    now,
+    now: dongHo,
     log: { info() {}, warn() {}, error() {} },
   });
 
@@ -411,6 +443,8 @@ export async function runSingleScenario(scenario, {
 
   try {
     for (const [idx, step] of scenario.steps.entries()) {
+      // Khoảng lặng giữa hai tin của khách: đẩy đồng hồ kịch bản, không ngủ thật.
+      buThoiGian += docKhoangCach(step.cachTruoc);
       const stepStart = Date.now();
       const isPhanLoai = laBuocPhanLoai(step, scenario);
       const stepTimeoutMs = step.timeoutMs || (isPhanLoai ? 120_000 : 30_000);
