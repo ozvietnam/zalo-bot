@@ -1,0 +1,61 @@
+// #170 yêu cầu 2 — câu hỏi "hỏi lại" (thiếu thông số) còn MỞ thì lệnh ngắn và câu "xem lại toàn bộ"
+// vẫn phải tra trên hồ sơ đang có; lệnh KHÔNG được thành tên hàng gửi Cổng.
+//
+// Hồi quy [S25]: gói 1 coi MỌI tin khách là câu trả lời cho câu hỏi đang mở → tên hàng gửi Cổng
+// thành "máy xay sinh tố tra hscode", bot hỏi lại đúng câu cũ, KHÔNG gọi Cổng (0 lần gọi) → khách
+// không bao giờ nhận được mã. Lệnh ngắn ở tầng Lõi còn bị cửa chào kết nuốt nếu gói không báo
+// "đang chờ khách đáp" — cờ `choKhachTraLoi`.
+//
+// MÃ LƯỢT giả: MỖI PHÒNG một mã lượt riêng (A cho c1, B cho c2, C cho c3). Lý do đo được: bảng
+// `jobs` có ràng buộc `UNIQUE (pack, ma_luot)` (`core/store/schema.js:31`) và `store.jobs.add` trả
+// `null` khi trùng (`core/store/queue.js:130-137`) ⇒ hai phòng dùng chung một mã lượt thì việc nền
+// của phòng sau KHÔNG được ghi ⇒ không có poll ⇒ không có tin "Mã HS đề xuất". Cổng thật sinh mã lượt
+// MỚI cho mỗi lần gọi, nên đây là lỗi của mock chứ không phải lỗi sản xuất.
+//
+// Phòng c1: lệnh ngắn. Phòng c2: câu "xem lại toàn bộ". Phòng c3: "ok" ngay sau câu hỏi (lệnh
+// ngắn mà cửa chào kết của Lõi hay nuốt). Ba mạch riêng để mỗi mạch có đúng một câu hỏi đang mở.
+{"step":"config","config":{"botNames":["bot"]}}
+{"step":"mcp","tool":"phan_loai_hs","returns":[{"ok":true,"data":{"maLuot":"11111111-1111-4111-8111-111111111111","trangThai":"DANG_XU_LY"}},{"ok":true,"data":{"maLuot":"22222222-2222-4222-8222-222222222222","trangThai":"DANG_XU_LY"}},{"ok":true,"data":{"maLuot":"33333333-3333-4333-8333-333333333333","trangThai":"DANG_XU_LY"}}]}
+{"step":"mcp","tool":"ket_qua_phan_loai","rules":[{"match":"11111111","result":{"ok":true,"data":{"maLuot":"11111111-1111-4111-8111-111111111111","trangThai":"XONG","ketQua":{"status":"OK","results":[{"hs":"84137090","reason":"Bơm nước ly tâm gia dụng"}]}}}},{"match":"22222222","result":{"ok":true,"data":{"maLuot":"22222222-2222-4222-8222-222222222222","trangThai":"XONG","ketQua":{"status":"OK","results":[{"hs":"84137090","reason":"Bơm nước ly tâm gia dụng"}]}}}},{"match":"33333333","result":{"ok":true,"data":{"maLuot":"33333333-3333-4333-8333-333333333333","trangThai":"XONG","ketQua":{"status":"OK","results":[{"hs":"84137090","reason":"Bơm nước ly tâm gia dụng"}]}}}}]}
+{"step":"mcp","tool":"tra_thue","returns":[{"ok":true,"data":{"hsCode":"84137090","nameVi":"Bơm nước ly tâm","unitVi":"Cái","taxNkPreferential":"0","taxNkTt":"20","taxVat":"8"}}]}
+{"step":"mcp","tool":"tra_thu_tuc_nhap_khau","returns":[{"ok":true,"data":{"hsCode":"84137090","giayPhep":[],"ghiChu":"Không thuộc danh mục quản lý chuyên ngành."}}]}
+{"step":"mcp","tool":"sinh_mo_ta_khai_bao","returns":[{"ok":true,"data":{"moTaEcus":"Bơm nước ly tâm gia dụng"}}]}
+
+// ── Phòng c1: lệnh ngắn khi câu hỏi "hỏi lại" còn mở ──────────────────────────────────────
+{"step":"in","update":{"id":"m1","text":"@bot Tra hs máy xay sinh tố"}}
+{"step":"expect","sentTo":"c1","match":"công suất"}
+{"step":"expect","mcpTool":"phan_loai_hs","mcpCount":0}
+{"step":"advance","by":"2m"}
+{"step":"in","update":{"id":"m2","text":"@bot tra hscode"}}
+// Lệnh phải mở lượt tra trên HỒ SƠ ĐANG CÓ — không phải tên hàng "máy xay sinh tố tra hscode".
+{"step":"expect","mcpTool":"phan_loai_hs","mcpCount":1}
+{"step":"expect","mcpTool":"phan_loai_hs","mcpMatch":"máy xay sinh tố"}
+{"step":"expect","mcpTool":"phan_loai_hs","mcpNotMatch":"tra hscode"}
+// Lời nhờ ở đầu mô tả ("Tra hs máy xay sinh tố") cũng không được thành tên hàng (điểm [S25]).
+{"step":"expect","mcpTool":"phan_loai_hs","mcpNotMatch":"tra\\s+hs"}
+{"step":"advance","by":"1m"}
+{"step":"expect","sentTo":"c1","match":"Mã HS đề xuất"}
+{"step":"expect","sentTo":"c1","notMatch":"tra hscode"}
+
+// ── Phòng c2: "xem lại toàn bộ" khi câu hỏi còn mở → phải phân loại LẠI, không hỏi lại ──────────
+{"step":"in","update":{"id":"n1","chatId":"c2","text":"@bot Tra hs máy xay sinh tố"}}
+{"step":"expect","sentTo":"c2","match":"công suất"}
+{"step":"advance","by":"2m"}
+{"step":"in","update":{"id":"n2","chatId":"c2","text":"@bot xem lại toàn bộ thông tin khách gửi từ đầu tới cuối"}}
+{"step":"expect","sentTo":"c2","match":"Em phân loại lại trên toàn bộ thông tin anh/chị đã gửi"}
+{"step":"expect","mcpTool":"phan_loai_hs","mcpCount":2}
+{"step":"expect","mcpTool":"phan_loai_hs","mcpNotMatch":"xem lại"}
+{"step":"advance","by":"1m"}
+{"step":"expect","sentTo":"c2","match":"Mã HS đề xuất"}
+{"step":"expect","sentTo":"c2","notMatch":"xem lại toàn bộ"}
+
+// ── Phòng c3: "ok" ngay sau câu hỏi → KHÔNG bị cửa chào kết của Lõi nuốt, vẫn ra mã ────────────
+{"step":"in","update":{"id":"p1","chatId":"c3","text":"@bot Tra hs máy xay sinh tố"}}
+{"step":"expect","sentTo":"c3","match":"công suất"}
+{"step":"advance","by":"2m"}
+{"step":"in","update":{"id":"p2","chatId":"c3","text":"@bot ok"}}
+{"step":"expect","mcpTool":"phan_loai_hs","mcpCount":3}
+{"step":"expect","mcpTool":"phan_loai_hs","mcpNotMatch":"\\bok\\b"}
+{"step":"advance","by":"1m"}
+{"step":"expect","sentTo":"c3","match":"Mã HS đề xuất"}
+{"step":"expect","sentTo":"c3","notMatch":"\\bok\\b"}

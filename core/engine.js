@@ -137,7 +137,15 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
     const caption = u.caption == null ? null : stripMention(u.caption, names);
     const turn = { turnId: key, chatId: u.chatId, convId, userId: u.userId ?? null, userName: u.userName ?? null, isGroup: group, receivedAt: atIso, namePrefix, replayed: replayedAt != null,
       text, caption, photoUrl: isPhoto ? u.photoUrl : null, voiceUrl: isVoice ? u.voiceUrl : null, isVoice, isStaff: staff.has(u.userId) };
-    const said = isPhoto ? `[ảnh] ${turn.photoUrl}${caption ? ` ${caption}` : ''}` : (isVoice ? `[thoại] ${turn.voiceUrl || ''}${caption ? ` ${caption}` : ''}` : text);
+    // Tin CHỈ nhắc tên bot ("@bot" trơ trọi — tin 10:00 của issue #170): sau khi lõi bỏ nhắc tên thì
+    // không còn chữ nào, NHƯNG khách đã gọi bot và đang chờ. Bỏ sớm như tin rỗng thì gói không bao giờ
+    // chạy (bot im), mà dòng inbox vẫn markDone và không có dòng `messages` → SC-008 lệch
+    // ("tin khách vào != tin khách trong messages"). Gói nhận `text` rỗng và hiểu là lệnh trỏ vào
+    // việc đang xử lý; sổ `messages` ghi đúng chữ khách gõ.
+    // Nhận cả khi `botNames` rỗng: `stripMention` vẫn bỏ "@tên" đứng đầu, nên dấu hiệu chắc nhất là
+    // "tin có chữ, bỏ nhắc tên thì không còn gì". Tin chỉ có khoảng trắng KHÔNG tính (không có "@").
+    const chiNhacTen = isText && !text && (/^@/.test(String(u.text).trim()) || hasMention(u.text, names));
+    const said = isPhoto ? `[ảnh] ${turn.photoUrl}${caption ? ` ${caption}` : ''}` : (isVoice ? `[thoại] ${turn.voiceUrl || ''}${caption ? ` ${caption}` : ''}` : (chiNhacTen ? String(u.text).trim() : text));
     // `at` của dòng audit là lúc GHI SỔ (giữ nguyên, đúng sự thật); `receivedAt` là lúc KHÁCH NHẮN.
     // Lượt phát lại hai mốc này lệch nhau, nên ghi cả hai mới tra lại được (Điều IV).
     const ghiVao = (s, extra = {}) => audit('inbound', turn.chatId, turn.convId, key, { event: u.event, isGroup: group, userId: turn.userId, receivedAt: turn.receivedAt, replayed: turn.replayed === true, sha1: sha1(s), head: redact(s ?? '').slice(0, 500), ...extra });
@@ -183,7 +191,7 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
         if (!group) await reply(turn, RATE_LIMIT_TEXT, 0, { kind: 'notice' });
         return done({ handled: 'rate-limited' });
       }
-      if (!isPhoto && !text) return done({ skipped: 'empty' });
+      if (!isPhoto && !text && !chiNhacTen) return done({ skipped: 'empty' });
       ghiVao(said);
 
       const sessionKey = convId;
@@ -191,8 +199,15 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
       session.touch();
       const last = store.messages.recent(turn.convId, 1)[0];
       store.messages.add({ conv_id: turn.convId, chat_id: turn.chatId, turn_id: key, speaker: 'khach', speaker_id: turn.userId, text: said, at: turn.receivedAt });
-      // Chào kết ("cảm ơn ạ") ngay sau câu bot: im. Đang chờ xác nhận ảnh thì "ok" là câu trả lời, phải tới gói.
-      if (!isPhoto && isCloser(text) && last?.speaker === 'bot' && !session.get().choXacNhanAnh) {
+      // Chào kết ("cảm ơn ạ") ngay sau câu bot: im. Hai ngoại lệ, cùng một ý — BOT ĐANG CHỜ KHÁCH ĐÁP,
+      // nên "ok"/"vâng"/"dạ" là CÂU TRẢ LỜI, phải tới gói:
+      //   • `choXacNhanAnh`: gói vừa in thông số đọc từ ảnh và xin khách xác nhận;
+      //   • `choKhachTraLoi`: gói vừa HỎI LẠI một câu (mâu thuẫn ảnh ↔ chữ của issue #170).
+      // Thiếu cờ thứ hai thì câu đáp bị nuốt (`skipped:'closer'`, 0 tin ra) và câu bot vừa hỏi thành
+      // vô ích — người soát đo được đúng tin 10:12 của issue. Gói bật cờ khi hỏi; cờ sống đúng một
+      // lượt khách (gói tự xoá ở đầu lượt sau), nên chào kết thật vẫn im như cũ.
+      const phien = session.get();
+      if (!isPhoto && isCloser(text) && last?.speaker === 'bot' && !phien.choXacNhanAnh && !phien.choKhachTraLoi) {
         audit('outbound', turn.chatId, turn.convId, key, { skipped: 'closer', results: [] });
         return done({ skipped: 'closer' });
       }

@@ -1,0 +1,37 @@
+// #170 [S15] — chuỗi 3 tin: mô tả chữ → ẢNH KÈM CHÚ THÍCH ĐÀM THOẠI → "ok".
+// Quyết thay CEO điểm 4: nghiệm thu `tenHang` gửi Cổng SẠCH tạp âm. Chú thích là kiểu khách gõ
+// thật: thời gian ("10h03"), cảm thán/xã giao ("thông cảm", "cần gấp"), nói về tấm ảnh ("ảnh hơi
+// mờ"), và một SO SÁNH BÊN LỀ ("giống công tắc điện") — đúng đường bơm từ khoá hàng ĐIỆN vào mô tả,
+// chính cơ chế đã đẩy issue #170 ra mã 8538.90. Chốt `notMatch` 8538 là chốt về MÃ/THUẾ (Điều III).
+// Phòng 1-1 `c1`: SC-008 (`test/core/messages.test.mjs`) phát lại MỌI fixture với chatType PRIVATE.
+{"step":"config","config":{"botNames":["bot"]}}
+{"step":"vision","returns":[{"tenHang":"Núm vặn khoá bật tắt ON OFF","chatLieu":"thép không gỉ + núm nhựa ABS","chuTrongAnh":"ON  OFF","khongChac":[]}]}
+{"step":"mcp","tool":"phan_loai_hs","returns":[{"ok":true,"data":{"maLuot":"77777777-2222-4333-8444-555555555555","trangThai":"DANG_XU_LY"}}]}
+{"step":"mcp","tool":"ket_qua_phan_loai","returns":[{"ok":true,"data":{"maLuot":"77777777-2222-4333-8444-555555555555","trangThai":"XONG","ketQua":{"status":"OK","results":[{"hs":"83024200","reason":"Chốt kẹp bằng kim loại cơ bản dùng cho vỏ máy, cửa."}]}}}]}
+{"step":"mcp","tool":"tra_thue","returns":[{"ok":true,"data":{"hsCode":"83024200","nameVi":"Khớp nối, giá đỡ, chốt kẹp bằng kim loại cơ bản khác","unitVi":"Cái","taxNkPreferential":"0","taxNkTt":"20","taxVat":"8"}}]}
+{"step":"mcp","tool":"tra_thu_tuc_nhap_khau","returns":[{"ok":true,"data":{"hsCode":"83024200","giayPhep":[],"ghiChu":"Không thuộc danh mục quản lý chuyên ngành."}}]}
+{"step":"mcp","tool":"sinh_mo_ta_khai_bao","returns":[{"ok":true,"data":{"moTaEcus":"Chốt kẹp xoay 1/4 vòng, thép không gỉ, núm ABS, mới 100%"}}]}
+
+// Tin 1: mô tả hàng bằng chữ
+{"step":"in","update":{"id":"p1","text":"@bot Chốt kẹp xoay 1/4 vòng loại núm thấp, mã QCTHL0525-10S, cố định vỏ máy và cửa bảo vệ"}}
+
+// Tin 2: ảnh + chú thích ĐÀM THOẠI. Ảnh là bổ sung; chú thích chỉ được góp DỮ KIỆN, không góp tạp âm.
+{"step":"advance","by":"3m"}
+{"step":"expect","sentTo":"c1","count":1}
+{"step":"in","update":{"id":"p2","event":"message.image.received","photoUrl":"https://photo-stal-14.zdn.vn/no/jpg/qcthl2.jpg","caption":"@bot em gửi lúc 10h03, ảnh hơi mờ anh thông cảm, cái này giống công tắc điện nhưng không phải, cần gấp nhé"}}
+{"step":"expect","sentTo":"c1","count":2}
+
+// Tin 3: "ok" → xác nhận thông số ảnh, tra trên HỒ SƠ GỘP
+{"step":"advance","by":"2m"}
+{"step":"in","update":{"id":"p3","text":"@bot ok"}}
+
+// Nghiệm thu: mã chốt kẹp cơ khí, TUYỆT ĐỐI không ra nhóm hàng điện 8538, và không tin nào nhắc lại
+// tạp âm của chú thích (bot in lại dòng "Em đang tra: <mô tả gửi Cổng>", nên tin ra soi được mô tả).
+{"step":"expect","sentTo":"c1","match":"8302\\.42"}
+{"step":"expect","sentTo":"c1","match":"Em đang tra:.*[Cc]hốt kẹp"}
+{"step":"expect","sentTo":"c1","notMatch":"8538"}
+{"step":"expect","sentTo":"c1","notMatch":"10h03"}
+{"step":"expect","sentTo":"c1","notMatch":"thông cảm"}
+{"step":"expect","sentTo":"c1","notMatch":"cần gấp"}
+{"step":"expect","sentTo":"c1","notMatch":"Em đang tra:.*gi[oố]ng"}
+{"step":"expect","sentTo":"c1","notMatch":"Em đang tra:.*c[oô]ng t[aắ]c"}

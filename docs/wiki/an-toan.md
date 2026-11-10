@@ -20,7 +20,7 @@ Nơi duy nhất trong toàn bộ mã nguồn sản xuất gọi `channel.sendTex
 |---|---|---|
 | I | Một cửa gửi | Đạt (`core/gate.js:117`, `core/gate-decide.js:78`, `test/core/one-gate.test.mjs:200`) |
 | II | Người trước máy | Đạt (`core/handoff.js:100`, `core/engine.js:127`, `core/gate-decide.js:98`, `core/intents.js:120`) |
-| III | Số tiền do code tra | Cửa sẵn sàng (`core/gate-decide.js:140`, `core/sanitizer.js:189`, `packs/hs/editor.js:45`; gói hs đặt `moneyCheck: false` ở `packs/hs/index.js:115`) |
+| III | Số tiền do code tra | Cửa sẵn sàng (`core/gate-decide.js:140`, `core/sanitizer.js:189`, `packs/hs/editor.js:45`; gói hs đặt `moneyCheck: false` ở `packs/hs/index.js:24`) |
 | IV | Bằng chứng thắng lời khai | Đạt (`core/store/schema.js:35`, `core/gate.js:59`, `core/engine.js:143`, `scripts/audit.mjs:1`) |
 | V | Tri thức một nhà | Đạt (`packs/hs/packages.js:142`, `core/mcp.js:90`, `core/registry.js:9`) |
 | VI | Đơn giản, không phụ thuộc | Đạt phần lớn (`package.json:8` Node ≥ 22.13, 0 dependency; `core/` đều < 300 dòng; 2 tệp `packs/hs/` > 300 dòng) |
@@ -87,7 +87,7 @@ Phòng `human` chỉ được trả về `bot` khi nhân viên gõ `/tra-bot` ho
 - Mô-đun kiểm số theo giá trị: `core/sanitizer.js:189` (`kiemSoTheoGiaTri`), chuẩn hoá giá trị số tại `core/sanitizer.js:135` (`chuanHoaGiaTriSo`).
 
 **Điểm cần lưu ý.**
-Gói hải quan hiện đặt `moneyCheck: false` tại `packs/hs/index.js:115` vì dữ liệu thuế trả về từ Cổng OZ dạng văn bản phong phú chưa có schema số cố định. Tuy nhiên, toàn bộ hạ tầng kiểm duyệt ở cửa và não biên tập (`packs/hs/editor.js`) đã sẵn sàng kích hoạt.
+Gói hải quan hiện đặt `moneyCheck: false` tại `packs/hs/index.js:24` vì dữ liệu thuế trả về từ Cổng OZ dạng văn bản phong phú chưa có schema số cố định. Tuy nhiên, toàn bộ hạ tầng kiểm duyệt ở cửa và não biên tập (`packs/hs/editor.js`) đã sẵn sàng kích hoạt.
 
 ---
 
@@ -140,7 +140,7 @@ Repo hoàn toàn không lưu trữ tệp dữ liệu biểu thuế hay mã HS c�
 - CI chạy test và eval trên Node 22: `.github/workflows/ci.yml:17` và `.github/workflows/ci.yml:18`.
 
 **Điểm cần lưu ý.**
-Hiện tại có hai tệp trong gói nghiệp vụ hải quan vượt quá 300 dòng: `packs/hs/packages.js` (436 dòng) và `packs/hs/render.js` (409 dòng). Hai tệp này thuộc phạm vi refactor trong các spec nghiệp vụ kế tiếp.
+Hiện tại có hai tệp trong gói nghiệp vụ hải quan vượt quá 300 dòng: `packs/hs/packages.js` (574 dòng) và `packs/hs/render.js` (446 dòng) — đo bằng `wc -l` tại thời điểm vá #170. Hai tệp này thuộc phạm vi refactor trong các spec nghiệp vụ kế tiếp.
 
 ---
 
@@ -268,8 +268,8 @@ Cơ chế hộp thư riêng cho bản tin giám sát (`scripts/giam-sat/digest.j
 
 ## Điểm cần lưu ý / Rủi ro đang mở
 
-1. **Cờ kiểm số tiền chưa bật trong gói hải quan**: `moneyCheck: false` tại `packs/hs/index.js:115`. Luật ở lớp cửa `core/gate-decide.js:140` và não biên tập `packs/hs/editor.js:45` đã sẵn sàng, sẽ bật khi biểu thuế có schema chặt chẽ.
-2. **Hai tệp nghiệp vụ vượt 300 dòng**: `packs/hs/packages.js` (436 dòng) và `packs/hs/render.js` (409 dòng) cần được chia nhỏ theo Điều VI trong các spec nghiệp vụ kế tiếp.
+1. **Cờ kiểm số tiền chưa bật trong gói hải quan**: `moneyCheck: false` tại `packs/hs/index.js:24`. Luật ở lớp cửa `core/gate-decide.js:140` và não biên tập `packs/hs/editor.js:45` đã sẵn sàng, sẽ bật khi biểu thuế có schema chặt chẽ.
+2. **Hai tệp nghiệp vụ vượt 300 dòng**: `packs/hs/packages.js` (574 dòng) và `packs/hs/render.js` (446 dòng) cần được chia nhỏ theo Điều VI trong các spec nghiệp vụ kế tiếp.
 3. **Nghiệm thu thực địa 7 ngày**: Tiêu chí SC-002 (bot im trong phòng human) và SC-007 (mọi tin ra có `turn_id` trong audit) đã đạt 100% trong lab và chờ đo 7 ngày thực tế bằng lệnh `npm run do-sc` khi bot mở lại cho khách thật.
 
 ---

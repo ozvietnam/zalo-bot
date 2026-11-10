@@ -1,0 +1,97 @@
+// #170 (10/11): tái hiện ĐỦ 7 tin test nhóm Zalo 09:58–10:18 — một khách hỏi MỘT món qua 7 tin.
+// Trước đây bot coi là 6 câu rời rạc, chốt 8538.90 (hàng điện) vì chữ "ON OFF" trên ảnh lấn mô tả chữ.
+// Phải: một hồ sơ mặt hàng được cập nhật dần, ảnh chỉ bổ sung, mâu thuẫn thì hỏi lại một câu.
+// `botNames` đúng như bài test thật: tin nào cũng nhắc "@bot", kể cả tin "@bot" trơ trọi.
+// Phòng 1-1 (bài nhóm 2 người nằm ở ho-so-hai-nguoi.jsonl) để chốt SC-008 soi đúng convId "c1".
+// `runScenario` tự chạy checkMessages (SC-008) cuối kịch bản, nên tin bị bỏ im lặng sẽ làm ca này đỏ.
+//
+// MÃ LƯỢT của Cổng giả: lần gọi `phan_loai_hs` thứ 1 (tin 09:58) mở lượt A; các lệnh ngắn
+// ("@bot", "tra hscode", câu đáp mâu thuẫn) vẫn tra trên lượt A vì hồ sơ KHÔNG đổi — giữ nguyên
+// mô hình "một mạch một lượt" mà ca này kiểm. Tin 10:18 dựng lại hồ sơ từ đầu là một lần phân
+// loại MỚI → lượt B (mã lượt mới, đúng như Cổng thật), để ca này chứng minh được hồ sơ dựng lại
+// vẫn ra mã chốt kẹp chứ không phải mã lai.
+//
+// LUẬT NHẠY THAM SỐ của Cổng giả (điểm [S26] của người soát): tên hàng gửi đi mà lọt chữ ĐIỆN
+// của ảnh ("bật tắt", "ON OFF") thì Cổng mở lượt ĐIỆN (mã lượt 4444…) và trả mã điện 8538.90.00 —
+// y như Cổng thật. Nhờ vậy phép thử "không rơi vào 8538" chứng minh được ở TẦNG MÃ (tên hàng thật
+// gửi Cổng), chứ không chỉ ở tầng văn bản (tin nhắn gửi khách). Câu sửa THẬT của khách
+// ("… không liên quan dòng điện") vẫn được giữ và vẫn tới Cổng (yêu cầu 4 của issue).
+{"step":"config","config":{"botNames":["bot"]}}
+{"step":"vision","returns":[{"tenHang":"Núm vặn khoá bật tắt ON OFF","chatLieu":"thép không gỉ + núm nhựa ABS","chuTrongAnh":"ON  OFF","khongChac":["chất liệu núm"]}]}
+{"step":"mcp","tool":"phan_loai_hs","rules":[{"match":"bật tắt|ON\\s+OFF(?![\\s\\S]{0,120}không liên quan dòng điện)","result":{"ok":true,"data":{"maLuot":"44444444-4444-4444-8444-444444444444","trangThai":"DANG_XU_LY"}}}],"returns":[{"ok":true,"data":{"maLuot":"11111111-2222-4333-8444-555555555555","trangThai":"DANG_XU_LY"}},{"ok":true,"data":{"maLuot":"11111111-2222-4333-8444-555555555555","trangThai":"DANG_XU_LY"}},{"ok":true,"data":{"maLuot":"11111111-2222-4333-8444-555555555555","trangThai":"DANG_XU_LY"}},{"ok":true,"data":{"maLuot":"11111111-2222-4333-8444-555555555555","trangThai":"DANG_XU_LY"}},{"ok":true,"data":{"maLuot":"22222222-3333-4444-8555-666666666666","trangThai":"DANG_XU_LY"}}]}
+{"step":"mcp","tool":"ket_qua_phan_loai","rules":[{"match":"44444444","result":{"ok":true,"data":{"maLuot":"44444444-4444-4444-8444-444444444444","trangThai":"XONG","ketQua":{"status":"OK","results":[{"hs":"85389000","reason":"Nút bật tắt điện, phụ kiện điện"}]}}}}],"returns":[{"ok":true,"data":{"maLuot":"11111111-2222-4333-8444-555555555555","trangThai":"XONG","ketQua":{"status":"OK","results":[{"hs":"83024200","reason":"Chốt kẹp bằng kim loại cơ bản dùng cho vỏ máy, cửa."}]}}},{"ok":true,"data":{"maLuot":"22222222-3333-4444-8555-666666666666","trangThai":"XONG","ketQua":{"status":"OK","results":[{"hs":"83024200","reason":"Chốt kẹp bằng kim loại cơ bản dùng cho vỏ máy, cửa."}]}}}]}
+{"step":"mcp","tool":"tra_thue","rules":[{"match":"85389000","result":{"ok":true,"data":{"hsCode":"85389000","nameVi":"Nút bật tắt điện","unitVi":"Cái","taxNkPreferential":"0","taxNkTt":"20","taxVat":"8"}}}],"returns":[{"ok":true,"data":{"hsCode":"83024200","nameVi":"Khớp nối, giá đỡ, chốt kẹp bằng kim loại cơ bản khác","unitVi":"Cái","taxNkPreferential":"0","taxNkTt":"20","taxVat":"8"}}]}
+{"step":"mcp","tool":"tra_thu_tuc_nhap_khau","returns":[{"ok":true,"data":{"hsCode":"83024200","giayPhep":[],"ghiChu":"Không thuộc danh mục quản lý chuyên ngành."}}]}
+{"step":"mcp","tool":"sinh_mo_ta_khai_bao","returns":[{"ok":true,"data":{"moTaEcus":"Chốt kẹp xoay 1/4 vòng, thép không gỉ, núm ABS, mới 100%"}}]}
+
+// 09:58 — tin 1: mô tả hàng bằng chữ
+{"step":"in","update":{"id":"m1","text":"@bot Chốt kẹp xoay 1/4 vòng loại núm thấp (Low-Height Knob Quarter-Turn Clamp), mã QCTHL0525-10S, cố định vỏ máy và cửa bảo vệ"}}
+
+// 10:00 — tin 2: "@bot" TRƠ TRỌI. Lõi bỏ nhắc tên → không còn chữ; trước bản vá lượt này bị bỏ sớm
+// (`skipped:'empty'`), bot im và sổ messages lệch. Phải trỏ vào hồ sơ đang xử lý.
+{"step":"advance","by":"2m"}
+{"step":"in","update":{"id":"m2","text":"@bot"}}
+{"step":"expect","sentTo":"c1","match":"[Cc]hốt kẹp"}
+
+// 10:00 — tin 3: lệnh ngắn "tra hscode" → KHÔNG được thành tên hàng gửi Cổng
+{"step":"advance","by":"1m"}
+{"step":"in","update":{"id":"m3","text":"@bot tra hscode"}}
+
+// 10:03 — tin 4: ảnh có chữ "ON OFF" → bổ sung chất liệu, nhưng mâu thuẫn hướng → hỏi lại một câu
+{"step":"advance","by":"3m"}
+{"step":"in","update":{"id":"m4","event":"message.image.received","photoUrl":"https://photo-stal-14.zdn.vn/no/jpg/qcthl.jpg","caption":"@bot chất liệu: thép không gỉ + núm nhựa ABS"}}
+{"step":"expect","sentTo":"c1","match":"ON ?/?OFF"}
+
+// 10:06 — tin 5: khách gửi lại mô tả đầy đủ, ĐỒNG THỜI là câu đáp cho câu bot vừa hỏi ở 10:03.
+// Hai bước `count` kẹp hai đầu là chốt chống XANH GIẢ: `checkMessages` (SC-008) chỉ cân "vào 6 + ra N"
+// và cửa chào kết của Lõi đứng SAU `store.messages.add`, nên một tin bị nuốt vẫn cân sổ. Muốn chứng
+// minh tin này KHÔNG bị nuốt thì phải đếm TIN GỬI RA (người soát đo đúng chỗ này, điểm [S12]).
+{"step":"advance","by":"3m"}
+{"step":"expect","sentTo":"c1","count":3}
+{"step":"in","update":{"id":"m5","text":"@bot đây nhé, chốt kẹp xoay 1/4 vòng loại núm thấp QCTHL0525-10S, chữ on/off trên núm là vị trí đóng mở của chốt, không liên quan dòng điện"}}
+{"step":"expect","sentTo":"c1","count":4}
+
+// 10:12 — tin 6: "@bot OK". Tới đây khách ĐÃ đáp (tin 5) và bot đang tra lại trên hồ sơ gộp, nên
+// "OK" là CHÀO KẾT THẬT: cửa chào kết của Lõi im là đúng, đếm vẫn 4. Trả lời lại sẽ mở việc nền thứ
+// hai cho cùng một mạch (phạm yêu cầu 6) và tra lại chữ "OK". Ca "bot vừa hỏi mà khách đáp ok/vâng/dạ
+// thì KHÔNG được nuốt" đo qua Lõi thật ở `test/core/tin-cho-tra-loi.test.mjs`.
+{"step":"advance","by":"6m"}
+{"step":"in","update":{"id":"m6","text":"@bot OK"}}
+{"step":"expect","sentTo":"c1","count":4}
+
+// 10:18 — tin 7 (CEO, nguyên văn): khách sửa lại hướng đọc rồi yêu cầu DỰNG LẠI toàn bộ hồ sơ
+// từ đầu. Đây là tin mà bot cũ trả "Dữ liệu trước đã được ghi nhận. Bạn cần tra cứu… Gõ menu".
+// Bot phải: (1) dựng lại hồ sơ từ lịch sử mạch, (2) nói rõ đã hiểu lại + đang phân loại lại,
+// (3) tra LẠI và trả mã — và lệnh "xem lại toàn bộ…" KHÔNG được lọt vào tên hàng gửi Cổng.
+{"step":"advance","by":"6m"}
+// `drain:false` để TÁCH rõ hai tin: câu đáp ngay của bot, rồi mới tới kết quả lượt mới.
+{"step":"in","update":{"id":"m7","text":"@bot chữ on/off là đóng mở, không liên quan dòng điện, xem lại toàn bộ thông tin khách gửi từ đầu tới cuối"},"drain":false}
+// Câu đáp ngay: bot nói rõ đã hiểu lại và đang phân loại lại trên toàn bộ thông tin đã gửi.
+{"step":"expect","sentTo":"c1","count":5}
+{"step":"expect","sentTo":"c1","match":"Em phân loại lại trên toàn bộ thông tin anh/chị đã gửi"}
+// Lượt MỚI (mã lượt B) → kết quả về sau: dòng hồ sơ ở đầu tin + mã chốt kẹp (8302.42), KHÔNG 8538.
+{"step":"advance","by":"1m"}
+{"step":"expect","sentTo":"c1","count":6}
+{"step":"expect","sentTo":"c1","match":"Em đang tra:.*[Cc]hốt kẹp"}
+{"step":"expect","sentTo":"c1","match":"8302\\.42"}
+{"step":"expect","sentTo":"c1","notMatch":"8538"}
+
+// Kết quả cuối của cả mạch: mã chốt kẹp cơ khí, có nhắc hồ sơ đang tra; TUYỆT ĐỐI không ra
+// nhóm hàng điện 8538, và lệnh của khách ("tra hscode", "ok", "đây nhé", "xem lại toàn bộ…")
+// không bao giờ thành tên hàng gửi Cổng.
+{"step":"expect","sentTo":"c1","match":"8302\\.42"}
+{"step":"expect","sentTo":"c1","match":"Em đang tra:.*[Cc]hốt kẹp"}
+{"step":"expect","sentTo":"c1","notMatch":"8538"}
+{"step":"expect","sentTo":"c1","notMatch":"[Hh]àng: \"(tra|ok|đây|xem lại)"}
+
+// ĐO Ở TẦNG MÃ (điểm [S25]/[S26]): tên hàng THẬT gửi Cổng không mang lệnh ("tra hscode", "ok",
+// "xem lại toàn bộ…"), không mang lời chào ("đây nhé"), không mang chữ điện của ảnh ("bật tắt",
+// "ON OFF") — vì lọt bất kỳ thứ nào thì Cổng giả mở lượt điện và khách nhận mã 8538.90.00.
+// Câu SỬA thật của khách ("… không liên quan dòng điện") thì VẪN phải tới Cổng (yêu cầu 4).
+{"step":"expect","mcpTool":"phan_loai_hs","mcpCount":5}
+{"step":"expect","mcpTool":"phan_loai_hs","mcpMatch":"không liên quan dòng điện"}
+{"step":"expect","mcpTool":"phan_loai_hs","mcpNotMatch":"đây nhé"}
+{"step":"expect","mcpTool":"phan_loai_hs","mcpNotMatch":"tra hscode"}
+{"step":"expect","mcpTool":"phan_loai_hs","mcpNotMatch":"xem lại"}
+{"step":"expect","mcpTool":"phan_loai_hs","mcpNotMatch":"bật tắt"}
+{"step":"expect","mcpTool":"phan_loai_hs","mcpNotMatch":"ON\\s+OFF"}

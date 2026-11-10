@@ -22,7 +22,9 @@
           "INTERNAL_SERVER_ERROR",
           "candidatesTokenCount",
           "finishReason",
-          "modelVersion"
+          "modelVersion",
+          "Em đang tra:.*(Nhờ bot|nhờ bot)",
+          "Tên hàng: *(Nhờ|nhờ) bot"
         ]
       }
     }

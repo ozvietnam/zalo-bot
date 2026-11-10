@@ -9,6 +9,7 @@ import { fmtHs } from './format.js';
 import { chayCho } from './jobs.js';
 import { kiemTraThongTinPhanLoai, xuLyTraLoiHoiLai } from './dien-cho-thieu.js';
 import { renderPhanLoaiGiongQuyen } from './giong-quyen.js';
+import { laTenHangCam, laLenhTroHoSo, laCauXemLai, cungMonVoi, boYeuCauDau } from './ho-so.js';
 
 export { notice, hetHan, toJob, waitJob, WAIT_JOB_MAX_MS } from './jobs.js';
 
@@ -56,7 +57,9 @@ function thongSoObj(s) {
 
 /** "cảm biến tiệm cận hs code bao nhiêu em." → "cảm biến tiệm cận" (bỏ phần hỏi, giữ mô tả hàng). */
 export function lamGonCauHoi(s) {
-  let t = ` ${String(s || '').replace(/[?!]+/g, ' ').replace(/\.+(\s|$)/g, ' ')} `;
+  // Lời nhờ ở đầu ("tra hs máy xay sinh tố") là câu khách nói VỚI BOT, không phải món hàng
+  // (điểm [S25] của người soát) — bỏ trước khi cắt phần hỏi.
+  let t = ` ${boYeuCauDau(String(s || '')).replace(/[?!]+/g, ' ').replace(/\.+(\s|$)/g, ' ')} `;
   const bo = ['cho (?:mình|tôi|em|anh|chị) hỏi', 'xin hỏi', 'mã số hs', 'mã hs code', 'mã hs', 'hs code', 'hscode', 'mã số', 'mã gì', 'là bao nhiêu',
     'bao nhiêu', 'là gì', 'là mã nào', 'mã nào', 'có thể áp vào', 'có thể áp', 'áp vào', 'có bao nhiêu', 'thế nào', 'vậy', 'nhé', 'nhỉ', 'ạ', 'ơi', 'em', 'anh', 'chị', 'bạn', 'ad', 'shop', 'của', 'thì'];
   for (const w of bo) t = t.replace(new RegExp(`(^|\\s)${w}(?=\\s)`, 'gi'), ' ');
@@ -151,10 +154,23 @@ export const PACKAGES = [
     async chay(text, ctx) { return chayCho(this, text, ctx); },
     /** Gọi Cổng, không chờ: → câu hỏi lại (string) | { r, resultTool, label, context } cho xong(). */
     async batDau(text, ctx) {
+      // LỜI KHÁCH vừa gõ (nguyên văn). Khi gói 1 chạy trên HỒ SƠ GỘP (issue #170) thì `text` là
+      // bản gộp, KHÔNG phải lời khách — ba quyết định dưới đây phải theo LỜI KHÁCH: nhận diện
+      // "hàng mới", quyết định "tin này là bổ sung cho lượt đang mở", và phép thử "khách gõ lại
+      // mô tả" (sổ trượt từ vựng).
+      const cauKhach = ctx.cauKhach ?? text;
       // 0a. Đang trong phiên hỏi lại chi tiết còn thiếu (session.hoiLai)
       const hoiLai = ctx.session.hoiLai;
-      if (hoiLai) {
-        const xl = xuLyTraLoiHoiLai(text, hoiLai);
+      // LỆNH ngắn ("tra hscode", "ok", "đây nhé") hoặc câu "xem lại toàn bộ" KHÔNG phải câu trả lời
+      // cho câu hỏi đang mở — chúng chỉ trỏ vào hồ sơ đang có. Trước đây MỌI tin khách đều bị coi
+      // là câu trả lời → tên hàng gửi Cổng thành "máy xay sinh tố tra hscode", bot hỏi lại đúng câu
+      // cũ và KHÔNG gọi Cổng (0 lần gọi) → khách không nhận được mã (điểm [S25] của người soát).
+      const laLenhChuaTraLoi = Boolean(hoiLai) && (laLenhTroHoSo(cauKhach) || laCauXemLai(cauKhach));
+      if (hoiLai && !laLenhChuaTraLoi) {
+        // Câu trả lời của khách là `cauKhach`, KHÔNG phải `text`: khi gói 1 chạy trên hồ sơ GỘP
+        // thì `text` là mô tả gộp, đọc nó là MẤT câu trả lời ("đúng, 350W 220V") → bot hỏi lại
+        // đúng câu cũ → Lõi chặn trùng → khách không nhận được gì (hồi quy [S24], lộ ở QA G4).
+        const xl = xuLyTraLoiHoiLai(cauKhach, hoiLai);
         if (xl.sanSangTra) {
           ctx.session.hoiLai = null;
           ctx.session.daHoiLai = true;
@@ -171,6 +187,10 @@ export const PACKAGES = [
           ctx.session.daHoiLai = true;
           if (kt.giaDinh) ctx.session.giaDinh = kt.giaDinh;
         }
+      } else if (laLenhChuaTraLoi) {
+        // Đóng câu hỏi đang mở (khách đã ra lệnh, KHÔNG trả lời câu hỏi) và GIỮ NGUYÊN mô tả
+        // gộp của hồ sơ → nhánh 0b thấy mô tả có nhãn nên không hỏi lại, Cổng được gọi.
+        ctx.session.hoiLai = null;
       }
 
       // 0b. Kiểm tra xem có cần hỏi lại trước khi tra không (chỉ hỏi khi là câu tự do, không hỏi khi khách dùng form có nhãn Tên hàng:...)
@@ -179,14 +199,23 @@ export const PACKAGES = [
         const kt = kiemTraThongTinPhanLoai(text, { vongHoi: 0, goi: ctx.session.goi });
         if (kt.canHoi) {
           ctx.session.hoiLai = { ...kt, vongHoi: 1 };
+          // Bot vừa HỎI LẠI một câu → báo Lõi là đang chờ khách đáp. Thiếu cờ này thì cửa
+          // chào kết của Lõi (`core/engine.js`) nuốt "ok"/"vâng"/"dạ" và câu hỏi thành vô ích
+          // (điểm [S25] của người soát: khách gõ "ok" → 0 tin ra).
+          ctx.session.choKhachTraLoi = true;
           return kt.cauHoi;
         }
       }
 
       // Đang chờ bổ sung dữ kiện cho lượt phân loại trước (CAN_DU_KIEN) → gửi câu trả lời vào đúng lượt đó, không trừ điểm lại.
       const cho = ctx.session.choBoSung;
-      const cauHoiMoi = /(hs code|ma hs|ma so hs|bao nhieu|la gi|thue|phan loai|ma gi)/.test(norm(text));
-      if (cho && has(ctx, 'bo_sung_du_kien') && !cauHoiMoi && !/^(moi|hang moi|hang khac|bo qua)\b/.test(norm(text))) {
+      // "Câu hỏi mới" chỉ khi khách nêu MÓN KHÁC: câu vừa có từ "hs code/mã hs" vừa mang dữ kiện
+      // của chính món đang hỏi là BỔ SUNG, không phải món mới (issue #170, yêu cầu 3 — tin bị nuốt).
+      const cauHoiMoi = /(hs code|ma hs|ma so hs|bao nhieu|la gi|thue|phan loai|ma gi)/.test(norm(cauKhach))
+        && !laLenhTroHoSo(cauKhach) && !cungMonVoi(cauKhach, cho?.tenHang);
+      // Khách tự báo "hàng mới/hàng khác/bỏ qua" thì KHÔNG phải dữ kiện bổ sung cho lượt đang mở:
+      // đó là lời thoát sang món khác (bot còn nhắc câu này khi lượt CAN_DU_KIEN mở).
+      if (cho && has(ctx, 'bo_sung_du_kien') && !cauHoiMoi && !/^(moi|hang moi|hang khac|bo qua)\b/.test(norm(cauKhach))) {
         ctx.session.choBoSung = null;
         const r = await ctx.mcp.callTool('bo_sung_du_kien', { maLuot: cho.maLuot, boSung: text.slice(0, 1000) });
         const context = { tenHang: cho.tenHang, boSung: true };
@@ -199,21 +228,31 @@ export const PACKAGES = [
       const { values: v, conLai } = parseLabeled(bo, [F.tenHang, F.chatLieu, F.congDung, F.thongSo, F.thuongHieu, F.model]);
       const tenHang = lamGonCauHoi(v.tenHang || conLai || bo).slice(0, 500);
       if (tenHang.trim().length < 2) return ask('Bạn muốn phân loại hàng gì?', this.mau);
+      // Chốt chặn cuối: KHÔNG BAO GIỜ tra cứu một lệnh ngắn như món hàng ("tra", "ok", "hs code").
+      // Lỗi 10:00 của issue #170: lamGonCauHoi('tra hscode') → "tra" → Cổng phân loại hàng tên "tra".
+      if (laTenHangCam(tenHang)) {
+        ghiTruot(ctx, 'TEN_HANG_CAM', { goi: 1, cau: String(text).slice(0, 200), tenHang });
+        return ask('Anh/chị cho em biết tên hàng và công dụng để em tra đúng nhé.', this.mau);
+      }
       const ts = { ...(thongSoObj(v.thongSo) || {}) };
       if (v.thuongHieu) ts['Thương hiệu'] = v.thuongHieu;
       if (v.model) ts.Model = v.model;
       const args = clean({ tenHang, chatLieu: v.chatLieu?.slice(0, 200), congDung: v.congDung?.slice(0, 300),
         thongSo: Object.keys(ts).length ? ts : null, nguonThongSo: ctx.nguonThongSo || 'CHU' });
       // Khách gõ lại / sửa mô tả ngay sau lượt trước (≤10 phút) → tín hiệu từ vựng trượt.
+      // Phép thử so LỜI KHÁCH với LỜI KHÁCH (`cauKhach`), không so bản gộp với lời khách: bản gộp
+      // luôn khác lời khách nên mọi tin sau lượt đầu sẽ bị ghi nhầm là "gõ lại" — tín hiệu bị
+      // nhiễu thành vô nghĩa. Lệnh ngắn ("tra hscode", "ok") và câu "xem lại" KHÔNG phải gõ lại mô tả.
       const truoc = ctx.session.cauPhanLoai;
-      const hangMoi = bo !== text;   // khách tự báo "hàng mới/hàng khác" → không phải gõ lại
-      if (truoc && !hangMoi && Date.now() - truoc.at < 10 * 60_000 && norm(truoc.cau) !== norm(bo)) {
-        ghiTruot(ctx, 'GO_LAI', { goi: 1, cau: bo.slice(0, 1000), cauTruoc: truoc.cau.slice(0, 1000), maHsTruoc: truoc.maHs || null });
+      const hangMoi = bo !== text || /^(moi|hang moi|hang khac|bo qua|chuyen sang|mon moi|mon khac|doi hang)\b/.test(norm(cauKhach));
+      const laLenhNgan = laLenhTroHoSo(cauKhach) || laCauXemLai(cauKhach);
+      if (truoc && !hangMoi && !laLenhNgan && Date.now() - truoc.at < 10 * 60_000 && norm(truoc.cau) !== norm(cauKhach)) {
+        ghiTruot(ctx, 'GO_LAI', { goi: 1, cau: cauKhach.slice(0, 1000), cauTruoc: truoc.cau.slice(0, 1000), maHsTruoc: truoc.maHs || null });
       }
       const r = await ctx.mcp.callTool('phan_loai_hs', args);
       const chonNhanh = !ctx.session.daHoiLai && !ctx.session.giaDinh && (ctx.session.goi === 1 || coNhanChuan || laLegacyTest);
-      const giongQuyen = Boolean(ctx.session.daHoiLai || ctx.session.giaDinh || (!laLegacyTest && !ctx.session.goi && !coNhanChuan) || /tra\s*hs/i.test(text || ''));
-      return { r, resultTool: 'ket_qua_phan_loai', label: 'Đang phân loại mã HS', cauCho: 'Dạ anh chờ em tra chút nhé', context: { tenHang, boSung: false, cauMoi: text, thuongHieu: v.thuongHieu || null, chonNhanh, giongQuyen, daHoiLai: ctx.session.daHoiLai, giaDinh: ctx.session.giaDinh } };
+      const giongQuyen = Boolean(ctx.session.daHoiLai || ctx.session.giaDinh || (!laLegacyTest && !ctx.session.goi && !coNhanChuan) || /tra\s*hs/i.test(cauKhach || ''));
+      return { r, resultTool: 'ket_qua_phan_loai', label: 'Đang phân loại mã HS', cauCho: 'Dạ anh chờ em tra chút nhé', context: { tenHang, boSung: false, cauMoi: cauKhach, thuongHieu: v.thuongHieu || null, chonNhanh, giongQuyen, daHoiLai: ctx.session.daHoiLai, giaDinh: ctx.session.giaDinh } };
     },
     /** Kết quả cuối (đã xong, hoặc lỗi/hết hạn) → chữ trả lời; ghi phiên last/choBoSung.
      *  Có mã HS → tự chạy tiếp thuế + thủ tục (tra cứu miễn phí) ngay trong tin: khách "vất hàng vào" là ra hết,

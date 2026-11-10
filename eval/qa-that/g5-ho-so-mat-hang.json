@@ -1,0 +1,60 @@
+{
+  "id": "g5-ho-so-mat-hang",
+  "dich": "G5",
+  "ten": "G5 · Hồ sơ mặt hàng: một món hỏi qua nhiều tin (chữ → lệnh ngắn → ảnh → câu sửa)",
+  "moTa": "Tái hiện mạch test nhóm Zalo 10/11 (issue #170): khách hỏi MỘT món qua 4 tin liên tiếp. Bot phải giữ một hồ sơ mặt hàng: lệnh ngắn 'tra hscode' không được thành tên hàng gửi Cổng, ảnh chỉ bổ sung thông số chứ không thay mô tả chữ, và câu sửa của khách phải được ghi nhận có phản hồi.",
+  "chatType": "PRIVATE",
+  "chatId": "khach_05",
+  "userId": "khach_05",
+  "userName": "Lê Văn Hồ Sơ",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "Mô tả hàng bằng chữ (mở hồ sơ mặt hàng)",
+      "text": "Chốt kẹp xoay 1/4 vòng loại núm thấp (Low-Height Knob Quarter-Turn Clamp), mã QCTHL0525-10S, dùng cố định vỏ máy và cửa bảo vệ",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "coMaHsHoacHuongTra": true,
+        "phaiChua": ["mã|phân loại|tra cứu|hướng"],
+        "khongChua": ["Cổng tra cứu OZ đang lỗi"]
+      }
+    },
+    {
+      "step": 2,
+      "cachTruoc": "2m",
+      "mieuTa": "Lệnh ngắn 'tra hscode' — phải trỏ vào hồ sơ đang mở, không được thành tên hàng",
+      "text": "tra hscode",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "khongChua": ["Hàng: \"tra", "Hàng: \"ok", "Hàng: \"đây", "Tên hàng: tra hscode"]
+      }
+    },
+    {
+      "step": 3,
+      "cachTruoc": "3m",
+      "mieuTa": "Gửi ảnh kèm chất liệu — ảnh chỉ BỔ SUNG hồ sơ, không thay mô tả chữ",
+      "photoUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Product_Label_Sample.jpg/640px-Product_Label_Sample.jpg",
+      "caption": "chất liệu: thép không gỉ + núm nhựa ABS",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "khongChua": [
+          "RESOURCE_EXHAUSTED",
+          "INTERNAL_SERVER_ERROR",
+          "finishReason"
+        ]
+      }
+    },
+    {
+      "step": 4,
+      "cachTruoc": "3m",
+      "mieuTa": "Khách sửa lại: chữ trên núm không liên quan dòng điện — phải có phản hồi, không rơi về nhóm hàng điện",
+      "text": "đây nhé, chốt kẹp xoay 1/4 vòng loại núm thấp QCTHL0525-10S, chữ on/off trên núm là vị trí đóng mở của chốt, không liên quan dòng điện",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "coMaHsHoacHuongTra": true,
+        "phaiChua": ["mã|phân loại|tra cứu|hướng|chốt"],
+        "khongChua": ["8538", "Hàng: \"đây"]
+      }
+    }
+  ]
+}

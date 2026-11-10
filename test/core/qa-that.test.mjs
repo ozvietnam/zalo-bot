@@ -345,3 +345,50 @@ test('runSingleScenario: đo và ghi nhận thời gian từng bước trong ste
   }
   assert.equal(typeof res.durationMs, 'number');
 });
+
+// #170: mạch thật của khách cách nhau vài phút. Bộ QA bơm cả kịch bản trong một giây nên
+// cửa gửi coi tin sau là trùng tin trước (`similar:1.00`, core/gate-decide.js:130) và CHẶN —
+// lỗi của dụng cụ đo, không phải của bot. Bước khai `cachTruoc` phải đẩy đồng hồ kịch bản lên.
+test('runSingleScenario: bước khai "cachTruoc" đẩy đồng hồ kịch bản, tin cách nhau không bị cửa gửi coi là trùng', async () => {
+  const scenario = {
+    id: 'cach-truoc',
+    dich: 'T',
+    ten: 'Hai tin giống nhau cách nhau 5 phút',
+    chatType: 'PRIVATE',
+    chatId: 'khach_cach',
+    userId: 'khach_cach',
+    userName: 'Khách Cách',
+    steps: [
+      { step: 1, mieuTa: 'Tra mã', text: 'Tra mã 84137090', timeoutMs: 4000, kyVong: { phaiCoPhanHoi: true } },
+      { step: 2, mieuTa: 'Hỏi lại y hệt sau 5 phút', cachTruoc: '5m', text: 'Tra mã 84137090', timeoutMs: 4000, kyVong: { phaiCoPhanHoi: true } },
+    ],
+  };
+
+  const res = await runSingleScenario(scenario, { isMock: true });
+  assert.equal(res.ok, true, `phải đạt nhưng trượt vì: ${res.lyDo}`);
+  assert.ok(res.stepResults[1].sent.length > 0, 'tin cách 5 phút không được bị chặn vì trùng');
+});
+
+test('runSingleScenario: G5 mạch hồ sơ mặt hàng (chữ → lệnh ngắn → ảnh → câu sửa) đạt', async () => {
+  const p = join(ROOT_DIR, 'eval', 'qa-that', 'g5-ho-so-mat-hang.json');
+  assert.ok(existsSync(p), 'Tệp eval/qa-that/g5-ho-so-mat-hang.json phải tồn tại');
+  const scenario = JSON.parse(readFileSync(p, 'utf8'));
+  for (const s of scenario.steps) s.timeoutMs = 6000;   // mock trả ngay, không cần chờ 120s
+
+  const res = await runSingleScenario(scenario, { isMock: true });
+  assert.equal(res.ok, true, `G5 phải đạt nhưng trượt vì: ${res.lyDo}`);
+  assert.equal(res.zaloApiCalls, 0);
+
+  // Lệnh ngắn "tra hscode" không bao giờ thành tên hàng gửi Cổng (lỗi 10:00 của issue #170).
+  const tenHangDaGui = res.toolCalls
+    .filter((t) => t.name === 'phan_loai_hs')
+    .map((t) => String(t.args?.tenHang || t.args?.moTa || ''));
+  assert.ok(tenHangDaGui.length > 0, 'phải có lượt gọi phan_loai_hs');
+  for (const ten of tenHangDaGui) {
+    assert.doesNotMatch(ten, /^\s*(tra|tra hscode|tra hs|ok|đây|đây nhé)\s*$/i, `tên hàng gửi Cổng không được là lệnh ngắn: "${ten}"`);
+    assert.match(ten, /chốt kẹp/i, `mọi lượt tra phải đi trên hồ sơ "chốt kẹp", thực tế: "${ten}"`);
+  }
+
+  // Tin cuối (khách sửa) phải có phản hồi, không rơi lọt im lặng.
+  assert.ok(res.stepResults.at(-1).sent.length > 0, 'câu sửa của khách phải có phản hồi');
+});
