@@ -62,7 +62,11 @@ export function nhanDienCuTraDi(text) {
  * @param {{ vongHoi?: number, goi?: number, hoSo?: object }} opts `hoSo`: hồ sơ mạch (#170) —
  *   điều khách đã nêu ở tin trước thì KHÔNG hỏi lại (kỷ luật hỏi, yêu cầu 2 của issue #177).
  */
-export function kiemTraThongTinPhanLoai(text, { vongHoi = 0, goi = null, hoSo = null } = {}) {
+// `tenKhachTuGo`: tên trong `text` là tên KHÁCH VỪA GÕ (vòng hỏi thứ 2, ngay sau khi khách sửa
+// tên) → BỎ câu xác nhận tên, chỉ xin phần còn thiếu. Hỏi "em hiểu là máy sấy thực phẩm đúng
+// không ạ?" ngay sau khi khách vừa gõ "là máy sấy thực phẩm" là hỏi lại điều khách đã nêu (luật 2
+// của kỷ luật hỏi), và khách không bao giờ tới được mã.
+export function kiemTraThongTinPhanLoai(text, { vongHoi = 0, goi = null, hoSo = null, tenKhachTuGo = false } = {}) {
   const s = String(text || '').trim();
   if (!s) return { canHoi: false, giaDinh: null, thieu: [] };
 
@@ -117,12 +121,20 @@ export function kiemTraThongTinPhanLoai(text, { vongHoi = 0, goi = null, hoSo = 
 
       // Câu xác nhận tên món LUÔN hỏi (không phải đại lượng, máy không tự đoán thay khách được:
       // "sấy" ↔ "xay" đổi hẳn dòng thuế). Câu xin thông số chỉ nêu phần CÒN THIẾU.
+      // Tên này do KHÁCH VỪA GÕ (vòng 2) thì không xác nhận lại nữa — chỉ còn xin thông số thiếu.
+      const xacNhanTen = !tenKhachTuGo;
       return ketQuaHoi({
         s,
         tenGoiY: item.chuan,
         thieu,
+        // CHỈ tin CÓ câu "em hiểu là <tên> đúng không ạ?" mới được đọc câu "không…" của khách là
+        // phủ định TÊN. Các nhánh dưới hỏi THUỘC TÍNH ("có mạ kẽm không ạ?") — đọc "không mạ kẽm"
+        // thành phủ định tên là bot nói ngược khách (điểm 2 người soát nêu).
+        hoiXacNhanTen: xacNhanTen,
         cauHoi: gomCau([
-          { cau: `Dạ anh/chị ơi, em hiểu là {b}${item.chuan}{/b}${item.moRong ? ` (${item.moRong})` : ''} đúng không ạ?`, dai: [] },
+          { cau: xacNhanTen
+            ? `Dạ anh/chị ơi, em hiểu là {b}${item.chuan}{/b}${item.moRong ? ` (${item.moRong})` : ''} đúng không ạ?`
+            : '', dai: [] },
           { cau: cauXinThem([{ khoa: 'congSuat', chu: 'công suất (W)' }, { khoa: 'dienAp', chu: 'điện áp' }], co,
             'có thì em chốt mã chuẩn hơn, mô tả khai báo cũng đủ ý luôn ạ.'), dai: ['congSuat', 'dienAp'] },
         ], co),

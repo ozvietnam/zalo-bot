@@ -78,22 +78,52 @@ export function cauXinThem(muc, co, duoi, noi = ' và ') {
 /** Lệnh mở đầu tin khách ("Tra hs …", "mã hs …") — không phải tên hàng, không gửi Cổng. */
 export const LENH_DAU_RE = /^(?:tra\s*hs|m[aã]\s*hs|t[iì]m\s*m[aã]|ph[aâ]n\s*lo[aạ]i)\s*/i;
 
+/** Các LOẠI đại lượng đo được. Chia theo LOẠI để số MỚI của khách thắng số CŨ cùng loại. */
+const RE_THONG_SO = [CONG_SUAT_RE, DIEN_AP_RE, DUNG_TICH_RE, KICH_THUOC_RE];
+
 /** Các đoạn THÔNG SỐ có trong một chuỗi (dùng để không làm rụng thông số khách đã gõ). */
 export function thongSoTrong(s) {
   const t = String(s || '');
   const out = [];
-  for (const re of [CONG_SUAT_RE, DIEN_AP_RE, DUNG_TICH_RE, KICH_THUOC_RE]) {
+  for (const re of RE_THONG_SO) {
     const m = t.match(new RegExp(re.source, 'gi'));
     if (m) out.push(...m.map((x) => x.trim()).filter(Boolean));
   }
   return [...new Set(out)];
 }
 
-/** Nối các thông số của `nguon` còn thiếu vào `moTa` — mô tả gửi Cổng không được rụng dữ kiện khách đã gõ. */
+/** Phần CHỮ của một chuỗi: bỏ hết các đoạn thông số đo được ("máy bơm 1.5HP" → "máy bơm"). */
+export function chuTrong(s) {
+  let t = String(s || '');
+  for (const x of thongSoTrong(t)) t = t.split(x).join(' ');
+  return t.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Chuỗi này có TÊN HÀNG không? Tên hàng nằm ở phần CHỮ, nên phải bóc thông số ra trước khi đo.
+ * Đo thẳng "có ≥ 2 chữ cái" trên cả chuỗi là nhận lầm ĐƠN VỊ (kW, VAC, mm, kg, ml) thành tên —
+ * "không, 0.5kW 220V" bị coi là đã có tên mới nên tên thật của khách rụng hẳn (điểm 1 của người
+ * soát PR #213: Cổng nhận "0.5kW 220V 350W" rồi trả về một mã bịa).
+ */
+export function coTenTrong(s) {
+  return /\p{L}{2}/u.test(chuTrong(s).replace(/[^\p{L}\s]/gu, ' '));
+}
+
+/**
+ * Nối thông số của `nguon` vào `moTa` — nhưng CHỈ những LOẠI đại lượng `moTa` chưa nêu.
+ * Mô tả gửi Cổng không được rụng dữ kiện khách đã gõ, mà cũng không được mang HAI con số cùng
+ * loại đánh nhau: khách sửa "0.5kW" thì "350W" của tin trước phải mất, không phải nối thêm.
+ */
 export function giuThongSo(moTa, nguon) {
-  const co = String(moTa || '').toLowerCase();
-  const them = thongSoTrong(nguon).filter((x) => !co.includes(x.toLowerCase()));
-  return [String(moTa || '').trim(), ...them].filter(Boolean).join(' ');
+  const t = String(moTa || '').trim();
+  const them = [];
+  for (const re of RE_THONG_SO) {
+    if (re.test(t)) continue;                      // câu mới đã nêu loại này → số MỚI thắng
+    const m = String(nguon || '').match(new RegExp(re.source, 'gi'));
+    if (m) them.push(...m.map((x) => x.trim()).filter(Boolean));
+  }
+  const co = t.toLowerCase();
+  return [t, ...[...new Set(them)].filter((x) => !co.includes(x.toLowerCase()))].filter(Boolean).join(' ');
 }
 
 // Biên CUỐI MỘT TỪ tiếng Việt. Không dùng `\b`: `\b` của JS chỉ tính chữ ASCII, nên sau "không"
@@ -101,17 +131,22 @@ export function giuThongSo(moTa, nguon) {
 const HET_TU = '(?![\\p{L}\\p{N}])';
 const NGAT = '[\\s,.!:;-]*';
 
+// Tiền tố lễ phép đứng TRƯỚC chữ phủ định ("Dạ không…", "vâng không phải…", "ừ không…").
+// Thiếu nó thì "Dạ không, là máy sấy thật ạ" — câu người Việt nói hàng ngày — trượt hẳn khỏi
+// PHU_DINH_RE và rơi lại đúng lỗi PR #213 đi sửa (điểm 3 của người soát).
+const LE_PHEP_DAU = `(?:(?:d[aạ]|v[aâ]ng|[uừ]|[oơ]k?e?)${HET_TU}${NGAT})?`;
 // Câu khách PHỦ ĐỊNH tên bot vừa đoán ("không", "không phải", "sai rồi", "ko ạ", "nhầm").
 const PHU_DINH_RE = new RegExp(
-  `^\\s*(?:kh[oô]ng|ko|kg|sai|nh[aầ]m|ch[uư]a\\s*[đd][uú]ng)${HET_TU}${NGAT}`
+  `^\\s*${LE_PHEP_DAU}(?:kh[oô]ng|ko|kg|sai|nh[aầ]m|ch[uư]a\\s*[đd][uú]ng)${HET_TU}${NGAT}`
   + `(?:(?:ph[aả]i|[đd][uú]ng|r[oồ]i)${HET_TU}${NGAT})?`, 'iu');
 // Từ đệm mở đầu phần tên khách nói lại ("là máy sấy…", "mà máy sấy…").
 const DEM_DAU_RE = new RegExp(`^(?:l[aà]|m[aà]|n[oó]\\s*l[aà]|[đd][aâ]y\\s*l[aà])${HET_TU}${NGAT}`, 'iu');
 // Từ xã giao ở cuối câu ("… ạ", "… nhé", "thật ạ"). Phải có dấu ngắt hoặc đầu chuỗi ở trước, nếu
-// không thì "mica" bị cắt đuôi thành "mic".
-const XA_GIAO_CUOI_RE = /(?:^|[\s,.!:;-])(?:ạ|a|nh[eé]|nha|nh[aá]|[oơ]i|th[eế]|v[aậ]y|d[aạ])\s*$/iu;
-// Từ xã giao mở đầu câu XÁC NHẬN ("đúng, 350W" → "350W").
-const XAC_NHAN_DAU_RE = /^(?:[đd][uú]ng|oke|ok|chu[aẩ]n|v[aâ]ng|[uừ]|d[aạ])[,.\s]*/iu;
+// không thì "mica" bị cắt đuôi thành "mic". KHÔNG có "da" không dấu: "túi da", "ví bằng da" là
+// CHẤT LIỆU, mà chất liệu đổi chương thuế (túi da 4202 ≠ túi nhựa) — điểm 3 của người soát PR #213.
+const XA_GIAO_CUOI_RE = /(?:^|[\s,.!:;-])(?:ạ|a|nh[eé]|nha|nh[aá]|[oơ]i|th[eế]|v[aậ]y|dạ)\s*$/iu;
+// Từ xã giao mở đầu câu XÁC NHẬN ("đúng, 350W" → "350W"). Cũng không nhận "da" không dấu.
+const XAC_NHAN_DAU_RE = /^(?:[đd][uú]ng|oke|ok|chu[aẩ]n|v[aâ]ng|[uừ]|dạ)[,.\s]*/iu;
 
 /** Bỏ từ xã giao đầu và cuối câu, giữ lại phần DỮ KIỆN khách nói. */
 export function bocXaGiao(s) {
@@ -129,19 +164,29 @@ export function bocXaGiao(s) {
  * nhận tên mà không nghe câu trả lời "không" thì câu hỏi thành vô ích, và mã + số thuế in ra là
  * của món khách KHÔNG hỏi (Hiến pháp Điều III và VIII).
  *
+ * CHỈ đọc khi câu bot đang treo ĐÚNG là câu xác nhận tên (`hoiXacNhanTen`). Không có cổng này thì
+ * câu trả lời THUỘC TÍNH mở đầu bằng "không" cũng bị cắt mất chữ "không" và mất luôn tên hàng:
+ * "không mạ kẽm, đúc DN50" → "mạ kẽm, đúc DN50" — bot nói NGƯỢC điều khách vừa nói, rồi in mã và
+ * số thuế của mặt hàng khác mà khách không có cách nào biết (điểm 2, nặng nhất, của người soát
+ * PR #213; Điều III và Điều VIII).
+ *
  * @param {string} text Câu khách gõ
- * @param {{ tenGoiY?: string, tenGoc?: string }} phien Trạng thái hỏi lại
+ * @param {{ tenGoiY?: string, tenGoc?: string, hoiXacNhanTen?: boolean }} phien Trạng thái hỏi lại
  * @returns {{ phuDinh: boolean, ten: string }} `ten`: tên dùng để gửi Cổng (rỗng = không đổi)
  */
-export function docTraLoiTen(text, { tenGoiY = '', tenGoc = '' } = {}) {
+export function docTraLoiTen(text, { tenGoiY = '', tenGoc = '', hoiXacNhanTen = false } = {}) {
   const s = String(text || '').trim();
+  if (!hoiXacNhanTen) return { phuDinh: false, ten: '' };
   if (!PHU_DINH_RE.test(s)) return { phuDinh: false, ten: '' };
   // Phần SAU chữ phủ định là tên khách nói lại ("không phải, máy sấy thực phẩm 500W").
   const con = bocXaGiao(s.replace(PHU_DINH_RE, '').replace(DEM_DAU_RE, ''));
-  // Khách chỉ nói "không" mà không nêu tên nào → quay về tên KHÁCH ĐÃ GÕ (`tenGoc`), không dùng
-  // tên bot đoán (`tenGoiY`) — tên vừa bị phủ định không được tới Cổng.
+  // Khách chỉ nói "không", hoặc chỉ sửa THÔNG SỐ ("không, 0.5kW 220V") mà không nêu tên nào →
+  // quay về tên KHÁCH ĐÃ GÕ (`tenGoc`), không dùng tên bot đoán (`tenGoiY`): tên vừa bị phủ định
+  // không được tới Cổng. Phép thử là `coTenTrong` (đo phần CHỮ sau khi bóc thông số), không phải
+  // "có ≥ 2 chữ cái" — đơn vị đo cũng có 2 chữ cái nên phép cũ làm tên hàng rụng hẳn (điểm 1
+  // người soát PR #213 nêu). Thông số MỚI của khách vẫn được giữ, và thắng số cũ cùng loại.
   const goc = String(tenGoc || '').replace(LENH_DAU_RE, '').trim();
-  const ten = /\p{L}{2}/u.test(con) ? con : goc;
+  const ten = coTenTrong(con) ? con : `${chuTrong(goc)} ${con}`.trim();
   return { phuDinh: true, ten: giuThongSo(ten, goc) || String(tenGoiY || '').trim() };
 }
 
@@ -150,8 +195,11 @@ export function docTraLoiTen(text, { tenGoiY = '', tenGoc = '' } = {}) {
  * (gửi tin rỗng thì khách mất lượt — Điều II) và KHÔNG gán giả định: chuỗi `giaDinh` của nhánh là
  * lời dành cho trường hợp khách TỪ CHỐI trả lời ("cứ tra đi"). Nói "em giả định 350W" khi khách
  * vừa tự gõ 350W là nói sai điều khách đã nói (Điều VIII) — điểm 4 người soát PR #203 nêu.
+ *
+ * `hoiXacNhanTen`: tin này CÓ hỏi "em hiểu là <tên> đúng không ạ?" hay không. Chỉ nhánh đó mới
+ * được đọc câu "không…" của khách là phủ định TÊN (xem `docTraLoiTen`).
  */
-export function ketQuaHoi({ s, tenGoiY, thieu, cauHoi, giaDinh }) {
+export function ketQuaHoi({ s, tenGoiY, thieu, cauHoi, giaDinh, hoiXacNhanTen = false }) {
   if (!String(cauHoi || '').trim()) return { canHoi: false, giaDinh: null, thieu: [] };
-  return { canHoi: true, tenGoc: s, tenGoiY, thieu, cauHoi, giaDinhMacDinh: giaDinh };
+  return { canHoi: true, tenGoc: s, tenGoiY, thieu, cauHoi, giaDinhMacDinh: giaDinh, hoiXacNhanTen };
 }

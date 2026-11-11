@@ -193,22 +193,29 @@ export const PACKAGES = [
         // thì `text` là mô tả gộp, đọc nó là MẤT câu trả lời ("đúng, 350W 220V") → bot hỏi lại
         // đúng câu cũ → Lõi chặn trùng → khách không nhận được gì (hồi quy [S24], lộ ở QA G4).
         const xl = xuLyTraLoiHoiLai(cauKhach, hoiLai);
-        if (xl.sanSangTra) {
-          ctx.session.hoiLai = null;
-          ctx.session.daHoiLai = true;
-          if (xl.giaDinh) ctx.session.giaDinh = xl.giaDinh;
-          text = xl.moTaTraCuu;
-        } else {
-          hoiLai.vongHoi = (hoiLai.vongHoi || 1) + 1;
-          const kt = kiemTraThongTinPhanLoai(text, { vongHoi: hoiLai.vongHoi, hoSo: hoSoCuaMach(ctx) });
-          if (kt.canHoi) {
-            ctx.session.hoiLai = { ...hoiLai, ...kt };
-            return kt.cauHoi;
-          }
-          ctx.session.hoiLai = null;
-          ctx.session.daHoiLai = true;
-          if (kt.giaDinh) ctx.session.giaDinh = kt.giaDinh;
+        // VÒNG HỎI THỨ HAI (trần 2 vòng của #136). `xuLyTraLoiHoiLai` luôn trả `sanSangTra: true`,
+        // nên nhánh `else` cũ ở đây là MÃ CHẾT: khách sửa tên mà chưa đưa thông số thì bot đi tra
+        // luôn với mô tả cụt, mất hẳn vòng 2 (điểm 4 người soát PR #213 nêu). Nay mô tả MỚI được
+        // đo lại: còn thiếu dữ kiện cốt lõi và còn vòng thì xin đúng phần thiếu.
+        // Hai chốt để không thành hỏi vô tận và không hỏi lại điều khách vừa nói:
+        //   • `!xl.giaDinh` — khách đã buông ("cứ tra đi") thì tra ngay, không hỏi nữa (Điều II);
+        //   • `tenKhachTuGo` — tên trong mô tả mới do KHÁCH VỪA GÕ, không xác nhận lại tên đó.
+        const vongDaHoi = hoiLai.vongHoi || 1;
+        const ktTiep = xl.sanSangTra && !xl.giaDinh && vongDaHoi < 2
+          ? kiemTraThongTinPhanLoai(xl.moTaTraCuu,
+            { vongHoi: vongDaHoi, hoSo: hoSoCuaMach(ctx), tenKhachTuGo: true })
+          : { canHoi: false };
+        if (ktTiep.canHoi) {
+          // `...ktTiep` ghi đè `tenGoc`/`tenGoiY` bằng mô tả MỚI — tên khách vừa phủ định không
+          // được sống lại ở vòng sau qua `tenGoc` cũ.
+          ctx.session.hoiLai = { ...hoiLai, ...ktTiep, vongHoi: vongDaHoi + 1 };
+          ctx.session.choKhachTraLoi = true;
+          return ktTiep.cauHoi;
         }
+        ctx.session.hoiLai = null;
+        ctx.session.daHoiLai = true;
+        if (xl.giaDinh) ctx.session.giaDinh = xl.giaDinh;
+        text = xl.moTaTraCuu;
       } else if (laLenhChuaTraLoi) {
         // Đóng câu hỏi đang mở (khách đã ra lệnh, KHÔNG trả lời câu hỏi) và GIỮ NGUYÊN mô tả
         // gộp của hồ sơ → nhánh 0b thấy mô tả có nhãn nên không hỏi lại, Cổng được gọi.

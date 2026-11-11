@@ -76,8 +76,15 @@ test('[#177-nợ] đã hỏi đủ 2 vòng → thôi hỏi tên, tra theo giả 
 
 // ── B. Khách PHỦ ĐỊNH tên bot đoán → giữ tên khách nói, không dán tên đoán ────────────────────
 
+// Phiên hỏi lại dựng bằng CHÍNH hàm thật, không gõ tay từng khoá: phiên thật mang cờ
+// `hoiXacNhanTen` (chỉ nhánh có câu "em hiểu là <tên> đúng không ạ?" mới được đọc câu "không…"
+// của khách là phủ định TÊN — điểm 2 người soát PR #213 nêu). Gõ tay là khoá một phiên GIẢ, test
+// xanh mà đường thật vẫn hỏng.
+const phienXacNhanTen = (moTa = 'máy sấy sinh tố') => kiemTraThongTinPhanLoai(moTa, { vongHoi: 0 });
+
 test('[#177-nợ] khách trả lời "không, là máy sấy thật" → tên đoán KHÔNG được vào mô tả tra cứu', () => {
-  const sess = { tenGoiY: 'máy xay sinh tố', tenGoc: 'máy sấy sinh tố', giaDinhMacDinh: 'máy xay sinh tố gia dụng' };
+  const sess = phienXacNhanTen();
+  assert.equal(sess.hoiXacNhanTen, true, 'phiên này phải là phiên XÁC NHẬN TÊN');
   const r = xuLyTraLoiHoiLai('không, là máy sấy thật ạ', sess);
   assert.equal(r.sanSangTra, true);
   assert.doesNotMatch(r.moTaTraCuu, /máy xay/i,
@@ -87,7 +94,7 @@ test('[#177-nợ] khách trả lời "không, là máy sấy thật" → tên đ
 });
 
 test('[#177-nợ] khách phủ định kèm tên món khác rõ ràng → tra đúng món khách nói', () => {
-  const sess = { tenGoiY: 'máy xay sinh tố', tenGoc: 'máy sấy sinh tố', giaDinhMacDinh: 'x' };
+  const sess = phienXacNhanTen();
   const r = xuLyTraLoiHoiLai('không phải, máy sấy thực phẩm 500W', sess);
   assert.doesNotMatch(r.moTaTraCuu, /máy xay/i, `tên bị phủ định không được tới Cổng: "${r.moTaTraCuu}"`);
   assert.match(r.moTaTraCuu, /máy sấy thực phẩm/i, `phải tra món khách nói: "${r.moTaTraCuu}"`);
@@ -96,7 +103,7 @@ test('[#177-nợ] khách phủ định kèm tên món khác rõ ràng → tra đ
 
 test('[#177-nợ] khách XÁC NHẬN "đúng" → giữ nguyên hành vi cũ (tên đoán + thông số)', () => {
   // Chốt ngược: bản vá không được làm hỏng đường xác nhận thuận (#136, [S24]).
-  const sess = { tenGoiY: 'máy xay sinh tố', tenGoc: 'máy sấy sinh tố', giaDinhMacDinh: 'x' };
+  const sess = phienXacNhanTen();
   const r = xuLyTraLoiHoiLai('đúng, 350W 220V', sess);
   assert.match(r.moTaTraCuu, /máy xay sinh tố/i, `tên đã xác nhận phải tới Cổng: "${r.moTaTraCuu}"`);
   assert.match(r.moTaTraCuu, /350W/i, `thông số khách trả lời phải tới Cổng: "${r.moTaTraCuu}"`);
@@ -104,7 +111,7 @@ test('[#177-nợ] khách XÁC NHẬN "đúng" → giữ nguyên hành vi cũ (t�
 });
 
 test('[#177-nợ] khách phủ định mà KHÔNG nêu tên nào → dùng tên khách gõ ban đầu, không dùng tên đoán', () => {
-  const sess = { tenGoiY: 'máy xay sinh tố', tenGoc: 'máy sấy sinh tố', giaDinhMacDinh: 'x' };
+  const sess = phienXacNhanTen();
   const r = xuLyTraLoiHoiLai('không ạ', sess);
   assert.doesNotMatch(r.moTaTraCuu, /máy xay/i, `tên bị phủ định không được tới Cổng: "${r.moTaTraCuu}"`);
   assert.match(r.moTaTraCuu, /máy sấy sinh tố/i, `phải quay về tên khách gõ: "${r.moTaTraCuu}"`);

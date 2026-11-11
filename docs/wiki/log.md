@@ -12,6 +12,40 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-11 — Vá vòng soát PR #213 / OZV-323: bốn tác dụng phụ của lớp đọc câu trả lời hỏi lại
+
+- **Commit mã nguồn đã đọc:** `5845088` (nhánh `ozv-323-xac-nhan-ten-go-nham`).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (bổ sung vào dòng OZV-323 bốn điểm vá kèm chứng cứ `tệp:dòng`), `docs/wiki/an-toan.md` (số dòng thật của `packs/hs/packages.js`: 649 → 656, và nói lại cho đúng vì sao tệp dài thêm), `docs/wiki/log.md`.
+- **Vì sao:** giám đốc soát PR #213 (soát chéo bằng Gemini, khác model thợ) CHẶN: phần việc chính
+  đúng, nhưng cổng mới làm hỏng các nhánh hỏi lại KHÁC. Nặng nhất là bot ĐẢO NGƯỢC nghĩa câu khách:
+  `docTraLoiTen` chạy trên MỌI câu trả lời hỏi lại, không kiểm câu đang treo có phải câu xác nhận
+  TÊN hay không, nên `docTraLoiTen('không mạ kẽm, đúc DN50', { tenGoc: 'ống thép DN50' })` trả
+  `ten: 'mạ kẽm, đúc DN50'` — mất tên hàng VÀ ngược nghĩa. Khách nói "KHÔNG mạ kẽm" mà Cổng nhận
+  "mạ kẽm" thì mã HS và số thuế in ra là của mặt hàng khác, mà im lặng: khách không có cách nào
+  biết (Điều III, Điều VIII). Ba điểm còn lại cùng một gốc — lớp này đoán quá nhiều từ hình dạng
+  chuỗi: phép "còn ≥ 2 chữ cái thì là tên hàng" nhận lầm ĐƠN VỊ đo (kW, VAC, mm, kg, ml) thành tên
+  nên `'không, 0.5kW 220V'` làm rụng hẳn tên hàng; `PHU_DINH_RE` neo `^\s*` nên câu người Việt nói
+  hàng ngày "Dạ không, là máy sấy thật ạ" trượt khỏi phủ định; `XA_GIAO_CUOI_RE` chứa `d[aạ]` nên
+  cắt cả "da" KHÔNG dấu, mà "túi da" 4202 khác chương với túi nhựa.
+- **Đã sửa:** cờ `hoiXacNhanTen` đi theo kết quả hỏi lại (`ketQuaHoi`, `packs/hs/ky-luat-hoi.js`)
+  nên chỉ nhánh CÓ câu "em hiểu là <tên> đúng không ạ?" mới được đọc "không…" là phủ định TÊN;
+  `chuTrong`/`coTenTrong` bóc thông số ra TRƯỚC rồi mới đo phần chữ; `giuThongSo` chỉ bù những LOẠI
+  đại lượng câu mới chưa nêu (khách sửa "0.5kW" thì "350W" của tin trước phải mất, không nối thêm);
+  `PHU_DINH_RE` nhận tiền tố lễ phép "dạ/vâng/ừ"; hai mẫu xã giao chỉ cắt "dạ" CÓ dấu.
+- **Điểm thứ tư giám đốc chưa dựng lại được thì có thật, đã vá:** `xuLyTraLoiHoiLai` luôn trả
+  `sanSangTra: true` nên nhánh vòng hỏi THỨ HAI ở `packs/hs/packages.js` là MÃ CHẾT — khách sửa tên
+  mà chưa đưa thông số thì bot đi tra luôn với mô tả cụt, trong khi trần của #136 là 2 vòng. Nay
+  vòng 2 đo lại chính mô tả khách vừa sửa và truyền `tenKhachTuGo: true` để KHÔNG xác nhận lại cái
+  tên khách vừa gõ (hỏi lại điều khách đã nêu là trái luật 2 của kỷ luật hỏi); khách buông "cứ tra
+  đi" thì tra ngay, không hỏi nữa (Điều II).
+- **Test đỏ trước:** `packs/hs/test/tra-loi-hoi-lai.test.mjs` (11 ca cho cả 4 điểm; 2 ca của điểm 4
+  đi đường thật qua `hs.handle`, đếm số lần gọi Cổng và đọc `tenHang` thật sự gửi đi). Bốn test cũ
+  ở `packs/hs/test/xac-nhan-ten.test.mjs` dựng phiên hỏi lại bằng tay nên thiếu cờ mới — đã đổi
+  sang dựng phiên bằng CHÍNH `kiemTraThongTinPhanLoai`, giữ nguyên ý gốc: gõ tay là khoá một phiên
+  GIẢ, test xanh mà đường thật vẫn hỏng.
+- **Cổng máy:** `npm test` 1151/1151, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6,
+  `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.
+
 ## 2026-11-11 — Issue #177 (nợ của PR #203) / OZV-323: xác nhận tên nghi gõ nhầm khi thông số đã đủ
 
 - **Commit mã nguồn đã đọc:** `0286242` (nhánh `ozv-323-xac-nhan-ten-go-nham`, xếp chồng trên PR #212).
