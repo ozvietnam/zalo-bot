@@ -2,8 +2,8 @@
 // Mỗi gói gom 1 hoặc nhiều công cụ của Cổng OZ (MCP). Muốn thêm gói khi Cổng có công cụ mới:
 // thêm một mục vào PACKAGES (so, ten, congCu, mau, chay). Gói chỉ hiện khi Cổng có đủ công cụ bắt buộc.
 // Gói có việc nền (1, 4) tách chay thành batDau (gọi Cổng, không chờ) + xong (dựng chữ từ kết quả) để index.js giao việc cho lõi.
-import { parseLabeled, firstHs8, allHs8, soHieuList, countryCode, findCountryInText, norm, laNhanChung } from './input.js';
-import { renderResult, renderClassify, nhacPhongVe, renderPhanLoaiDayDu } from './render.js';
+import { parseLabeled, firstHs8, allHs8, soHieuList, countryCode, findCountryInText, norm, laNhanChung, xuatXuCua, tenNuoc } from './input.js';
+import { renderResult, renderClassify, nhacPhongVe, renderPhanLoaiDayDu, nhanXuatXu } from './render.js';
 import { renderShtt, nhacNhanChung, donNhanChung } from './render-shtt.js';
 import { plain } from './style.js';
 import { fmtHs } from './format.js';
@@ -284,7 +284,9 @@ export const PACKAGES = [
       // Đã chốt mã (không còn hỏi dữ kiện) → form đầy đủ do code dựng (mẫu chủ repo chọn 06/11), không qua AI biên tập:
       // tự kèm mô tả khai báo (gói 3) + thuế + chính sách; Cổng lỗi mục nào thì bỏ mục đó.
       if (maHs && st !== 'CAN_DU_KIEN' && r?.ok !== false) {
-        const xx = findCountryInText(String(tenHang || '')) || 'CN';
+        // Xuất xứ: lấy nước khách NÓI; chưa nói thì vẫn phải có một nước để gọi Cổng, nhưng mang
+        // theo cờ `giaDinh` để tin nói rõ đó là giả định (issue #177, yêu cầu 3 — không in "xuất xứ CN" trơ).
+        const { ma: xx, giaDinh: xxGiaDinh } = xuatXuCua(String(tenHang || ''), cauMoi);
         const ml = UUID.test(maLuot || '') ? maLuot : null;
         const [thue, thuTuc, moTa] = await Promise.all([
           has(ctx, 'tra_thue') ? ctx.mcp.callTool('tra_thue', { maHs, xuatXu: xx }).catch((err) => {
@@ -305,7 +307,7 @@ export const PACKAGES = [
         }
         // Căn cứ pháp lý của CHÍNH lượt này (issue #168) — lưu để lệnh "căn cứ"/"chi tiết" mở lại đủ danh sách.
         ctx.session.canCu = goiCanCu({ thue, thuTuc, maHs });
-        let full = renderPhanLoaiDayDu({ tenHang, maHs, phanLoai: r, thue, thuTuc, moTa, xuatXu: xx });
+        let full = renderPhanLoaiDayDu({ tenHang, maHs, phanLoai: r, thue, thuTuc, moTa, xuatXu: xx, giaDinhXuatXu: xxGiaDinh });
         const dongCc = dongCanCuNgan(ctx.session.canCu || {});
         if (dongCc) full += `\n\n${dongCc}`;
         // "hiệu oem" → chỉ nhắc một dòng, KHÔNG gọi kiem_tra_shtt (đèn ĐỎ sai + trừ điểm vô ích) — issue #169.
@@ -331,7 +333,7 @@ export const PACKAGES = [
           const giaDinh = ctx.session.giaDinh || null;
           ctx.session.giaDinh = null;
           ctx.session.daHoiLai = null;
-          const ngan = renderPhanLoaiGiongQuyen({ tenHang, maHs, phanLoai: r, thue, thuTuc, moTa, xuatXu: xx, giaDinh });
+          const ngan = renderPhanLoaiGiongQuyen({ tenHang, maHs, phanLoai: r, thue, thuTuc, moTa, xuatXu: xx, giaDinh, giaDinhXuatXu: xxGiaDinh });
           return nhanChung ? `${donNhanChung(ngan)}\n${nhacNhanChung(nhanChung)}` : ngan;
         }
         return traLoi;
@@ -346,7 +348,7 @@ export const PACKAGES = [
         }
       }
       if (maHs) {
-        const xx = findCountryInText(String(tenHang || '')) || 'CN';
+        const { ma: xx, giaDinh: xxGiaDinh } = xuatXuCua(String(tenHang || ''), cauMoi);
         // Chuỗi tự kèm sau khi có mã: thuế + chính sách (gói 2), tra cứu miễn phí. Chú giải + tiền lệ (gói 5) KHÔNG tự kèm
         // (chủ repo bỏ 06/11: dài, khách chưa cần) — khách gõ "5" khi cần. Nhãn hiệu (gói 6) TÍNH ĐIỂM nên chỉ chạy khi
         // khách nêu thương hiệu và mã đã chốt (không chạy trên mã tạm).
@@ -366,7 +368,7 @@ export const PACKAGES = [
         if (thuTuc && (thuTuc.ok === false || thuTuc.isError)) {
           ctx.log?.error?.(`[hs] Cổng trả lỗi tra_thu_tuc_nhap_khau (${maHs}): ${thuTuc.thongBao || thuTuc.loi || thuTuc.text || 'ok:false'}`);
         }
-        if (thue) out += `\n\n${renderResult(thue, { title: `💰 Thuế — ${fmtHs(maHs)} (xuất xứ ${xx})`, renderer: 'tax' })}`;
+        if (thue) out += `\n\n${renderResult(thue, { title: `💰 Thuế — ${fmtHs(maHs)} (${nhanXuatXu(xx, xxGiaDinh)})`, renderer: 'tax' })}`;
         if (thuTuc) out += `\n\n${renderResult(thuTuc, { title: '📋 Chính sách nhập khẩu', renderer: 'policy' })}`;
         if (thuongHieu && st !== 'CAN_DU_KIEN' && has(ctx, 'kiem_tra_shtt')) {
           const shtt = await ctx.mcp.callTool('kiem_tra_shtt', { tenNhan: thuongHieu, maHs, xuatXu: xx }).catch(() => null);
@@ -412,7 +414,9 @@ export const PACKAGES = [
         }
         return ask('Bạn chưa nhập mã HS.', this.mau);
       }
-      const xuatXu = countryCode(text.replace(/[\d.\s]{4,}/, '').trim()) || findCountryInText(text) || 'CN';
+      // Gói 2 nhận "84137090 JP": phần còn lại sau khi bỏ mã số là Ô NƯỚC khách gõ ({ nhan }),
+      // nên chấp cả mã trơ "JP". Khách không gõ nước → vẫn tra theo mặc định nhưng nói rõ là giả định.
+      const { ma: xuatXu, giaDinh: xxGiaDinh } = xuatXuCua({ nhan: text.replace(/[\d.\s]{4,}/, '').trim() }, text);
       const [thue, thuTuc] = await Promise.all([
         ctx.mcp.callTool('tra_thue', { maHs, xuatXu }),
         maHs.length === 8 && has(ctx, 'tra_thu_tuc_nhap_khau') ? ctx.mcp.callTool('tra_thu_tuc_nhap_khau', { maHs }).catch((err) => {
@@ -426,7 +430,7 @@ export const PACKAGES = [
       if (thuTuc && (thuTuc.ok === false || thuTuc.isError)) {
         ctx.log?.error?.(`[hs] Cổng trả lỗi tra_thu_tuc_nhap_khau (${maHs}): ${thuTuc.thongBao || thuTuc.loi || thuTuc.text || 'ok:false'}`);
       }
-      const parts = [renderResult(thue, { title: `💰 Thuế — ${fmtHs(maHs)} (xuất xứ ${xuatXu})`, renderer: 'tax' })];
+      const parts = [renderResult(thue, { title: `💰 Thuế — ${fmtHs(maHs)} (${nhanXuatXu(xuatXu, xxGiaDinh)})`, renderer: 'tax' })];
       if (thuTuc) parts.push(renderResult(thuTuc, { title: '📋 Chính sách nhập khẩu', renderer: 'policy' }));
       const pv = nhacPhongVe(thue, thuTuc);
       if (pv) parts.push(pv);
@@ -477,19 +481,22 @@ export const PACKAGES = [
       const maHs = firstHs8(v.maHs || '') || firstHs8(conLai) || ctx.session.last?.maHs;
       const moTa = (v.moTa || conLai.replace(/(?<!\d)\d{4}[.\s]?\d{2}[.\s]?\d{2}(?!\d)/, '').trim()).slice(0, 2000);
       if (!maHs || moTa.length < 3) return ask('Cần mã HS 8 số và mô tả hàng như sẽ khai.', this.mau);
-      const xuatXu = (v.xuatXu && countryCode(v.xuatXu)) || findCountryInText(text) || 'CN';
+      const { ma: xuatXu, giaDinh: xxGiaDinh } = xuatXuCua({ nhan: v.xuatXu }, text);
       const dong = clean({ stt: 1, maHs, moTa, xuatXu, thongSo: v.thongSo });
       const sau = /^(co|có|yes|1|x)/i.test(norm(v.sau || '')) && has(ctx, 'kiem_ma_to_khai');
       if (sau) {
         const last = ctx.session.last || {};
         if (last.maHs === maHs && last.maLuotPhanLoai) dong.maLuotPhanLoai = last.maLuotPhanLoai;
         const r = await ctx.mcp.callTool('kiem_ma_to_khai', { dongHang: [dong] });
-        return { r, resultTool: 'ket_qua_soat', label: 'Đang kiểm mô tả với mã HS', context: { maHs, sau } };
+        return { r, resultTool: 'ket_qua_soat', label: 'Đang kiểm mô tả với mã HS', context: { maHs, sau, xuatXu, xxGiaDinh } };
       }
-      return { r: await ctx.mcp.callTool('soat_to_khai', { dongHang: [dong] }), resultTool: null, context: { maHs, sau } };
+      return { r: await ctx.mcp.callTool('soat_to_khai', { dongHang: [dong] }), resultTool: null, context: { maHs, sau, xuatXu, xxGiaDinh } };
     },
-    xong(r, { maHs, sau }, ctx) {
+    xong(r, { maHs, sau, xuatXu, xxGiaDinh = false }, ctx) {
       let out = renderResult(r, { title: `✅ ${sau ? 'Kiểm sâu' : 'Soát'} — ${fmtHs(maHs)}` });
+      // Soát tờ khai là chỗ nguy nhất của mặc định ngầm: xuất xứ đoán đi THẲNG vào dòng hàng gửi Cổng
+      // và kéo theo kết luận C/O, ưu đãi FTA. Khách không khai nước thì phải nói rõ bot đã lấy nước nào.
+      if (xxGiaDinh && xuatXu) out += `\n\n{orange}⚠️ Anh/chị chưa ghi xuất xứ nên em soát theo giả định ${tenNuoc(xuatXu)}. Khác nước thì gửi lại kèm dòng "Xuất xứ: …" nhé ạ.{/orange}`;
       if (!sau && has(ctx, 'kiem_ma_to_khai')) out += '\n\n👉 Muốn AI so mô tả có khớp mã không: gửi lại kèm dòng "Kiểm sâu: có" (tính điểm).';
       return out;
     },

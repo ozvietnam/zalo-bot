@@ -97,3 +97,42 @@ export function findCountryInText(s) {
   const m = String(s || '').match(/(?:^|\s)(CN|JP|KR|TW|TH|US|DE|IN|MY|ID|VN)(?=\s|$|,)/);
   return m ? m[1] : null;
 }
+
+/** Nước mặc định khi khách chưa nói — chỉ dùng kèm cờ `giaDinh` của `xuatXuCua`. */
+export const XUAT_XU_MAC_DINH = 'CN';
+/** Tên tiếng Việt của mã nước (để nói với khách), không có thì trả lại chính mã. */
+export const tenNuoc = (ma) => {
+  const m = String(ma || '').toUpperCase();
+  const hoa = { CN: 'Trung Quốc', JP: 'Nhật Bản', KR: 'Hàn Quốc', TW: 'Đài Loan', TH: 'Thái Lan',
+    US: 'Hoa Kỳ', DE: 'Đức', IN: 'Ấn Độ', VN: 'Việt Nam', MY: 'Malaysia', ID: 'Indonesia' };
+  return hoa[m] || m;
+};
+
+/**
+ * Xuất xứ của một lượt + CÓ PHẢI GIẢ ĐỊNH KHÔNG (issue #177, yêu cầu 3).
+ *
+ * Trước đây mỗi chỗ gọi tự viết `findCountryInText(...) || 'CN'` rồi in thẳng "xuất xứ CN" ra tin
+ * khách. Khách chưa hề nói nước nào mà tin lại nói như đã biết — chạm Điều VIII (trung thực) và,
+ * vì mức MFN/ACFTA in ra phụ thuộc nước, chạm cả Điều III (số tiền phải có căn cứ trong lượt).
+ *
+ * Hàm này là ĐÚNG MỘT chỗ quyết định: trả cả mã nước để gọi Cổng (vẫn phải có một nước, Cổng đòi)
+ * và cờ `giaDinh` để lớp dựng chữ nói rõ đó là giả định. Bỏ cờ đi là lại nói dối khách.
+ *
+ * Mỗi nguồn là một chuỗi tự do (quét bằng `findCountryInText`) hoặc `{ nhan: '<giá trị ô Xuất xứ>' }`
+ * cho ô đã có nhãn (quét bằng `countryCode`, chấp cả mã trơ "JP"). KHÔNG chạy `countryCode` trên
+ * chuỗi tự do: nhánh dự phòng của nó bắt mọi cặp chữ in hoa đứng riêng, nên mô tả hàng kiểu
+ * "van bi DN25 PN16 CF8M" sẽ bị đọc thành một mã nước.
+ *
+ * @param {...(string|{nhan?: string})} nguon Theo thứ tự ưu tiên.
+ * @returns {{ ma: string, giaDinh: boolean }}
+ */
+export function xuatXuCua(...nguon) {
+  for (const n of nguon) {
+    const laNhan = n && typeof n === 'object';
+    const s = laNhan ? n.nhan : n;
+    if (!dai(s)) continue;
+    const ma = laNhan ? (countryCode(s) || findCountryInText(s)) : findCountryInText(s);
+    if (ma) return { ma, giaDinh: false };
+  }
+  return { ma: XUAT_XU_MAC_DINH, giaDinh: true };
+}

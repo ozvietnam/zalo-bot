@@ -12,6 +12,24 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-11 — Issue #177 (yêu cầu 3): bỏ mặc định xuất xứ `'CN'` im lặng
+
+- **Commit mã nguồn đã đọc:** nhánh `ozv-251-hs-xuat-xu-khong-mac-dinh` (gốc `a84e8bb`).
+- **Trang wiki đã sửa:** `docs/wiki/an-toan.md` (số dòng thật của `packs/hs/packages.js` 620 → 627 và `packs/hs/render.js` 448 → 471), `docs/wiki/log.md`.
+- **Vì sao:** code có bốn chỗ viết `findCountryInText(...) || 'CN'` rồi IN RA tin khách thành
+  "💰 Thuế suất (xuất xứ CN)". Khách chưa hề nói nước nào mà tin lại nói như đã biết. Mức MFN/ACFTA
+  in ra phụ thuộc đúng cái nước đó, nên đây là số tiền không có căn cứ trong lượt (Điều III) và là
+  nói như đã biết điều mình chỉ đoán (Điều VIII). Nay chỉ còn MỘT chỗ quyết định xuất xứ
+  (`xuatXuCua` trong `packs/hs/input.js`): trả mã nước để gọi Cổng kèm cờ `giaDinh`, và lớp dựng chữ
+  nói rõ "giả định xuất xứ Trung Quốc". Khách có nói nước thì giữ nguyên như cũ.
+- **Bài học ghi lại:** nhãn xuất xứ nằm trong tiêu đề khối thuế nên lượt nào cũng in. Hai lượt hỏi
+  thuế liên tiếp cùng một mã vốn đã giống nhau 0,77 — sát ngưỡng 0,8 của lưới chống trùng ở cửa gửi
+  (`core/gate-decide.js:136`). Bản đầu của vá này nhồi cả câu mời sửa vào nhãn, đẩy độ giống lên 0,83
+  và tin thứ hai bị cửa gửi BỎ (khách hỏi mà không thấy trả lời). Nhãn phải ngắn; lời mời khách sửa
+  nước đặt ở một dòng riêng. Đã khoá bằng test trong `packs/hs/test/xuat-xu.test.mjs`.
+- **Kiểm tra:** `npm test` 1075 đạt / 0 trượt + 34 test đạt, `npm run eval` 32/32,
+  `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.
+
 ## 2026-11-11 — Issue #168: báo "đang tra", căn cứ pháp lý từ Cổng, chống bịa số hiệu
 
 - **Commit mã nguồn đã đọc:** nhánh `claude/168-can-cu-bao-dang-tra` (gốc `403be42`).

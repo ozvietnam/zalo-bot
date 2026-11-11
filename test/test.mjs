@@ -191,7 +191,9 @@ await t('bot: gói 1 chạy nền → KHÔNG câu chờ → hỏi kết quả �
   assert.match(zalo.sent[1][1], /^Dạ em đang tra mã cho anh\/chị/);
   assert.match(zalo.sent[2][1], /Mã HS đề xuất: 8413\.70\.90/);
   // Phân loại xong tự kèm thuế + chính sách (miễn phí); chú giải + tiền lệ KHÔNG tự kèm (chủ repo bỏ 06/11)
-  assert.match(zalo.sent[2][1], /💰 Thuế suất[^\n]*\(xuất xứ CN\)/);
+  // Khách mới nói tên hàng/chất liệu/thông số, CHƯA nói nước nào → tin phải ghi rõ đây là giả định,
+  // không in "xuất xứ CN" trơ như dữ kiện khách đã cho (issue #177 yêu cầu 3; Điều III + Điều VIII).
+  assert.match(zalo.sent[2][1], /💰 Thuế suất[^\n]*\(giả định xuất xứ Trung Quốc\)/);
   assert.match(zalo.sent[2][1], /📝 Mô tả khai báo gợi ý/);   // tự kèm mô tả (chủ repo chọn 06/11)
   assert.doesNotMatch(zalo.sent[2][1], /Chú giải|Tiền lệ phân loại/);
   assert.match(zalo.sent[2][1], /"3"/);
