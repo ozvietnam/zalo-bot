@@ -186,14 +186,16 @@ await t('bot: gói 1 chạy nền → KHÔNG câu chờ → hỏi kết quả �
   await bot.drain();
   assert.deepEqual(mcp.calls[0], ['phan_loai_hs', { tenHang: 'máy bơm nước ly tâm', chatLieu: 'gang', thongSo: { 'công suất': '1.5HP', 'điện áp': '220V' }, nguonThongSo: 'CHU' }]);
   assert.ok(!zalo.sent.some((x) => /⏳/.test(x[1])), 'không gửi câu chờ "⏳ Đang phân loại"');
-  assert.equal(zalo.sent.length, 2);   // [0] câu chọn gói 1, [1] kết quả
-  assert.match(zalo.sent[1][1], /Mã HS đề xuất: 8413\.70\.90/);
+  // #168: lượt có việc nền gửi câu "đang tra" (không phải câu chờ ⏳ cũ) — [0] câu chọn gói 1, [1] đang tra, [2] kết quả
+  assert.equal(zalo.sent.length, 3);
+  assert.match(zalo.sent[1][1], /^Dạ em đang tra mã cho anh\/chị/);
+  assert.match(zalo.sent[2][1], /Mã HS đề xuất: 8413\.70\.90/);
   // Phân loại xong tự kèm thuế + chính sách (miễn phí); chú giải + tiền lệ KHÔNG tự kèm (chủ repo bỏ 06/11)
-  assert.match(zalo.sent[1][1], /💰 Thuế suất[^\n]*\(xuất xứ CN\)/);
-  assert.match(zalo.sent[1][1], /📝 Mô tả khai báo gợi ý/);   // tự kèm mô tả (chủ repo chọn 06/11)
-  assert.doesNotMatch(zalo.sent[1][1], /Chú giải|Tiền lệ phân loại/);
-  assert.match(zalo.sent[1][1], /"3"/);
-  assert.doesNotMatch(zalo.sent[1][1], /gõ "2" để xem thuế/);
+  assert.match(zalo.sent[2][1], /💰 Thuế suất[^\n]*\(xuất xứ CN\)/);
+  assert.match(zalo.sent[2][1], /📝 Mô tả khai báo gợi ý/);   // tự kèm mô tả (chủ repo chọn 06/11)
+  assert.doesNotMatch(zalo.sent[2][1], /Chú giải|Tiền lệ phân loại/);
+  assert.match(zalo.sent[2][1], /"3"/);
+  assert.doesNotMatch(zalo.sent[2][1], /gõ "2" để xem thuế/);
   await bot.handleUpdate(dm('3', 'd2'));
   await bot.handleUpdate(dm('Thương hiệu: Pentax\nXuất xứ: Trung Quốc', 'd3'));
   const mt = mcp.calls.filter((c) => c[0] === 'sinh_mo_ta_khai_bao').at(-1)[1];
