@@ -1,0 +1,9 @@
+// #168 KB7 — nhãn hiệu: kiểm theo tên nhãn khách đưa, đèn + kết luận tiếng Việt; "oem" không phải nhãn hiệu (không gọi Cổng).
+{"step":"mcp","tool":"kiem_tra_shtt","returns":[{"ok":true,"data":{"ketQua":[{"ten":"PHILIPS","den":"ĐỎ — trùng nhãn đã đăng ký"}]}}]}
+{"step":"in","update":{"id":"kb7a","text":"kiểm nhãn hiệu Philips 85094000"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"Philips|PHILIPS"}
+{"step":"expect","sentTo":"c1","mcpTool":"kiem_tra_shtt","mcpCount":1}
+{"step":"advance","by":"1m"}
+{"step":"in","update":{"id":"kb7b","text":"kiểm nhãn hiệu oem"}}
+{"step":"expect","sentTo":"c1","count":2,"match":"không phải nhãn hiệu|không nhãn hiệu"}
+{"step":"expect","sentTo":"c1","mcpTool":"kiem_tra_shtt","mcpCount":1}

@@ -17,6 +17,9 @@ export const DEFAULT_RULES = Object.freeze({
 });
 
 const NEVER_PROACTIVE = new Set(['staff_relay', 'ticket', 'digest']);
+// 'progress' = câu "đang tra" (issue #168): KHÔNG trong CAPPED (không ăn suất 8 tin/ngày của khách),
+// và không bao giờ hoãn — câu "đang tra" gửi bù lúc 07:00 khi kết quả đã tới từ đêm là vô nghĩa.
+const PROGRESS = 'progress';
 const CAPPED = new Set(['reply', 'notice', 'job_result', 'voice']);
 
 const out = (decision, reason, extra) => ({ decision, reason, ...extra });
@@ -98,6 +101,9 @@ export function decide(msg, facts = {}, rules = {}) {
     if (facts.chatState === 'human' || facts.chatState === 'blocked') {
       return out('reject', `chat-${facts.chatState}`);
     }
+    // 2b: câu "đang tra" trong giờ yên → bỏ, kể cả khi là câu trả lời trực tiếp. Kết quả việc nền ban đêm bị
+    // hoãn tới 07:00 (bước 3b), nên "khoảng 1 phút ạ" lúc 23:30 là hứa sai; gửi bù lúc 07:00 thì vô nghĩa.
+    if (msg.kind === PROGRESS && r.quietHours !== false && isQuietHours(now)) return out('drop', 'progress:quiet-hours');
     // 3a, 3b
     if (isProactive(msg, nowMs, r)) {
       if (!facts.hasOpenJob) return out('reject', 'proactive-no-debt');

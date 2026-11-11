@@ -9,6 +9,8 @@ import { renderResult, clipReply } from './render.js';
 import { result } from './flow-turn.js';
 import { norm } from './input.js';
 import { runPkg, trenHoSo } from './chay-goi.js';
+import { danhSachDayDu, KHONG_CO_CAN_CU } from './can-cu.js';
+import { fmtHs } from './format.js';
 import {
   layHoSo, hoSoRong, themChu, themSua, themTinTiep, duDeTra, dongDangTra, locTapAmAnh,
   laLenhTroHoSo, laLenhCauTruc, laCauXemLai, laMonKhac, laCauHangMoi, boTienToHangMoi,
@@ -181,8 +183,12 @@ export async function textFlow(turn, ctx, st) {
       }
       case 'chi-tiet':   // mở lại bản phân tích đầy đủ của lượt phân loại gần nhất (khách cuộn mất tin)
         return one(s.chiTiet?.text
-          ? `🔎 Bản chi tiết lượt gần nhất:\n\n${clipReply(s.chiTiet.text)}`
+          ? clipReply(`🔎 Bản chi tiết lượt gần nhất:\n\n${s.chiTiet.text}${s.canCu ? `\n\n📚 Căn cứ pháp lý (Cổng OZ):\n${danhSachDayDu(s.canCu)}` : ''}`)
           : 'Chưa có kết quả phân loại nào trong phiên này để mở chi tiết. Anh/chị gửi mô tả hàng hoặc mã HS trước rồi gõ "chi tiết" nhé.');
+      case 'can-cu':     // đủ danh sách căn cứ của lượt vừa trả lời — CHỈ dữ liệu Cổng đã lưu, không bịa (issue #168)
+        return one(s.canCu
+          ? clipReply(`Dạ căn cứ pháp lý em lấy từ Cổng OZ${s.canCu.maHs ? ` cho mã ${fmtHs(s.canCu.maHs)}` : ''} ạ:\n${danhSachDayDu(s.canCu)}`)
+          : KHONG_CO_CAN_CU);
       case 'hoi-lai':   // não hỏi lại một câu thay vì đoán mò chạy gói
         return one(`❓ ${r.cauHoi}`);
       case 'khac':      // chào hỏi/xã giao: não trả lời ngắn, dẫn về menu

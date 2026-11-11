@@ -1,3 +1,4 @@
+// #168 (11/11): số tin đã tính cả câu "đang tra" — mỗi lượt gọi Cổng hoặc có việc nền gửi đúng một câu đó trước kết quả.
 // #170 [S15] — chuỗi 3 tin: mô tả chữ → ẢNH KÈM CHÚ THÍCH ĐÀM THOẠI → "ok".
 // Quyết thay CEO điểm 4: nghiệm thu `tenHang` gửi Cổng SẠCH tạp âm. Chú thích là kiểu khách gõ
 // thật: thời gian ("10h03"), cảm thán/xã giao ("thông cảm", "cần gấp"), nói về tấm ảnh ("ảnh hơi
@@ -17,9 +18,9 @@
 
 // Tin 2: ảnh + chú thích ĐÀM THOẠI. Ảnh là bổ sung; chú thích chỉ được góp DỮ KIỆN, không góp tạp âm.
 {"step":"advance","by":"3m"}
-{"step":"expect","sentTo":"c1","count":1}
-{"step":"in","update":{"id":"p2","event":"message.image.received","photoUrl":"https://photo-stal-14.zdn.vn/no/jpg/qcthl2.jpg","caption":"@bot em gửi lúc 10h03, ảnh hơi mờ anh thông cảm, cái này giống công tắc điện nhưng không phải, cần gấp nhé"}}
 {"step":"expect","sentTo":"c1","count":2}
+{"step":"in","update":{"id":"p2","event":"message.image.received","photoUrl":"https://photo-stal-14.zdn.vn/no/jpg/qcthl2.jpg","caption":"@bot em gửi lúc 10h03, ảnh hơi mờ anh thông cảm, cái này giống công tắc điện nhưng không phải, cần gấp nhé"}}
+{"step":"expect","sentTo":"c1","count":3}
 
 // Tin 3: "ok" → xác nhận thông số ảnh, tra trên HỒ SƠ GỘP
 {"step":"advance","by":"2m"}

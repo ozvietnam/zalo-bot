@@ -19,6 +19,21 @@ import { createEditor } from '../packs/hs/editor.js';
 import { parse } from '../channels/zalo-bot.js';
 import hsPack from '../packs/hs/index.js';
 import { vnDateKey, vnStamp } from '../core/time.js';
+import { CAU_DANG_TRA } from '../packs/hs/dang-tra.js';
+import { chanBia } from '../packs/hs/can-cu.js';
+import { PACKAGES } from '../packs/hs/packages.js';
+
+/** Câu "đang tra" phải ra trong ngần này (issue #168, phần 1). */
+export const BAO_DANG_TRA_TOI_DA_MS = 3_000;
+/** Bước có thể dẫn tới tra Cổng chờ tối đa 120 giây; bước khác 30 giây (issue #168, phần 4). */
+export const CHO_TRA_CONG_MS = 120_000;
+export const CHO_THUONG_MS = 30_000;
+
+/** Tin là câu "đang tra" (kể cả có "@tên\n" ở đầu trong nhóm) — tách khỏi tin kết quả. */
+export function laTinDangTra(text) {
+  const t = String(text ?? '');
+  return Object.values(CAU_DANG_TRA).some((c) => t.includes(c));
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -230,11 +245,19 @@ function createMockVision() {
   };
 }
 
-/** Đánh giá kết quả của từng bước trong kịch bản. */
-export function evaluateStep(stepDef, newMessages, scenario) {
+/**
+ * Đánh giá kết quả của từng bước trong kịch bản.
+ * Hai tiêu chí TÁCH RIÊNG (issue #168): "đã báo đang tra" (câu ngắn ≤ 3 giây) và "đã có kết quả" (tin
+ * không phải câu đang tra). `phaiChua`/`khongChua` đo trên tin KẾT QUẢ; câu đang tra không thay được kết quả.
+ * `opts.batDau` (ms) — mốc khách gửi, để đo giây; `opts.nguon` — dữ liệu Cổng + lời khách cho kiểm chống bịa.
+ */
+export function evaluateStep(stepDef, newMessages, scenario, { batDau = null, nguon = null, coTheTraCong = false } = {}) {
   const kyVong = stepDef.kyVong || {};
   const sentTexts = newMessages.map((m) => m.text);
-  const combinedText = sentTexts.join('\n---\n');
+  const ketQua = newMessages.filter((m) => !laTinDangTra(m.text));
+  const combinedText = ketQua.map((m) => m.text).join('\n---\n');
+  const giay = (m) => (batDau != null && m?.at ? (new Date(m.at).getTime() - batDau) : null);
+  const dangTra = newMessages.find((m) => laTinDangTra(m.text));
 
   // 1. Kiểm tra bot im
   if (kyVong.botIm === true) {
@@ -255,6 +278,34 @@ export function evaluateStep(stepDef, newMessages, scenario) {
       lyDo: 'Bot không gửi bất kỳ tin nhắn phản hồi nào',
       sent: [],
     };
+  }
+  if (kyVong.phaiCoPhanHoi && !ketQua.length) {
+    return { ok: false, lyDo: 'Đã báo đang tra nhưng CHƯA có kết quả trong thời gian chờ', sent: sentTexts };
+  }
+
+  // 2b. Báo đang tra (issue #168): kịch bản đòi thì phải có, và phải ra trong ≤ 3 giây. Bước có thể tra
+  // Cổng mà kết quả đầu tiên ra sau 3 giây thì CŨNG phải có câu đang tra ≤ 3 giây (khách không bị bỏ im).
+  const tDangTra = giay(dangTra);
+  const tKetQua = giay(ketQua[0]);
+  if (kyVong.baoDangTra === true && !dangTra) {
+    return { ok: false, lyDo: 'Kỳ vọng có câu "đang tra" nhưng bot không gửi', sent: sentTexts };
+  }
+  if (dangTra && tDangTra != null && tDangTra > BAO_DANG_TRA_TOI_DA_MS) {
+    return { ok: false, lyDo: `Câu "đang tra" ra sau ${(tDangTra / 1000).toFixed(1)}s (> 3s)`, sent: sentTexts };
+  }
+  if (coTheTraCong && !dangTra && tKetQua != null && tKetQua > BAO_DANG_TRA_TOI_DA_MS) {
+    return { ok: false, lyDo: `Bot im ${(tKetQua / 1000).toFixed(1)}s rồi mới trả kết quả, không báo "đang tra" trong 3 giây`, sent: sentTexts };
+  }
+  if (kyVong.khongBaoDangTra === true && dangTra) {
+    return { ok: false, lyDo: 'Bước này không được gửi câu "đang tra" (không tra Cổng)', sent: sentTexts };
+  }
+
+  // 2c. Chống bịa số hiệu văn bản (issue #168): mọi số hiệu phải có trong dữ liệu Cổng đã trả / lời khách.
+  if (nguon) {
+    for (const t of sentTexts) {
+      const { la } = chanBia(t, nguon, { mau: PACKAGES.map((p) => p.mau) });
+      if (la.length) return { ok: false, lyDo: `Số hiệu văn bản không có trong dữ liệu Cổng: ${la.join(', ')}`, sent: sentTexts };
+    }
   }
 
   // 3. Kiểm tra gắn đúng người trong nhóm
@@ -298,6 +349,22 @@ export function evaluateStep(stepDef, newMessages, scenario) {
   }
 
   return { ok: true, sent: sentTexts };
+}
+
+const chuanQa = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+
+/**
+ * Bước CÓ THỂ dẫn tới tra Cổng → chờ 120 giây (issue #168, phần 4). Ngoài bước phân loại còn có lệnh
+ * ngắn "tra hscode"/"tra mã", tin có mã số, và tin trả lời câu bot vừa HỎI LẠI ("đúng, 350W 220V") —
+ * QA thật 10/11 trượt vì các bước này chỉ được chờ 30 giây trong khi Cổng mất 30–55 giây.
+ */
+export function laBuocCoTheTraCong(step, { botVuaHoi = false } = {}) {
+  if (step.kyVong?.botIm) return false;
+  if (laBuocPhanLoai(step)) return true;
+  const n = chuanQa(step.text);
+  if (/\b(tra|hs|hscode|ma hs|ma so|thue|thu tuc|chinh sach)\b/.test(n) || /\d{4}/.test(n)) return true;
+  if (step.photoUrl) return true;
+  return Boolean(botVuaHoi);
 }
 
 /** Nhận diện bước có phân loại HS để áp dụng thời gian chờ lâu hơn (mặc định >= 120s) */
@@ -350,8 +417,10 @@ export async function runSingleScenario(scenario, {
       calls: toolCalls,
       async listTools() { return rawMock.listTools(); },
       async callTool(name, args) {
-        toolCalls.push({ name, args });
-        return rawMock.callTool(name, args);
+        const c = { name, args };
+        toolCalls.push(c);
+        c.result = await rawMock.callTool(name, args);
+        return c.result;
       },
     };
   } else {
@@ -364,8 +433,10 @@ export async function runSingleScenario(scenario, {
       calls: toolCalls,
       async listTools() { return rawMcp.listTools(); },
       async callTool(name, args) {
-        toolCalls.push({ name, args });
-        return rawMcp.callTool(name, args);
+        const c = { name, args };
+        toolCalls.push(c);
+        c.result = await rawMcp.callTool(name, args);
+        return c.result;
       },
     };
   }
@@ -438,6 +509,7 @@ export async function runSingleScenario(scenario, {
   });
 
   const stepResults = [];
+  const khachDaGui = [];
   let scenarioOk = true;
   let failReason = '';
 
@@ -447,7 +519,12 @@ export async function runSingleScenario(scenario, {
       buThoiGian += docKhoangCach(step.cachTruoc);
       const stepStart = Date.now();
       const isPhanLoai = laBuocPhanLoai(step, scenario);
-      const stepTimeoutMs = step.timeoutMs || (isPhanLoai ? 120_000 : 30_000);
+      const truocDo = channel.sent.length ? String(channel.sent[channel.sent.length - 1].text || '') : '';
+      const coTheTraCong = laBuocCoTheTraCong(step, { botVuaHoi: /\?\s*$|ạ\?/.test(truocDo) });
+      const toolsBefore = toolCalls.length;
+      // Chờ 120 giây cho bước có thể tra Cổng; bước khác 30 giây — nhưng hễ bước đã gọi Cổng hoặc có việc
+      // nền thì cũng được chờ đủ 120 giây (đo trong vòng chờ bên dưới).
+      const choToiDa = () => step.timeoutMs || ((coTheTraCong || toolCalls.length > toolsBefore || hasOpenJobs()) ? CHO_TRA_CONG_MS : CHO_THUONG_MS);
       const sentBefore = channel.sent.length;
       const isPhoto = Boolean(step.photoUrl);
       const isText = !isPhoto && Boolean(step.text);
@@ -465,20 +542,20 @@ export async function runSingleScenario(scenario, {
         messageId: `msg_${idx + 1}`,
       };
 
+      const hasOpenJobs = () => store.jobs.countWaiting() > 0 || store.jobs.polling().length > 0;
       const procRes = await engine.process(update);
       await engine.drain();
 
-      // Chờ tới khi có tin trả lời (hoặc xong việc nền) hoặc hết timeoutMs (mặc định >= 120s cho bước có phân loại)
-      const hasOpenJobs = () => store.jobs.countWaiting() > 0 || store.jobs.polling().length > 0;
-      const hasReplied = () => channel.sent.length > sentBefore;
+      // Chờ tới khi có tin KẾT QUẢ (câu "đang tra" không tính) và xong việc nền, hoặc hết hạn chờ.
+      const hasReplied = () => channel.sent.slice(sentBefore).some((m) => !laTinDangTra(m.text));
 
       if (step.kyVong?.botIm) {
-        while (hasOpenJobs() && Date.now() - stepStart < stepTimeoutMs) {
+        while (hasOpenJobs() && Date.now() - stepStart < choToiDa()) {
           await new Promise((r) => setTimeout(r, pollIntervalMs));
           await engine.drain();
         }
       } else {
-        while (Date.now() - stepStart < stepTimeoutMs) {
+        while (Date.now() - stepStart < choToiDa()) {
           if (hasReplied() && !hasOpenJobs()) {
             break;
           }
@@ -490,7 +567,10 @@ export async function runSingleScenario(scenario, {
       const durationMs = Date.now() - stepStart;
       const durationSec = (durationMs / 1000).toFixed(1);
       const sentNow = channel.sent.slice(sentBefore);
-      const evalRes = evaluateStep(step, sentNow, scenario);
+      khachDaGui.push(step.text, step.caption);
+      const evalRes = evaluateStep(step, sentNow, scenario, { batDau: stepStart, coTheTraCong,
+        nguon: [toolCalls.map((c) => c.result), khachDaGui] });
+      const sauGiay = (m) => (m ? `${((new Date(m.at).getTime() - stepStart) / 1000).toFixed(1)}s` : null);
 
       stepResults.push({
         stepIndex: idx + 1,
@@ -502,6 +582,9 @@ export async function runSingleScenario(scenario, {
         durationMs,
         durationText: `${durationSec}s`,
         isPhanLoai,
+        coTheTraCong,
+        baoDangTraSau: sauGiay(sentNow.find((m) => laTinDangTra(m.text))),
+        ketQuaSau: sauGiay(sentNow.find((m) => !laTinDangTra(m.text))),
       });
 
       if (!evalRes.ok) {
@@ -586,6 +669,7 @@ export function generateReportMarkdown({ results, startedAt, envMeta = {}, isMoc
         `#### Bước ${step.stepIndex}: ${step.mieuTa}`,
         `- **Khách gửi:** \`${step.input}\``,
         `- **Thời gian phản hồi:** \`${step.durationText || `${(((step.durationMs || 0)) / 1000).toFixed(1)}s`}\``,
+        `- **Báo "đang tra":** ${step.baoDangTraSau ? `có, sau ${step.baoDangTraSau}` : 'không'} · **Có kết quả:** ${step.ketQuaSau ? `có, sau ${step.ketQuaSau}` : 'chưa'}${step.coTheTraCong ? ' · bước có thể tra Cổng (chờ tối đa 120 giây)' : ''}`,
         `- **Trạng thái bước:** ${step.ok ? '✓ Đạt' : `✗ Trượt (${step.lyDo})`}`,
         `- **Nguyên văn bot gửi (${step.sent.length} tin):**`,
         step.sent.length

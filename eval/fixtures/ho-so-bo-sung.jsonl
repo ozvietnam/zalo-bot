@@ -18,5 +18,5 @@
 
 // Phải có phản hồi, và mã CHỐT LẠI là mã chốt kẹp cơ khí
 // (8536.50 vẫn được phép xuất hiện ở tin 1 trong danh sách "mã có thể, chưa chốt").
-{"step":"expect","sentTo":"c1","count":2,"match":"Mã HS đề xuất: 8302\\.42"}
+{"step":"expect","sentTo":"c1","count":3,"match":"Mã HS đề xuất: 8302\\.42"}
 {"step":"expect","sentTo":"c1","notMatch":"Mã HS đề xuất: 8536\\.50"}

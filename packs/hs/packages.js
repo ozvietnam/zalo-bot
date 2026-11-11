@@ -10,6 +10,7 @@ import { fmtHs } from './format.js';
 import { chayCho } from './jobs.js';
 import { kiemTraThongTinPhanLoai, xuLyTraLoiHoiLai } from './dien-cho-thieu.js';
 import { renderPhanLoaiGiongQuyen } from './giong-quyen.js';
+import { goiCanCu, dongCanCuNgan } from './can-cu.js';
 import { laTenHangCam, laLenhTroHoSo, laCauXemLai, cungMonVoi, boYeuCauDau } from './ho-so.js';
 
 export { notice, hetHan, toJob, waitJob, WAIT_JOB_MAX_MS } from './jobs.js';
@@ -261,7 +262,7 @@ export const PACKAGES = [
       // #170: lệnh "tra hs …" phải bắt lấy LỜI KHÁCH vừa gõ (`cauKhach`), không phải bản gộp mô tả
       // (`text` luôn khác lời khách nên mọi tin sau lượt đầu sẽ bị ghi nhầm là "gõ lại" — S24).
       const giongQuyen = Boolean(ctx.session.daHoiLai || ctx.session.giaDinh || (!laLegacyTest && !ctx.session.goi && !coNhanChuan) || /tra\s*hs/i.test(cauKhach || ''));
-      return { r, resultTool: 'ket_qua_phan_loai', label: 'Đang phân loại mã HS', cauCho: 'Dạ anh chờ em tra chút nhé', context: { tenHang, boSung: false, cauMoi: cauKhach, thuongHieu: hieuThat, nhanChung, chonNhanh, giongQuyen, daHoiLai: ctx.session.daHoiLai, giaDinh: ctx.session.giaDinh } };
+      return { r, resultTool: 'ket_qua_phan_loai', label: 'Đang phân loại mã HS', context: { tenHang, boSung: false, cauMoi: cauKhach, thuongHieu: hieuThat, nhanChung, chonNhanh, giongQuyen, daHoiLai: ctx.session.daHoiLai, giaDinh: ctx.session.giaDinh } };
     },
     /** Kết quả cuối (đã xong, hoặc lỗi/hết hạn) → chữ trả lời; ghi phiên last/choBoSung.
      *  Có mã HS → tự chạy tiếp thuế + thủ tục (tra cứu miễn phí) ngay trong tin: khách "vất hàng vào" là ra hết,
@@ -302,7 +303,11 @@ export const PACKAGES = [
         if (thuTuc && (thuTuc.ok === false || thuTuc.isError)) {
           ctx.log?.error?.(`[hs] Cổng trả lỗi tra_thu_tuc_nhap_khau (${maHs}): ${thuTuc.thongBao || thuTuc.loi || thuTuc.text || 'ok:false'}`);
         }
+        // Căn cứ pháp lý của CHÍNH lượt này (issue #168) — lưu để lệnh "căn cứ"/"chi tiết" mở lại đủ danh sách.
+        ctx.session.canCu = goiCanCu({ thue, thuTuc, maHs });
         let full = renderPhanLoaiDayDu({ tenHang, maHs, phanLoai: r, thue, thuTuc, moTa, xuatXu: xx });
+        const dongCc = dongCanCuNgan(ctx.session.canCu || {});
+        if (dongCc) full += `\n\n${dongCc}`;
         // "hiệu oem" → chỉ nhắc một dòng, KHÔNG gọi kiem_tra_shtt (đèn ĐỎ sai + trừ điểm vô ích) — issue #169.
         if (nhanChung) full = `${donNhanChung(full)}\n\n${nhacNhanChung(nhanChung)}`;
         let fullChiTiet = full;
@@ -425,13 +430,17 @@ export const PACKAGES = [
       if (thuTuc) parts.push(renderResult(thuTuc, { title: '📋 Chính sách nhập khẩu', renderer: 'policy' }));
       const pv = nhacPhongVe(thue, thuTuc);
       if (pv) parts.push(pv);
+      // Căn cứ pháp lý (issue #168): chỉ số hiệu Cổng trả trong lượt này, tối đa 3; "căn cứ" mở đủ danh sách.
+      ctx.session.canCu = goiCanCu({ thue, thuTuc, maHs });
+      const dongCc = dongCanCuNgan(ctx.session.canCu || {});
+      if (dongCc) parts.push(dongCc);
       ctx.session.last = { ...(ctx.session.last || {}), maHs: maHs.length === 8 ? maHs : ctx.session.last?.maHs };
       return parts.join('\n\n');
     },
   },
   {
     so: 3, ngan: 'Mô tả', id: 'mo-ta', icon: '📝', ten: 'Viết mô tả khai báo',
-    moTa: 'Soạn mô tả hàng hoá chỉ tiêu 1.78 (TT 38/2015, sửa đổi TT 39/2018, TT 121/2025) kèm điểm tuân thủ.',
+    moTa: 'Soạn mô tả hàng hoá chỉ tiêu 1.78 trên tờ khai, kèm điểm tuân thủ.',
     congCu: ['sinh_mo_ta_khai_bao'],
     mau: 'Mã HS: 84137090\nTên hàng: Máy bơm nước ly tâm\nThương hiệu: Pentax\nModel: CM50\nXuất xứ: CN\nThông số: công suất 1.5HP, điện áp 220V\nTình trạng: mới 100%',
     async chay(text, ctx) {
@@ -510,6 +519,10 @@ export const PACKAGES = [
       }
       if (!jobs.length) return ask('Chưa thấy số hiệu văn bản, mã HS hay mô tả hàng.', this.mau);
       const res = await Promise.all(jobs.map(([, p]) => p.catch(() => ({ ok: false, loi: 'CONG_KHONG_TRA_LOI', transport: true }))));   // lỗi gốc đã vào audit 'tool' của lõi
+      // Tiền lệ mã 8 số: lưu số TB-TCHQ Cổng trả để lệnh "căn cứ" mở lại đúng (issue #168, KB1/KB8).
+      const iTl = jobs.findIndex(([, , tl]) => tl === 'ma');
+      const ccTl = iTl >= 0 ? goiCanCu({ tienLe: res[iTl], maHs: hs }) : null;
+      if (ccTl) ctx.session.canCu = ccTl;
       return jobs.map(([t, , tienLe], i) => {
         const r = res[i];
         if (tienLe && (tienLe === 'nhanh' ? r?.rong : tienLeRong(r))) ghiTruot(ctx, 'TIEN_LE_RONG', { goi: 5, cau: text, maHs: hs || null, moTa: tienLe === 'moTa' ? conLai.slice(0, 300) : null });
@@ -527,7 +540,11 @@ export const PACKAGES = [
       const { values: v, conLai } = parseLabeled(text, [{ key: 'tenNhan', nhan: ['nhãn hiệu', 'nhãn', 'thương hiệu', 'brand', 'tên nhãn', 'hiệu'] }, F.maHs, F.xuatXu,
         { key: 'tenNguoiNhap', nhan: ['người nhập', 'công ty', 'nhà nhập khẩu'] }]);
       const maHs = firstHs8(v.maHs || '') || (conLai.match(/(?<!\d)\d{4}(?:\d{2}){0,2}(?!\d)/) || [])[0] || null;
-      const tenNhan = (v.tenNhan || conLai.replace(/(?<!\d)\d{4,8}(?!\d)/g, '').replace(/\b[A-Z]{2}\b\s*$/, '').trim()).slice(0, 200);
+      // Lời nhờ ở đầu câu tự do ("kiểm nhãn hiệu Philips") KHÔNG phải tên nhãn (KB7 của #168): trước đây
+      // cả câu thành tên nhãn gửi Cổng, và "kiểm nhãn hiệu oem" không còn được nhận là "không nhãn hiệu".
+      const tenNhan = (v.tenNhan || conLai.replace(/(?<!\d)\d{4,8}(?!\d)/g, '').replace(/\b[A-Z]{2}\b\s*$/, '').trim())
+        .replace(/^(?:(?:kiểm|kiem)(?:\s+tra)?|check|tra(?:\s+cứu|\s+cuu)?)\s+(?:(?:nhãn|nhan)(?:\s+(?:hiệu|hieu))?|thương hiệu|thuong hieu|brand|shtt)\s*[:\-]?\s*/i, '')
+        .trim().slice(0, 200);
       if (!tenNhan) return ask('Cần tên nhãn hiệu.', this.mau);
       // Từ chung chung ("oem", "no brand"…): không gọi Cổng, không trừ điểm — issue #169.
       if (laNhanChung(tenNhan)) return `${nhacNhanChung(tenNhan)}\n\nAnh/chị gửi đúng nhãn in trên hàng (hoặc ảnh logo) để em kiểm giúp nhé.`;

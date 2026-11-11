@@ -124,3 +124,15 @@ test('LLM_CHINH=llm2: biên tập bằng llm2 trước; llm2 lỗi → Gemini; l
   assert.equal(await ed3.chot({ text: GOC }), null);
   assert.equal(g3.requests.length, 0);
 });
+
+// Issue #168: số hiệu văn bản trong bản chốt phải có trong bản gốc. Kiểm số (`soDungChuan`) không bắt
+// được "38/2015/TT-BTC" vì nó tách thành 38 và 2015 — hai số có thể tình cờ có trong bản gốc.
+test('chot: bản chốt tự thêm số hiệu văn bản không có trong gốc → null (chống bịa căn cứ)', async () => {
+  const goc = `${GOC}\nNăm 2015 có 38 dòng hàng tương tự.`;
+  const g = fakeGemini(() => text('Mã 8414.59.49, MFN 15% (Thông tư 38/2015/TT-BTC).'));
+  const ed = createEditor({ apiKey: 'k', fetchImpl: g.fetchImpl, log: {} });
+  assert.equal(await ed.chot({ text: goc }), null);
+  const g2 = fakeGemini(() => text('Mã 8414.59.49, MFN 15% (26/2023/NĐ-CP).'));
+  const ed2 = createEditor({ apiKey: 'k', fetchImpl: g2.fetchImpl, log: {} });
+  assert.match(await ed2.chot({ text: `${GOC}\nCăn cứ: 26/2023/NĐ-CP` }), /26\/2023\/NĐ-CP/);
+});

@@ -1,0 +1,5 @@
+// #168 KB5 — viết mô tả khai báo: Cổng trả bản nháp + câu hỏi → bot nói rõ BẢN NHÁP, không đưa như bản khai được; căn cứ (TT 38/2015…) chỉ khi Cổng trả.
+{"step":"mcp","tool":"sinh_mo_ta_khai_bao","returns":[{"ok":true,"data":{"banNhap":true,"moTa":"Máy xay sinh tố gia dụng, công suất 350W, điện áp 220V","cauHoi":["Model máy là gì?","Thương hiệu in trên máy?"],"canCu":"TT 38/2015/TT-BTC chỉ tiêu 1.78, sửa đổi bởi TT 39/2018/TT-BTC và TT 121/2025/TT-BTC"}}]}
+{"step":"in","update":{"id":"kb5a","text":"viết mô tả khai\nMã HS: 85094000\nTên hàng: máy xay sinh tố gia đình 350W"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"BẢN NHÁP"}
+{"step":"expect","sentTo":"c1","mcpTool":"sinh_mo_ta_khai_bao","mcpCount":1}

@@ -75,5 +75,7 @@ export function loadConfig(env = process.env) {
     geminiTtsPrompt: str(env, 'GEMINI_TTS_PROMPT', 'giọng nữ trẻ, miền Bắc, dịu dàng, ấm áp, lễ phép'),
     geminiTtsModel: str(env, 'GEMINI_TTS_MODEL', 'gemini-2.5-flash-preview-tts'),
     capVoiceDay: int(env, 'CAP_VOICE_DAY', 50, 0),
+    // Lượt phải đợi Cổng quá ngần này mili giây thì gửi câu "đang tra" (issue #168, mục ≤ 3 giây).
+    dangTraSauMs: int(env, 'DANG_TRA_SAU_MS', 1500, 0),
   });
 }

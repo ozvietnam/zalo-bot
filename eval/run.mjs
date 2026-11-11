@@ -15,6 +15,9 @@
 //   {"step":"vision","returns":[s1, s2, …]}   đọc ảnh giả: lần gọi thứ n trả returns[n-1] (hết thì lặp phần tử cuối);
 //                                             không có bước này = bot chưa bật đọc ảnh, như khi thiếu GEMINI_API_KEY
 //
+// Kiểm máy CHỐNG BỊA (issue #168, mọi kịch bản, không cần khai): mọi số hiệu văn bản trong tin gửi khách
+// phải có trong dữ liệu Cổng giả đã trả, lời khách, hoặc mẫu nhập liệu tĩnh của gói. Có số lạ → trượt.
+//
 // Dùng: npm run eval  |  node eval/run.mjs --dir <thư mục .jsonl>
 import { readdirSync, readFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -29,6 +32,8 @@ import { createEngine } from '../core/engine.js';
 import hsPack from '../packs/hs/index.js';
 import { fakeChannel, fakeClock } from '../test/helpers/fakes.mjs';
 import { kiemSoTheoGiaTri, cheThongTinNhayCam, chuaThongTinNhayCam } from '../core/sanitizer.js';
+import { chanBia } from '../packs/hs/can-cu.js';
+import { PACKAGES } from '../packs/hs/packages.js';
 
 const START = '2026-11-04T03:00:00.000Z';   // 10:00 giờ VN, mặc định của mọi kịch bản
 const DEFAULT_STAFF_CHAT = 'staff-chat';
@@ -55,8 +60,14 @@ function scriptedMcp(script) {
   const counts = {};
   return {
     calls: [],
+    results: [],
     async callTool(name, args = {}) {
       this.calls.push({ name, args });
+      const r = await this.traLoi(name, args);
+      this.results.push(r);
+      return r;
+    },
+    async traLoi(name, args) {
       const item = script[name];
       if (!item) throw new Error(`eval: Cổng giả không có công cụ ${name}`);
       const list = item.returns ?? [];
@@ -213,6 +224,10 @@ export async function runScenario(steps, { start = START, config: userConfig = {
     }
     store.close();
     store = null;
+    // Chống bịa số hiệu văn bản (issue #168): đo trên MỌI tin đã gửi của kịch bản.
+    const khach = steps.filter((s) => s.step === 'in' || s.step === 'staff').flatMap((s) => [s.update?.text, s.update?.caption, s.text]);
+    const bia = kiemChongBia(channel.sent, [mcp.results, khach, visionReturns]);
+    if (bia) return { ok: false, why: bia };
     const chk = checkMessages(dbPath, config.staffChatId);
     if (!chk.ok) return chk;
     return { ok: true, stats: chk.stats };
@@ -222,6 +237,18 @@ export async function runScenario(steps, { start = START, config: userConfig = {
     try { store?.close(); } catch { /* đã đóng */ }
     rmSync(tmp, { recursive: true, force: true });
   }
+}
+
+/**
+ * Chống bịa số hiệu văn bản (issue #168): tin gửi khách chỉ được nêu số hiệu có trong `nguon`
+ * (kết quả Cổng giả, lời khách, ảnh giả). Mẫu nhập liệu tĩnh của gói được miễn đúng chỗ. → null | lý do trượt.
+ */
+export function kiemChongBia(sent, nguon) {
+  for (const m of sent) {
+    const { la } = chanBia(m.text, nguon, { mau: PACKAGES.map((p) => p.mau) });
+    if (la.length) return `chống bịa: tin gửi ${m.chatId} có số hiệu văn bản không có trong dữ liệu Cổng: ${la.join(', ')}`;
+  }
+  return null;
 }
 
 /**

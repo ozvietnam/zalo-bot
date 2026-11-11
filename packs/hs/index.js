@@ -12,6 +12,7 @@ import { openTurn, result } from './flow-turn.js';
 import { textFlow } from './luong-chu.js';
 import { dongHoSoCuaTin } from './chay-goi.js';
 import { layHoSo, duDeTra } from './ho-so.js';
+import { cauDangTra } from './dang-tra.js';
 
 const JOB_TTL_MS = 30 * 60_000;   // lõi bỏ chờ việc nền sau 30 phút (core/jobs.js); câu hết hạn ghi đúng số phút
 
@@ -30,6 +31,7 @@ export default {
 
   async handle(turn, ctx) {
     const st = openTurn(ctx);
+    st.khach = [turn.text, turn.caption].filter(Boolean);
     try {
       // Tin trống ("@bot" trơ trọi, tin 10:00 của issue #170): có hồ sơ đang xử lý thì textFlow
       // chạy tiếp trên hồ sơ đó; không có hồ sơ thì giữ hành vi cũ.
@@ -98,4 +100,7 @@ export default {
   },
 
   footer(ctx) { return menuText(availablePackages(ctx?.tools ?? null)); },
+
+  /** Chữ câu "đang tra" (issue #168). Lõi quyết định lúc gửi — `core/bao-dang-tra.js`. */
+  cauDangTra,
 };

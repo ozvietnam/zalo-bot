@@ -1,0 +1,7 @@
+// #168 KB6 — soát tờ khai (miễn phí): lỗi kèm căn cứ do Cổng trả; không tự gọi kiểm sâu (tính điểm).
+{"step":"mcp","tool":"soat_to_khai","returns":[{"ok":true,"data":{"ketQua":{"tongLoi":1,"loi":[{"muc":"Mô tả hàng","mucDo":"CAO","noiDung":"Thiếu model và công suất","canCu":"38/2015/TT-BTC"}]}}}]}
+{"step":"mcp","tool":"kiem_ma_to_khai","returns":[{"ok":true,"data":{"maLuot":"ml-kb6","trangThai":"DANG_XU_LY"}}]}
+{"step":"in","update":{"id":"kb6a","text":"soát tờ khai\nMã HS: 85094000\nMô tả: máy xay sinh tố\nXuất xứ: CN"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"Soát"}
+{"step":"expect","sentTo":"c1","mcpTool":"soat_to_khai","mcpCount":1}
+{"step":"expect","sentTo":"c1","mcpTool":"kiem_ma_to_khai","mcpCount":0}
