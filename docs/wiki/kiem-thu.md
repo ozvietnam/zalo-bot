@@ -1,6 +1,6 @@
 # Kiểm thử
 
-> Cập nhật: 2026-11-10 · commit: 14595d4
+> Cập nhật: 2026-11-11 · commit: a84e8bb
 
 Trang này nói: repo có những cổng kiểm nào, chạy lệnh gì, bộ test nằm ở đâu, số liệu kiểm thử thực tế và các công cụ đo lường chất lượng.
 
@@ -14,6 +14,7 @@ Trang này nói: repo có những cổng kiểm nào, chạy lệnh gì, bộ te
 | Đo SC | `npm run do-sc` | Đo lường SC-002, SC-007, SC-009 trên database SQLite thật | `package.json:16` |
 | Wiki | `node scripts/kiem-wiki.mjs` | Kiểm tiêu đề, mốc cập nhật, trích dẫn tới tệp thật, link sống | `scripts/kiem-wiki.mjs:1` |
 | QA thật | `node scripts/qa-that.mjs` | Bộ chạy QA kịch bản thực tế đích G2–G4 (5 kịch bản tự nhiên) | `scripts/qa-that.mjs:1` |
+| Đo độ đúng HS | `node scripts/do-dung-hs.mjs` | Chấm top-1/top-3 mã HS tám số trên bộ đề dựng từ văn bản pháp luật | `scripts/do-dung-hs.mjs:1` |
 | Webhook | `npm run webhook:info` | Đặt hoặc xem cấu hình webhook của bot Zalo | `package.json:17`, `package.json:18` |
 | Giám sát | `npm run giam-sat` | Chạy bộ quét giám sát 9 tín hiệu chất lượng và sự cố | `package.json:19`, `package.json:20` |
 
@@ -99,6 +100,41 @@ Bộ eval gồm 12 kịch bản tích hợp luồng và 5 ca kiểm trung lập:
 | 15 | `eval/chung/03-chan-sdt-va-so-tai-khoan.json` | Lọc và che triệt để số điện thoại và số tài khoản ngân hàng |
 | 16 | `eval/chung/04-hoi-nguoi-hay-may.json` | Phản hồi trung thực quy chuẩn khi khách hỏi vai trò bot |
 | 17 | `eval/chung/05-khach-xin-sdt.json` | Khách xin số điện thoại hỗ trợ → chuyển tiếp quy trình CSKH |
+
+---
+
+## Bộ đo độ đúng phân loại HS
+
+`node scripts/do-dung-hs.mjs` (`scripts/do-dung-hs.mjs:1`) trả lời một câu mà trước đây repo không đo được: **bot ra mã HS đúng bao nhiêu phần trăm?** Các cổng `npm test`, `npm run eval`, `qa-that` chỉ kiểm bot có *hành xử* đúng (không trùng tin, không bịa số hiệu, hỏi lại khi thiếu dữ kiện); chúng không nói mã trả ra có đúng mã của văn bản hay không.
+
+### Bộ đề dựng từ văn bản pháp luật
+
+Bộ đề nằm ở `eval/bo-de/phan-loai-tu-luat.json`: **52 ca, trải 26 chương** biểu thuế. Mỗi ca dựng từ hai nguồn pháp luật, không từ tờ khai cũ hay bộ vàng nội bộ (`oz-gold-final.jsonl`) — theo chỉ đạo CEO 10/11 "phân loại HS bám luật":
+
+- **tên dòng biểu thuế** (trường `tenDongBieuThue`, trỏ về dòng tám số bằng `nguon.tepBieuThue`);
+- **Thông báo kết quả phân loại của Tổng cục Hải quan** (`nguon.loai = "TB-TCHQ"`, kèm `nguon.soHieu`, `nguon.nam` và `nguon.trich` trích nguyên văn đoạn căn cứ).
+
+Ca nào văn bản đã nêu rõ mã dễ lẫn thì ghi vào `maLan` (50/52 ca có), nên bộ đề nặng về **ranh giới khó** chứ không phải hàng dễ. Câu khách (`cauKhach`) bị máy kiểm là **không được chứa sẵn mã HS** — mớm đáp án thì phép đo thành vô nghĩa.
+
+### Cách chấm
+
+Bộ đo chạy từng ca qua **đúng đường bot thật** (dùng lại `runSingleScenario` của `scripts/qa-that.mjs:384`, không dựng đường riêng), rồi chấm trên **tin gửi khách** — đúng thứ khách nhìn thấy, không phải dữ liệu thô của Cổng:
+
+- `top1`: mã ở dòng `✅ Mã HS đề xuất` (`packs/hs/render.js:293`) đúng mã của văn bản;
+- `top3`: mã đúng nằm trong mã chốt + mục `🔁 Mã khác cần cân nhắc` (`packs/hs/render.js:329`);
+- đo ở **tám số**: đúng 6 số đầu mà lệch 2 số cuối **không** tính là đúng, chỉ ghi cờ `dung6So` để biết lệch ở cấp nào;
+- `roiVaoMaLan`: bot rơi vào đúng mã mà văn bản đã loại trừ — ca trượt đáng lo nhất;
+- `msTrungBinh`: thời gian trung bình một ca.
+
+Hàm đọc mã chỉ nhặt mã trong **vùng liệt kê mã**, và mỗi dòng chỉ lấy một mã: render in `• 2106.10.00 — không phải 2106.90.00 vì…`, nhặt cả hai thì mã bị *loại trừ* trong lý do lại được tính là mã bot đề xuất và đẩy mã thật ra khỏi top-3.
+
+### Tự kiểm cái thước
+
+`test/core/do-dung-hs.test.mjs` có hai bài chạy bộ đo qua lõi thật với Cổng kịch bản: Cổng trả **đúng** mã của văn bản thì bộ đo phải báo **100%**, trả **sai** thì phải báo **0%**. Thiếu hai bài này thì một bộ đo hỏng (đọc sai khuôn tin, sai tên công cụ…) luôn báo 0% và trông y như một con bot kém.
+
+### Giới hạn hiện tại
+
+Chế độ `--mock` chỉ kiểm **đường đo chạy được**: Cổng OZ giả chỉ biết vài món nên mọi con số ra từ `--mock` **không phải độ đúng thật của bot**. Muốn có số thật phải chạy không có `--mock`, cần `OZ_MCP_TOKEN` và `GEMINI_API_KEY` — chưa chạy được trong môi trường agent vì repo chỉ có `.env.example`.
 
 ---
 

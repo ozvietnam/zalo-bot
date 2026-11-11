@@ -12,6 +12,11 @@ data/
 .superpowers/
 du-lieu-truot/
 
+# Báo cáo bộ đo độ đúng HS (scripts/do-dung-hs.mjs): tệp sinh ra mỗi lần chạy.
+# Bản `--mock` luôn ra ~0% vì Cổng giả chỉ biết vài món — commit vào repo thì người đọc
+# tưởng đó là độ đúng thật của bot. Số thật thì dán vào PR hoặc thẻ việc, kèm ngày chạy.
+bao-cao/do-dung/
+
 # Tệp siêu dữ liệu của macOS (AppleDouble, Finder) — không bao giờ commit
 ._*
 .DS_Store
