@@ -3,10 +3,10 @@
   "id": "chung-01-cong-loi-khong-bia-hs",
   "luat": "UX-01",
   "ten": "Cổng lỗi thì không bịa mã HS",
-  "moTa": "Khi Cổng OZ gặp sự cố kết nối hoặc AI bận, bot phải thông báo lỗi trung thực và tuyệt đối không tự bịa mã HS",
+  "moTa": "Khi Cổng OZ gặp sự cố kết nối hoặc AI bận, bot phải thông báo lỗi trung thực và tuyệt đối không tự bịa mã HS. Mô tả vào có đủ thông số để lượt đi tới Cổng: thiếu thông số thì bot hỏi lại trước (kỷ luật hỏi, #177 yêu cầu 2) và không đo được đường Cổng lỗi.",
   "loai": "hoi-thoai",
   "dauVao": {
-    "tinNhan": "máy hút bụi cầm tay",
+    "tinNhan": "máy hút bụi cầm tay 600W 220V",
     "mcp": {
       "phan_loai_hs": {
         "ok": true,

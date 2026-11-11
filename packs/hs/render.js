@@ -3,6 +3,7 @@
 // nhờ bộ dựng chung (renderGeneric).
 // Giao diện: mã HS in đậm, tiêu đề khối in đậm, cảnh báo màu — xem style.js.
 import { fmtHs } from './format.js';
+import { tenNuoc } from './input.js';
 // Ngoại lệ có chủ ý với luật "gói chỉ import core/types.js": dùng đúng một bộ dò lộ của cửa gửi (Hiến pháp IX), không chép bản thứ hai.
 import { findLeak } from '../../core/redact.js';
 import { b, balanceTags } from './style.js';
@@ -132,6 +133,26 @@ export function renderError(r) {
   if (/HET_DIEM|KHONG_DU_DIEM|DIEM/i.test(r?.loi || '')) lines.push('Tài khoản OZ của bot đã hết điểm cho công cụ này.');
   if (r?.diemDaHoan) lines.push('Điểm đã được hoàn.');
   return lines.join('\n');
+}
+
+/**
+ * Nhãn xuất xứ trong tin gửi khách — ĐÚNG MỘT cách nói cho mọi mẫu (issue #177, yêu cầu 3).
+ * Khách đã nói nước → "xuất xứ JP". Khách chưa nói → nói rõ là giả định, kèm cách sửa,
+ * vì mức thuế in ra phụ thuộc nước này (Điều III: số tiền phải có căn cứ trong lượt).
+ */
+export function nhanXuatXu(ma, giaDinh = false) {
+  const m = String(ma || '').toUpperCase();
+  if (!m) return '';
+  // KHÔNG dùng các câu kiểu "chưa có thông tin": bộ QA cấm (eval/qa-that/g4-mot-mot.json) vì khách
+  // đọc tưởng tra cứu thất bại, trong khi thực tế mã và thuế đều đã tra được.
+  //
+  // Nhãn này NGẮN, đúng câu issue #177 yêu cầu ("ghi rõ giả định xuất xứ Trung Quốc"), và KHÔNG kèm
+  // lời mời sửa. Lý do: nhãn nằm trong tiêu đề khối thuế, lượt nào cũng in. Hai lượt hỏi thuế liên
+  // tiếp cùng một mã (ví dụ "HS 84137090" rồi "thuế bao nhiêu?") vốn đã giống nhau 0.77 — sát ngưỡng
+  // 0.8 của lưới chống trùng ở cửa gửi (core/gate-decide.js) — nên mọi câu dài lặp y nguyên trong cả
+  // hai lượt sẽ đẩy quá ngưỡng và tin thứ hai bị bỏ. Lời mời khách sửa nước đặt ở MỘT dòng riêng
+  // (giong-quyen.js, và cảnh báo soát tờ khai ở packages.js gói 4), không nhồi vào tiêu đề.
+  return giaDinh ? `giả định xuất xứ ${tenNuoc(m)}` : `xuất xứ ${m}`;
 }
 
 /** Các dòng "• …" thuế suất của một dòng biểu thuế (dùng chung cho gói 2 và form kết quả phân loại). */
@@ -279,7 +300,7 @@ const duLieu = (r) => (r && r.ok !== false && !r.isError ? (r.data ?? r) : null)
  * → 🔴/✅ Chính sách quản lý (kèm văn bản) → 🔁 Mã khác cần cân nhắc → ⚠️ lưu ý. Mục nào Cổng lỗi/không có thì bỏ.
  * @param {{tenHang:string, maHs:string, phanLoai:object, thue?:object, thuTuc?:object, moTa?:object, xuatXu?:string}} o
  */
-export function renderPhanLoaiDayDu({ tenHang, maHs, phanLoai, thue, thuTuc, moTa, xuatXu = 'CN' }) {
+export function renderPhanLoaiDayDu({ tenHang, maHs, phanLoai, thue, thuTuc, moTa, xuatXu = 'CN', giaDinhXuatXu = false }) {
   const top = phanLoai?.data && typeof phanLoai.data === 'object' ? phanLoai.data : phanLoai || {};
   const kq = top.ketQua && typeof top.ketQua === 'object' ? top.ketQua : top;
   const list = (Array.isArray(kq.results) && kq.results) || (Array.isArray(kq.suggestions) && kq.suggestions) || [];
@@ -309,7 +330,9 @@ export function renderPhanLoaiDayDu({ tenHang, maHs, phanLoai, thue, thuTuc, moT
     if (thieu.length) l.push(`Cần bổ sung: ${clip([...new Set(thieu)].join('; '), 300)}`);
   }
 
-  if (tx) l.push('', `{b}💰 Thuế suất{/b}${xuatXu ? ` (xuất xứ ${xuatXu})` : ''}`, ...dongThueSuat(tx, xuatXu));
+  // Khách chưa nói nước (`giaDinhXuatXu`) → nói rõ đây là GIẢ ĐỊNH, không in "xuất xứ CN" như dữ
+  // kiện khách đã cung cấp (issue #177 yêu cầu 3; Điều III + Điều VIII).
+  if (tx) l.push('', `{b}💰 Thuế suất{/b}${xuatXu ? ` (${nhanXuatXu(xuatXu, giaDinhXuatXu)})` : ''}`, ...dongThueSuat(tx, xuatXu));
 
   const cs = phanTichChinhSach(duLieu(thuTuc));
   if (cs) {
