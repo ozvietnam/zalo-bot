@@ -156,9 +156,6 @@ export function canCuTienLe(tienLe) {
   }).filter(Boolean);
 }
 
-/** "(26/2023/NĐ-CP)" — chỉ khi có số hiệu; rỗng khi không có (KHÔNG bịa). */
-export const ngoac = (c) => (c?.so ? ` (${c.so})` : '');
-
 /**
  * Danh sách căn cứ đầy đủ (lệnh "căn cứ"): mỗi dòng số hiệu + việc + tình trạng hiệu lực + nguồn.
  * Văn bản không dùng được vẫn liệt kê (khách được biết) nhưng ghi rõ vì sao không làm căn cứ chính.
@@ -195,7 +192,9 @@ export const KHONG_CO_CAN_CU = 'Dạ Cổng OZ chưa có căn cứ cho ý này n
  */
 export function dongCanCuNgan({ thue = null, chinhSach = [] } = {}) {
   const cs = chinhSach.find((c) => c.dung && c.mucDo === 'BLOCKING') || null;
-  const ds = [thue?.mfn, cs && { so: cs.so, viec: cs.viec || 'chính sách quản lý' }, thue?.fta, thue?.vat].filter((c) => c?.so);
+  // "Phải công bố hợp quy (rủi ro trung bình)" → "phải công bố hợp quy": trong ngoặc của dòng căn cứ thì ngắn gọn.
+  const gon = (v) => String(v || 'chính sách quản lý').replace(/\s*\([^()]*\)\s*$/, '').replace(/^\p{Lu}/u, (m) => m.toLowerCase());
+  const ds = [thue?.mfn, cs && { so: cs.so, viec: gon(cs.viec) }, thue?.fta, thue?.vat].filter((c) => c?.so);
   const chon = ds.filter((c, i) => ds.findIndex((x) => x.so === c.so) === i).slice(0, 3);
   return chon.length ? `📚 Căn cứ: ${chon.map((c) => `${c.so} (${c.viec})`).join(', ')}` : '';
 }

@@ -12,6 +12,13 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-11 — Issue #168: báo "đang tra", căn cứ pháp lý từ Cổng, chống bịa số hiệu
+
+- **Commit mã nguồn đã đọc:** nhánh `claude/168-can-cu-bao-dang-tra` (gốc `403be42`).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (thêm dòng Issue #168 ở mục 3), `docs/wiki/an-toan.md` (số dòng thật của `core/engine.js` và `packs/hs/packages.js`), `docs/wiki/log.md`.
+- **Vì sao:** #168 đổi hành vi gửi tin: thêm kind `progress` (câu "đang tra" ≤ 3 giây, không ăn suất tin/ngày, giờ yên thì bỏ), tin trả lời kèm căn cứ pháp lý chỉ lấy từ Cổng, và một chốt chặn bỏ dòng có số hiệu văn bản không có nguồn. Trang tiến độ ghi rõ phần còn dở (luồng "chốt mã 8 số + menu 1–4", KB9, chấm Gemini, chạy Cổng thật).
+- **Kiểm tra:** `node scripts/kiem-wiki.mjs --nghiem` ĐẠT, `npm test` xanh, `npm run eval` 32/32.
+
 ## 2026-11-11 — WIKI-04: Cập nhật docs/wiki/tien-do.md ghi nhận T801, T804, T805 Spec 008 đã gộp
 
 - **Commit mã nguồn đã đọc:** `dc03bfb`.

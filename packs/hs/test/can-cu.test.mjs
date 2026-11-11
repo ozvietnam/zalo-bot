@@ -143,3 +143,11 @@ test('canCuTienLe: số TB-TCHQ lấy đúng từ tra_tien_le', () => {
   const r = canCuTienLe({ ok: true, data: { items: [{ tbTchqNumber: '3516/TB-TCHQ', year: 2023 }, { productName: 'không số' }] } });
   assert.deepEqual(r.map((x) => [x.so, x.nam]), [['3516/TB-TCHQ', 2023]]);
 });
+
+test('gói 5 tiền lệ mã 8 số: số TB-TCHQ Cổng trả được lưu, gõ "căn cứ" mở lại đúng số đó', async () => {
+  const { ctx } = fakeCtx({ tra_tien_le: { ok: true, data: { found: true, total: 1, items: [{ tbTchqNumber: '3516/TB-TCHQ', year: 2023, productName: 'Máy xay sinh tố' }] } },
+    tra_chu_giai: { ok: true, data: { chuGiai: 'Nhóm 85.09' } } });
+  await hs.handle(turn('tiền lệ 85094000'), ctx);
+  const s = plain((await hs.handle(turn('căn cứ'), ctx)).replies[0].text);
+  assert.match(s, /3516\/TB-TCHQ \(2023\) — tiền lệ phân loại/);
+});

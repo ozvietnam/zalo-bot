@@ -519,6 +519,10 @@ export const PACKAGES = [
       }
       if (!jobs.length) return ask('Chưa thấy số hiệu văn bản, mã HS hay mô tả hàng.', this.mau);
       const res = await Promise.all(jobs.map(([, p]) => p.catch(() => ({ ok: false, loi: 'CONG_KHONG_TRA_LOI', transport: true }))));   // lỗi gốc đã vào audit 'tool' của lõi
+      // Tiền lệ mã 8 số: lưu số TB-TCHQ Cổng trả để lệnh "căn cứ" mở lại đúng (issue #168, KB1/KB8).
+      const iTl = jobs.findIndex(([, , tl]) => tl === 'ma');
+      const ccTl = iTl >= 0 ? goiCanCu({ tienLe: res[iTl], maHs: hs }) : null;
+      if (ccTl) ctx.session.canCu = ccTl;
       return jobs.map(([t, , tienLe], i) => {
         const r = res[i];
         if (tienLe && (tienLe === 'nhanh' ? r?.rong : tienLeRong(r))) ghiTruot(ctx, 'TIEN_LE_RONG', { goi: 5, cau: text, maHs: hs || null, moTa: tienLe === 'moTa' ? conLai.slice(0, 300) : null });
