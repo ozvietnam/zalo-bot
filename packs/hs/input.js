@@ -136,3 +136,21 @@ export function xuatXuCua(...nguon) {
   }
   return { ma: XUAT_XU_MAC_DINH, giaDinh: true };
 }
+
+/**
+ * Chữ của HỒ SƠ MẠCH (#170) để quét xuất xứ: nước khách nêu ở lượt TRƯỚC phải còn giá trị ở lượt
+ * sau. Thiếu nguồn này thì khách nói "máy sấy sinh tố hàng Nhật" rồi đáp "350W 220V" là bot tra
+ * thuế theo CN và báo "giả định xuất xứ Trung Quốc" — in mức thuế của một nước khách KHÔNG nói,
+ * trong khi khách đã nói nước khác (điểm 5 người soát PR #203 nêu; chạm Điều III và Điều VIII).
+ *
+ * Hồ sơ không có ô "xuất xứ" riêng, nên nước nằm trong `moTa` / các câu khách nói thêm (`sua`).
+ * Trả về chuỗi tự do — chỉ quét bằng `findCountryInText`, KHÔNG dùng `countryCode` (xem ghi chú
+ * của `xuatXuCua`: mô tả "van bi DN25 PN16 CF8M" sẽ bị đọc thành mã nước).
+ * @param {object|null} hoSo
+ * @returns {string} chuỗi rỗng khi không có gì để quét
+ */
+export function chuHoSoChoXuatXu(hoSo) {
+  const h = hoSo && typeof hoSo === 'object' ? hoSo : {};
+  return [h.moTa, h.congDung, h.chuAnh, ...(Array.isArray(h.sua) ? h.sua : [])]
+    .map((x) => String(x || '').trim()).filter(Boolean).join(' ');
+}

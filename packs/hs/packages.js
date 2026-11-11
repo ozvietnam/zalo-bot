@@ -2,7 +2,7 @@
 // Mỗi gói gom 1 hoặc nhiều công cụ của Cổng OZ (MCP). Muốn thêm gói khi Cổng có công cụ mới:
 // thêm một mục vào PACKAGES (so, ten, congCu, mau, chay). Gói chỉ hiện khi Cổng có đủ công cụ bắt buộc.
 // Gói có việc nền (1, 4) tách chay thành batDau (gọi Cổng, không chờ) + xong (dựng chữ từ kết quả) để index.js giao việc cho lõi.
-import { parseLabeled, firstHs8, allHs8, soHieuList, countryCode, findCountryInText, norm, laNhanChung, xuatXuCua, tenNuoc } from './input.js';
+import { parseLabeled, firstHs8, allHs8, soHieuList, countryCode, findCountryInText, norm, laNhanChung, xuatXuCua, chuHoSoChoXuatXu, tenNuoc } from './input.js';
 import { renderResult, renderClassify, nhacPhongVe, renderPhanLoaiDayDu, nhanXuatXu } from './render.js';
 import { renderShtt, nhacNhanChung, donNhanChung } from './render-shtt.js';
 import { plain } from './style.js';
@@ -22,6 +22,12 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * `ctx.hoSo` là bản `chay-goi.js` đang chạy gói trên đó; không có thì lấy bản trong phiên.
  */
 const hoSoCuaMach = (ctx) => ctx?.hoSo ?? ctx?.session?.hoSo ?? null;
+
+/**
+ * Xuất xứ của lượt, có tính HỒ SƠ MẠCH (#170): nước khách nêu ở lượt trước vẫn còn giá trị.
+ * Nguồn của lượt này đứng TRƯỚC hồ sơ — khách vừa nói nước khác thì lời mới nhất thắng.
+ */
+const xuatXuCuaMach = (ctx, ...nguon) => xuatXuCua(...nguon, chuHoSoChoXuatXu(hoSoCuaMach(ctx)));
 const has = (ctx, name) => !ctx.tools || ctx.tools.has(name);
 const laLegacyTest = Boolean(typeof process !== 'undefined' && process.argv?.some((a) => a.includes('test/test.mjs')));
 
@@ -295,7 +301,7 @@ export const PACKAGES = [
       if (maHs && st !== 'CAN_DU_KIEN' && r?.ok !== false) {
         // Xuất xứ: lấy nước khách NÓI; chưa nói thì vẫn phải có một nước để gọi Cổng, nhưng mang
         // theo cờ `giaDinh` để tin nói rõ đó là giả định (issue #177, yêu cầu 3 — không in "xuất xứ CN" trơ).
-        const { ma: xx, giaDinh: xxGiaDinh } = xuatXuCua(String(tenHang || ''), cauMoi);
+        const { ma: xx, giaDinh: xxGiaDinh } = xuatXuCuaMach(ctx, String(tenHang || ''), cauMoi);
         const ml = UUID.test(maLuot || '') ? maLuot : null;
         const [thue, thuTuc, moTa] = await Promise.all([
           has(ctx, 'tra_thue') ? ctx.mcp.callTool('tra_thue', { maHs, xuatXu: xx }).catch((err) => {
@@ -357,7 +363,7 @@ export const PACKAGES = [
         }
       }
       if (maHs) {
-        const { ma: xx, giaDinh: xxGiaDinh } = xuatXuCua(String(tenHang || ''), cauMoi);
+        const { ma: xx, giaDinh: xxGiaDinh } = xuatXuCuaMach(ctx, String(tenHang || ''), cauMoi);
         // Chuỗi tự kèm sau khi có mã: thuế + chính sách (gói 2), tra cứu miễn phí. Chú giải + tiền lệ (gói 5) KHÔNG tự kèm
         // (chủ repo bỏ 06/11: dài, khách chưa cần) — khách gõ "5" khi cần. Nhãn hiệu (gói 6) TÍNH ĐIỂM nên chỉ chạy khi
         // khách nêu thương hiệu và mã đã chốt (không chạy trên mã tạm).
@@ -425,7 +431,7 @@ export const PACKAGES = [
       }
       // Gói 2 nhận "84137090 JP": phần còn lại sau khi bỏ mã số là Ô NƯỚC khách gõ ({ nhan }),
       // nên chấp cả mã trơ "JP". Khách không gõ nước → vẫn tra theo mặc định nhưng nói rõ là giả định.
-      const { ma: xuatXu, giaDinh: xxGiaDinh } = xuatXuCua({ nhan: text.replace(/[\d.\s]{4,}/, '').trim() }, text);
+      const { ma: xuatXu, giaDinh: xxGiaDinh } = xuatXuCuaMach(ctx, { nhan: text.replace(/[\d.\s]{4,}/, '').trim() }, text);
       const [thue, thuTuc] = await Promise.all([
         ctx.mcp.callTool('tra_thue', { maHs, xuatXu }),
         maHs.length === 8 && has(ctx, 'tra_thu_tuc_nhap_khau') ? ctx.mcp.callTool('tra_thu_tuc_nhap_khau', { maHs }).catch((err) => {
@@ -490,7 +496,7 @@ export const PACKAGES = [
       const maHs = firstHs8(v.maHs || '') || firstHs8(conLai) || ctx.session.last?.maHs;
       const moTa = (v.moTa || conLai.replace(/(?<!\d)\d{4}[.\s]?\d{2}[.\s]?\d{2}(?!\d)/, '').trim()).slice(0, 2000);
       if (!maHs || moTa.length < 3) return ask('Cần mã HS 8 số và mô tả hàng như sẽ khai.', this.mau);
-      const { ma: xuatXu, giaDinh: xxGiaDinh } = xuatXuCua({ nhan: v.xuatXu }, text);
+      const { ma: xuatXu, giaDinh: xxGiaDinh } = xuatXuCuaMach(ctx, { nhan: v.xuatXu }, text);
       const dong = clean({ stt: 1, maHs, moTa, xuatXu, thongSo: v.thongSo });
       const sau = /^(co|có|yes|1|x)/i.test(norm(v.sau || '')) && has(ctx, 'kiem_ma_to_khai');
       if (sau) {

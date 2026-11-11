@@ -144,80 +144,93 @@ export function kiemTraThongTinPhanLoai(text, { vongHoi = 0, goi = null, hoSo = 
   const laMayMocNgan = /^(m[aáàảãạ]y|thi[eế]t\s*b[iị]|n[oồổỗộ]i|qu[aạ]t)\b/i.test(sSach) && soTu < 8;
   const coLoaiCongDung = coCongDung || /(gia\s*d[iì]nh|c[oô]ng\s*nghi[eệ]p|gia\s*d[uụ]ng|d[aâ]n\s*d[uụ]ng|c[aâàảãạáầẩẫậấ]m\s*tay|di\s*[đd][oộ]ng|mini)/i.test(sSach) || /(gia\s*dinh|cong\s*nghiep|gia\s*dung|dan\s*dung|cam\s*tay|di\s*dong|mini)/i.test(norm(sSach));
 
+  // KHÔNG còn cổng `!coLoaiCongDung && !coCongSuat && !coDienAp && !coDungTich` ở đây. Cổng đó làm
+  // khách nêu ĐÚNG MỘT đại lượng ("máy bơm 350W") là rụng luôn cả nhánh — bot thôi hỏi những đại
+  // lượng CÒN THIẾU; và vào được khối thì mọi `co[khoa]` đều false nên `gomCau`/`cauXinThem` thành
+  // mã chết (điểm 1 người soát PR #203 nêu, đã tái hiện bằng test). Nay dựng đủ câu rồi để
+  // `gomCau`/`cauXinThem` bỏ ĐÚNG phần khách đã nêu — y cách erp-xnk làm ở
+  // `buildQuestionsFromFields` (lặp từng field, bỏ field khách đã có). Tới đây là `soChiTiet < 2`
+  // (mục 3 đã trả về khi đủ) nên luôn còn ít nhất một câu thật để hỏi.
   if (laDienGiaDung || laMayMocNgan) {
-    if (!coLoaiCongDung && !coCongSuat && !coDienAp && !coDungTich) {
-      let cau1 = '';
-      let muc = [];
-      let duoi = 'có thì em chốt mã chuẩn hơn ạ.';
-      let giaDinh = '';
+    // `coLoaiCongDung` rộng hơn `co.congDung` (bắt cả "mini", "cầm tay", "dân dụng"), nên câu
+    // "gia đình hay công nghiệp" phải lọc theo nó, không theo `co.congDung` trơ.
+    const coNay = { ...co, congDung: coLoaiCongDung };
+    let cau1 = '';
+    let muc = [];
+    const duoi = 'có thì em chốt mã chuẩn hơn ạ.';
+    let giaDinh = '';
 
-      if (/n[oồổỗộ]i\s*chi[eêếềểễệ]n/i.test(sSach)) {
-        cau1 = 'Dạ anh cho em hỏi nồi chiên này dùng cho gia đình hay công nghiệp ạ?';
-        muc = [{ khoa: 'dungTich', chu: 'dung tích (lít)' }, { khoa: 'congSuat', chu: 'công suất (W)' }];
-        giaDinh = 'nồi chiên không dầu gia dụng, dung tích ~5L, công suất 1500W, điện áp 220V';
-      } else if (/m[aáàảãạ]y\s*b[oơớờởỡợ]m/i.test(sSach)) {
-        cau1 = 'Dạ anh cho em hỏi máy bơm này dùng cho gia đình hay công nghiệp ạ?';
-        muc = [{ khoa: 'congSuat', chu: 'công suất (HP/kW)' }, { khoa: 'dienAp', chu: 'điện áp' }];
-        giaDinh = 'máy bơm nước ly tâm gia đình, điện áp 220V';
-      } else if (/qu[aạ]t\s*[đd]i[eệ]n|qu[aạ]t/i.test(sSach)) {
-        cau1 = 'Dạ anh cho em hỏi quạt điện này là loại gia dụng hay công nghiệp ạ?';
-        muc = [{ khoa: 'congSuat', chu: 'công suất (W)' }, { khoa: 'dienAp', chu: 'điện áp' }];
-        giaDinh = 'quạt điện gia dụng công suất ~50W, điện áp 220V';
-      } else {
-        cau1 = `Dạ anh cho em hỏi ${sSach} này dùng cho gia đình hay công nghiệp ạ?`;
-        muc = [{ khoa: 'congSuat', chu: 'công suất (W)' }, { khoa: 'dienAp', chu: 'điện áp' }];
-        giaDinh = `${sSach} loại thông dụng trong gia đình, điện áp 220V`;
-      }
-
-      return ketQuaHoi({
-        s,
-        tenGoiY: sSach,
-        thieu: muc.filter((m) => !co[m.khoa]).map((m) => m.khoa),
-        cauHoi: gomCau([
-          { cau: cau1, dai: ['congDung'] },
-          { cau: cauXinThem(muc, co, duoi), dai: muc.map((m) => m.khoa) },
-        ], co),
-        giaDinh,
-      });
+    if (/n[oồổỗộ]i\s*chi[eêếềểễệ]n/i.test(sSach)) {
+      cau1 = 'Dạ anh cho em hỏi nồi chiên này dùng cho gia đình hay công nghiệp ạ?';
+      muc = [{ khoa: 'dungTich', chu: 'dung tích (lít)' }, { khoa: 'congSuat', chu: 'công suất (W)' }];
+      giaDinh = 'nồi chiên không dầu gia dụng, dung tích ~5L, công suất 1500W, điện áp 220V';
+    } else if (/m[aáàảãạ]y\s*b[oơớờởỡợ]m/i.test(sSach)) {
+      cau1 = 'Dạ anh cho em hỏi máy bơm này dùng cho gia đình hay công nghiệp ạ?';
+      muc = [{ khoa: 'congSuat', chu: 'công suất (HP/kW)' }, { khoa: 'dienAp', chu: 'điện áp' }];
+      giaDinh = 'máy bơm nước ly tâm gia đình, điện áp 220V';
+    } else if (/qu[aạ]t\s*[đd]i[eệ]n|qu[aạ]t/i.test(sSach)) {
+      cau1 = 'Dạ anh cho em hỏi quạt điện này là loại gia dụng hay công nghiệp ạ?';
+      muc = [{ khoa: 'congSuat', chu: 'công suất (W)' }, { khoa: 'dienAp', chu: 'điện áp' }];
+      giaDinh = 'quạt điện gia dụng công suất ~50W, điện áp 220V';
+    } else {
+      cau1 = `Dạ anh cho em hỏi ${sSach} này dùng cho gia đình hay công nghiệp ạ?`;
+      muc = [{ khoa: 'congSuat', chu: 'công suất (W)' }, { khoa: 'dienAp', chu: 'điện áp' }];
+      giaDinh = `${sSach} loại thông dụng trong gia đình, điện áp 220V`;
     }
+
+    return ketQuaHoi({
+      s,
+      tenGoiY: sSach,
+      thieu: [...(coLoaiCongDung ? [] : ['congDung']), ...muc.filter((m) => !co[m.khoa]).map((m) => m.khoa)],
+      cauHoi: gomCau([
+        { cau: cau1, dai: ['congDung'] },
+        { cau: cauXinThem(muc, coNay, duoi), dai: muc.map((m) => m.khoa) },
+      ], coNay),
+      giaDinh,
+    });
   }
 
   // 5. Nhóm cơ khí / vật liệu / linh kiện chỉ nêu tên cụt (1–4 từ)
+  // Cũng KHÔNG còn cổng `!coKichThuoc && !coQuyCach`: khách nêu kích thước ("van bi DN25") thì cổng
+  // đó làm rụng luôn câu chất liệu — mà chất liệu là thứ đổi dòng thuế của van/ống (điểm 2 người
+  // soát PR #203 nêu). Mỗi câu khai đủ đại lượng nó hỏi, `gomCau` bỏ câu đã vô ích.
   if (soTu <= 4 && CO_KHI_VAT_LIEU_RE.test(sSach)) {
-    if (!coKichThuoc && !coQuyCach) {
-      let cau1 = '';
-      let daiCau1 = ['chatLieu'];
-      let muc = [];
-      let giaDinh = '';
+    let cau1 = '';
+    let daiCau1 = ['chatLieu'];
+    let muc = [];
+    let noi = ' và ';
+    let giaDinh = '';
 
-      if (/van(\s*bi)?/i.test(sSach)) {
-        cau1 = 'Dạ van bi này chất liệu bằng đồng, inox hay nhựa ạ?';
-        muc = [{ khoa: 'kichThuoc', chu: 'kích thước đường kính (DN) hoặc mục đích dùng' }];
-        giaDinh = 'van bi đồng hoặc inox dùng cho đường ống nước thông thường';
-      } else if (/[oố]ng(\s*th[eé]p)?/i.test(sSach)) {
-        // Câu này hỏi QUY CÁCH (đúc/hàn/mạ kẽm), không phải chất liệu — nhánh chỉ vào đây khi
-        // quy cách còn thiếu, nên nó không bao giờ là câu hỏi lại điều khách đã nêu.
-        cau1 = 'Dạ ống thép này là loại đúc hay hàn, có mạ kẽm không ạ?';
-        daiCau1 = ['quyCach'];
-        muc = [{ khoa: 'kichThuoc', chu: 'đường kính và độ dày' }];
-        giaDinh = 'ống thép hàn, không mạ kẽm, quy cách thông dụng';
-      } else {
-        cau1 = `Dạ anh cho em hỏi ${sSach} này làm bằng chất liệu gì ạ?`;
-        muc = [{ khoa: 'kichThuoc', chu: 'quy cách kích thước hoặc công dụng' }];
-        giaDinh = `${sSach} chất liệu thông dụng trong công nghiệp`;
-      }
-
-      return ketQuaHoi({
-        s,
-        tenGoiY: sSach,
-        thieu: [...(daiCau1.every((k) => co[k]) ? [] : daiCau1), ...muc.filter((m) => !co[m.khoa]).map((m) => m.khoa)],
-        cauHoi: gomCau([
-          { cau: cau1, dai: daiCau1 },
-          { cau: cauXinThem(muc, co, 'có thì em chốt mã chuẩn hơn ạ.'), dai: muc.map((m) => m.khoa) },
-        ], co),
-        giaDinh,
-      });
+    if (/van(\s*bi)?/i.test(sSach)) {
+      cau1 = 'Dạ van bi này chất liệu bằng đồng, inox hay nhựa ạ?';
+      // Câu xin hỏi GỘP hai đại lượng ("kích thước … hoặc mục đích dùng") nên phải khai CẢ HAI:
+      // khai thiếu thì khách đã nêu công dụng vẫn bị hỏi lại mục đích dùng (điểm 3 người soát nêu).
+      muc = [{ khoa: 'kichThuoc', chu: 'kích thước đường kính (DN)' }, { khoa: 'congDung', chu: 'mục đích dùng' }];
+      noi = ' hoặc ';
+      giaDinh = 'van bi đồng hoặc inox dùng cho đường ống nước thông thường';
+    } else if (/[oố]ng(\s*th[eé]p)?/i.test(sSach)) {
+      // Câu này hỏi QUY CÁCH (đúc/hàn/mạ kẽm), không phải chất liệu.
+      cau1 = 'Dạ ống thép này là loại đúc hay hàn, có mạ kẽm không ạ?';
+      daiCau1 = ['quyCach'];
+      muc = [{ khoa: 'kichThuoc', chu: 'đường kính và độ dày' }];
+      giaDinh = 'ống thép hàn, không mạ kẽm, quy cách thông dụng';
+    } else {
+      cau1 = `Dạ anh cho em hỏi ${sSach} này làm bằng chất liệu gì ạ?`;
+      muc = [{ khoa: 'kichThuoc', chu: 'quy cách kích thước' }, { khoa: 'congDung', chu: 'công dụng' }];
+      noi = ' hoặc ';
+      giaDinh = `${sSach} chất liệu thông dụng trong công nghiệp`;
     }
+
+    return ketQuaHoi({
+      s,
+      tenGoiY: sSach,
+      thieu: [...(daiCau1.every((k) => co[k]) ? [] : daiCau1), ...muc.filter((m) => !co[m.khoa]).map((m) => m.khoa)],
+      cauHoi: gomCau([
+        { cau: cau1, dai: daiCau1 },
+        { cau: cauXinThem(muc, co, 'có thì em chốt mã chuẩn hơn ạ.', noi), dai: muc.map((m) => m.khoa) },
+      ], co),
+      giaDinh,
+    });
   }
 
   return { canHoi: false, giaDinh: null, thieu: [] };

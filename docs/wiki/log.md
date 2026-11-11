@@ -12,6 +12,29 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-11 — Vá năm điểm người soát CHẶN PR #203
+
+- **Commit mã nguồn đã đọc:** nhánh `ozv-251-hs-xuat-xu-khong-mac-dinh` (trên `34fd6ea`).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (thêm dòng cho đợt vá #203),
+  `docs/wiki/an-toan.md` (số dòng thật của `packs/hs/packages.js` 636 → 642), `docs/wiki/log.md`.
+- **Vì sao:** người soát (soat-khac/Gemini) kết luận CHẶN với 5 điểm. Mỗi điểm được viết thành một
+  ca test ĐO hành vi thật trước khi sửa (`packs/hs/test/soat-203.test.mjs`) để biết thật hay báo sai:
+  điểm 1, 2, 3, 5 đỏ (lỗi thật, đã vá); điểm 4 xanh ngay từ đầu (báo sai ở mức hành vi — vẫn siết
+  ngữ nghĩa `ketQuaHoi` và khoá bằng test).
+- **Điểm nặng nhất (điểm 5):** nước khách nêu ở lượt TRƯỚC bị rụng, bot gọi `tra_thue` theo `'CN'`
+  và in "giả định xuất xứ Trung Quốc" trong khi khách đã nói Nhật — in mức thuế của một nước khách
+  KHÔNG nói (Điều III + Điều VIII). Vá bằng `chuHoSoChoXuatXu` (`packs/hs/input.js`) + `xuatXuCuaMach`
+  (`packs/hs/packages.js`): hồ sơ mạch #170 thành nguồn xuất xứ ưu tiên THẤP hơn lượt hiện tại.
+- **Dùng lại từ repo khác (MCP sourcebot):** tra `erp-xnk/src/lib/portal-review-questions.ts`, dùng lại
+  luật `buildQuestionsFromFields` — một field một câu, bỏ field khách đã nêu, KHÔNG có cổng
+  tất-cả-hoặc-không. Hai cổng bị người soát nêu chính là chỗ bản vá cũ lệch khỏi luật nó nói là chép.
+- **Hai ca eval phải đổi dữ kiện vào:** `cong-ai-ban` và `chung/01-cong-loi-khong-bia-hs` dùng
+  "máy hút bụi cầm tay"; sau vá điểm 1 thì mô tả thiếu thông số bị hỏi lại trước và không tới Cổng,
+  nên hai kịch bản mất chỗ đo đường CỔNG LỖI. Đổi thành "máy hút bụi cầm tay 600W 220V" (ghi lý do
+  ngay trong tệp fixture và trường `moTa` của ca chung).
+- **Cổng máy:** `npm test` 1095/1095 + 34 test đạt, `npm run eval` 32/32,
+  `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.
+
 ## 2026-11-11 — Issue #177 (yêu cầu 2): kỷ luật hỏi — không hỏi lại điều khách đã nêu
 
 - **Commit mã nguồn đã đọc:** nhánh `ozv-251-hs-xuat-xu-khong-mac-dinh` (trên `9aa2fed`).

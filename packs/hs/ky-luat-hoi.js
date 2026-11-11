@@ -61,18 +61,27 @@ export function gomCau(cacCau, co) {
     .join(' ');
 }
 
-/** Câu "cho em xin thêm …" CHỈ nêu đại lượng còn thiếu — không xin lại điều khách vừa gõ. */
-export function cauXinThem(muc, co, duoi) {
+/**
+ * Câu "cho em xin thêm …" CHỈ nêu đại lượng còn thiếu — không xin lại điều khách vừa gõ.
+ * Mỗi mục là MỘT đại lượng (đúng cách erp-xnk làm ở `buildQuestionsFromFields`: một field một câu,
+ * field khách đã có thì bỏ). Câu hỏi gộp hai đại lượng thì khai hai mục, `noi` là từ nối giữa
+ * chúng — khách đã nêu một trong hai thì chữ còn lại tự rút đúng phần còn thiếu.
+ * @param {Array<{khoa: string, chu: string}>} muc
+ * @param {string} [noi] Từ nối khi còn nhiều mục (' và ' mặc định, ' hoặc ' cho câu "cái này hoặc cái kia").
+ */
+export function cauXinThem(muc, co, duoi, noi = ' và ') {
   const con = muc.filter((m) => !co[m.khoa]);
   if (!con.length) return '';
-  return `Anh/chị cho em xin thêm ${con.map((m) => m.chu).join(' và ')} nhé — ${duoi}`;
+  return `Anh/chị cho em xin thêm ${con.map((m) => m.chu).join(noi)} nhé — ${duoi}`;
 }
 
 /**
- * Kết quả một nhánh hỏi lại. Kỷ luật hỏi lọc HẾT câu (khách đã nêu đủ) → không hỏi lượt nào nữa,
- * trả giả định như khi hết vòng hỏi: gửi tin rỗng thì khách mất lượt (Điều II).
+ * Kết quả một nhánh hỏi lại. Kỷ luật hỏi lọc HẾT câu → khách đã NÊU đủ dữ kiện, nên tra luôn
+ * (gửi tin rỗng thì khách mất lượt — Điều II) và KHÔNG gán giả định: chuỗi `giaDinh` của nhánh là
+ * lời dành cho trường hợp khách TỪ CHỐI trả lời ("cứ tra đi"). Nói "em giả định 350W" khi khách
+ * vừa tự gõ 350W là nói sai điều khách đã nói (Điều VIII) — điểm 4 người soát PR #203 nêu.
  */
 export function ketQuaHoi({ s, tenGoiY, thieu, cauHoi, giaDinh }) {
-  if (!String(cauHoi || '').trim()) return { canHoi: false, giaDinh, thieu: [] };
+  if (!String(cauHoi || '').trim()) return { canHoi: false, giaDinh: null, thieu: [] };
   return { canHoi: true, tenGoc: s, tenGoiY, thieu, cauHoi, giaDinhMacDinh: giaDinh };
 }
