@@ -12,16 +12,53 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
-<<<<<<< ours
-<<<<<<< ours
+## 2026-11-11 — Gỡ dấu xung đột git bị commit khi rebase #203 lên main (PR #207)
+
+- **Commit mã nguồn đã đọc:** nhánh `vp/203-1794413716` (trên `f0af33a`), gốc `d797f0e`.
+- **Trang wiki đã sửa:** `docs/wiki/an-toan.md` (gỡ dấu xung đột, số dòng thật), `docs/wiki/log.md` (gỡ dấu xung đột, trả lại mục bị rebase làm rụng).
+- **Vì sao:** đợt rebase #203 lên `main` mới commit cả dấu xung đột chưa gỡ (`<<<<<<< ours`,
+  `=======`, `>>>>>>> theirs`) vào hai trang wiki. Hệ quả đo được: câu "Hiện tại có ba tệp vượt quá
+  300 dòng" bị nhân BA với ba bộ số dòng khác nhau (620/627/636 cho `packs/hs/packages.js`), nên
+  `test/core/wiki-no-lon-dong.test.mjs` trượt 2 ca — `npm test` ĐỎ. Rebase cũng làm RỤNG hẳn mục
+  nhật ký "Vá năm điểm người soát CHẶN PR #203"; đã lấy lại nguyên văn từ
+  `origin/ozv-251-hs-xuat-xu-khong-mac-dinh`.
+- **Cổng còn thiếu, đã bù:** `node scripts/kiem-wiki.mjs --nghiem` vẫn báo "ĐẠT (16 trang)" khi wiki
+  đang chứa dấu xung đột — cổng wiki không đo việc này, lỗi chỉ lộ ở một cổng khác và chỉ với tệp có
+  ghi số dòng. Thêm cổng mới `test/core/khong-dau-xung-dot.test.mjs` quét toàn repo: không tệp nào
+  được chứa dấu xung đột. Test viết ĐỎ trước (bắt đúng 18 dòng dấu ở hai tệp) rồi mới gỡ.
+- **Số dòng thật (`wc -l` ngày 2026-11-11):** `packs/hs/packages.js` 642, `packs/hs/render.js` 471,
+  `core/engine.js` 340.
+
 ## 2026-11-11 — Issue #201 / OZV-250: trong nhóm, người hỏi tiếp thì bot im (cửa gửi bỏ oan)
 
 - **Commit mã nguồn đã đọc:** `34fd6ea` (nhánh `main`).
 - **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (thêm dòng Issue #201 ở mục 3), `docs/wiki/an-toan.md` (số dòng thật của `core/gate.js` và `core/engine.js`), `docs/wiki/log.md`.
 - **Vì sao:** #201 đổi hành vi cửa gửi. Bước 6 (chống trùng Jaccard) trước đây so chữ với MỌI tin bot gần đây, nên câu trả lời cho một câu hỏi MỚI bị bỏ chỉ vì trùng chữ câu trước — đo thật trên `main` với gói `packs/hs` thật: QA G2 bước 4 cho `drop: similar:1.00` và bot không gửi gì. Nay phạm vi chống trùng là MỘT CÂU KHÁCH: dấu hiệu là CHỮ câu khách đã chuẩn hoá (`askKey`), không phải mã lượt — vì khách bấm gửi hai lần thì mã lượt KHÁC nhau nhưng chữ GIỐNG nhau, lấy mã lượt sẽ tắt đúng lớp chặn của sự cố #2. Hai ngoại lệ ghi rõ trong code: câu "đang tra" (`progress`) là chữ khuôn nên không được miễn trừ (sự cố #9), và chữ khách rỗng ("@bot" trơ trọi) tính là không biết nên vẫn so chữ (điểm [S6] của người soát).
 - **Kiểm tra:** `npm test` 1078/1078 xanh, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6 (G2 ĐẠT), `node scripts/kiem-wiki.mjs` ĐẠT (16 trang).
-=======
-=======
+
+## 2026-11-11 — Vá năm điểm người soát CHẶN PR #203
+
+- **Commit mã nguồn đã đọc:** nhánh `ozv-251-hs-xuat-xu-khong-mac-dinh` (trên `34fd6ea`).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (thêm dòng cho đợt vá #203),
+  `docs/wiki/an-toan.md` (số dòng thật của `packs/hs/packages.js` 636 → 642), `docs/wiki/log.md`.
+- **Vì sao:** người soát (soat-khac/Gemini) kết luận CHẶN với 5 điểm. Mỗi điểm được viết thành một
+  ca test ĐO hành vi thật trước khi sửa (`packs/hs/test/soat-203.test.mjs`) để biết thật hay báo sai:
+  điểm 1, 2, 3, 5 đỏ (lỗi thật, đã vá); điểm 4 xanh ngay từ đầu (báo sai ở mức hành vi — vẫn siết
+  ngữ nghĩa `ketQuaHoi` và khoá bằng test).
+- **Điểm nặng nhất (điểm 5):** nước khách nêu ở lượt TRƯỚC bị rụng, bot gọi `tra_thue` theo `'CN'`
+  và in "giả định xuất xứ Trung Quốc" trong khi khách đã nói Nhật — in mức thuế của một nước khách
+  KHÔNG nói (Điều III + Điều VIII). Vá bằng `chuHoSoChoXuatXu` (`packs/hs/input.js`) + `xuatXuCuaMach`
+  (`packs/hs/packages.js`): hồ sơ mạch #170 thành nguồn xuất xứ ưu tiên THẤP hơn lượt hiện tại.
+- **Dùng lại từ repo khác (MCP sourcebot):** tra `erp-xnk/src/lib/portal-review-questions.ts`, dùng lại
+  luật `buildQuestionsFromFields` — một field một câu, bỏ field khách đã nêu, KHÔNG có cổng
+  tất-cả-hoặc-không. Hai cổng bị người soát nêu chính là chỗ bản vá cũ lệch khỏi luật nó nói là chép.
+- **Hai ca eval phải đổi dữ kiện vào:** `cong-ai-ban` và `chung/01-cong-loi-khong-bia-hs` dùng
+  "máy hút bụi cầm tay"; sau vá điểm 1 thì mô tả thiếu thông số bị hỏi lại trước và không tới Cổng,
+  nên hai kịch bản mất chỗ đo đường CỔNG LỖI. Đổi thành "máy hút bụi cầm tay 600W 220V" (ghi lý do
+  ngay trong tệp fixture và trường `moTa` của ca chung).
+- **Cổng máy:** `npm test` 1095/1095 + 34 test đạt, `npm run eval` 32/32,
+  `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.
+
 ## 2026-11-11 — Issue #177 (yêu cầu 2): kỷ luật hỏi — không hỏi lại điều khách đã nêu
 
 - **Commit mã nguồn đã đọc:** nhánh `ozv-251-hs-xuat-xu-khong-mac-dinh` (trên `9aa2fed`).
@@ -47,7 +84,6 @@ Quy ước:
 - **Kiểm tra:** `npm test` 1084/1084, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6,
   `node scripts/kiem-wiki.mjs --nghiem` → "wiki: ĐẠT (16 trang)".
 
->>>>>>> theirs
 ## 2026-11-11 — Issue #177 (yêu cầu 3): bỏ mặc định xuất xứ `'CN'` im lặng
 
 - **Commit mã nguồn đã đọc:** nhánh `ozv-251-hs-xuat-xu-khong-mac-dinh` (gốc `a84e8bb`).
@@ -65,7 +101,6 @@ Quy ước:
   nước đặt ở một dòng riêng. Đã khoá bằng test trong `packs/hs/test/xuat-xu.test.mjs`.
 - **Kiểm tra:** `npm test` 1075 đạt / 0 trượt + 34 test đạt, `npm run eval` 32/32,
   `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.
->>>>>>> theirs
 
 ## 2026-11-11 — Issue #168: báo "đang tra", căn cứ pháp lý từ Cổng, chống bịa số hiệu
 
