@@ -12,12 +12,28 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-11 — PR #204 (soát): bộ đo đọc thêm khuôn giọng Quyên, bỏ 2 ca lấy từ thông báo đính chính
+
+- **Commit mã nguồn đã đọc:** `93e9328` (nhánh `ozv-323-bo-do-do-dung`).
+- **Trang wiki đã sửa:** `docs/wiki/kiem-thu.md` (mục "Bộ đo độ đúng phân loại HS": 52 → 50 ca, ba luật kiểm câu khách, hai khuôn tin, thứ tự `roiVaoMaLan` trước `dung6So`), `docs/wiki/log.md`.
+- **Vì sao:** người soát PR #204 CHẶN 3 điểm, kiểm tay lại thì cả 3 đều thật. (1) `docMaTuTin` chỉ biết khuôn form đầy đủ, không biết khuôn **giọng Quyên** (`packs/hs/giong-quyen.js:67,70`) — chính khuôn bot dùng ở chat riêng; chạy Cổng thật thì mọi ca giọng Quyên bị chấm "không ra mã" và độ đúng ra **thấp giả**. (2) Hai ca `32082090` và `38249999` lấy nguồn là **thông báo đính chính**: văn bản loại này không có tên hàng (ô "khách gõ" bị chép nguyên văn tên nhóm biểu thuế, ca `38249999` còn cắt cụt giữa câu), và mã trong phần "nội dung đã ban hành" chính là mã **sai** đang được sửa — `2174/TB-TCHQ` sửa `3208.20.90` thành `3208.90.90`, tức đáp án của ca là mã sai luật. Bỏ cả 2 ca, còn **50 ca** vẫn vượt mốc ≥ 30. (3) `chamMotCa` xét `dung6So` trước `roiVaoMaLan` nên 6 ca mã dễ lẫn cùng 6 số đầu bị gọi tên là "lệch 2 số cuối" — nghe như sai nhỏ, che mất lỗi nặng hơn.
+- **Kiểm tra:** sau khi rebase lên `main` (đã có #201) chạy lại đủ bốn cổng: `npm test` 1102/1102 + 34 test đạt, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang). Bảy test đỏ-trước trong `test/core/do-dung-hs.test.mjs` khoá cả 3 điểm (24/24 đạt sau khi sửa).
+- **Còn dở:** số độ đúng **thật** vẫn chưa có — cần `OZ_MCP_TOKEN` + `GEMINI_API_KEY`, môi trường agent chỉ có `.env.example`.
+
 ## 2026-11-11 — Issue #201 / OZV-250: trong nhóm, người hỏi tiếp thì bot im (cửa gửi bỏ oan)
 
 - **Commit mã nguồn đã đọc:** `34fd6ea` (nhánh `main`).
 - **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (thêm dòng Issue #201 ở mục 3), `docs/wiki/an-toan.md` (số dòng thật của `core/gate.js` và `core/engine.js`), `docs/wiki/log.md`.
 - **Vì sao:** #201 đổi hành vi cửa gửi. Bước 6 (chống trùng Jaccard) trước đây so chữ với MỌI tin bot gần đây, nên câu trả lời cho một câu hỏi MỚI bị bỏ chỉ vì trùng chữ câu trước — đo thật trên `main` với gói `packs/hs` thật: QA G2 bước 4 cho `drop: similar:1.00` và bot không gửi gì. Nay phạm vi chống trùng là MỘT CÂU KHÁCH: dấu hiệu là CHỮ câu khách đã chuẩn hoá (`askKey`), không phải mã lượt — vì khách bấm gửi hai lần thì mã lượt KHÁC nhau nhưng chữ GIỐNG nhau, lấy mã lượt sẽ tắt đúng lớp chặn của sự cố #2. Hai ngoại lệ ghi rõ trong code: câu "đang tra" (`progress`) là chữ khuôn nên không được miễn trừ (sự cố #9), và chữ khách rỗng ("@bot" trơ trọi) tính là không biết nên vẫn so chữ (điểm [S6] của người soát).
 - **Kiểm tra:** `npm test` 1078/1078 xanh, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6 (G2 ĐẠT), `node scripts/kiem-wiki.mjs` ĐẠT (16 trang).
+
+## 2026-11-11 — Issue #177 (yêu cầu 5): bộ đo độ đúng phân loại HS dựng từ văn bản pháp luật
+
+- **Commit mã nguồn đã đọc:** `a84e8bb` (nhánh `ozv-323-bo-do-do-dung`).
+- **Trang wiki đã sửa:** `docs/wiki/kiem-thu.md` (thêm lệnh `scripts/do-dung-hs.mjs` vào bảng cổng kiểm + mục "Bộ đo độ đúng phân loại HS"), `docs/wiki/log.md`.
+- **Vì sao:** repo có 4 cổng kiểm *hành vi* (không trùng tin, không bịa số hiệu, hỏi lại khi thiếu dữ kiện) nhưng **không cổng nào đo mã HS trả ra có đúng mã của văn bản hay không** — tức là không ai biết bot đúng bao nhiêu phần trăm. Thêm `scripts/do-dung-hs.mjs` + bộ đề `eval/bo-de/phan-loai-tu-luat.json` (50 ca sau vòng soát, 26 chương) dựng từ tên dòng biểu thuế và Thông báo kết quả phân loại của Hải quan, **không** lấy từ `oz-gold-final.jsonl` hay tờ khai cũ (CEO 10/11: phân loại HS bám luật). Chấm top-1/top-3 ở **tám số** trên tin gửi khách, qua đúng đường bot thật (dùng lại `runSingleScenario` của `scripts/qa-that.mjs`).
+- **Kiểm tra:** `npm test` 1086/1086 + 34 test đạt, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
+- **Còn dở:** số độ đúng **thật** chưa có — cần `OZ_MCP_TOKEN` + `GEMINI_API_KEY` để chạy Cổng OZ thật; môi trường agent chỉ có `.env.example` nên chỉ chạy được `--mock` (kiểm đường đo, không phải độ đúng).
 
 ## 2026-11-11 — Issue #168: báo "đang tra", căn cứ pháp lý từ Cổng, chống bịa số hiệu
 
