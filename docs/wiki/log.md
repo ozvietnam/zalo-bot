@@ -26,6 +26,48 @@ Quy ước:
 - **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (thêm dòng Issue #201 ở mục 3), `docs/wiki/an-toan.md` (số dòng thật của `core/gate.js` và `core/engine.js`), `docs/wiki/log.md`.
 - **Vì sao:** #201 đổi hành vi cửa gửi. Bước 6 (chống trùng Jaccard) trước đây so chữ với MỌI tin bot gần đây, nên câu trả lời cho một câu hỏi MỚI bị bỏ chỉ vì trùng chữ câu trước — đo thật trên `main` với gói `packs/hs` thật: QA G2 bước 4 cho `drop: similar:1.00` và bot không gửi gì. Nay phạm vi chống trùng là MỘT CÂU KHÁCH: dấu hiệu là CHỮ câu khách đã chuẩn hoá (`askKey`), không phải mã lượt — vì khách bấm gửi hai lần thì mã lượt KHÁC nhau nhưng chữ GIỐNG nhau, lấy mã lượt sẽ tắt đúng lớp chặn của sự cố #2. Hai ngoại lệ ghi rõ trong code: câu "đang tra" (`progress`) là chữ khuôn nên không được miễn trừ (sự cố #9), và chữ khách rỗng ("@bot" trơ trọi) tính là không biết nên vẫn so chữ (điểm [S6] của người soát).
 - **Kiểm tra:** `npm test` 1078/1078 xanh, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6 (G2 ĐẠT), `node scripts/kiem-wiki.mjs` ĐẠT (16 trang).
+## 2026-11-11 — Issue #177 (yêu cầu 2): kỷ luật hỏi — không hỏi lại điều khách đã nêu
+
+- **Commit mã nguồn đã đọc:** nhánh `ozv-251-hs-xuat-xu-khong-mac-dinh` (trên `9aa2fed`).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (thêm dòng cho yêu cầu 2 của #177),
+  `docs/wiki/an-toan.md` (số dòng thật của `packs/hs/packages.js` 627 → 636), `docs/wiki/log.md`.
+- **Vì sao:** đo bằng chính `kiemTraThongTinPhanLoai` thì bot hỏi lại điều khách vừa nói —
+  "máy sấy sinh tố 350W" vẫn bị xin "công suất (W) và điện áp"; "van bi inox" vẫn bị hỏi
+  "chất liệu bằng đồng, inox hay nhựa ạ?"; khách gõ "Thông số: 350W 220V" ở tin trước rồi tin sau
+  gõ tên món thì bị hỏi lại cả hai thông số (lớp hỏi lại chưa đọc hồ sơ mạch của #170). Mỗi lần
+  như vậy khách mất thêm một lượt hỏi–đáp trước khi có mã, và nghĩ bot không đọc tin của mình.
+- **Việc đã làm:** tra MCP sourcebot trong `github.com/ozvietnam/erp-xnk`, lấy đúng luật kỷ luật
+  hỏi đã có ở đó (tệp `src/lib/portal-review-questions.ts` của repo đó, và spec kỷ luật hỏi ngày
+  2026-10-24 trong thư mục docs/superpowers/specs của repo đó — cả hai đều NGOÀI repo này)
+  chứ không tự nghĩ luật mới: máy tự xác định tối đa trước khi hỏi, chỉ hỏi điều không tự xác định
+  được, tối đa 3 câu gom trong MỘT tin, phần còn trống thì ghi "OZ tự xác định". Kèm bài học V4 của
+  erp-xnk: chỉ bỏ một câu khi MỌI đại lượng nó hỏi đã có — bỏ câu trùng một phần là mất dữ kiện.
+  Viết test đỏ trước (`packs/hs/test/ky-luat-hoi.test.mjs`, 9 ca: 7 đỏ lúc đầu), rồi tách phần đo
+  và lọc câu sang tệp riêng `packs/hs/ky-luat-hoi.js` để `packs/hs/dien-cho-thieu.js` về 259 dòng
+  (Điều VI — tệp này đã lên 316 dòng sau bản vá, cổng `test/core/wiki-no-lon-dong.test.mjs` bắt đúng).
+- **Còn thiếu, ghi lại để không giấu nợ:** khi thông số đã đủ thì bot vẫn KHÔNG xác nhận tên nghi gõ
+  nhầm ("sấy" ↔ "xay"), tên sai đi thẳng tới Cổng — sửa chỗ đó phải sửa cùng `xuLyTraLoiHoiLai`
+  (nó dựng lại mô tả tra cứu từ `tenGoiY`, làm rụng thông số khách đã gõ), nên để nhịp sau.
+- **Kiểm tra:** `npm test` 1084/1084, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6,
+  `node scripts/kiem-wiki.mjs --nghiem` → "wiki: ĐẠT (16 trang)".
+
+## 2026-11-11 — Issue #177 (yêu cầu 3): bỏ mặc định xuất xứ `'CN'` im lặng
+
+- **Commit mã nguồn đã đọc:** nhánh `ozv-251-hs-xuat-xu-khong-mac-dinh` (gốc `a84e8bb`).
+- **Trang wiki đã sửa:** `docs/wiki/an-toan.md` (số dòng thật của `packs/hs/packages.js` 620 → 627 và `packs/hs/render.js` 448 → 471), `docs/wiki/log.md`.
+- **Vì sao:** code có bốn chỗ viết `findCountryInText(...) || 'CN'` rồi IN RA tin khách thành
+  "💰 Thuế suất (xuất xứ CN)". Khách chưa hề nói nước nào mà tin lại nói như đã biết. Mức MFN/ACFTA
+  in ra phụ thuộc đúng cái nước đó, nên đây là số tiền không có căn cứ trong lượt (Điều III) và là
+  nói như đã biết điều mình chỉ đoán (Điều VIII). Nay chỉ còn MỘT chỗ quyết định xuất xứ
+  (`xuatXuCua` trong `packs/hs/input.js`): trả mã nước để gọi Cổng kèm cờ `giaDinh`, và lớp dựng chữ
+  nói rõ "giả định xuất xứ Trung Quốc". Khách có nói nước thì giữ nguyên như cũ.
+- **Bài học ghi lại:** nhãn xuất xứ nằm trong tiêu đề khối thuế nên lượt nào cũng in. Hai lượt hỏi
+  thuế liên tiếp cùng một mã vốn đã giống nhau 0,77 — sát ngưỡng 0,8 của lưới chống trùng ở cửa gửi
+  (`core/gate-decide.js:136`). Bản đầu của vá này nhồi cả câu mời sửa vào nhãn, đẩy độ giống lên 0,83
+  và tin thứ hai bị cửa gửi BỎ (khách hỏi mà không thấy trả lời). Nhãn phải ngắn; lời mời khách sửa
+  nước đặt ở một dòng riêng. Đã khoá bằng test trong `packs/hs/test/xuat-xu.test.mjs`.
+- **Kiểm tra:** `npm test` 1075 đạt / 0 trượt + 34 test đạt, `npm run eval` 32/32,
+  `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.
 
 ## 2026-11-11 — Issue #177 (yêu cầu 5): bộ đo độ đúng phân loại HS dựng từ văn bản pháp luật
 

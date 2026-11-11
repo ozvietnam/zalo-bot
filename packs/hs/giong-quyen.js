@@ -4,6 +4,7 @@
 import { fmtHs } from './format.js';
 import { b } from './style.js';
 import { phanTichChinhSach } from './render.js';
+import { tenNuoc } from './input.js';
 import { canCuThue, canCuChinhSach } from './can-cu.js';
 
 const pct = (v) => (v == null || v === '' ? '—' : /^\d+(\.\d+)?$/.test(String(v)) ? `${v}%` : String(v));
@@ -24,6 +25,7 @@ export function renderPhanLoaiGiongQuyen({
   moTa,
   xuatXu = 'CN',
   giaDinh = null,
+  giaDinhXuatXu = false,
 } = {}) {
   const top = phanLoai?.data && typeof phanLoai.data === 'object' ? phanLoai.data : phanLoai || {};
   const kq = top.ketQua && typeof top.ketQua === 'object' ? top.ketQua : top;
@@ -91,6 +93,11 @@ export function renderPhanLoaiGiongQuyen({
     lines.push(giam
       ? `• VAT ${pct(tx.vatReduction.rate)}${han ? ` tới hết ${han}` : ''}${cite(ccThue.vat)}`
       : `• VAT ${pct(tx.taxVat)}${cite(ccThue.vat)}`);
+
+    // Khách chưa nói nước mà các mức trên lại tính theo một nước → nói thẳng đó là giả định
+    // (issue #177, yêu cầu 3). Mức ACFTA/C/O mẫu E chỉ đúng với hàng Trung Quốc, nên im lặng ở đây
+    // là đưa khách một con số thuế không có căn cứ trong lượt (Điều III) và nói như đã biết (Điều VIII).
+    if (giaDinhXuatXu) lines.push(`• Các mức trên em tính theo giả định xuất xứ ${tenNuoc(xuatXu)} — anh/chị cho em biết nước nhập để em tra đúng ạ.`);
   }
 
   // Dòng 4: 1 cảnh báo chính sách quan trọng nhất
