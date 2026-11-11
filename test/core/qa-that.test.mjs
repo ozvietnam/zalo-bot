@@ -392,3 +392,41 @@ test('runSingleScenario: G5 mạch hồ sơ mặt hàng (chữ → lệnh ngắn
   // Tin cuối (khách sửa) phải có phản hồi, không rơi lọt im lặng.
   assert.ok(res.stepResults.at(-1).sent.length > 0, 'câu sửa của khách phải có phản hồi');
 });
+
+// ——— Issue #168 phần 4: chờ 120 giây cho bước có thể tra Cổng; tách "đã báo đang tra" khỏi "đã có kết quả" ———
+test('qa-that #168: nhận câu "đang tra" (cả khi có @tên trong nhóm); bước có thể tra Cổng gồm "tra hscode" và câu trả lời hỏi lại', async () => {
+  const { laTinDangTra, laBuocCoTheTraCong, CHO_TRA_CONG_MS } = await import('../../scripts/qa-that.mjs');
+  const { CAU_DANG_TRA } = await import('../../packs/hs/dang-tra.js');
+  assert.equal(laTinDangTra(CAU_DANG_TRA.phanLoai), true);
+  assert.equal(laTinDangTra(`@Hương\n${CAU_DANG_TRA.chung}`), true);
+  assert.equal(laTinDangTra('Dạ mã phù hợp là 8509.40.00 ạ'), false);
+  assert.equal(laBuocCoTheTraCong({ text: 'tra hscode' }), true);
+  assert.equal(laBuocCoTheTraCong({ text: 'đúng, 350W 220V' }, { botVuaHoi: true }), true);
+  assert.equal(laBuocCoTheTraCong({ text: 'chào em' }), false);
+  assert.equal(laBuocCoTheTraCong({ text: 'tra hscode', kyVong: { botIm: true } }), false);
+  assert.equal(CHO_TRA_CONG_MS, 120_000);
+});
+
+test('qa-that #168: evaluateStep chấm RIÊNG "báo đang tra ≤ 3 giây" và "có kết quả"', async () => {
+  const { CAU_DANG_TRA } = await import('../../packs/hs/dang-tra.js');
+  const t0 = Date.parse('2026-11-11T03:00:00.000Z');
+  const luc = (s) => new Date(t0 + s * 1000);
+  const step = { kyVong: { phaiCoPhanHoi: true, phaiChua: ['8509'] } };
+  const dangTra = (s) => ({ text: CAU_DANG_TRA.phanLoai, at: luc(s) });
+  const ketQua = (s) => ({ text: 'Dạ mã 8509.40.00 ạ', at: luc(s) });
+  // báo 1s, kết quả 45s → đạt
+  assert.equal(evaluateStep(step, [dangTra(1), ketQua(45)], {}, { batDau: t0, coTheTraCong: true }).ok, true);
+  // chỉ có câu đang tra → trượt "chưa có kết quả" (câu đang tra không thay được kết quả)
+  assert.match(evaluateStep(step, [dangTra(1)], {}, { batDau: t0 }).lyDo, /CHƯA có kết quả/);
+  // câu đang tra ra muộn (4s) → trượt
+  assert.match(evaluateStep(step, [dangTra(4), ketQua(45)], {}, { batDau: t0 }).lyDo, /sau 4\.0s/);
+  // bước có thể tra Cổng, im 40s rồi mới có kết quả, không báo → trượt (lỗi QA thật 10/11)
+  assert.match(evaluateStep(step, [ketQua(40)], {}, { batDau: t0, coTheTraCong: true }).lyDo, /im 40\.0s/);
+  // kết quả nhanh (≤ 3s) thì không cần câu đang tra
+  assert.equal(evaluateStep(step, [ketQua(2)], {}, { batDau: t0, coTheTraCong: true }).ok, true);
+  // mẫu phaiChua đo trên tin KẾT QUẢ, không trên câu đang tra
+  assert.match(evaluateStep({ kyVong: { phaiChua: ['đang tra mã'] } }, [dangTra(1), ketQua(9)], {}, { batDau: t0 }).lyDo, /không khớp mẫu/);
+  // số hiệu văn bản không có trong dữ liệu Cổng → trượt
+  const bia = evaluateStep(step, [{ text: 'Dạ mã 8509.40.00 (38/2015/TT-BTC)', at: luc(1) }], {}, { batDau: t0, nguon: [[{ ok: true }], []] });
+  assert.match(bia.lyDo, /38\/2015\/TT-BTC/);
+});

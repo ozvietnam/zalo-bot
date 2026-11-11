@@ -23,12 +23,13 @@
           "8509",
           "Thuế suất",
           "Tự động chọn gói"
-        ]
+        ],
+        "khongBaoDangTra": true
       }
     },
     {
       "step": 2,
-      "mieuTa": "(b) Khách trả lời đủ thông số → tin kết quả <= 7 dòng đúng giọng Quyên",
+      "mieuTa": "(b) Khách trả lời đủ thông số → tin kết quả <= 7 dòng đúng giọng Quyên (chờ Cổng quá 3 giây thì phải có câu \"đang tra\" trước — #168)",
       "text": "đúng, 350W 220V",
       "kyVong": {
         "phaiCoPhanHoi": true,
