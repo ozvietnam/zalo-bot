@@ -7,11 +7,14 @@
 // `ky-luat-hoi.js`; tệp này chỉ dựng các nhánh hỏi theo mặt hàng và cho mọi câu đi qua `gomCau`.
 import { norm } from './input.js';
 import {
-  CONG_SUAT_RE, DIEN_AP_RE, DUNG_TICH_RE, KICH_THUOC_RE, LENH_DAU_RE,
+  LENH_DAU_RE, coThongSo, nhanDienCuTraDi,
   daNeu, gomCau, cauXinThem, ketQuaHoi, docTraLoiTen, bocXaGiao, giuThongSo,
 } from './ky-luat-hoi.js';
 
-const CU_TRA_RE = /(khong|ko)\s*(ro|biet|chac|quan\s*tam|sao)|cu\s*(tra|lam|chay|tim|cho)|tra\s*(luon|di|nhanh)|mac\s*dinh|sao\s*cung\s*duoc|chiu/i;
+// `coThongSo` và `nhanDienCuTraDi` là hàm ĐO thuần nên đã chuyển sang `ky-luat-hoi.js` (đúng phân
+// công ghi ở đầu hai tệp: tệp này DỰNG câu hỏi, tệp kia ĐO). Xuất lại ở đây để `loc-tap-am.js` và
+// các test cũ không phải đổi đường dẫn nhập.
+export { coThongSo, nhanDienCuTraDi };
 
 // Nhận diện lỗi gõ nhầm thường gặp
 const GOI_Y_GO_NHAM = [
@@ -40,33 +43,24 @@ const CO_KHI_VAT_LIEU_RE = /\b(van(\s*bi|\s*b[uướớ]m|\s*m[oộ]t\s*chi[eề
 const FORM_NHAN_RE = /^(t[eê]n\s*h[aà]ng|ten\s*hang|m[oô]\s*t[aả]|mo\s*ta|ch[aấ]t\s*li[eệ]u|chat\s*lieu|th[oô]ng\s*s[oố]|thong\s*so|model)\s*:/im;
 
 /**
- * Mệnh đề có THÔNG SỐ ĐO ĐƯỢC không (công suất, điện áp, dung tích, kích thước)?
- * Dùng ở `loc-tap-am.js`: một mệnh đề chỉ có thông số ("350W 220V") là DỮ KIỆN MẶT HÀNG,
- * không phải tạp âm hội thoại — bỏ nó thì hồ sơ mất thông tin khách vừa cung cấp
- * (yêu cầu 1 và 4 của issue #170: hồ sơ tích luỹ, "xem lại từ đầu" phải dựng lại được).
- */
-export function coThongSo(s) {
-  const t = String(s || '');
-  return CONG_SUAT_RE.test(t) || DIEN_AP_RE.test(t) || DUNG_TICH_RE.test(t) || KICH_THUOC_RE.test(t);
-}
-
-/** Nhận diện câu khách nói "không rõ / cứ tra đi / tra luôn đi". */
-export function nhanDienCuTraDi(text) {
-  const n = norm(String(text || ''));
-  return CU_TRA_RE.test(n);
-}
-
-/**
  * Kiểm tra xem mô tả hàng có thiếu thông tin cốt lõi hoặc nghi gõ nhầm không.
  * @param {string} text Mô tả hàng khách gửi
  * @param {{ vongHoi?: number, goi?: number, hoSo?: object }} opts `hoSo`: hồ sơ mạch (#170) —
  *   điều khách đã nêu ở tin trước thì KHÔNG hỏi lại (kỷ luật hỏi, yêu cầu 2 của issue #177).
  */
-// `tenKhachTuGo`: tên trong `text` là tên KHÁCH VỪA GÕ (vòng hỏi thứ 2, ngay sau khi khách sửa
-// tên) → BỎ câu xác nhận tên, chỉ xin phần còn thiếu. Hỏi "em hiểu là máy sấy thực phẩm đúng
-// không ạ?" ngay sau khi khách vừa gõ "là máy sấy thực phẩm" là hỏi lại điều khách đã nêu (luật 2
-// của kỷ luật hỏi), và khách không bao giờ tới được mã.
-export function kiemTraThongTinPhanLoai(text, { vongHoi = 0, goi = null, hoSo = null, tenKhachTuGo = false } = {}) {
+// `tenKhachTuGo`: tên trong `text` do KHÁCH VỪA GÕ (vòng hỏi 2) → BỎ câu xác nhận tên, chỉ xin
+// phần còn thiếu. Hỏi "em hiểu là máy sấy thực phẩm đúng không ạ?" ngay sau khi khách vừa gõ đúng
+// chữ đó là hỏi lại điều khách đã nêu (luật 2 của kỷ luật hỏi), và khách không tới được mã.
+//
+// `tenBiBacBo`: những tên KHÁCH ĐÃ NÓI "KHÔNG" trong mạch — CẤM CỬA cả ở `tenGoiY` lẫn ở giả định.
+// Ẩn riêng câu HỎI là chưa đủ: nhánh nghi gõ nhầm vẫn trả `tenGoiY: item.chuan` và `giaDinh` mang
+// tên đó, `{...ktTiep}` ghi đè vào `session.hoiLai`, nên lượt sau tên bị phủ định SỐNG LẠI và tới
+// Cổng — bot in mã + thuế của món khách nói KHÔNG, mà im lặng (vòng soát 2 PR #213; Điều III, VIII).
+export function kiemTraThongTinPhanLoai(text, {
+  vongHoi = 0, goi = null, hoSo = null, tenKhachTuGo = false, tenBiBacBo = [],
+} = {}) {
+  const daBacBo = (ten) => (Array.isArray(tenBiBacBo) ? tenBiBacBo : [tenBiBacBo])
+    .some((x) => x && norm(String(x)) === norm(String(ten || '')));
   const s = String(text || '').trim();
   if (!s) return { canHoi: false, giaDinh: null, thieu: [] };
 
@@ -83,6 +77,9 @@ export function kiemTraThongTinPhanLoai(text, { vongHoi = 0, goi = null, hoSo = 
   if (vongHoi >= 2) {
     let giaDinh = null;
     for (const item of GOI_Y_GO_NHAM) {
+      // `item.giaDinh` MANG tên bot đoán ("máy xay sinh tố gia dụng …"). Khách đã bác bỏ tên đó thì
+      // giả định cũng không được dùng, nếu không bot lại tra đúng món khách nói KHÔNG.
+      if (daBacBo(item.chuan)) continue;
       if (item.regex.test(s) || (item.normRegex && item.normRegex.test(norm(s)))) {
         giaDinh = item.giaDinh;
         break;
@@ -109,12 +106,13 @@ export function kiemTraThongTinPhanLoai(text, { vongHoi = 0, goi = null, hoSo = 
 
   // 2. Kiểm tra nghi gõ nhầm
   for (const item of GOI_Y_GO_NHAM) {
+    // Khách ĐÃ NÓI "KHÔNG" với tên này → bỏ hẳn nhánh: không gợi ý lại, không giả định theo nó.
+    if (daBacBo(item.chuan)) continue;
     if (item.regex.test(s) || (item.normRegex && item.normRegex.test(norm(s)))) {
-      // KHÔNG còn cổng `if (co.congSuat && co.dienAp) break`. Cổng đó làm thông số đủ thì rụng luôn
-      // câu xác nhận TÊN — mà tên là thứ đổi hẳn dòng thuế ("máy xay sinh tố" 8509.40.00 ≠ "máy
-      // sấy" nhóm 8419/8516), nên càng đủ thông số bot càng im, đúng ngược cái cần: thông số đủ
-      // nghĩa là chỉ còn MỘT điều chưa chắc, là tên món (nợ ghi ở PR #203). Thông số khách đã nêu
-      // vẫn không bị xin lại — `cauXinThem` tự rút hết, `gomCau` bỏ câu đã vô ích.
+      // KHÔNG còn cổng `if (co.congSuat && co.dienAp) break`: cổng đó làm thông số đủ thì rụng luôn
+      // câu xác nhận TÊN — mà tên đổi hẳn dòng thuế ("máy xay sinh tố" 8509.40.00 ≠ "máy sấy" nhóm
+      // 8419/8516), nên càng đủ thông số bot càng im, đúng ngược cái cần (nợ ghi ở PR #203).
+      // Thông số khách đã nêu vẫn không bị xin lại: `cauXinThem` rút hết, `gomCau` bỏ câu vô ích.
       const thieu = [];
       if (!co.congSuat) thieu.push('congSuat');
       if (!co.dienAp) thieu.push('dienAp');
@@ -159,13 +157,11 @@ export function kiemTraThongTinPhanLoai(text, { vongHoi = 0, goi = null, hoSo = 
   const laMayMocNgan = /^(m[aáàảãạ]y|thi[eế]t\s*b[iị]|n[oồổỗộ]i|qu[aạ]t)\b/i.test(sSach) && soTu < 8;
   const coLoaiCongDung = coCongDung || /(gia\s*d[iì]nh|c[oô]ng\s*nghi[eệ]p|gia\s*d[uụ]ng|d[aâ]n\s*d[uụ]ng|c[aâàảãạáầẩẫậấ]m\s*tay|di\s*[đd][oộ]ng|mini)/i.test(sSach) || /(gia\s*dinh|cong\s*nghiep|gia\s*dung|dan\s*dung|cam\s*tay|di\s*dong|mini)/i.test(norm(sSach));
 
-  // KHÔNG còn cổng `!coLoaiCongDung && !coCongSuat && !coDienAp && !coDungTich` ở đây. Cổng đó làm
-  // khách nêu ĐÚNG MỘT đại lượng ("máy bơm 350W") là rụng luôn cả nhánh — bot thôi hỏi những đại
-  // lượng CÒN THIẾU; và vào được khối thì mọi `co[khoa]` đều false nên `gomCau`/`cauXinThem` thành
-  // mã chết (điểm 1 người soát PR #203 nêu, đã tái hiện bằng test). Nay dựng đủ câu rồi để
-  // `gomCau`/`cauXinThem` bỏ ĐÚNG phần khách đã nêu — y cách erp-xnk làm ở
-  // `buildQuestionsFromFields` (lặp từng field, bỏ field khách đã có). Tới đây là `soChiTiet < 2`
-  // (mục 3 đã trả về khi đủ) nên luôn còn ít nhất một câu thật để hỏi.
+  // KHÔNG còn cổng `!coLoaiCongDung && !coCongSuat && !coDienAp && !coDungTich`: cổng đó làm khách
+  // nêu ĐÚNG MỘT đại lượng ("máy bơm 350W") là rụng luôn cả nhánh, và vào được khối thì mọi
+  // `co[khoa]` đều false nên `gomCau`/`cauXinThem` thành mã chết (điểm 1 người soát PR #203).
+  // Nay dựng đủ câu rồi để chúng bỏ ĐÚNG phần khách đã nêu — y cách erp-xnk làm ở
+  // `buildQuestionsFromFields`. Tới đây `soChiTiet < 2` nên luôn còn ít nhất một câu thật để hỏi.
   if (laDienGiaDung || laMayMocNgan) {
     // `coLoaiCongDung` rộng hơn `co.congDung` (bắt cả "mini", "cầm tay", "dân dụng"), nên câu
     // "gia đình hay công nghiệp" phải lọc theo nó, không theo `co.congDung` trơ.
@@ -268,7 +264,12 @@ export function xuLyTraLoiHoiLai(text, sessionHoiLai = {}) {
   // Xét TRƯỚC `nhanDienCuTraDi` vì mẫu "không rõ/không biết" của nó cũng khớp chữ "không" mở đầu.
   const traLoiTen = docTraLoiTen(s, sessionHoiLai);
   if (traLoiTen.phuDinh && traLoiTen.ten && !nhanDienCuTraDi(s)) {
-    return { sanSangTra: true, giaDinh: null, moTaTraCuu: traLoiTen.ten };
+    // `tenBacBo`: tên khách VỪA NÓI "KHÔNG". Người gọi phải ghi nó lại cho cả mạch, nếu không thì
+    // vòng hỏi sau lại gợi ý đúng tên đó và nó tới Cổng (điểm 1 vòng soát 2 của PR #213).
+    return {
+      sanSangTra: true, giaDinh: null, moTaTraCuu: traLoiTen.ten,
+      tenBacBo: String(sessionHoiLai.tenGoiY || '').trim(),
+    };
   }
 
   // Khách nói "không rõ, cứ tra đi"

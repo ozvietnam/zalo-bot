@@ -12,6 +12,52 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-11 — Vòng soát 2 PR #213 / OZV-323: tên khách đã BÁC BỎ sống lại ở vòng hỏi 2
+
+- **Commit mã nguồn đã đọc:** `7d7c1b7` (nhánh `ozv-323-xac-nhan-ten-go-nham`).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (bổ sung vào dòng OZV-323 ba điểm vá của vòng soát 2 kèm chứng cứ `tệp:dòng`), `docs/wiki/an-toan.md` (số dòng thật của `packs/hs/packages.js`: 656 → 661, và ghi lại việc chuyển hai hàm ĐO ra khỏi `packs/hs/dien-cho-thieu.js` để tệp đó không vượt mốc 300 dòng), `docs/wiki/log.md`.
+- **Vì sao:** giám đốc soát vòng 2 (soát chéo Gemini, khác model thợ) CHẶN: bản vá vòng 1 ĐẠT nhưng
+  còn ba lỗi THẬT, cả ba dựng lại được bằng chính hàm của repo. Nặng nhất là đúng cái lỗi PR này đi
+  sửa: **tên khách VỪA BÁC BỎ sống lại ở vòng hỏi 2.** Đường thật qua `hs.handle`: khách gõ
+  "Tra hs máy sấy sinh tố" → bot hỏi "em hiểu là máy xay sinh tố … đúng không ạ?" → khách đáp
+  "không ạ" → bot xin thông số → khách đáp "220V" → `tenHang` gửi Cổng là **"máy xay sinh tố 220V"**.
+  Khách nói KHÔNG phải máy xay mà bot vẫn in mã + thuế của máy xay, mà im lặng (Điều III, Điều VIII).
+  Gốc: `tenKhachTuGo` chỉ ẩn CÂU HỎI xác nhận, nhánh nghi gõ nhầm vẫn trả `tenGoiY: item.chuan` và
+  `{...ktTiep}` ghi đè vào `session.hoiLai`, nên lượt sau `packs/hs/dien-cho-thieu.js` lấy lại đúng
+  tên đã bị phủ định. Hai lỗi còn lại cùng gốc "đoán tên hàng từ hình dạng chuỗi": từ xã giao/đệm
+  NGAY SAU chữ phủ định đủ ≥2 chữ cái nên bị coi là tên mới (`'không phải đâu ạ'` → `ten: 'đâu'`,
+  `'không nhé, 350W 220V'` → `ten: 'nhé, 350W 220V'` — **rụng hẳn tên hàng**, mà đây là câu người
+  Việt nói hàng ngày); và `chuTrong` không bóc phần trả lời `moRong` của chính nhánh đang treo nên
+  `'không, loại gia dụng 350W 220V'` → `ten: 'loại gia dụng 350W 220V'`, cũng mất tên hàng.
+- **Đã sửa:** danh sách `tenBiBacBo` đi theo mạch (`packs/hs/packages.js`, cộng dồn qua các vòng) và
+  `kiemTraThongTinPhanLoai` **cấm cửa** những tên đó ở cả `tenGoiY` lẫn ở `giaDinh` — khách bác bỏ
+  rồi buông "cứ tra đi" cũng không còn tra theo giả định mang tên bot đoán (lỗ thứ tư, thợ tự dựng
+  thêm được khi vá điểm 1); `PHU_DINH_RE` tiêu thụ cả cụm xã giao/đệm sau chữ phủ định
+  (`đâu|ạ|à|nhé|nha|ơi|mà|thế|vậy`) — chỉ có từ đệm thì lùi về tên khách đã gõ, có dấu ngắt đóng cụm
+  thì bóc rồi đọc tiếp phần tên; `coTenTrong` bóc `CONG_DUNG_RE` và từ loại ("loại/kiểu/dạng") trước
+  khi ĐO phần chữ — chỉ bóc khi ĐO, mô tả gửi Cổng vẫn giữ nguyên văn công dụng vì công dụng có thể
+  đổi dòng thuế.
+- **Điều VI:** `packs/hs/dien-cho-thieu.js` chạm 320 dòng sau bản vá. Thay vì ghi thêm một tệp vượt
+  mốc vào wiki, hai hàm ĐO thuần (`coThongSo`, `nhanDienCuTraDi`) chuyển sang
+  `packs/hs/ky-luat-hoi.js` cho đúng phân công đã ghi ở đầu hai tệp ("tệp này DỰNG câu hỏi, tệp kia
+  ĐO"); `packs/hs/dien-cho-thieu.js` xuất lại chúng nên `packs/hs/loc-tap-am.js` và test cũ không
+  phải đổi đường dẫn nhập. Tệp về đúng 300 dòng.
+- **Test đỏ trước:** 8 ca mới ở `packs/hs/test/tra-loi-hoi-lai.test.mjs` (nhóm `[#213-5]`, `[#213-6]`,
+  `[#213-7]`), trong đó 3 ca của điểm 1 đi **đường thật** qua `hs.handle` và đọc `tenHang` thật sự
+  gửi Cổng qua ba lượt. Chép tệp test sang worktree ở `7d7c1b7` (trước bản vá): **7/19 ca đỏ**;
+  sau bản vá 19/19 xanh.
+- **Tra `sourcebot` trước khi viết:** repo **hs-code-api** (tệp từ vựng trong thư mục `lib`, hàm
+  `biPhuDinh`) có sẵn lớp đọc phủ định tiếng
+  Việt rất đủ (`biPhuDinh`, `phuDinhCaDoan`, `coKhangDinh`, bảng `phuDinhChung`) — repo khác, không
+  có trong repo này.
+  **Không dùng lại được trực tiếp** vì nó đo phủ định của một CỤM TỪ bên trong văn bản dài (tìm
+  "chân không" ở tờ khai) chứ không phải đọc câu trả lời "không ạ" cho câu bot vừa hỏi, và nó kéo
+  theo tệp từ vựng + cấu hình riêng (Điều: không thêm dependency). Nhưng dùng lại hai **cách làm**
+  của nó: tách "từ khẳng định xen vào" ra khỏi phần tên (như `coKhangDinh`), và xếp mẫu dài trước
+  mẫu ngắn khi khớp. `packs/hs/ky-luat-hoi.js` vẫn là nơi duy nhất giữ kỷ luật hỏi này.
+- **Cổng máy:** `npm test` 1164/1164 + 34 test đạt, `npm run eval` 32/32,
+  `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
+
 ## 2026-11-11 — Vá vòng soát PR #213 / OZV-323: bốn tác dụng phụ của lớp đọc câu trả lời hỏi lại
 
 - **Commit mã nguồn đã đọc:** `5845088` (nhánh `ozv-323-xac-nhan-ten-go-nham`).

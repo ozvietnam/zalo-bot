@@ -201,14 +201,19 @@ export const PACKAGES = [
         //   • `!xl.giaDinh` — khách đã buông ("cứ tra đi") thì tra ngay, không hỏi nữa (Điều II);
         //   • `tenKhachTuGo` — tên trong mô tả mới do KHÁCH VỪA GÕ, không xác nhận lại tên đó.
         const vongDaHoi = hoiLai.vongHoi || 1;
+        // Những tên khách ĐÃ NÓI "KHÔNG" trong mạch này — cộng dồn, không ghi đè: khách có thể bác
+        // bỏ hai tên ở hai vòng. Danh sách này CẤM CỬA tên đó ở cả `tenGoiY` lẫn giả định, nên vòng
+        // hỏi 2 không gợi ý lại và tên đã bị phủ định không tới Cổng được (điểm 1 vòng soát 2 của
+        // PR #213). Ẩn riêng câu HỎI là chưa đủ: `tenGoiY` vẫn được ghi đè vào `session.hoiLai`.
+        const tenBiBacBo = [...new Set([...(hoiLai.tenBiBacBo || []), xl.tenBacBo].filter(Boolean))];
         const ktTiep = xl.sanSangTra && !xl.giaDinh && vongDaHoi < 2
           ? kiemTraThongTinPhanLoai(xl.moTaTraCuu,
-            { vongHoi: vongDaHoi, hoSo: hoSoCuaMach(ctx), tenKhachTuGo: true })
+            { vongHoi: vongDaHoi, hoSo: hoSoCuaMach(ctx), tenKhachTuGo: true, tenBiBacBo })
           : { canHoi: false };
         if (ktTiep.canHoi) {
           // `...ktTiep` ghi đè `tenGoc`/`tenGoiY` bằng mô tả MỚI — tên khách vừa phủ định không
-          // được sống lại ở vòng sau qua `tenGoc` cũ.
-          ctx.session.hoiLai = { ...hoiLai, ...ktTiep, vongHoi: vongDaHoi + 1 };
+          // được sống lại ở vòng sau qua `tenGoc` cũ. `tenBiBacBo` đi SAU để không bị ghi đè.
+          ctx.session.hoiLai = { ...hoiLai, ...ktTiep, vongHoi: vongDaHoi + 1, tenBiBacBo };
           ctx.session.choKhachTraLoi = true;
           return ktTiep.cauHoi;
         }

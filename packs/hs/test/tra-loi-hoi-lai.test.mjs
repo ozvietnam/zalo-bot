@@ -165,3 +165,107 @@ test('[#213-4] đường thật: khách buông "cứ tra đi" ở vòng 2 → tr
   assert.equal(ts.length, 1, `phải tra luôn khi khách buông (đang có ${ts.length})`);
   assert.ok(r2.jobs.length, 'phải giao việc nền');
 });
+
+// ── 5. Vòng soát THỨ HAI của PR #213 — ba lỗi còn lại, cả ba dựng lại được trước bản vá ──────
+//
+//   5) Tên khách VỪA BÁC BỎ sống lại ở vòng hỏi 2. Đường thật: "Tra hs máy sấy sinh tố" → bot hỏi
+//      xác nhận tên → khách "không ạ" → bot xin thông số → khách "220V" → Cổng nhận
+//      "máy xay sinh tố 220V". `tenKhachTuGo` chỉ ẩn CÂU HỎI xác nhận, vẫn trả `tenGoiY` và ghi
+//      đè vào `session.hoiLai`, nên lượt sau `dien-cho-thieu.js` lấy lại đúng tên đã bị phủ định.
+//      Khách nói KHÔNG phải máy xay mà bot in mã + thuế của máy xay (Điều III, Điều VIII).
+//
+//   6) `PHU_DINH_RE` không ăn từ xã giao/đệm NGAY SAU chữ phủ định; `XA_GIAO_CUOI_RE` chỉ cắt cuối
+//      chuỗi nên phần giữa còn nguyên, lại đủ ≥2 chữ cái ⇒ `coTenTrong` = true ⇒ VỨT SẠCH tên:
+//        'không phải đâu ạ'     → ten: 'đâu'
+//        'không nhé, 350W 220V' → ten: 'nhé, 350W 220V'
+//        'không ạ, là máy sấy'  → ten: 'ạ, là máy sấy'   ("ạ, " chặn DEM_DAU_RE vì nó neo ^)
+//      "không ạ" thì đúng — nên lỗi chỉ lộ khi khách nói dài hơn một chữ, tức câu nói hàng ngày.
+//
+//   7) `chuTrong` chỉ bóc 4 regex số đo, không bóc phần trả lời `moRong` của chính nhánh đang treo
+//      ("Gia dụng hay công nghiệp"):
+//        'không, loại gia dụng 350W 220V' → ten: 'loại gia dụng 350W 220V'  (mất tên hàng)
+//        'không, công nghiệp 350W'        → ten: 'công nghiệp 350W'          (mất tên hàng)
+
+test('[#213-5] đường thật: tên khách BÁC BỎ không được sống lại ở vòng hỏi 2', async () => {
+  const { ctx, calls } = fakeCtx();
+  await hs.handle(turn('Tra hs máy sấy sinh tố'), ctx);      // bot: "em hiểu là máy xay sinh tố…?"
+  const r2 = await hs.handle(turn('không ạ'), ctx);          // khách: KHÔNG phải máy xay
+  assert.doesNotMatch(tin(r2), /em hi[eể]u l[aà].*máy xay/i,
+    `đã bác bỏ rồi thì không hỏi lại đúng tên đó: "${tin(r2)}"`);
+  await hs.handle(turn('220V'), ctx);                        // khách đưa thông số
+  const ts = tenHangDaTra(calls);
+  assert.equal(ts.length, 1, `phải gọi Cổng đúng một lần: ${JSON.stringify(ts)}`);
+  assert.doesNotMatch(ts[0], /máy xay/i,
+    `tên khách VỪA NÓI "KHÔNG" không được tới Cổng: "${ts[0]}"`);
+  assert.match(ts[0], /máy s[aấ]y sinh t[oố]/i, `phải tra tên khách đã gõ: "${ts[0]}"`);
+  assert.match(ts[0], /220V/i, `thông số khách vừa gõ phải còn: "${ts[0]}"`);
+});
+
+test('[#213-5] đường thật: bác bỏ tên rồi đưa thông số từng lượt → vẫn không đảo về tên bot đoán', async () => {
+  const { ctx, calls } = fakeCtx();
+  await hs.handle(turn('Tra hs máy sấy sinh tố'), ctx);
+  await hs.handle(turn('không, 350W'), ctx);
+  await hs.handle(turn('220V'), ctx);
+  const ts = tenHangDaTra(calls);
+  assert.equal(ts.length, 1, `phải gọi Cổng đúng một lần: ${JSON.stringify(ts)}`);
+  assert.doesNotMatch(ts[0], /máy xay/i, `tên bị phủ định không được tới Cổng: "${ts[0]}"`);
+  assert.match(ts[0], /máy s[aấ]y sinh t[oố]/i, `tên khách đã gõ: "${ts[0]}"`);
+  for (const ts_ of ['350W', '220V']) assert.match(ts[0], new RegExp(ts_, 'i'), `${ts_} phải còn: "${ts[0]}"`);
+});
+
+test('[#213-5] đường thật: bác bỏ tên rồi buông "cứ tra đi" → giả định KHÔNG được mang tên đã bác bỏ', async () => {
+  // `giaDinhMacDinh` của nhánh nghi gõ nhầm là "máy xay sinh tố gia dụng …" — tên bot đoán nằm
+  // ngay trong câu giả định, nên khách bác bỏ rồi buông là Cổng vẫn nhận đúng món khách không hỏi.
+  const { ctx, calls } = fakeCtx();
+  await hs.handle(turn('Tra hs máy sấy sinh tố'), ctx);
+  await hs.handle(turn('không ạ'), ctx);
+  await hs.handle(turn('không rõ, cứ tra đi ạ'), ctx);
+  const ts = tenHangDaTra(calls);
+  assert.equal(ts.length, 1, `phải tra luôn khi khách buông: ${JSON.stringify(ts)}`);
+  assert.doesNotMatch(ts[0], /máy xay/i, `giả định không được mang tên đã bác bỏ: "${ts[0]}"`);
+});
+
+test('[#213-6] từ xã giao/đệm NGAY SAU chữ phủ định không được thành tên hàng', () => {
+  const p = { tenGoiY: 'máy xay sinh tố', tenGoc: 'máy sấy sinh tố', hoiXacNhanTen: true };
+  for (const cau of ['không phải đâu ạ', 'không đâu ạ', 'không nhé', 'không mà', 'không nha']) {
+    const { ten } = docTraLoiTen(cau, p);
+    assert.match(ten, /máy s[aấ]y sinh t[oố]/i,
+      `"${cau}": khách chỉ phủ định, phải lùi về tên đã gõ, đang là "${ten}"`);
+    assert.doesNotMatch(ten, /máy xay/i, `"${cau}": tên bị phủ định không được tới Cổng: "${ten}"`);
+  }
+});
+
+test('[#213-6] "không nhé, 350W 220V" → giữ tên khách đã gõ và thông số mới', () => {
+  const p = { tenGoiY: 'máy xay sinh tố', tenGoc: 'máy sấy sinh tố', hoiXacNhanTen: true };
+  const { ten } = docTraLoiTen('không nhé, 350W 220V', p);
+  assert.match(ten, /máy s[aấ]y sinh t[oố]/i, `tên hàng không được rụng: "${ten}"`);
+  assert.doesNotMatch(ten, /nh[eé]/i, `từ xã giao không phải tên hàng: "${ten}"`);
+  for (const x of ['350W', '220V']) assert.match(ten, new RegExp(x, 'i'), `${x} phải còn: "${ten}"`);
+});
+
+test('[#213-6] "không ạ, là máy sấy" → nghe đúng tên khách nói lại, không dính "ạ,"', () => {
+  const p = { tenGoiY: 'máy xay sinh tố', tenGoc: 'máy sấy sinh tố', hoiXacNhanTen: true };
+  const { ten } = docTraLoiTen('không ạ, là máy sấy', p);
+  assert.doesNotMatch(ten, /^[ạa]\s*,/u, `"ạ," không được mở đầu tên hàng: "${ten}"`);
+  assert.doesNotMatch(ten, /máy xay/i, `tên bị phủ định không được tới Cổng: "${ten}"`);
+  assert.match(ten, /máy s[aấ]y/i, `tên khách nói lại: "${ten}"`);
+});
+
+test('[#213-7] khách trả lời phần moRong ("gia dụng"/"công nghiệp") → tên hàng KHÔNG rụng', () => {
+  const p = { tenGoiY: 'máy xay sinh tố', tenGoc: 'máy sấy sinh tố', hoiXacNhanTen: true };
+  for (const cau of ['không, loại gia dụng 350W 220V', 'không, công nghiệp 350W', 'không, gia đình ạ']) {
+    const { ten } = docTraLoiTen(cau, p);
+    assert.match(ten, /máy s[aấ]y sinh t[oố]/i,
+      `"${cau}": công dụng là CÂU TRẢ LỜI, không phải tên hàng — đang là "${ten}"`);
+    assert.doesNotMatch(ten, /máy xay/i, `"${cau}": tên bị phủ định không được tới Cổng: "${ten}"`);
+  }
+});
+
+test('[#213-7] khách vừa phủ định tên vừa nêu TÊN MỚI kèm công dụng → tên mới thắng', () => {
+  // Chốt ngược của #213-7: bóc công dụng không được làm rụng tên hàng THẬT khách nói lại.
+  const p = { tenGoiY: 'máy xay sinh tố', tenGoc: 'máy sấy sinh tố', hoiXacNhanTen: true };
+  const { ten } = docTraLoiTen('không, là máy sấy thực phẩm công nghiệp 500W', p);
+  assert.match(ten, /máy s[aấ]y th[uự]c ph[aẩ]m/i, `tên mới của khách: "${ten}"`);
+  assert.doesNotMatch(ten, /sinh t[oố]/i, `tên cũ đã bị khách sửa: "${ten}"`);
+  assert.match(ten, /500W/i, `thông số mới: "${ten}"`);
+});
