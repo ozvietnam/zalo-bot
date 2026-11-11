@@ -46,6 +46,12 @@ export async function runPkg(st, pkg, text, { head = '', nguonThongSo, hoSo = nu
     dauHoSo: hoSoLuc.dau ?? 0, luotSo: pkg.so === 1 ? st.session.soLuotGoi1 : null,
     dongHoSo: pkg.so === 1 ? dongHoSoCuaTin(hoSoLuc) : '' } };
   if (pkg.so === 1) st.session.viecGoi1 = t.job.maLuot;
+  // Lượt phân loại nào của mạch CÒN ĐANG CHẠY (khách chưa nhận mã). `flow-photo.js` đọc cờ này để
+  // biết ảnh vừa gửi là dữ kiện bổ sung cho món đang tra (gộp vào một lượt — issue #177 yêu cầu 4)
+  // hay là việc mới sau khi khách đã có mã (hỏi xác nhận như cũ). Lưu SỐ LƯỢT, không lưu `true`:
+  // `onJobResult` chỉ được xoá cờ khi kết quả về đúng của lượt mới nhất, nếu không một kết quả cũ
+  // tới muộn sẽ xoá cờ của lượt đang chạy.
+  if (pkg.so === 1) st.session.choKetQuaGoi1 = st.session.soLuotGoi1;
   // Câu "đang tra" KHÔNG soạn ở đây nữa: lõi gửi nó cho MỌI lượt có việc nền (`core/bao-dang-tra.js`,
   // chữ ở `dang-tra.js`) — trước đây chỉ vài nhánh giọng Quyên có, và nó chỉ đi ra SAU khi lượt xong.
   return result(st, [], { jobs: [job], known: b.context });
