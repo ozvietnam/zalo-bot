@@ -13,6 +13,7 @@ import { createHumanRoute } from './engine-handoff.js';
 import { createCustomers } from './customers.js';
 import { createVoiceRoute } from './engine-voice.js';
 import { createGiongNoi } from './giong-noi.js';
+import { createBaoDangTra } from './bao-dang-tra.js';
 
 export const NON_TEXT_TEXT = 'Bot đọc tin nhắn chữ và ảnh. Gõ "menu" để xem các gói tra cứu.';
 export const RATE_LIMIT_TEXT = 'Bạn gửi hơi nhanh, đợi khoảng 1 phút rồi thử lại nhé.';
@@ -220,7 +221,10 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
       audit('route', turn.chatId, turn.convId, key, { pack: pack?.id ?? null });
       if (!pack) return done({ skipped: 'no-pack' });
       Promise.resolve().then(() => channel.typing?.(turn.chatId)).catch(() => {});
-      const res = (await pack.handle(turn, ctx)) ?? {};
+      // Câu "đang tra" ≤ 3 giây khi lượt phải đợi Cổng / việc nền (issue #168, `core/bao-dang-tra.js`).
+      const dangTra = createBaoDangTra({ turn, pack, log, sauMs: config.dangTraSauMs,
+        send: (text) => reply(turn, text, 'p', { kind: 'progress', pack }) });
+      const res = await dangTra.chay(() => pack.handle(turn, dangTra.boc(ctx)));
       const evidence = [...(res.evidence ?? []), turn.text, turn.caption].filter((v) => v != null);
       // Nhãn và món quan tâm gói trả về (`contracts/pack.md`) ghi vào hồ sơ NGAY, trước khi gửi câu
       // trả lời và trước `human.goiChuyen`: gói xin chuyển người thì phiếu mở ra phải thấy hồ sơ của

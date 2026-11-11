@@ -53,14 +53,16 @@ export function outboxTable(db) {
   // `parts_sent`), còn dòng bị cửa bỏ thì KHÔNG bao giờ đi ra nên không được tính là đã làm.
   const lastSend = db.prepare(`SELECT * FROM outbox WHERE idem_key LIKE ? ESCAPE '\\' AND decision = 'send'
     ORDER BY id DESC LIMIT 1`);
-  const recent = db.prepare(`SELECT text, sent_at FROM outbox WHERE conv_id = ? AND status = 'sent' AND kind IN ('reply','notice','job_result')
+  const recent = db.prepare(`SELECT text, sent_at FROM outbox WHERE conv_id = ? AND status = 'sent' AND kind IN ('reply','notice','job_result','progress')
     AND sent_at >= ? ORDER BY sent_at DESC, id DESC LIMIT ?`);
   // Trần tin/ngày là ngân sách tin TỚI KHÁCH, nên không đếm tin NỘI BỘ: `ticket` đi vào nhóm nhân
   // viên và `digest` là bản tin cho người vận hành — khách không nhận. Hai loại đó tự được miễn trần
   // (`CAPPED` ở `core/gate-decide.js:106`) nên không tự chặn mình, nhưng nếu đếm thì mỗi phiếu và mỗi
   // tin gộp lại ăn một suất của khách: `CAP_ALL_DAY=300` hụt dần theo số phiếu trong ngày.
   // `staff_relay` VẪN đếm: lời nhân viên được chuyển tới chính khách, có tiêu tốn ngân sách đó.
-  const CAP_KINDS = "kind NOT IN ('ticket','digest')";
+  // `progress` (câu "đang tra", issue #168) cũng không đếm: nó đi kèm một câu trả lời đã đếm suất,
+  // đếm nữa thì khách tra 4 món là hết 8 suất/ngày và kết quả thật bị hoãn sang hôm sau.
+  const CAP_KINDS = "kind NOT IN ('ticket','digest','progress')";
   const cntConv = db.prepare(`SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND ${CAP_KINDS} AND conv_id = ? AND sent_at >= ?`);
   const cntChat = db.prepare(`SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND ${CAP_KINDS} AND chat_id = ? AND sent_at >= ?`);
   const cntAll = db.prepare(`SELECT COUNT(*) AS n FROM outbox WHERE status = 'sent' AND ${CAP_KINDS} AND sent_at >= ?`);

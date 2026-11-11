@@ -46,11 +46,9 @@ export async function runPkg(st, pkg, text, { head = '', nguonThongSo, hoSo = nu
     dauHoSo: hoSoLuc.dau ?? 0, luotSo: pkg.so === 1 ? st.session.soLuotGoi1 : null,
     dongHoSo: pkg.so === 1 ? dongHoSoCuaTin(hoSoLuc) : '' } };
   if (pkg.so === 1) st.session.viecGoi1 = t.job.maLuot;
-  // Báo đang tra (issue #136, mục 5): trong 3 giây gửi 1 câu ngắn kiểu "Dạ anh chờ em tra chút nhé"
-  // Áp dụng cho luồng giọng Quyên (hỏi lại / tra hs) khi không phải chonNhanh và không phải bổ sung dữ kiện
-  const laHoiLaiTraHs = Boolean(b.context?.daHoiLai || b.context?.giaDinh || /tra\s*hs/i.test(b.context?.cauMoi || ''));
-  const cauCho = (pkg.so === 1 && b.context?.giongQuyen && laHoiLaiTraHs && !b.context?.chonNhanh && !b.context?.boSung) ? (b.cauCho || 'Dạ anh chờ em tra chút nhé') : null;
-  return result(st, cauCho ? [cauCho] : [], { jobs: [job], known: b.context });
+  // Câu "đang tra" KHÔNG soạn ở đây nữa: lõi gửi nó cho MỌI lượt có việc nền (`core/bao-dang-tra.js`,
+  // chữ ở `dang-tra.js`) — trước đây chỉ vài nhánh giọng Quyên có, và nó chỉ đi ra SAU khi lượt xong.
+  return result(st, [], { jobs: [job], known: b.context });
 }
 
 /**

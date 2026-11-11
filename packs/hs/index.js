@@ -12,6 +12,7 @@ import { openTurn, result } from './flow-turn.js';
 import { textFlow } from './luong-chu.js';
 import { dongHoSoCuaTin } from './chay-goi.js';
 import { layHoSo, duDeTra } from './ho-so.js';
+import { cauDangTra } from './dang-tra.js';
 
 const JOB_TTL_MS = 30 * 60_000;   // lõi bỏ chờ việc nền sau 30 phút (core/jobs.js); câu hết hạn ghi đúng số phút
 
@@ -98,4 +99,7 @@ export default {
   },
 
   footer(ctx) { return menuText(availablePackages(ctx?.tools ?? null)); },
+
+  /** Chữ câu "đang tra" (issue #168). Lõi quyết định lúc gửi — `core/bao-dang-tra.js`. */
+  cauDangTra,
 };

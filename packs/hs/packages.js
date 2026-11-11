@@ -261,7 +261,7 @@ export const PACKAGES = [
       // #170: lệnh "tra hs …" phải bắt lấy LỜI KHÁCH vừa gõ (`cauKhach`), không phải bản gộp mô tả
       // (`text` luôn khác lời khách nên mọi tin sau lượt đầu sẽ bị ghi nhầm là "gõ lại" — S24).
       const giongQuyen = Boolean(ctx.session.daHoiLai || ctx.session.giaDinh || (!laLegacyTest && !ctx.session.goi && !coNhanChuan) || /tra\s*hs/i.test(cauKhach || ''));
-      return { r, resultTool: 'ket_qua_phan_loai', label: 'Đang phân loại mã HS', cauCho: 'Dạ anh chờ em tra chút nhé', context: { tenHang, boSung: false, cauMoi: cauKhach, thuongHieu: hieuThat, nhanChung, chonNhanh, giongQuyen, daHoiLai: ctx.session.daHoiLai, giaDinh: ctx.session.giaDinh } };
+      return { r, resultTool: 'ket_qua_phan_loai', label: 'Đang phân loại mã HS', context: { tenHang, boSung: false, cauMoi: cauKhach, thuongHieu: hieuThat, nhanChung, chonNhanh, giongQuyen, daHoiLai: ctx.session.daHoiLai, giaDinh: ctx.session.giaDinh } };
     },
     /** Kết quả cuối (đã xong, hoặc lỗi/hết hạn) → chữ trả lời; ghi phiên last/choBoSung.
      *  Có mã HS → tự chạy tiếp thuế + thủ tục (tra cứu miễn phí) ngay trong tin: khách "vất hàng vào" là ra hết,

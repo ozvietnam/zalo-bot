@@ -18,6 +18,8 @@ import { groupNameTag } from './mention.js';
 export const FIRST_POLL_MS = 6_000;
 export const MAX_POLL_MS = 60_000;
 export const JOB_TTL_MS = 30 * 60_000;
+/** Việc nền chạy quá ngần này mà chưa xong → báo tiến độ cho khách MỘT lần (issue #168, mục 3). */
+export const TIEN_DO_SAU_MS = 60_000;
 
 const stateOf = (r) => r?.trangThai || r?.data?.trangThai;
 const backoff = (attempts) => Math.min(FIRST_POLL_MS * 2 ** attempts, MAX_POLL_MS);
@@ -92,6 +94,26 @@ export function createJobs({ store, mcp, registry, gate, now, log = console, too
     });
   }
 
+  /**
+   * Việc nền còn DANG_XU_LY sau 60 giây → MỘT câu báo tiến độ (kind 'progress', khoá idem riêng của
+   * việc). Chữ do gói soạn (`pack.cauDangTra` với `tienDo: true`); gói không soạn thì im. Không bao giờ
+   * làm hỏng việc nền: lỗi chỉ ghi log.
+   */
+  async function baoTienDo(row, pack, c, nowMs, turnId) {
+    if (!pack?.cauDangTra || nowMs - Date.parse(row.created_at) < TIEN_DO_SAU_MS) return;
+    const idemKey = `pj:${row.conv_id}:${row.ma_luot}`;
+    try {
+      if (store.outbox.hasIdem(idemKey)) return;
+      const text = pack.cauDangTra({ chatId: row.chat_id, convId: row.conv_id, isGroup: c.isGroup === true }, null, { tienDo: true });
+      if (!text) return;
+      const prefix = c.isGroup === true
+        ? groupNameTag({ isGroup: true, userName: c.userName, userId: c.userId, members: store.convs.listByChat(row.chat_id) })
+        : '';
+      await gate.send({ idemKey, chatId: row.chat_id, convId: row.conv_id, isGroup: c.isGroup === true, turnId, kind: 'progress',
+        text: prefix + text, inReplyToAt: c.receivedAt ?? null, pack: { id: pack.id, moneyCheck: false }, evidence: [] });
+    } catch (e) { log.error?.(`[jobs] không báo được tiến độ việc ${row.id}: ${redact(e?.message)}`); }
+  }
+
   /** Hẹn lượt hỏi kế tiếp cho một việc còn chạy. */
   const hoanLai = (row, nowMs) => {
     const attempts = (row.attempts ?? 0) + 1;
@@ -129,6 +151,7 @@ export function createJobs({ store, mcp, registry, gate, now, log = console, too
         if (!expired) {
           result = await ctx.mcp.callTool(row.result_tool, { maLuot: row.ma_luot });
           if (stateOf(result) === 'DANG_XU_LY') {
+            await baoTienDo(row, pack, c, nowDate.getTime(), turnId);
             hoanLai(row, nowDate.getTime());
             continue;
           }
