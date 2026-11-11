@@ -12,6 +12,36 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-11 — Vòng soát 3 PR #213 / OZV-323: bot LẶNG LẼ TRÁO tên khách, và `\b` trượt chữ Việt có dấu
+
+- **Commit mã nguồn đã đọc:** `3640275` (nhánh `ozv-323-xac-nhan-ten-go-nham`, không rebase).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (bổ sung vào dòng OZV-323 hai điểm vá của vòng soát 3 + trích dẫn `tenBacBo` đổi sang tệp mới), `docs/wiki/an-toan.md` (số dòng thật `packs/hs/packages.js` 661 → 665; ghi việc tách `xuLyTraLoiHoiLai` sang tệp mới `packs/hs/doc-tra-loi.js` để `packs/hs/dien-cho-thieu.js` về 268 dòng), `docs/wiki/log.md`.
+- **Vì sao:** giám đốc soát vòng 3 CHẶN với hai lỗi THẬT, cả hai dựng lại được bằng chính hàm và
+  đường thật của repo:
+  1. **Bot lặng lẽ tráo món của khách.** `tenKhachTuGo` chỉ ẩn CÂU HỎI xác nhận, còn `ketQuaHoi` vẫn
+     trả `tenGoiY: item.chuan` và `giaDinh: item.giaDinh`. Đường thật: "Tra hs máy sấy" → khách tự gõ
+     "máy sấy sinh tố" → "350W 220V" ⇒ Cổng nhận **"máy xay sinh tố 350W 220V"**. Khách gõ MÁY SẤY
+     hai lần, bot in mã + thuế của MÁY XAY mà không hỏi một câu nào (Điều III, Điều VIII).
+     `tenBiBacBo` không cứu vì khách chưa bác bỏ gì — khách chỉ gõ tên, chưa nói "không".
+  2. **`\b` của JS chỉ tính `[A-Za-z0-9_]`** nên ba mẫu ĐO của `daNeu` trượt hết chữ Việt CÓ DẤU:
+     `CHAT_LIEU_RE.test('van bi đồng')`, `'tủ gỗ'`, `'chén sứ'`, `QUY_CACH_RE.test('ống thép đúc')`,
+     `CONG_DUNG_RE.test('loại cầm tay')`, `'dùng để sấy'` đều `false` trong khi bản KHÔNG dấu `true`.
+     Hệ quả trên đường thật: "Tra hs máy sấy sinh tố" → "không, loại cầm tay 350W 220V" ⇒ Cổng nhận
+     **"loại cầm tay 350W 220V"** — RỤNG HẲN tên hàng, vì `coTenTrong` không bóc được cụm công dụng
+     nên đếm nó thành tên mới.
+- **Đã vá:** biên từ Unicode `(?<![\p{L}\p{N}])…(?![\p{L}\p{N}])` qua hàm `tu()` thay cho `\b`, thêm
+  dấu còn thiếu của "cầm" và cả hai cách đặt dấu "thuỷ"/"thủy"; tên bot đoán chỉ được thay tên khách
+  khi khách XÁC NHẬN RÕ (`laXacNhan`), tên khách gõ KHÁC tên bot đoán thì bắt buộc HỎI và `giaDinh`
+  dựng từ tên khách. Vá thêm hai lỗi thợ tự dựng được khi lần theo: mô tả gửi Cổng lặp tên hai lần
+  ("máy sấy máy sấy sinh tố"), và **hồi quy do chính bản vá này** — `[soát #203-5]` đỏ vì vòng 2 hỏi
+  lại Y NGUYÊN câu xác nhận tên đã hỏi, treo khách giữa hai vòng (Điều II); chặn bằng `tenDaHoi`.
+- **Điều VI:** bản vá đẩy `packs/hs/dien-cho-thieu.js` lên 332 dòng (cổng
+  `test/core/wiki-no-lon-dong.test.mjs` bắt đỏ); tách `xuLyTraLoiHoiLai` sang tệp mới
+  `packs/hs/doc-tra-loi.js` (80 dòng) theo đúng ranh trách nhiệm — DỰNG câu hỏi / ĐO / ĐỌC câu trả
+  lời — và xuất lại để `packs/hs/packages.js` cùng bốn tệp test không phải đổi đường dẫn nhập.
+- **Cổng máy:** `npm test` 1177/1177, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6,
+  `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
+
 ## 2026-11-11 — Vòng soát 2 PR #213 / OZV-323: tên khách đã BÁC BỎ sống lại ở vòng hỏi 2
 
 - **Commit mã nguồn đã đọc:** `7d7c1b7` (nhánh `ozv-323-xac-nhan-ten-go-nham`).

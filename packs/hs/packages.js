@@ -206,9 +206,13 @@ export const PACKAGES = [
         // hỏi 2 không gợi ý lại và tên đã bị phủ định không tới Cổng được (điểm 1 vòng soát 2 của
         // PR #213). Ẩn riêng câu HỎI là chưa đủ: `tenGoiY` vẫn được ghi đè vào `session.hoiLai`.
         const tenBiBacBo = [...new Set([...(hoiLai.tenBiBacBo || []), xl.tenBacBo].filter(Boolean))];
+        // Tên bot ĐÃ hỏi xác nhận ở vòng này: vòng sau không hỏi lại câu y nguyên. Khách đáp mỗi
+        // thông số ("350W 220V") là đã trả lời câu hỏi đó — hỏi lại là treo khách giữa hai vòng,
+        // không bao giờ tới được mã (Điều II; đỏ `[soát #203-5]` của vòng soát 3 PR #213).
+        const tenDaHoi = hoiLai.hoiXacNhanTen ? hoiLai.tenGoiY : null;
         const ktTiep = xl.sanSangTra && !xl.giaDinh && vongDaHoi < 2
           ? kiemTraThongTinPhanLoai(xl.moTaTraCuu,
-            { vongHoi: vongDaHoi, hoSo: hoSoCuaMach(ctx), tenKhachTuGo: true, tenBiBacBo })
+            { vongHoi: vongDaHoi, hoSo: hoSoCuaMach(ctx), tenKhachTuGo: true, tenBiBacBo, tenDaHoi })
           : { canHoi: false };
         if (ktTiep.canHoi) {
           // `...ktTiep` ghi đè `tenGoc`/`tenGoiY` bằng mô tả MỚI — tên khách vừa phủ định không

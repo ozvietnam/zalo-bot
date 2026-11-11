@@ -18,9 +18,27 @@ export const CONG_SUAT_RE = /\b(\d+(?:[.,]\d+)?)\s*(w|kw|hp|wats?|watt|m[aã]\s*
 export const DIEN_AP_RE = /\b(\d+)\s*(v|volt|volts?|vdc|vac)\b/i;
 export const DUNG_TICH_RE = /\b(\d+(?:[.,]\d+)?)\s*(l|l[ií]t|liters?|ml)\b/i;
 export const KICH_THUOC_RE = /\b(dn\d+|\d+(?:[.,]\d+)?\s*(mm|cm|m|inch|in|phi|ø|bar|mpa|psi|kg|g|tan|tấn))\b/i;
-export const CHAT_LIEU_RE = /\b(inox(\s*\d+)?|th[eé]p(\s*kh[oô]ng\s*g[iỉ])?|gang|nh[uự]a|nh[oô]m|[đd][oồ]ng|g[oỗ]|cao\s*su|da|s[uứ]|th[uỷ]y\s*tinh|cotton|poly|polyester)\b/i;
-export const CONG_DUNG_RE = /\b(d[uù]ng\s*cho|d[uù]ng\s*trong|d[uù]ng\s*[đd][eể]|chuy[eê]n\s*d[uù]ng|gia\s*d[uụ]ng|c[oô]ng\s*nghi[eệ]p|t[uự]\s*[đd][oộ]ng|c[aâ]m\s*tay|g[ií]a\s*[đd][iì]nh|ly\s*t[aâ]m)\b/i;
-export const QUY_CACH_RE = /\b(tay\s*g[aạ]t|m[aạ]\s*k[eẽ]m|[đd][uú]c|h[aà]n|kh[oô]ng\s*d[aầ]u)\b/i;
+// Biên ĐẦU/CUỐI một từ tiếng Việt. KHÔNG dùng `\b`: `\b` của JS chỉ tính `[A-Za-z0-9_]`, nên mọi
+// mẫu kết (hoặc mở) bằng chữ CÓ DẤU đều trượt — `CHAT_LIEU_RE.test('van bi đồng')`, `'tủ gỗ'`,
+// `'chén sứ'`, `QUY_CACH_RE.test('ống thép đúc')`, `CONG_DUNG_RE.test('dùng để sấy')` đều trả
+// `false` trong khi bản KHÔNG dấu trả `true` (vòng soát 3 của PR #213). Ba mẫu này là mẫu ĐO của
+// `daNeu`: đo ra `false` thì bot hỏi lại đúng điều khách vừa nêu, và `coTenTrong` không bóc được
+// cụm công dụng nên đếm nó thành tên mới ⇒ TÊN HÀNG RỤNG HẲN khỏi tin gửi Cổng.
+const DAU_TU = '(?<![\\p{L}\\p{N}])';
+const CUOI_TU = '(?![\\p{L}\\p{N}])';
+/** Mẫu ĐO một cụm từ tiếng Việt: biên từ tính cả chữ có dấu. */
+const tu = (than) => new RegExp(`${DAU_TU}(?:${than})${CUOI_TU}`, 'iu');
+
+// Mỗi nhánh viết ĐỦ dấu của mọi chữ ("thuỷ" lẫn "thủy", "cầm" lẫn "cam"): lớp ĐO chạy trên chữ
+// NGUYÊN VĂN của khách, không chạy trên chuỗi đã `norm()`, vì `coTenTrong` còn dùng chính mẫu này
+// để bóc cụm công dụng ra khỏi chữ nguyên văn trước khi đo phần tên.
+export const CHAT_LIEU_RE = tu('inox(\\s*\\d+)?|th[eé]p(\\s*kh[oô]ng\\s*g[iỉ])?|gang|nh[uự]a|nh[oô]m'
+  // "thuỷ" và "thủy" là HAI cách đặt dấu của cùng một chữ (dấu trên `u` hay trên `y`), người Việt
+  // gõ cả hai — mẫu phải ăn cả hai, không thì "bình thuỷ tinh" đo ra `false`.
+  + '|[đd][oồ]ng|g[oỗ]|cao\\s*su|da|s[uứ]|th[uủ][yỷ]\\s*tinh|cotton|poly|polyester');
+export const CONG_DUNG_RE = tu('d[uù]ng\\s*cho|d[uù]ng\\s*trong|d[uù]ng\\s*[đd][eể]|chuy[eê]n\\s*d[uù]ng'
+  + '|gia\\s*d[uụ]ng|c[oô]ng\\s*nghi[eệ]p|t[uự]\\s*[đd][oộ]ng|c[aâầ]m\\s*tay|g[ií]a\\s*[đd][iì]nh|ly\\s*t[aâ]m');
+export const QUY_CACH_RE = tu('tay\\s*g[aạ]t|m[aạ]\\s*k[eẽ]m|[đd][uúự]c|h[aà]n|kh[oô]ng\\s*d[aầ]u');
 
 /** Trần số câu trong MỘT tin hỏi lại. */
 export const TRAN_CAU = 3;
@@ -193,9 +211,21 @@ const XAC_NHAN_DAU_RE = /^(?:[đd][uú]ng|oke|ok|chu[aẩ]n|v[aâ]ng|[uừ]|dạ
 
 /** Bỏ từ xã giao đầu và cuối câu, giữ lại phần DỮ KIỆN khách nói. */
 export function bocXaGiao(s) {
-  let t = String(s || '').replace(XAC_NHAN_DAU_RE, '').trim();
+  let t = String(s || '').replace(XAC_NHAN_DAU_RE, '').replace(DEM_SAU_DAU_RE, '').trim();
   for (let i = 0; i < 3 && XA_GIAO_CUOI_RE.test(t); i += 1) t = t.replace(XA_GIAO_CUOI_RE, '').trim();
   return t;
+}
+
+/**
+ * Khách có XÁC NHẬN RÕ tên bot đoán không ("đúng ạ", "chuẩn", "vâng")?
+ *
+ * Chỉ lời xác nhận RÕ mới cho phép tên BOT ĐOÁN thay tên KHÁCH TỰ GÕ. Khách đáp mỗi thông số
+ * ("350W 220V") là trả lời câu xin thông số, KHÔNG phải đồng ý đổi tên món — coi im lặng là đồng ý
+ * thì bot lặng lẽ tráo "máy sấy" thành "máy xay" rồi in mã + thuế của món khách không hỏi
+ * (vòng soát 3 của PR #213; Điều III, Điều VIII).
+ */
+export function laXacNhan(s) {
+  return XAC_NHAN_DAU_RE.test(String(s || '').trim());
 }
 
 /**
