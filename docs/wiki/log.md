@@ -20,6 +20,35 @@ Quy ước:
 - **Kiểm tra:** sau khi rebase lên `main` (đã có #201) chạy lại đủ bốn cổng: `npm test` 1102/1102 + 34 test đạt, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang). Bảy test đỏ-trước trong `test/core/do-dung-hs.test.mjs` khoá cả 3 điểm (24/24 đạt sau khi sửa).
 - **Còn dở:** số độ đúng **thật** vẫn chưa có — cần `OZ_MCP_TOKEN` + `GEMINI_API_KEY`, môi trường agent chỉ có `.env.example`.
 
+## 2026-11-11 — Issue #177 yêu cầu 4 / OZV-323: ảnh đi chung một lượt phân loại với hồ sơ mạch
+
+- **Commit mã nguồn đã đọc:** `c6a9478` (nhánh `main`, sau khi #204 đã gộp; lần đo đầu trên `0fb9785`).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (thêm dòng Issue #177 yêu cầu 4 ở mục 3), `docs/wiki/log.md`.
+- **Vì sao:** yêu cầu 4 của #177 đổi hành vi lượt ảnh. Đo thật trên `main` bằng chính gói `packs/hs`
+  (không phỏng đoán): khách gõ mô tả đủ → bot mở lượt phân loại; khách gửi thêm ảnh tem nhãn ngay sau
+  → bot in "👉 Đúng thì gõ ok" như một việc mới, kết quả lượt cũ (hồ sơ chưa có ảnh) vẫn tới khách, rồi
+  "ok" mở lượt thứ hai. Khách nhận **hai kết quả cho cùng một món**, có thể hai mã khác nhau, và công ty
+  trả hai lượt điểm Cổng (3 điểm/lượt — báo cáo OZV-326). Điều đó trái cả yêu cầu 4 của #177 lẫn luật
+  "một mạch một kết quả" của #170 (yêu cầu 6).
+- **Cách sửa:** thêm cờ `choKetQuaGoi1` = SỐ LƯỢT gói 1 đang chờ kết quả (`packs/hs/chay-goi.js:49`);
+  lưu số lượt chứ không lưu `true` để một kết quả cũ tới muộn không xoá oan cờ của lượt đang chạy
+  (`packs/hs/index.js:85` chỉ xoá khi kết quả đúng của lượt mới nhất về). Nhánh ảnh: lượt còn chạy thì
+  gộp ảnh vào hồ sơ rồi gọi `trenHoSo` ngay, không hỏi "ok" lần nữa (`packs/hs/flow-photo.js:41`).
+  Kết quả lượt cũ tự bị bỏ bằng cơ chế đếm lượt `luotSo` đã có, nên **không cần luật bỏ kết quả mới**.
+- **Hai chốt không được bỏ:** (1) ảnh không thêm ô dữ kiện nào thì KHÔNG mở lượt mới — so các ô có cấu
+  trúc của hồ sơ, không so `dau` cũng không so `moTaGop`, vì chú thích đàm thoại ("ảnh tem thông số")
+  làm cả hai thứ đó đổi mà không nói gì thêm về mặt hàng, và mỗi lượt thừa là tiền thật; (2) lượt đã trả
+  kết quả xong rồi mới gửi ảnh thì giữ đường xin xác nhận như cũ — tự mở lượt sau khi khách đã có mã là
+  tiêu điểm Cổng ngoài ý khách.
+- **Tra chéo repo (MCP `sourcebot`):** khuôn "nhiều ảnh vào MỘT lượt định danh" đã có ở repo
+  **hs-code-api** (hàm `docAnhNameplate(anhUrl[])` trong tệp định danh của thư mục `lib`, dòng 45;
+  endpoint `/api/identify` nhận tối đa 4 ảnh) và trong hợp đồng công cụ của repo **ozplugin**
+  (`dinh_danh_hang`, trường `anhUrl` là mảng tối đa 2 URL) — dùng lại cách đã có, không dựng
+  luật gộp ảnh kiểu riêng. (Hai đường dẫn trên thuộc repo khác, không có trong repo này.)
+- **Kiểm tra:** `npm test` 1083/1083 + 34 xanh, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock`
+  6/6 (G5 — hồ sơ mặt hàng qua nhiều tin có ảnh — ĐẠT), `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
+  Chạy lại đủ bốn cổng sau khi rebase lên `main` đã có #204 — số test ghi ở mục "Kiểm tra" của PR #209.
+
 ## 2026-11-11 — Issue #201 / OZV-250: trong nhóm, người hỏi tiếp thì bot im (cửa gửi bỏ oan)
 
 - **Commit mã nguồn đã đọc:** `34fd6ea` (nhánh `main`).
