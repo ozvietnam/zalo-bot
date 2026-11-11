@@ -234,6 +234,38 @@ test('6 biên cửa sổ chủ động: đúng 900.000 ms (15 phút) vẫn bỏ,
   assert.deepEqual(run({ ...FACTS_CHU_DONG, recentBotTexts: [{ text: GIONG, at: truoc(900_001) }] }, CHU_DONG), { decision: 'send', reason: 'ok' });
 });
 
+// ─────────── 6: phạm vi chống trùng là MỘT CÂU KHÁCH (issue #201) ───────────
+// Bước 6 sinh ra để chặn hai-lần-bấm-gửi (sự cố #2), nên nó chỉ so chữ trong phạm vi CÙNG MỘT câu
+// khách. Trước #201, hai câu hỏi khác nhau mà câu trả lời trùng chữ cũng bị bỏ → khách thấy bot im.
+test('6 (#201) hai câu khách KHÁC nhau, câu trả lời trùng chữ → vẫn gửi', () => {
+  const f = { recentBotTexts: [{ text: GIONG, at: truoc(20_000), askKey: 'tra giúp mã 84137090' }] };
+  assert.deepEqual(run(f, { askKey: 'thuế bao nhiêu?' }), { decision: 'send', reason: 'ok' });
+});
+
+test('6 (#201) CÙNG một câu khách (bấm gửi hai lần) → vẫn drop similar', () => {
+  const f = { recentBotTexts: [{ text: GIONG, at: truoc(20_000), askKey: 'tra giúp mã 84137090' }] };
+  // Chuẩn hoá theo `normVi`: khác hoa/thường, khác dấu cách vẫn là MỘT câu.
+  assert.match(run(f, { askKey: 'tra giúp mã 84137090' }).reason, /^similar:/);
+  assert.match(run(f, { askKey: 'Tra  giúp   MÃ 84137090' }).reason, /^similar:/);
+});
+
+test('6 (#201) chữ khách RỖNG hoặc thiếu → coi như KHÔNG BIẾT, vẫn so chữ (mặc định an toàn)', () => {
+  const cu = { text: GIONG, at: truoc(20_000), askKey: 'tra hscode' };
+  // '@bot' trơ trọi: sau khi bỏ tên bot thì rỗng — không phải một câu hỏi, không được coi là câu khác.
+  assert.match(run({ recentBotTexts: [cu] }, { askKey: '' }).reason, /^similar:/);
+  assert.match(run({ recentBotTexts: [cu] }, { askKey: '   ' }).reason, /^similar:/);
+  assert.match(run({ recentBotTexts: [cu] }, { askKey: null }).reason, /^similar:/);
+  // Tin cũ không khai chữ khách (dòng outbox cũ, trước vá này) cũng vẫn đem ra so.
+  assert.match(run({ recentBotTexts: [{ text: GIONG, at: truoc(20_000) }] }, { askKey: 'thuế bao nhiêu?' }).reason, /^similar:/);
+});
+
+test('6 (#201) câu "đang tra" là chữ khuôn → KHÔNG được miễn trừ, hai câu khách khác nhau vẫn drop', () => {
+  // `progress` giống nhau với mọi câu hỏi và không mang tin riêng của câu nào: lặp lại là tin rác
+  // (sự cố #9). Nên dù hai câu khách khác nhau, câu "đang tra" thứ hai vẫn bị bỏ.
+  const f = { recentBotTexts: [{ text: GIONG, at: truoc(20_000), askKey: 'tra giúp mã 84137090' }] };
+  assert.match(run(f, { kind: 'progress', askKey: 'thuế bao nhiêu?' }).reason, /^similar:/);
+});
+
 test('6 mốc gửi là số mili giây hoặc Date → vẫn lọc cửa sổ đúng', () => {
   const t = Date.parse(NOW);
   assert.match(run({ recentBotTexts: [{ text: GIONG, at: t - 20_000 }] }).reason, /^similar:/);

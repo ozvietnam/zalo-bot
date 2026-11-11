@@ -147,9 +147,11 @@ test('outbox', () => {
   s.outbox.insert(ob({ idem_key: 'k3', text: 'c', kind: 'staff_relay', status: 'sent', sent_at: at(3) }));
   s.outbox.insert(ob({ idem_key: 'k4', chat_id: 'd', text: 'd', status: 'sent', sent_at: at(4) }));
   s.outbox.insert(ob({ idem_key: 'k5', text: 'e', status: 'dropped' }));
-  assert.deepEqual(s.outbox.recentBotMsgs('c', T, 10), [{ text: 'b', at: at(2) }, { text: 'a', at: at(1) }]);
-  assert.deepEqual(s.outbox.recentBotMsgs('c', T, 1), [{ text: 'b', at: at(2) }]);
-  assert.deepEqual(s.outbox.recentBotMsgs('c', at(1.5), 10), [{ text: 'b', at: at(2) }]);
+  // `askKey` = `turn_id` của dòng outbox (câu khách mà tin đó trả lời) — bước 6 của cửa dùng để
+  // không bỏ oan câu trả lời cho câu hỏi MỚI (issue #201). `ob()` không đặt `turn_id` nên là null.
+  assert.deepEqual(s.outbox.recentBotMsgs('c', T, 10), [{ text: 'b', at: at(2), askKey: null }, { text: 'a', at: at(1), askKey: null }]);
+  assert.deepEqual(s.outbox.recentBotMsgs('c', T, 1), [{ text: 'b', at: at(2), askKey: null }]);
+  assert.deepEqual(s.outbox.recentBotMsgs('c', at(1.5), 10), [{ text: 'b', at: at(2), askKey: null }]);
   assert.equal(s.outbox.countSent('c', T), 3);
   assert.equal(s.outbox.countSent(null, T), 4);
   assert.equal(s.outbox.countSent(null, at(3)), 2);

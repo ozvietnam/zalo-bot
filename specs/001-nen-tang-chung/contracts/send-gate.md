@@ -37,7 +37,7 @@ Hợp đồng tầng lưu trữ: `store.outbox.recentBotMsgs(convId, sinceIso, l
 | 4 | `kind ∈ {reply, notice, job_result}` và `sentTodayChat ≥ CAP_CHAT_DAY` | `defer` + mở phiếu (theo conv) | `cap:chat` |
 | 5 | như trên, `isGroup` và `sentTodayGroup ≥ CAP_GROUP_DAY` | `defer` + cảnh báo (theo chat) | `cap:group` |
 | 6 | như trên và `sentTodayAll ≥ CAP_ALL_DAY` | `defer` + cảnh báo | `cap:all` |
-| 7 | Jaccard(`text`, một tin trong `recentBotTexts`) ≥ 0,8 — cửa sổ **tách theo loại tin**: tin **trả lời trực tiếp** (còn mốc tin khách trong 10 phút) dùng cửa sổ **60 giây**, tin **chủ động** dùng cửa sổ **15 phút**; tin không có mốc đọc được coi như **trong** cửa sổ | `drop` | `similar:<điểm>` |
+| 7 | Jaccard(`text`, một tin trong `recentBotTexts`) ≥ 0,8 — chỉ so với tin **trả lời CÙNG MỘT CÂU KHÁCH** (xem mục dưới); cửa sổ **tách theo loại tin**: tin **trả lời trực tiếp** (còn mốc tin khách trong 10 phút) dùng cửa sổ **60 giây**, tin **chủ động** dùng cửa sổ **15 phút**; tin không có mốc đọc được coi như **trong** cửa sổ | `drop` | `similar:<điểm>` |
 | 8 | `text` khớp mẫu lộ (đường dẫn `/home/`, `/opt/`, `C:\`, stack `at x (file:line)`, chuỗi ≥ 32 ký tự base64/hex, `Bearer `, mục trong `BANNED_PATTERNS`) | `reject` + cảnh báo | `leak:<loại>` |
 | 9 | `pack.moneyCheck` và có số tiền trong `text` không thấy trong `evidence` | `reject` + mở phiếu (theo conv) | `money:<số>` |
 | — | còn lại | `send` | `ok` |
@@ -46,6 +46,20 @@ Hợp đồng tầng lưu trữ: `store.outbox.recentBotMsgs(convId, sinceIso, l
 - **Bước 3a/3b (nợ việc nền, giờ yên)**: `job_result` **luôn** là tin chủ động, không có ngoại lệ. Nó luôn chịu luật `proactive-no-debt` và luật giờ yên (hiến pháp Điều II: khách im thì máy im) — kể cả khi nó trả lời đúng câu khách vừa hỏi.
 - **Bước 7 (chống trùng)**: phân loại **riêng**, bằng hàm `isDirectReply` (`core/gate-decide.js:29`), **không** dùng định nghĩa chủ động của bước 3a. Ở đây `job_result` **có mốc tin khách** (`inReplyToAt`) còn trong 10 phút thì tính là **trả lời trực tiếp** → đi cửa sổ ngắn 60 giây; không có mốc (hoặc mốc đã cũ) thì mới là tin chủ động → cửa sổ dài 15 phút. Lý do: việc nền chỉ trả lời **trễ**, nên chờ Cổng OZ phân loại vài phút là chuyện thường.
 - `job_result` lấy mốc tin khách ở đâu: `core/jobs.js` ghi `receivedAt` vào `context` của dòng `jobs`, rồi truyền sang `gate.send({ …, inReplyToAt })`. Dòng `jobs` cũ (trước thay đổi này) không có trường đó → `inReplyToAt = null` → vẫn là tin chủ động, giữ hành vi cũ.
+
+### Phạm vi bước 7 là MỘT CÂU KHÁCH (issue #201)
+
+Bước 7 sinh ra để chặn **hai-lần-bấm-gửi** (sự cố #2, `research.md:11`), tức là hai lượt gửi cho **cùng một câu** của khách. Nó **không** được bỏ câu trả lời cho một câu hỏi **MỚI** chỉ vì chữ giống câu trước: trong nhóm đông, người hỏi tiếp cùng một mã (An hỏi mã 8413 → Bình chen ngang → An hỏi "thuế bao nhiêu?") cho hai câu trả lời gần trùng chữ, và trước thay đổi này câu thứ hai bị `drop similar:1.00` → khách thấy **bot im** (QA G2 bước 4).
+
+Vì vậy cửa chỉ đem ra so những tin bot **trả lời cùng một câu khách**. Dấu hiệu là `askKey` = **chữ câu khách** đã chuẩn hoá qua `normVi` (`core/gate-decide.js:151`), **không** phải mã lượt (`turnId`): khách bấm gửi hai lần thì Zalo cho hai lượt **mã khác nhau** nhưng **chữ giống nhau**, nên lấy mã lượt làm dấu hiệu sẽ tắt đúng lớp bảo vệ của sự cố #2.
+
+Ba luật biên, đều có test:
+
+- **Không biết thì vẫn so** (hướng an toàn): tin cũ không khai `askKey` (dòng `outbox` ghi trước thay đổi này), hoặc người gọi không truyền, thì vẫn đem ra so chữ như cũ.
+- **Chữ khách rỗng tính là không biết**: khách chỉ huých tên bot ("@bot") thì sau khi bỏ tên bot còn chuỗi rỗng — đó không phải một câu hỏi, không được lấy làm bằng chứng "hai câu khác nhau" (điểm [S6] của người soát, `packs/hs/chay-goi.js:57`).
+- **Câu "đang tra" (`progress`) không được miễn trừ**: đó là **chữ khuôn**, giống nhau với mọi câu hỏi và không mang thông tin riêng của câu nào, nên lặp lại chỉ là tin rác — đúng sự cố #9 (`research.md:18`: khách nhận cùng câu khuôn lần thứ 3). Loại này vẫn chống trùng theo cửa sổ như cũ.
+
+Ai khai `askKey`: lõi truyền chữ khách của lượt (`core/engine.js:92`); cửa lưu vào `ctx.askKey` của dòng `outbox` để đường quét lại (`sweepRow`) cũng có (`core/gate.js:150`); store đọc lại từ `ctx` khi dựng `recentBotTexts` (`core/store/queue.js:104`).
 
 Số thứ tự trong bảng này **lệch một bậc** so với chú thích trong code: code gộp ba luật trần ngày vào khối `// 4, 5` (`core/gate-decide.js:102`) và đánh số luật chống trùng là **6** (`core/gate-decide.js:108`), còn bảng này tách `cap:chat`/`cap:group`/`cap:all` thành 4/5/6 nên luật chống trùng là **7**. Thứ tự kiểm thực tế không đổi.
 

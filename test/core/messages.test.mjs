@@ -245,28 +245,47 @@ test('T033: tin khách chứa số điện thoại mẫu 0912345678 được lư
 });
 
 test('T033: tin bot bị cửa drop (trùng nội dung trong cửa sổ) KHÔNG có trong messages', async () => {
-  // Trả về cùng một nội dung liên tiếp
-  const pack = spyPack(() => ['Câu trả lời cố định không đổi']);
-  const { store, clock, engine } = setup({ packs: [pack] });
+  // Điều test này giữ: tin bot bị cửa BỎ thì KHÔNG được ghi vào `messages` (sổ tin phải khớp
+  // những gì khách THẬT SỰ nhận — FR-024, SC-008). Cái bị bỏ ở đây là tin TRÙNG.
+  //
+  // Cách gây ra tin trùng: gói trả HAI câu y nhau trong CÙNG MỘT LƯỢT của khách. Đó đúng là ca
+  // mà bước 6 của cửa sinh ra để chặn (sự cố #2, `research.md:11`: một khách nhận 3 tin gần
+  // giống nhau — hai lượt gửi cho cùng một câu khách). Trước đây test này dùng HAI lượt khách
+  // khác nhau ('Lần 1', 'Lần 2') để gây trùng, nhưng đó lại chính là hành vi issue #201 gọi là
+  // lỗi: khách hỏi câu MỚI mà bot im vì câu trả lời giống chữ câu trước. Nay cửa chỉ so chữ
+  // trong phạm vi MỘT câu hỏi của khách (`askKey`, `core/gate-decide.js:139`), nên test này gây
+  // trùng bằng đúng ca nó muốn chặn, và phần khẳng định về sổ tin giữ nguyên.
+  const pack = spyPack(() => ['Câu trả lời cố định không đổi', 'Câu trả lời cố định không đổi']);
+  const { store, engine } = setup({ packs: [pack] });
 
-  // Lần 1: bot gửi thành công
   await engine.process(upd('Lần 1', { id: 'm-dup-1' }));
-  // Lần 2 ngay sau đó (trong 60s): nội dung bot trùng → gate drop 'duplicate-text'
-  clock.advance('5s');
-  await engine.process(upd('Lần 2', { id: 'm-dup-2' }));
 
   const recent = store.messages.recent('c1', 10);
-  // Có 2 tin khách vào ('Lần 1', 'Lần 2') và chỉ 1 tin bot (lần 1)
-  assert.equal(recent.length, 3, 'phải có 2 tin khách + 1 tin bot thành công');
+  // Có 1 tin khách vào ('Lần 1') và chỉ 1 tin bot (câu thứ hai trùng chữ nên bị cửa bỏ)
+  assert.equal(recent.length, 2, 'phải có 1 tin khách + 1 tin bot thành công');
   assert.equal(recent[0].speaker, 'khach');
   assert.equal(recent[0].text, 'Lần 1');
   assert.equal(recent[1].speaker, 'bot');
   assert.equal(recent[1].text, 'Câu trả lời cố định không đổi');
-  assert.equal(recent[2].speaker, 'khach');
-  assert.equal(recent[2].text, 'Lần 2');
 
   const botMsgs = recent.filter((m) => m.speaker === 'bot');
   assert.equal(botMsgs.length, 1, 'tin bot bị drop không được xuất hiện trong messages');
+});
+
+test('T033 (#201): khách hỏi câu MỚI mà câu trả lời trùng chữ thì VẪN được gửi và VẪN vào messages', async () => {
+  // Mặt còn lại của điều trên, để không ai siết bước 6 trở lại: hai LƯỢT KHÁCH khác nhau mà gói
+  // trả cùng một câu (khách hỏi lại cùng một mã) thì khách phải nhận đủ hai lần — bot im ở lượt
+  // sau là lỗi #201. Sổ tin vì vậy có 2 tin khách + 2 tin bot.
+  const pack = spyPack(() => ['Câu trả lời cố định không đổi']);
+  const { store, clock, engine } = setup({ packs: [pack] });
+
+  await engine.process(upd('Lần 1', { id: 'm-new-1' }));
+  clock.advance('5s');
+  await engine.process(upd('Lần 2', { id: 'm-new-2' }));
+
+  const recent = store.messages.recent('c1', 10);
+  assert.equal(recent.length, 4, 'hai câu hỏi của khách phải có hai câu trả lời');
+  assert.deepEqual(recent.map((m) => m.speaker), ['khach', 'bot', 'khach', 'bot']);
 });
 
 test('T033: webhook gửi lặp (trùng update_key) bị bỏ qua KHÔNG ghi lặp vào messages', async () => {

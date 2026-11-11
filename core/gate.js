@@ -119,7 +119,10 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
     // Cửa fallback: không có convId thì lấy chatId (chat 1-1 hoặc người gọi cũ).
     const convId = msg.convId ?? msg.chatId;
     const isGroup = msg.isGroup === true || convId !== msg.chatId;
-    const m = { ...msg, convId, isGroup };
+    // `askKey` = CHỮ CÂU KHÁCH mà tin này trả lời (bước 6 của decide dùng để không bỏ oan câu trả
+    // lời cho một câu hỏi mới — issue #201). Dùng CHỮ, không dùng mã lượt: khách bấm gửi hai lần
+    // cho hai mã lượt khác nhau nhưng cùng chữ, nên chữ mới giữ được lớp chặn hai-lần-bấm-gửi.
+    const m = { ...msg, convId, isGroup, askKey: msg.askKey ?? null };
     // Tin rỗng: chặn TRƯỚC khi đọc facts (hasIdem cần idemKey hợp lệ) để không ném lỗi bind SQLite.
     // 'empty' lấy từ decide (nguồn duy nhất của lý do) nên không nhân bản chuỗi.
     const pre = decide(m, { now: nowIso }, R);
@@ -142,6 +145,8 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
       pack: msg.pack ? { id: msg.pack.id ?? null, moneyCheck: msg.pack.moneyCheck === true } : null,
       evidenceNumbers: [...evidenceNumbers(msg.evidence)],
       inReplyToAt: msg.inReplyToAt ?? null,
+      // Chữ câu khách đang được trả lời: bước 6 cần nó cả ở đường quét lại (sweepRow) — issue #201.
+      askKey: msg.askKey ?? null,
       debt: f.hasOpenJob,
       staffId: msg.staffId ?? null,
       isGroup,
@@ -174,6 +179,7 @@ export function createGate({ store, channel, rules = {}, now, onAlert = () => {}
     const convId = o.conv_id ?? o.chat_id;
     const isGroup = c.isGroup === true || convId !== o.chat_id;
     const m = { idemKey: o.idem_key, chatId: o.chat_id, convId, isGroup, turnId: o.turn_id, kind: o.kind, text: o.text,
+      askKey: c.askKey ?? null,
       inReplyToAt: c.inReplyToAt ?? null, pack: c.pack ?? undefined, evidence: c.evidenceNumbers ?? [] };
     const f = facts({ chatId: o.chat_id, convId, isGroup }, nowIso);
     f.hasOpenJob = Boolean(c.debt) || f.hasOpenJob;

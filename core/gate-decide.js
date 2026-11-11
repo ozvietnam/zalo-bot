@@ -1,7 +1,7 @@
 // Cửa gửi (contracts/send-gate.md). Phần quyết định: hàm thuần, không I/O, không đọc đồng hồ.
 import { isQuietHours, nextMorning } from './time.js';
 import { findLeak } from './redact.js';
-import { jaccard, extractMoney } from './text.js';
+import { jaccard, extractMoney, normVi } from './text.js';
 
 export const DEFAULT_RULES = Object.freeze({
   capChatDay: 8,
@@ -126,11 +126,35 @@ export function decide(msg, facts = {}, rules = {}) {
     // giữ dupWindowMs. Đây là khái niệm RIÊNG của bước 6, không phải isProactive của bước 3a:
     // job_result vẫn luôn chịu luật nợ việc nền và giờ yên ở trên.
     // Tin cũ trong recentBotTexts không có mốc đọc được thì coi như trong cửa sổ — mặc định an toàn.
+    //
+    // Và bỏ qua tin bot TRẢ LỜI MỘT CÂU HỎI KHÁC của khách (issue #201, QA G2 bước 4). Bước 6 sinh ra
+    // để chặn hai-lần-bấm-gửi, tức là HAI LƯỢT GỬI CHO CÙNG MỘT CÂU khách — không phải để chặn câu
+    // trả lời cho một câu hỏi MỚI chỉ vì chữ giống. Trong nhóm đông, người hỏi tiếp cùng một mã
+    // (An hỏi mã 8413 → Bình chen ngang → An hỏi "thuế bao nhiêu?") ra chữ gần như trùng, nên câu
+    // thứ hai bị bỏ với lý do `similar:1.00` và khách thấy BOT IM.
+    //
+    // Dấu hiệu là CHỮ CÂU KHÁCH (`askKey`, đã chuẩn hoá), KHÔNG phải mã lượt: khách bấm gửi hai lần
+    // thì Zalo cho hai lượt có mã KHÁC nhau nhưng CHỮ GIỐNG nhau (sự cố #2, `research.md:11`), nên
+    // lấy mã lượt làm dấu hiệu sẽ tắt đúng lớp bảo vệ đó. Lấy chữ thì: cùng một câu khách → vẫn so
+    // chữ và vẫn chặn; câu khách KHÁC nhau → là câu hỏi mới, không được bỏ oan.
+    // Không biết (tin cũ, người gọi không khai) thì vẫn đem ra so — hướng an toàn.
+    //
+    // Miễn trừ này KHÔNG áp cho câu "đang tra" (`progress`): câu đó là CHỮ KHUÔN, giống nhau với mọi
+    // câu hỏi và không mang thông tin riêng của câu nào, nên lặp lại chỉ là tin rác — đúng sự cố #9
+    // (`research.md:18`: khách nhận cùng câu khuôn lần thứ 3). Nó vẫn chống trùng theo cửa sổ như cũ.
+    //
+    // Chữ khách RỖNG cũng tính là KHÔNG BIẾT: khách gõ trống trơn ("@bot", chỉ gọi tên bot rồi thôi)
+    // thì đó không phải một câu hỏi, không được lấy làm bằng chứng "hai câu khác nhau". Thiếu luật
+    // này thì một cái huých "@bot" và một câu "@bot tra hscode" bị coi là hai câu, và khách nhận hai
+    // tin "Em đang tra: …" y nhau (điểm [S6] của người soát, `packs/hs/chay-goi.js:57`).
     const dupMs = isDirectReply(msg, nowMs, r) ? r.dupDirectMs : r.dupWindowMs;
+    const hoi = msg.kind === PROGRESS ? null : (normVi(msg.askKey) || null);
     let best = 0;
     for (const prev of facts.recentBotTexts ?? []) {
       const at = typeof prev === 'string' || prev?.at == null ? null : toMs(prev.at);
       if (at != null && nowMs - at > dupMs) continue;
+      const hoiTruoc = typeof prev === 'string' ? null : (normVi(prev?.askKey) || null);
+      if (hoi != null && hoiTruoc != null && hoi !== hoiTruoc) continue;
       best = Math.max(best, jaccard(text, typeof prev === 'string' ? prev : prev?.text));
     }
     if (best >= r.similarity) return out('drop', `similar:${best.toFixed(2)}`);

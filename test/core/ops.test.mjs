@@ -52,10 +52,15 @@ const CAU_A = 'Dạ mình tra cứu giúp bạn mã hàng cụ thể nhé';
 const CAU_B = 'Dạ mình tra cứu giúp bạn mã hàng cụ thể nhé!';
 const CAU_C = 'Dạ đường dẫn bot nằm ở /opt/oz-test/bot.db bạn xem nhé';
 
-/** Chạy 3 lượt nghiệm thu: 1 send, 1 drop similar, 1 reject leak:path. */
+/**
+ * Chạy 3 lượt nghiệm thu: 1 send, 1 drop similar, 1 reject leak:path.
+ * Lượt 1 và 2 cùng MỘT CHỮ của khách (khách bấm gửi hai lần — sự cố #2, `research.md:11`): đó là ca
+ * bước 6 của cửa sinh ra để chặn, nên câu trả lời gần trùng của lượt 2 bị `drop similar`. Hai lượt
+ * với chữ KHÁC nhau thì nay không còn bị chặn vì trùng chữ nữa (issue #201).
+ */
 async function baLuot(ctx) {
-  await ctx.engine.process(upd('cho em tra ma hang so 1', { id: 'l1' }));
-  await ctx.engine.process(upd('cho em tra ma hang so 2', { id: 'l2' }));
+  await ctx.engine.process(upd('cho em tra ma hang nay', { id: 'l1' }));
+  await ctx.engine.process(upd('cho em tra ma hang nay', { id: 'l2' }));
   await ctx.engine.process(upd('cho em tra ma hang so 3', { id: 'l3' }));
   return ctx;
 }
