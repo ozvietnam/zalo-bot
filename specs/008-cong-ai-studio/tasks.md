@@ -156,7 +156,7 @@ export function createQueueManager({ queueDb, cacheTtlMs = 600000 }) -> {
 }
 ```
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -193,10 +193,10 @@ test('T802: Hai yêu cầu giống hệt nhau trong 10 phút -> trả lại kế
   assert.equal(req2.result, 'Mã HS: 6307.90.90');
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/gateway/queue-manager.test.mjs` → FAIL.
-- [ ] **Step 3:** Viết mã `gateway/queue-manager.js` tính băm SHA-256 nội dung qua `node:crypto`, tra cứu cache 10 phút trước khi gọi `queueDb.createJob`, gán priority/timeout theo kind.
-- [ ] **Step 4:** Chạy lại `node --test test/gateway/queue-manager.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(gateway): implement priority scheduling, timeouts, and 10min deduplication cache (T802)"`
+- [x] **Step 2:** Chạy `node --test test/gateway/queue-manager.test.mjs` → FAIL.
+- [x] **Step 3:** Viết mã `gateway/queue-manager.js` tính băm SHA-256 nội dung qua `node:crypto`, tra cứu cache 10 phút trước khi gọi `queueDb.createJob`, gán priority/timeout theo kind.
+- [x] **Step 4:** Chạy lại `node --test test/gateway/queue-manager.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(gateway): implement priority scheduling, timeouts, and 10min deduplication cache (T802)"`
 
 ---
 
