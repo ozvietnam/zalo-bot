@@ -89,6 +89,9 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
       idemKey: `r:${turn.convId}:${turn.turnId}:${i}`, chatId: turn.chatId, convId: turn.convId, isGroup: turn.isGroup,
       turnId: turn.turnId, kind,
       text: addressOf(turn, text), inReplyToAt: turn.receivedAt, pack: pack ? { id: pack.id, moneyCheck: pack.moneyCheck === true } : null, evidence,
+      // Chữ câu khách của lượt này: bước 6 của cửa chỉ so chữ TRONG PHẠM VI MỘT câu khách, nên câu
+      // trả lời cho một câu hỏi MỚI không bị bỏ oan vì trùng chữ câu trước (issue #201).
+      askKey: turn.text ?? turn.caption ?? null,
       // Lượt phát lại (T020): tin khách chưa ai trả lời → phòng đang nợ một câu, nên cửa không được
       // coi là "máy tự nhắn" (proactive-no-debt). Giờ yên vẫn hoãn tới 07:00, đúng FR-005.
       debt: turn.replayed === true,

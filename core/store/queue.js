@@ -53,7 +53,10 @@ export function outboxTable(db) {
   // `parts_sent`), còn dòng bị cửa bỏ thì KHÔNG bao giờ đi ra nên không được tính là đã làm.
   const lastSend = db.prepare(`SELECT * FROM outbox WHERE idem_key LIKE ? ESCAPE '\\' AND decision = 'send'
     ORDER BY id DESC LIMIT 1`);
-  const recent = db.prepare(`SELECT text, sent_at FROM outbox WHERE conv_id = ? AND status = 'sent' AND kind IN ('reply','notice','job_result','progress')
+  // `ctx` đi kèm để cửa biết tin cũ TRẢ LỜI CÂU NÀO của khách (`ctx.askKey` = chữ câu khách): bước 6
+  // của `gate-decide` chỉ chống hai-lần-bấm-gửi (cùng một câu khách), không được bỏ câu trả lời cho
+  // câu hỏi MỚI chỉ vì chữ giống (issue #201 — trong nhóm, người hỏi tiếp cùng một mã thì bot im).
+  const recent = db.prepare(`SELECT text, sent_at, ctx FROM outbox WHERE conv_id = ? AND status = 'sent' AND kind IN ('reply','notice','job_result','progress')
     AND sent_at >= ? ORDER BY sent_at DESC, id DESC LIMIT ?`);
   // Trần tin/ngày là ngân sách tin TỚI KHÁCH, nên không đếm tin NỘI BỘ: `ticket` đi vào nhóm nhân
   // viên và `digest` là bản tin cho người vận hành — khách không nhận. Hai loại đó tự được miễn trần
@@ -98,7 +101,7 @@ export function outboxTable(db) {
      */
     lastSentByIdemPrefix: (prefix) => outOut(lastSend.get(`${String(prefix).replace(/[\\%_]/g, '\\$&')}%`) ?? null),
     /** Tin bot gần đây kèm mốc gửi, để cửa tự lọc cửa sổ chống trùng theo loại tin (gate-decide bước 6). */
-    recentBotMsgs: (convId, sinceIso, limit) => recent.all(convId, sinceIso, limit).map((r) => ({ text: r.text, at: r.sent_at })),
+    recentBotMsgs: (convId, sinceIso, limit) => recent.all(convId, sinceIso, limit).map((r) => ({ text: r.text, at: r.sent_at, askKey: fromJson(r.ctx)?.askKey ?? null })),
     countSent: (convId, sinceIso) => (convId === null || convId === undefined ? cntAll.get(sinceIso) : cntConv.get(convId, sinceIso)).n,
     countSentVoice: (convId, sinceIso) => cntVoice.get(convId, sinceIso).n,
     /** Đếm tin đã gửi theo phòng (cả nhóm, không tách theo người) — dùng cho trần ngày của nhóm. */

@@ -12,6 +12,13 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-11 — Issue #201 / OZV-250: trong nhóm, người hỏi tiếp thì bot im (cửa gửi bỏ oan)
+
+- **Commit mã nguồn đã đọc:** `34fd6ea` (nhánh `main`).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (thêm dòng Issue #201 ở mục 3), `docs/wiki/an-toan.md` (số dòng thật của `core/gate.js` và `core/engine.js`), `docs/wiki/log.md`.
+- **Vì sao:** #201 đổi hành vi cửa gửi. Bước 6 (chống trùng Jaccard) trước đây so chữ với MỌI tin bot gần đây, nên câu trả lời cho một câu hỏi MỚI bị bỏ chỉ vì trùng chữ câu trước — đo thật trên `main` với gói `packs/hs` thật: QA G2 bước 4 cho `drop: similar:1.00` và bot không gửi gì. Nay phạm vi chống trùng là MỘT CÂU KHÁCH: dấu hiệu là CHỮ câu khách đã chuẩn hoá (`askKey`), không phải mã lượt — vì khách bấm gửi hai lần thì mã lượt KHÁC nhau nhưng chữ GIỐNG nhau, lấy mã lượt sẽ tắt đúng lớp chặn của sự cố #2. Hai ngoại lệ ghi rõ trong code: câu "đang tra" (`progress`) là chữ khuôn nên không được miễn trừ (sự cố #9), và chữ khách rỗng ("@bot" trơ trọi) tính là không biết nên vẫn so chữ (điểm [S6] của người soát).
+- **Kiểm tra:** `npm test` 1078/1078 xanh, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6 (G2 ĐẠT), `node scripts/kiem-wiki.mjs` ĐẠT (16 trang).
+
 ## 2026-11-11 — Issue #168: báo "đang tra", căn cứ pháp lý từ Cổng, chống bịa số hiệu
 
 - **Commit mã nguồn đã đọc:** nhánh `claude/168-can-cu-bao-dang-tra` (gốc `403be42`).
