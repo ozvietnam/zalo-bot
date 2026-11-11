@@ -126,3 +126,12 @@ test('eval: T040 — checkMessages phát hiện lệch số tin hoặc lọt tin
 
 
 
+
+// Issue #168: kiểm máy chống bịa chạy trên MỌI kịch bản — số hiệu lạ trong tin gửi khách là trượt.
+test('eval: kiemChongBia — số hiệu không có trong dữ liệu Cổng → trượt, có trong Cổng/lời khách/mẫu gói → đạt', async () => {
+  const { kiemChongBia } = await import('../../eval/run.mjs');
+  const cong = [{ ok: true, data: { canCuChiTiet: { mfn: { vanBan: '26/2023/NĐ-CP' } } } }];
+  assert.equal(kiemChongBia([{ chatId: 'c1', text: 'Thuế NK 25% (26/2023/NĐ-CP)' }], [cong, [], []]), null);
+  assert.match(kiemChongBia([{ chatId: 'c1', text: 'Thuế NK 25% (NĐ 26/2023), theo TT 38/2015/TT-BTC' }], [cong, [], []]), /chống bịa: .*38\/2015\/TT-BTC/);
+  assert.equal(kiemChongBia([{ chatId: 'c1', text: 'Dạ văn bản 57/2022/NĐ-CP anh hỏi ạ' }], [[], ['hiệu lực 57/2022/NĐ-CP'], []]), null);
+});

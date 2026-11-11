@@ -4,8 +4,12 @@
 import { fmtHs } from './format.js';
 import { b } from './style.js';
 import { phanTichChinhSach } from './render.js';
+import { canCuThue, canCuChinhSach } from './can-cu.js';
 
 const pct = (v) => (v == null || v === '' ? '—' : /^\d+(\.\d+)?$/.test(String(v)) ? `${v}%` : String(v));
+const ngayVN = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? `${m[3]}/${m[2]}/${m[1]}` : null; };
+/** Tin đầu tối đa 3 căn cứ (issue #136 mục B4). */
+const TOI_DA_CAN_CU = 3;
 
 /**
  * Dựng câu trả lời tóm tắt ngắn kết quả phân loại mã HS theo giọng Quyên.
@@ -31,6 +35,19 @@ export function renderPhanLoaiGiongQuyen({
   const tx0 = tData ? (Array.isArray(tData.results) ? tData.results[0] : tData) : null;
   const tx = tx0?.hsCode ? tx0 : null;
 
+  const csData = thuTuc && thuTuc.ok !== false && !thuTuc.isError ? (thuTuc.data ?? thuTuc) : null;
+  const cs = csData ? phanTichChinhSach(csData) : null;
+
+  // Căn cứ pháp lý (issue #168): CHỈ số hiệu Cổng trả trong chính lượt này, mỗi ý một ngoặc.
+  // Tối đa 3 văn bản "quyết định nhất" (mục B4), theo thứ tự: thuế NK, nghĩa vụ chính sách, FTA, VAT.
+  const ccThue = canCuThue(thue) || {};
+  // Căn cứ của ý chính sách: văn bản CÒN hiệu lực mà dòng chính sách đầu tiên viện dẫn (Cổng đã kiểm).
+  // Văn bản hết hiệu lực / chưa xác minh không làm căn cứ chính (mục B3) → không nêu.
+  const dauCs = cs?.muc?.length ? (csData.chinhSach?.policyLines || []).find((p) => p?.soHieu && cs.muc[0].startsWith(String(p.text || '').slice(0, 15))) : null;
+  const ccCs = dauCs ? canCuChinhSach(thuTuc).find((c) => c.so === String(dauCs.soHieu).replace(/-PL\d+$/i, '') && c.dung) : null;
+  const chon = new Set([ccThue.mfn, ccCs, ccThue.fta, ccThue.vat].filter((c) => c?.so).map((c) => c.so).filter((so, i, a) => a.indexOf(so) === i).slice(0, TOI_DA_CAN_CU));
+  const cite = (c, them = '') => (c?.so && chon.has(c.so) ? ` (${c.so}${them})` : '');
+
   // 1. Tên biểu thuế hoặc lý do ngắn
   let tenTrongBieu = '';
   if (tx?.nameVi) {
@@ -47,41 +64,44 @@ export function renderPhanLoaiGiongQuyen({
   const lines = [];
   const maHsFmt = b(fmtHs(maHs));
   if (giaDinh) {
-    lines.push(`Dạ theo giả định ${giaDinh} thì mã phù hợp nhất là ${maHsFmt} (${tenTrongBieu}) anh nhé.`);
+    lines.push(`Dạ theo giả định ${giaDinh} thì mã phù hợp nhất là ${maHsFmt} (${tenTrongBieu}) anh/chị nhé.`);
   } else {
     const tenHien = String(tenHang || '').trim();
-    lines.push(`Dạ ${tenHien} thì mã phù hợp nhất là ${maHsFmt} (${tenTrongBieu}) anh nhé.`);
+    lines.push(`Dạ ${tenHien} thì mã phù hợp nhất là ${maHsFmt} (${tenTrongBieu}) anh/chị nhé.`);
   }
 
   // Dòng 2: Thuế NK & ACFTA
   if (tx) {
     const mfn = pct(tx.taxNkPreferential);
     const fo = tx.acfta?.forOrigin || tx.taxAcftaChina;
+    // Biểu thuế Cổng chưa đối chiếu văn bản mới (`tariff.freshness: DUE`) → nói ngay ở dòng thuế (KB2).
+    const doiChieu = ccThue.canDoiChieu ? ' (biểu thuế cần đối chiếu lại)' : '';
     if (fo && fo.eligible === true) {
-      lines.push(`• Thuế NK ${mfn}, có C/O mẫu E thì còn ${pct(fo.rate)}`);
+      // Ưu đãi FTA luôn kèm điều kiện C/O hợp lệ + đạt quy tắc xuất xứ (mục B5).
+      lines.push(`• Thuế NK ${mfn}${cite(ccThue.mfn)}; có C/O mẫu E hợp lệ, đạt quy tắc xuất xứ thì còn ${pct(fo.rate)}${cite(ccThue.fta)}${doiChieu}`);
     } else if (fo && fo.eligible === false) {
-      lines.push(`• Thuế NK ${mfn} (C/O mẫu E không ưu đãi, áp MFN)`);
+      lines.push(`• Thuế NK ${mfn}${cite(ccThue.mfn)} (C/O mẫu E không ưu đãi, áp MFN)${doiChieu}`);
     } else {
-      lines.push(`• Thuế NK ưu đãi (MFN): ${mfn}`);
+      lines.push(`• Thuế NK ưu đãi (MFN): ${mfn}${cite(ccThue.mfn)}${doiChieu}`);
     }
 
-    // Dòng 3: VAT
-    const vat = pct(tx.taxVat);
-    const vatNote = tx.vatReduction?.noteVi ? ` (${tx.vatReduction.noteVi})` : '';
-    lines.push(`• VAT ${vat}${vatNote}`);
+    // Dòng 3: VAT — mức giảm có hạn thì nói hạn (Cổng trả `vatReduction`), không dán nguyên câu ghi chú dài.
+    const giam = tx.vatReduction?.reduced && tx.vatReduction.rate != null;
+    const han = giam ? ngayVN(tx.vatReduction.validUntil) : null;
+    lines.push(giam
+      ? `• VAT ${pct(tx.vatReduction.rate)}${han ? ` tới hết ${han}` : ''}${cite(ccThue.vat)}`
+      : `• VAT ${pct(tx.taxVat)}${cite(ccThue.vat)}`);
   }
 
   // Dòng 4: 1 cảnh báo chính sách quan trọng nhất
-  const csData = thuTuc && thuTuc.ok !== false && !thuTuc.isError ? (thuTuc.data ?? thuTuc) : null;
-  const cs = csData ? phanTichChinhSach(csData) : null;
   if (cs && cs.muc.length > 0) {
     let cb = cs.muc[0];
     if (cb.length > 70) cb = `${cb.slice(0, 68)}…`;
-    lines.push(`• Lưu ý: ${cb}`);
+    lines.push(`• Lưu ý: ${cb}${cite(ccCs, ccCs?.chuaDoiChieu ? ', chưa đối chiếu bản gốc' : '')}`);
   }
 
   // Dòng 5: Câu hỏi mở bước tiếp theo
-  lines.push(`Anh muốn em soạn luôn mô tả khai báo, hay xem chi tiết giấy tờ cần làm ạ?`);
+  lines.push(`Anh/chị muốn em soạn luôn mô tả khai báo, hay xem chi tiết giấy tờ cần làm ạ? Gõ "căn cứ" để xem đủ văn bản pháp lý.`);
 
   // Dòng 6: Cảnh báo gợi ý gọn 1 dòng
   lines.push(`(Mã HS là gợi ý tham khảo, anh/chị đối chiếu thực tế khi khai báo nhé ạ)`);

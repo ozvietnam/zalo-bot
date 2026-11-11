@@ -159,6 +159,7 @@ const LENH_CAU_TRUC = [
   /^\/?(start|help|menu|goi|cac goi|huong dan|hd|\?)$/,
   /^(hi|hello|xin chao|chao|alo)( bot| ban)?$/,
   /^(chi tiet|xem chi tiet|chi tiet day du|chi tiet day|giay to|xem giay to|giay to chi tiet)$/,
+  /^(xem )?(can cu|can cu phap ly|co so phap ly|van ban phap ly|phap ly)( (day du|chi tiet|di|a|nhe))?[?.!]*$/,
   /^(?:(?:chon|dung|vao|mo|sang|chuyen)\s+)?goi\s*(?:so\s*)?\d\b/,
   /^(?:chon|dung)\s+\d\b/,
   /^\d$/,

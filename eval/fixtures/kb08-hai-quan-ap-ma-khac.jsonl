@@ -1,0 +1,5 @@
+// #168 KB8 — Hải quan áp mã khác: bản nháp giải trình từ Cổng, ghi rõ BẢN NHÁP; căn cứ chỉ là số Cổng trả.
+{"step":"mcp","tool":"soan_ho_so_giai_trinh","returns":[{"ok":true,"data":{"banNhap":"Kính gửi Chi cục Hải quan… đề nghị giữ mã 8509.40.00","lapLuan":["Máy có động cơ điện gắn liền, dùng trong gia đình (Chú giải nhóm 85.09)"],"canCu":["14/2015/TT-BTC"]}}]}
+{"step":"in","update":{"id":"kb8a","text":"giải trình\nMã khai: 85094000\nMã Hải quan áp: 85098090\nMô tả hàng: máy xay sinh tố gia đình 350W\nLý do Hải quan: cho là máy chế biến thực phẩm"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"BẢN NHÁP"}
+{"step":"expect","sentTo":"c1","mcpTool":"soan_ho_so_giai_trinh","mcpCount":1}

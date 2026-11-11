@@ -3,6 +3,7 @@
 // code kiểm lại TỪNG số (soDungChuan); không khớp → bỏ bản chốt, trả null để nơi gọi giữ bản đầy đủ.
 // Gemini lỗi/quá tải → khoá dự phòng (llm2.js, nếu có cấu hình). Kết quả dị → null. Không bao giờ ném lỗi.
 import { b } from './style.js';
+import { soHieuLa } from './can-cu.js';
 
 const HE_THONG = `Bạn là biên tập viên của bot tra cứu hải quan OZ trên Zalo.
 Phần "KẾT QUẢ GỐC" dưới là kết quả thật từ công cụ tra cứu (mã HS, lý do, thuế, thủ tục).
@@ -69,6 +70,9 @@ export function createEditor({ apiKey, model = 'gemini-flash-latest', models, fe
     t = String(t ?? '').trim().replace(/\{\/?[a-z0-9]{1,10}\}/gi, '');   // mô hình có thả thẻ định dạng → lược
     if (!t || t.length > toiDa) return null;
     if (!soDungChuan(t, goc)) { log.info?.('[bienTap] bỏ bản chốt: có số không khớp bản gốc'); return null; }
+    // Số hiệu văn bản cũng phải có trong bản gốc (issue #168, chống bịa căn cứ pháp lý). `soDungChuan`
+    // không bắt được: "38/2015/TT-BTC" tách ra 38 và 2015 — hai số có thể tình cờ có trong bản gốc.
+    if (soHieuLa(t, goc).length) { log.info?.('[bienTap] bỏ bản chốt: có số hiệu văn bản không có trong bản gốc'); return null; }
     return lamDam(t);
   }
 

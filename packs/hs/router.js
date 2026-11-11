@@ -17,6 +17,8 @@ export function route(text, { session = {}, pkgs = [] } = {}) {
   if (/^(hi|hello|xin chao|chao|alo)( bot| ban)?[!. ]*$/.test(n)) return { kind: 'chao' };
   // Mở lại bản phân tích đầy đủ của lượt phân loại gần nhất (bản chốt ngắn đã thay bản dài trong tin chính).
   if (/^(chi tiet|xem chi tiet|chi tiet day du|chi tiet day|giay to|xem giay to|giay to chi tiet)$/.test(n)) return { kind: 'chi-tiet' };
+  // Danh sách căn cứ pháp lý đầy đủ của lượt vừa trả lời (issue #168, mục B4).
+  if (/^(xem )?(can cu|can cu phap ly|co so phap ly|van ban phap ly|phap ly)( (day du|chi tiet|di|a|nhe))?[?.!]*$/.test(n)) return { kind: 'can-cu' };
   // Chọn gói: "7", "gói 7", "chọn gói 7", "chọn gói số 7", "dùng gói 7", "chọn 7", "gói 7: <nội dung>"
   const CHON = /^(?:(?:chon|dung|vao|mo|sang|chuyen)\s+)?(?:goi\s*(?:so\s*)?)?(\d)(?=$|[\s:.,\-])/;
   const chon = n.match(CHON);

@@ -1,0 +1,5 @@
+// #168 KB4 — hiệu lực văn bản: chỉ nêu số hiệu khách hỏi và số Cổng trả (sửa đổi bởi …), không thêm văn bản nào từ trí nhớ.
+{"step":"mcp","tool":"tra_hieu_luc_van_ban","returns":[{"ok":true,"data":{"ketQua":[{"soHieu":"38/2015/TT-BTC","ten":"Quy định về thủ tục hải quan; kiểm tra, giám sát hải quan","tinhTrang":"HET_HIEU_LUC_MOT_PHAN","biSuaDoiBoi":["39/2018/TT-BTC","121/2025/TT-BTC"]}]}}]}
+{"step":"in","update":{"id":"kb4a","text":"kiểm hiệu lực 38/2015/TT-BTC"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"38/2015/TT-BTC"}
+{"step":"expect","sentTo":"c1","mcpTool":"tra_hieu_luc_van_ban","mcpCount":1,"mcpMatch":"38/2015/TT-BTC"}

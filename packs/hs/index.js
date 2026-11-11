@@ -31,6 +31,7 @@ export default {
 
   async handle(turn, ctx) {
     const st = openTurn(ctx);
+    st.khach = [turn.text, turn.caption].filter(Boolean);
     try {
       // Tin trống ("@bot" trơ trọi, tin 10:00 của issue #170): có hồ sơ đang xử lý thì textFlow
       // chạy tiếp trên hồ sơ đó; không có hồ sơ thì giữ hành vi cũ.

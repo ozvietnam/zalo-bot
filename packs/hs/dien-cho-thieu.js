@@ -109,8 +109,8 @@ export function kiemTraThongTinPhanLoai(text, { vongHoi = 0, goi = null } = {}) 
       if (!coCongSuat) thieu.push('congSuat');
       if (!coDienAp) thieu.push('dienAp');
 
-      const cau1 = `Dạ anh ơi, em hiểu là **${item.chuan}**${item.moRong ? ` (${item.moRong})` : ''} đúng không ạ?`;
-      const cau2 = `Anh cho em xin thêm công suất (W) và điện áp nhé — có thì em chốt mã chuẩn hơn, mô tả khai báo cũng đủ ý luôn ạ.`;
+      const cau1 = `Dạ anh/chị ơi, em hiểu là {b}${item.chuan}{/b}${item.moRong ? ` (${item.moRong})` : ''} đúng không ạ?`;
+      const cau2 = `Anh/chị cho em xin thêm công suất (W) và điện áp nhé — có thì em chốt mã chuẩn hơn, mô tả khai báo cũng đủ ý luôn ạ.`;
       return {
         canHoi: true,
         tenGoc: s,
@@ -150,19 +150,19 @@ export function kiemTraThongTinPhanLoai(text, { vongHoi = 0, goi = null } = {}) 
 
       if (/n[oồổỗộ]i\s*chi[eêếềểễệ]n/i.test(sSach)) {
         cau1 = 'Dạ anh cho em hỏi nồi chiên này dùng cho gia đình hay công nghiệp ạ?';
-        cau2 = 'Anh cho em xin thêm dung tích (lít) và công suất (W) nhé — có thì em chốt mã chuẩn hơn ạ.';
+        cau2 = 'Anh/chị cho em xin thêm dung tích (lít) và công suất (W) nhé — có thì em chốt mã chuẩn hơn ạ.';
         giaDinh = 'nồi chiên không dầu gia dụng, dung tích ~5L, công suất 1500W, điện áp 220V';
       } else if (/m[aáàảãạ]y\s*b[oơớờởỡợ]m/i.test(sSach)) {
         cau1 = 'Dạ anh cho em hỏi máy bơm này dùng cho gia đình hay công nghiệp ạ?';
-        cau2 = 'Anh cho em xin thêm công suất (HP/kW) và điện áp nhé — có thì em chốt mã chuẩn hơn ạ.';
+        cau2 = 'Anh/chị cho em xin thêm công suất (HP/kW) và điện áp nhé — có thì em chốt mã chuẩn hơn ạ.';
         giaDinh = 'máy bơm nước ly tâm gia đình, điện áp 220V';
       } else if (/qu[aạ]t\s*[đd]i[eệ]n|qu[aạ]t/i.test(sSach)) {
         cau1 = 'Dạ anh cho em hỏi quạt điện này là loại gia dụng hay công nghiệp ạ?';
-        cau2 = 'Anh cho em xin thêm công suất (W) và điện áp nhé — có thì em chốt mã chuẩn hơn ạ.';
+        cau2 = 'Anh/chị cho em xin thêm công suất (W) và điện áp nhé — có thì em chốt mã chuẩn hơn ạ.';
         giaDinh = 'quạt điện gia dụng công suất ~50W, điện áp 220V';
       } else {
         cau1 = `Dạ anh cho em hỏi ${sSach} này dùng cho gia đình hay công nghiệp ạ?`;
-        cau2 = 'Anh cho em xin thêm công suất (W) và điện áp nhé — có thì em chốt mã chuẩn hơn ạ.';
+        cau2 = 'Anh/chị cho em xin thêm công suất (W) và điện áp nhé — có thì em chốt mã chuẩn hơn ạ.';
         giaDinh = `${sSach} loại thông dụng trong gia đình, điện áp 220V`;
       }
 
@@ -186,15 +186,15 @@ export function kiemTraThongTinPhanLoai(text, { vongHoi = 0, goi = null } = {}) 
 
       if (/van(\s*bi)?/i.test(sSach)) {
         cau1 = 'Dạ van bi này chất liệu bằng đồng, inox hay nhựa ạ?';
-        cau2 = 'Anh cho em xin thêm kích thước đường kính (DN) hoặc mục đích dùng nhé — có thì em chốt mã chuẩn hơn ạ.';
+        cau2 = 'Anh/chị cho em xin thêm kích thước đường kính (DN) hoặc mục đích dùng nhé — có thì em chốt mã chuẩn hơn ạ.';
         giaDinh = 'van bi đồng hoặc inox dùng cho đường ống nước thông thường';
       } else if (/[oố]ng(\s*th[eé]p)?/i.test(sSach)) {
         cau1 = 'Dạ ống thép này là loại đúc hay hàn, có mạ kẽm không ạ?';
-        cau2 = 'Anh cho em xin thêm đường kính và độ dày nhé — có thì em chốt mã chuẩn hơn ạ.';
+        cau2 = 'Anh/chị cho em xin thêm đường kính và độ dày nhé — có thì em chốt mã chuẩn hơn ạ.';
         giaDinh = 'ống thép hàn, không mạ kẽm, quy cách thông dụng';
       } else {
         cau1 = `Dạ anh cho em hỏi ${sSach} này làm bằng chất liệu gì ạ?`;
-        cau2 = 'Anh cho em xin thêm quy cách kích thước hoặc công dụng nhé — có thì em chốt mã chuẩn hơn ạ.';
+        cau2 = 'Anh/chị cho em xin thêm quy cách kích thước hoặc công dụng nhé — có thì em chốt mã chuẩn hơn ạ.';
         giaDinh = `${sSach} chất liệu thông dụng trong công nghiệp`;
       }
 
