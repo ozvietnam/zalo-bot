@@ -16,6 +16,12 @@ import { laTenHangCam, laLenhTroHoSo, laCauXemLai, cungMonVoi, boYeuCauDau } fro
 export { notice, hetHan, toJob, waitJob, WAIT_JOB_MAX_MS } from './jobs.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Hồ sơ mặt hàng của mạch (issue #170) để lớp hỏi lại đọc được điều khách ĐÃ NÊU ở tin trước.
+ * `ctx.hoSo` là bản `chay-goi.js` đang chạy gói trên đó; không có thì lấy bản trong phiên.
+ */
+const hoSoCuaMach = (ctx) => ctx?.hoSo ?? ctx?.session?.hoSo ?? null;
 const has = (ctx, name) => !ctx.tools || ctx.tools.has(name);
 const laLegacyTest = Boolean(typeof process !== 'undefined' && process.argv?.some((a) => a.includes('test/test.mjs')));
 
@@ -182,7 +188,7 @@ export const PACKAGES = [
           text = xl.moTaTraCuu;
         } else {
           hoiLai.vongHoi = (hoiLai.vongHoi || 1) + 1;
-          const kt = kiemTraThongTinPhanLoai(text, { vongHoi: hoiLai.vongHoi });
+          const kt = kiemTraThongTinPhanLoai(text, { vongHoi: hoiLai.vongHoi, hoSo: hoSoCuaMach(ctx) });
           if (kt.canHoi) {
             ctx.session.hoiLai = { ...hoiLai, ...kt };
             return kt.cauHoi;
@@ -200,7 +206,10 @@ export const PACKAGES = [
       // 0b. Kiểm tra xem có cần hỏi lại trước khi tra không (chỉ hỏi khi là câu tự do, không hỏi khi khách dùng form có nhãn Tên hàng:...)
       const coNhanChuan = /^(t[eê]n\s*h[aà]ng|ten\s*hang|m[oô]\s*t[aả]|mo\s*ta|ch[aấ]t\s*li[eệ]u|chat\s*lieu|th[oô]ng\s*s[oố]|thong\s*so|model)\s*:/im.test(text.trim());
       if (!laLegacyTest && !ctx.session.goi && !ctx.session.hoiLai && !coNhanChuan && !/^(h[aà]ng m[oớ]i|b[oỏ] qua)/i.test(text.trim())) {
-        const kt = kiemTraThongTinPhanLoai(text, { vongHoi: 0, goi: ctx.session.goi });
+        // `hoSo`: KỶ LUẬT HỎI (yêu cầu 2 của issue #177) — khách đã nêu thông số ở tin TRƯỚC
+        // (hồ sơ mạch #170) thì không hỏi lại điều đó. Thiếu tham số này, mạch "Thông số: 350W
+        // 220V" rồi "máy sấy sinh tố" vẫn bị bot xin lại đúng công suất và điện áp khách vừa gõ.
+        const kt = kiemTraThongTinPhanLoai(text, { vongHoi: 0, goi: ctx.session.goi, hoSo: hoSoCuaMach(ctx) });
         if (kt.canHoi) {
           ctx.session.hoiLai = { ...kt, vongHoi: 1 };
           // Bot vừa HỎI LẠI một câu → báo Lõi là đang chờ khách đáp. Thiếu cờ này thì cửa
