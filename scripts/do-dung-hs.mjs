@@ -64,6 +64,13 @@ const DAU_MUC_MA = /Mã HS đề xuất|Mã đề xuất|Mã có thể|Mã khác
 const DONG_LIET_KE = /^\s*(?:\d{1,2}[.)]|[•*\-+])\s/;
 const MOT_MA = /(?<!\d)(\d{4})[.\s]?(\d{2})[.\s]?(\d{2})(?!\d)/;
 
+// Khuôn thứ hai — GIỌNG QUYÊN (packs/hs/giong-quyen.js:67,70), là khuôn bot dùng ở chat riêng:
+//   "Dạ máy xay sinh tố thì mã phù hợp nhất là {b}8509.40.00{/b} (máy chế biến thực phẩm) …"
+//   "Dạ theo giả định xuất xứ Trung Quốc thì mã phù hợp nhất là {b}1208.10.00{/b} (…) …"
+// Tin này KHÔNG có tiêu đề mục nào, nên vòng quét theo vùng liệt kê ở trên bỏ qua sạch. Thiếu
+// khuôn này thì mọi ca giọng Quyên bị chấm "bot không ra mã" và độ đúng ra thấp giả (soát PR #204).
+const MA_PHU_HOP_NHAT = /mã (?:HS )?(?:phù hợp nhất|đề xuất|chốt) (?:là|:)\s*(?:\{b\})?\s*(\d{4})[.\s]?(\d{2})[.\s]?(\d{2})(?!\d)/i;
+
 /**
  * Mã bot đưa ra cho khách, THEO THỨ TỰ ưu tiên (mã chốt/mã số 1 trước, rồi các mã cân nhắc).
  * Chỉ đọc TIN GỬI KHÁCH, và chỉ ở vùng liệt kê mã — đo đúng thứ khách nhìn thấy, không đo dữ
@@ -83,6 +90,14 @@ export function docMaTuTin(texts = []) {
   for (const t of texts) {
     let trongVung = false;
     for (const dong of String(t || '').split('\n')) {
+      const quyen = dong.match(MA_PHU_HOP_NHAT);
+      if (quyen) {
+        // Câu chốt của giọng Quyên: lấy mã rồi đóng vùng — các dòng sau là thuế/chính sách/lưu ý,
+        // mã trong đó (số hiệu văn bản, mức thuế) không phải mã bot đề xuất.
+        them(quyen[1] + quyen[2] + quyen[3]);
+        trongVung = false;
+        continue;
+      }
       if (DAU_MUC_MA.test(dong)) {
         trongVung = true;
         nhat(dong); // tiêu đề "Mã HS đề xuất: 1208.10.00" có mã ngay trên dòng
@@ -114,12 +129,16 @@ export function chamMotCa(ca, maBotRa = []) {
   const maLan = (ca.maLan || []).map(chiSo);
   const roiVaoMaLan = maBot && !top1 && maLan.includes(maBot) ? maBot : null;
 
+  // Thứ tự nhánh có ý nghĩa: `roiVaoMaLan` phải xét TRƯỚC `dung6So`. Mã dễ lẫn thường cùng 6 số
+  // đầu với mã đúng (bộ đề có 6 ca như vậy: 2517.41.00 ↔ 2517.49.00…). Để `dung6So` chặn trước thì
+  // lý do in ra là "lệch 2 số cuối" — nghe như sai nhỏ, trong khi bot đã rơi vào đúng cái mã văn
+  // bản loại trừ, là lỗi nặng hơn và là chỗ cần sửa. Soát PR #204 điểm 3.
   let lyDo = '';
   if (!maBot) lyDo = 'bot không ra mã nào cho khách';
   else if (top1) lyDo = 'đúng ngay mã đầu';
   else if (top3) lyDo = `đúng nhưng không ở vị trí 1 (bot đưa ${maBot} trước)`;
+  else if (roiVaoMaLan) lyDo = `rơi vào đúng mã dễ lẫn mà văn bản đã loại trừ (${maBot})${dung6So ? ', cùng 6 số đầu' : ''}`;
   else if (dung6So) lyDo = `đúng 6 số đầu, lệch 2 số cuối (bot ra ${maBot})`;
-  else if (roiVaoMaLan) lyDo = `rơi vào đúng mã dễ lẫn mà văn bản đã loại trừ (${maBot})`;
   else lyDo = `sai mã (bot ra ${maBot})`;
 
   return { ma: dapAn, maBot, maBotRa: ds, top1, top3, dung6So, roiVaoMaLan, lyDo };

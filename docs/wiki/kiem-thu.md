@@ -109,12 +109,16 @@ Bộ eval gồm 12 kịch bản tích hợp luồng và 5 ca kiểm trung lập:
 
 ### Bộ đề dựng từ văn bản pháp luật
 
-Bộ đề nằm ở `eval/bo-de/phan-loai-tu-luat.json`: **52 ca, trải 26 chương** biểu thuế. Mỗi ca dựng từ hai nguồn pháp luật, không từ tờ khai cũ hay bộ vàng nội bộ (`oz-gold-final.jsonl`) — theo chỉ đạo CEO 10/11 "phân loại HS bám luật":
+Bộ đề nằm ở `eval/bo-de/phan-loai-tu-luat.json`: **50 ca, trải 26 chương** biểu thuế. Mỗi ca dựng từ hai nguồn pháp luật, không từ tờ khai cũ hay bộ vàng nội bộ (`oz-gold-final.jsonl`) — theo chỉ đạo CEO 10/11 "phân loại HS bám luật":
 
 - **tên dòng biểu thuế** (trường `tenDongBieuThue`, trỏ về dòng tám số bằng `nguon.tepBieuThue`);
 - **Thông báo kết quả phân loại của Tổng cục Hải quan** (`nguon.loai = "TB-TCHQ"`, kèm `nguon.soHieu`, `nguon.nam` và `nguon.trich` trích nguyên văn đoạn căn cứ).
 
-Ca nào văn bản đã nêu rõ mã dễ lẫn thì ghi vào `maLan` (50/52 ca có), nên bộ đề nặng về **ranh giới khó** chứ không phải hàng dễ. Câu khách (`cauKhach`) bị máy kiểm là **không được chứa sẵn mã HS** — mớm đáp án thì phép đo thành vô nghĩa.
+Ca nào văn bản đã nêu rõ mã dễ lẫn thì ghi vào `maLan` (48/50 ca có), nên bộ đề nặng về **ranh giới khó** chứ không phải hàng dễ. Câu khách (`cauKhach`) bị máy kiểm ba điều, vì hỏng một trong ba là bộ đề chấm oan con bot:
+
+- **không chứa sẵn mã HS** — mớm đáp án thì phép đo thành vô nghĩa;
+- **không phải tên nhóm/dòng biểu thuế chép lại** từ đoạn trích. Khách thật gõ "sạc pin cho điện thoại di động", không gõ nguyên văn tên nhóm trong ngoặc kép của Thông báo; chép như vậy thì ca thiếu hẳn dữ kiện nhận dạng và bot bị chấm trượt dù làm đúng luật;
+- **nguồn không được là thông báo đính chính**. Thông báo đính chính chỉ sửa câu chữ của một Thông báo khác: không có tên hàng, và mã trong phần "nội dung đã ban hành" chính là mã **sai** đang được sửa. Hai ca bị bỏ vì lỗi này (`2174/TB-TCHQ` đính chính `1811/TB-TCHQ`, `1377/TB-TCHQ` đính chính `1182/TB-TCHQ`) — riêng ca `2174` còn lấy luôn mã `3208.20.90` mà chính văn bản đó sửa thành `3208.90.90`.
 
 ### Cách chấm
 
@@ -126,7 +130,12 @@ Bộ đo chạy từng ca qua **đúng đường bot thật** (dùng lại `runS
 - `roiVaoMaLan`: bot rơi vào đúng mã mà văn bản đã loại trừ — ca trượt đáng lo nhất;
 - `msTrungBinh`: thời gian trung bình một ca.
 
-Hàm đọc mã chỉ nhặt mã trong **vùng liệt kê mã**, và mỗi dòng chỉ lấy một mã: render in `• 2106.10.00 — không phải 2106.90.00 vì…`, nhặt cả hai thì mã bị *loại trừ* trong lý do lại được tính là mã bot đề xuất và đẩy mã thật ra khỏi top-3.
+Khi một ca vừa `roiVaoMaLan` vừa `dung6So` thì lý do in ra là **"rơi vào mã dễ lẫn"**, không phải "lệch 2 số cuối". Mã dễ lẫn thường cùng 6 số đầu với mã đúng (6 ca trong bộ đề: `8504.40.19` ↔ `8504.40.11`, `7209.16.10` ↔ `7209.16.90`…); gọi tên "lệch 2 số cuối" nghe như sai nhỏ, trong khi bot đã rơi vào đúng cái mã văn bản loại trừ — lỗi nặng hơn và đúng chỗ cần sửa.
+
+Hàm đọc mã (`docMaTuTin`) phải biết **cả hai khuôn tin** bot thật gửi khách, thiếu một khuôn là độ đúng ra thấp giả:
+
+- **form đầy đủ** (`packs/hs/render.js:293,329`): chỉ nhặt mã trong **vùng liệt kê mã**, mỗi dòng một mã — render in `• 2106.10.00 — không phải 2106.90.00 vì…`, nhặt cả hai thì mã bị *loại trừ* trong lý do lại được tính là mã bot đề xuất và đẩy mã thật ra khỏi top-3;
+- **giọng Quyên** (`packs/hs/giong-quyen.js:67,70`), là khuôn dùng ở chat riêng: `Dạ … thì mã phù hợp nhất là {b}8509.40.00{/b} (…)`. Tin này không có tiêu đề mục nào nên vòng quét theo vùng liệt kê bỏ qua sạch; nhặt được mã ở câu chốt rồi là **đóng vùng** ngay, vì các dòng sau là thuế/chính sách/lưu ý và mã trong đó (số hiệu văn bản) không phải mã bot đề xuất.
 
 ### Tự kiểm cái thước
 

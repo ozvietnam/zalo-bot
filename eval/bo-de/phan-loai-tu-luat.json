@@ -94,19 +94,6 @@
     }
   },
   {
-    "ma": "32082090",
-    "cauKhach": "Sơn và vecni (kể cả men tráng (enamels) và dầu bóng) làm từ các loại polyme tổng hợp hoặc các polyme tự nhiên đã biến đổi về mặt hóa học, đã phân tán hoặc hòa tan trong môi trường không chứa nước; các dung dịch như đã ghi trong Chú giải 4 của Chương này",
-    "maLan": [],
-    "tenDongBieuThue": "- - Loại khác",
-    "nguon": {
-      "loai": "TB-TCHQ",
-      "soHieu": "2174/TB-TCHQ",
-      "nam": 2020,
-      "trich": "1 Thông báo số 1811/TB-TCHQ ngày 20/3/2020 thuộc nhóm 32.08 “Sơn và vecni (kể cả men tráng (enamels) và dầu bóng) làm từ các loại polyme tổng hợp hoặc các polyme tự nhiên đã biến đổi về mặt hóa học, đã phân tán hoặc hòa tan trong môi trường không chứa nước; các dung dịch như đã ghi trong Chú giải 4 của Chương này”, phân nhóm 3208.20 “- Từ polyme acrylic hoặc polyme vinyl” mã số 3208.20.90 “- - Loại khác”",
-      "tepBieuThue": "hs-code-api data/tax.json#32082090"
-    }
-  },
-  {
     "ma": "32129019",
     "cauKhach": "Fon TAN 10 PASTE (CK-F-P797060): thuốc màu từ kẽm ferrit phân tán trong môi trường không có nước, dạng lỏng, dùng sản xuất sơn",
     "maLan": [
@@ -134,19 +121,6 @@
       "nam": 2015,
       "trich": "Kết quả phân tích 129/TB1-CNHP: tấm phẳng bằng nhôm có phủ lớp chất nhạy, chưa phơi sáng, một chiều trên 255 mm → nhóm 37.01, mã 3701.30.00. Mô tả kỹ thuật: Tấm bản in CTP (Computer-to-plate printing plate) bằng nhôm dạng phẳng, đã phủ lớp nhạy sáng, chưa p. Căn cứ: TB-TCHQ số 5048/TB-TCHQ.",
       "tepBieuThue": "hs-code-api data/tax.json#37013000"
-    }
-  },
-  {
-    "ma": "38249999",
-    "cauKhach": "Chất gắn đã điều chế dùng cho các loại khuôn đúc hoặc lõi đúc; các sản phẩm và chế phẩm hóa học của ngành công nghiệp hóa chất hoặc các ngành công nghiệp có liên quan (kể cả các sản phẩm và chế phẩm chứa hỗn hợp các sản phẩm tự nhiên), chưa được chi tiết hoặc",
-    "maLan": [],
-    "tenDongBieuThue": "- - - - Loại khác",
-    "nguon": {
-      "loai": "TB-TCHQ",
-      "soHieu": "1377/TB-TCHQ",
-      "nam": 2018,
-      "trich": "Thông báo số 1182/TB-TCHQ ngày 06/03/2018 thuộc nhóm 34.02 “Chất gắn đã điều chế dùng cho các loại khuôn đúc hoặc lõi đúc; các sản phẩm và chế phẩm hóa học của ngành công nghiệp hóa chất hoặc các ngành công nghiệp có liên quan (kể cả các sản phẩm và chế phẩm chứa hỗn hợp các sản phẩm tự nhiên), chưa được chi tiết hoặc ghi ở nơi khác.”, phân nhóm một gạch “- Loại khác:”, phân nhóm hai gạch 3824.99 “- - Loại khác:”, phân nhóm ba gạch “- - - Loại khác:”, mã số 3824.99.99 “- - Loại khác”",
-      "tepBieuThue": "hs-code-api data/tax.json#38249999"
     }
   },
   {

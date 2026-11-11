@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { docBoDe, chamMotCa, tongHop, docMaTuTin, chayBoDo, DUONG_BO_DE } from '../../scripts/do-dung-hs.mjs';
 import { renderPhanLoaiDayDu, renderClassify } from '../../packs/hs/render.js';
+import { renderPhanLoaiGiongQuyen } from '../../packs/hs/giong-quyen.js';
 
 const ROOT = resolve(process.cwd());
 
@@ -50,6 +51,40 @@ test('bộ đề: ca có mã dễ lẫn thì mã lẫn phải khác mã đáp á
   }
 });
 
+// Người soát PR #204 điểm 2: hai ca chép tên nhóm/dòng biểu thuế vào ô "khách gõ".
+// Khách thật không bao giờ gõ nguyên văn tên nhóm trong ngoặc kép của Thông báo; chép như vậy
+// thì ca thiếu hẳn dữ kiện nhận dạng (polyme acrylic/vinyl…) và chấm bot trượt dù bot làm đúng luật.
+const CHU = (s) => String(s).replace(/\s+/g, ' ').trim().toLowerCase();
+
+test('bộ đề: câu khách KHÔNG được chép nguyên văn tên nhóm/dòng biểu thuế trong trích dẫn', () => {
+  for (const ca of docBoDe()) {
+    const trongNgoac = [...ca.nguon.trich.matchAll(/[“"]([^”"]{20,})[”"]/g)].map((m) => CHU(m[1]));
+    const dau = CHU(ca.cauKhach).slice(0, 50);
+    for (const ten of trongNgoac) {
+      assert.ok(!dau || !ten.includes(dau),
+        `ca ${ca.ma}: câu khách là tên nhóm/dòng biểu thuế chép lại, không phải mô tả mặt hàng — "${ca.cauKhach.slice(0, 60)}…"`);
+    }
+  }
+});
+
+test('bộ đề: câu khách không bị cắt cụt giữa câu', () => {
+  for (const ca of docBoDe()) {
+    assert.doesNotMatch(CHU(ca.cauKhach), /\b(hoặc|và|của|trong|với|theo|từ|là|cho|khi)$/,
+      `ca ${ca.ma}: câu khách cắt cụt giữa câu — "…${ca.cauKhach.slice(-40)}"`);
+  }
+});
+
+test('bộ đề: KHÔNG dùng thông báo đính chính làm nguồn của một ca', () => {
+  // Thông báo đính chính chỉ sửa câu chữ của một Thông báo khác: không có tên hàng, và mã trong
+  // phần "nội dung đã ban hành" chính là mã SAI đang được sửa. Lấy làm đáp án là chấm theo mã sai.
+  for (const ca of docBoDe()) {
+    const nhacTbKhac = /Thông báo số\s*(\d+)\/TB-TCHQ/.exec(ca.nguon.trich);
+    const soCuaCa = ca.nguon.soHieu.split('/')[0];
+    assert.ok(!nhacTbKhac || nhacTbKhac[1] === soCuaCa,
+      `ca ${ca.ma}: nguồn ${ca.nguon.soHieu} là đính chính của ${nhacTbKhac?.[1]}/TB-TCHQ, không phải thông báo phân loại gốc`);
+  }
+});
+
 test('chấm một ca: đúng mã 8 số ở vị trí 1 → top-1 đạt và top-3 đạt', () => {
   const ca = { ma: '84137090', cauKhach: 'máy bơm nước ly tâm', maLan: [] };
   const r = chamMotCa(ca, ['84137090', '84139100', '84138190']);
@@ -87,6 +122,59 @@ test('chấm một ca: bot rơi vào đúng mã dễ lẫn của văn bản → 
   const r = chamMotCa(ca, ['85369099']);
   assert.equal(r.top1, false);
   assert.equal(r.roiVaoMaLan, '85369099');
+});
+
+// Người soát PR #204 điểm 3: mã dễ lẫn hay cùng 6 số đầu với mã đúng (bộ đề có 6 ca như vậy).
+// `dung6So` chặn trước thì lý do in ra là "lệch 2 số cuối" — nghe như sai nhỏ, trong khi thật ra
+// bot đã rơi vào đúng cái mã văn bản loại trừ. Đó là lỗi nặng hơn và phải được gọi tên đúng.
+test('chấm một ca: mã dễ lẫn cùng 6 số đầu → gọi tên "rơi vào mã dễ lẫn", không phải "lệch 2 số cuối"', () => {
+  // Ca thật trong bộ đề: sạc pin 8504.40.19, mã văn bản loại trừ 8504.40.11 — cùng 6 số đầu.
+  const ca = { ma: '85044019', cauKhach: 'sạc pin cho điện thoại di động', maLan: ['85044011', '85044090'] };
+  const r = chamMotCa(ca, ['85044011']);
+  assert.equal(r.top1, false);
+  assert.equal(r.roiVaoMaLan, '85044011');
+  assert.equal(r.dung6So, true, 'vẫn ghi nhận lệch ở cấp 2 số cuối để đếm được');
+  assert.match(r.lyDo, /mã dễ lẫn/, `lý do phải nói rõ rơi vào mã dễ lẫn, đang là: ${r.lyDo}`);
+});
+
+test('bộ đề: còn đủ ca mã dễ lẫn cùng 6 số đầu để thứ tự chấm có ý nghĩa', () => {
+  const soCa = docBoDe().filter((ca) => ca.maLan.some((m) => m.slice(0, 6) === ca.ma.slice(0, 6))).length;
+  assert.ok(soCa >= 5, `bộ đề phải còn ≥ 5 ca mã lẫn cùng 6 số đầu, đang có ${soCa}`);
+});
+
+// Người soát PR #204 điểm 1: bot thật trả lời khách ở chat riêng bằng GIỌNG QUYÊN
+// (packs/hs/giong-quyen.js) — "mã phù hợp nhất là {b}8509.40.00{/b}". Bộ đọc mã chỉ biết khuôn
+// form đầy đủ thì mọi ca giọng Quyên bị chấm "không ra mã" → độ đúng thấp giả.
+test('đọc mã từ tin: khuôn giọng Quyên — lấy được mã ở câu "mã phù hợp nhất là …"', () => {
+  const tin = renderPhanLoaiGiongQuyen({
+    tenHang: 'máy xay sinh tố gia dụng 350W',
+    maHs: '85094000',
+    phanLoai: { ketQua: { results: [{ hs: '85094000', nameVi: '- Máy chế biến thực phẩm' }] } },
+    thue: { results: [{ hsCode: '85094000', nameVi: '- Loại khác', unitVi: 'cái', taxNkPreferential: 20, taxVat: 8 }] },
+  });
+  assert.deepEqual(docMaTuTin([tin]), ['85094000'], `không đọc được mã trong tin giọng Quyên:\n${tin}`);
+});
+
+test('đọc mã từ tin: khuôn giọng Quyên có giả định xuất xứ vẫn lấy đúng mã', () => {
+  const tin = renderPhanLoaiGiongQuyen({
+    tenHang: 'bột đậu nành đã rang',
+    maHs: '12081000',
+    phanLoai: { ketQua: { results: [{ hs: '12081000', nameVi: '- Từ đậu tương' }] } },
+    thue: { results: [{ hsCode: '12081000', nameVi: '- Từ đậu tương', unitVi: 'kg', taxNkPreferential: 5 }] },
+    giaDinh: 'xuất xứ Trung Quốc',
+  });
+  assert.deepEqual(docMaTuTin([tin]), ['12081000'], `không đọc được mã trong tin giọng Quyên có giả định:\n${tin}`);
+});
+
+test('đọc mã từ tin: KHÔNG nhặt mã trong dòng thuế/lưu ý của giọng Quyên', () => {
+  // Dòng "• Thuế NK 20% (123/2023/TT-BTC)" và dòng lưu ý không mang mã bot đề xuất.
+  const ds = docMaTuTin([[
+    'Dạ máy xay sinh tố thì mã phù hợp nhất là {b}8509.40.00{/b} (máy chế biến thực phẩm) anh/chị nhé.',
+    '• Thuế NK 20% (123/2023/TT-BTC); có C/O mẫu E hợp lệ thì còn 0%',
+    '• Lưu ý: thuộc Danh mục 1810/2021/QĐ-BKHCN phải công bố hợp quy',
+    'Anh/chị muốn em soạn luôn mô tả khai báo ạ?',
+  ].join('\n')]);
+  assert.deepEqual(ds, ['85094000'], `chỉ được lấy mã bot đề xuất, đang lấy: ${ds.join(', ')}`);
 });
 
 // Bộ đo chấm trên TIN GỬI KHÁCH, nên phải đọc đúng khuôn mà packs/hs/render.js thật đang in.
