@@ -114,7 +114,7 @@ Bộ đề nằm ở `eval/bo-de/phan-loai-tu-luat.json`: **50 ca, trải 26 ch�
 - **tên dòng biểu thuế** (trường `tenDongBieuThue`, trỏ về dòng tám số bằng `nguon.tepBieuThue`);
 - **Thông báo kết quả phân loại của Tổng cục Hải quan** (`nguon.loai = "TB-TCHQ"`, kèm `nguon.soHieu`, `nguon.nam` và `nguon.trich` trích nguyên văn đoạn căn cứ).
 
-Ca nào văn bản đã nêu rõ mã dễ lẫn thì ghi vào `maLan` (48/50 ca có), nên bộ đề nặng về **ranh giới khó** chứ không phải hàng dễ. Câu khách (`cauKhach`) bị máy kiểm ba điều, vì hỏng một trong ba là bộ đề chấm oan con bot:
+Ca nào văn bản đã nêu rõ mã dễ lẫn thì ghi vào `maLan` (50/50 ca có), nên bộ đề nặng về **ranh giới khó** chứ không phải hàng dễ. Câu khách (`cauKhach`) bị máy kiểm ba điều, vì hỏng một trong ba là bộ đề chấm oan con bot:
 
 - **không chứa sẵn mã HS** — mớm đáp án thì phép đo thành vô nghĩa;
 - **không phải tên nhóm/dòng biểu thuế chép lại** từ đoạn trích. Khách thật gõ "sạc pin cho điện thoại di động", không gõ nguyên văn tên nhóm trong ngoặc kép của Thông báo; chép như vậy thì ca thiếu hẳn dữ kiện nhận dạng và bot bị chấm trượt dù làm đúng luật;
