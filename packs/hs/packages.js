@@ -182,6 +182,12 @@ export const PACKAGES = [
       // là câu trả lời → tên hàng gửi Cổng thành "máy xay sinh tố tra hscode", bot hỏi lại đúng câu
       // cũ và KHÔNG gọi Cổng (0 lần gọi) → khách không nhận được mã (điểm [S25] của người soát).
       const laLenhChuaTraLoi = Boolean(hoiLai) && (laLenhTroHoSo(cauKhach) || laCauXemLai(cauKhach));
+      // Tin này LÀ câu trả lời cho câu hỏi đang mở → nhánh 0b không được mở một vòng hỏi MỚI nữa.
+      // Khách đáp "không, là máy sấy thực phẩm" thì 0b thấy mô tả mới khớp mẫu nghi gõ nhầm và hỏi
+      // xác nhận đúng cái tên khách VỪA GÕ ("em hiểu là máy sấy thực phẩm đúng không ạ?") — hỏi lại
+      // điều khách đã nêu (luật 2 của kỷ luật hỏi) và khách không bao giờ tới được mã. Vòng hỏi
+      // tiếp theo, nếu cần, do chính 0a quyết bằng `vongHoi` (trần 2 vòng của #136).
+      const vuaTraLoiHoiLai = Boolean(hoiLai) && !laLenhChuaTraLoi;
       if (hoiLai && !laLenhChuaTraLoi) {
         // Câu trả lời của khách là `cauKhach`, KHÔNG phải `text`: khi gói 1 chạy trên hồ sơ GỘP
         // thì `text` là mô tả gộp, đọc nó là MẤT câu trả lời ("đúng, 350W 220V") → bot hỏi lại
@@ -211,7 +217,8 @@ export const PACKAGES = [
 
       // 0b. Kiểm tra xem có cần hỏi lại trước khi tra không (chỉ hỏi khi là câu tự do, không hỏi khi khách dùng form có nhãn Tên hàng:...)
       const coNhanChuan = /^(t[eê]n\s*h[aà]ng|ten\s*hang|m[oô]\s*t[aả]|mo\s*ta|ch[aấ]t\s*li[eệ]u|chat\s*lieu|th[oô]ng\s*s[oố]|thong\s*so|model)\s*:/im.test(text.trim());
-      if (!laLegacyTest && !ctx.session.goi && !ctx.session.hoiLai && !coNhanChuan && !/^(h[aà]ng m[oớ]i|b[oỏ] qua)/i.test(text.trim())) {
+      if (!laLegacyTest && !ctx.session.goi && !ctx.session.hoiLai && !vuaTraLoiHoiLai && !coNhanChuan
+        && !/^(h[aà]ng m[oớ]i|b[oỏ] qua)/i.test(text.trim())) {
         // `hoSo`: KỶ LUẬT HỎI (yêu cầu 2 của issue #177) — khách đã nêu thông số ở tin TRƯỚC
         // (hồ sơ mạch #170) thì không hỏi lại điều đó. Thiếu tham số này, mạch "Thông số: 350W
         // 220V" rồi "máy sấy sinh tố" vẫn bị bot xin lại đúng công suất và điện áp khách vừa gõ.

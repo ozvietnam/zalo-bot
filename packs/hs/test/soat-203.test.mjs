@@ -90,10 +90,17 @@ test('[soát #203-3] HỒ SƠ MẠCH đã có công dụng → không hỏi lạ
 // ── Điểm 4: lọc hết câu vì khách đã nêu đủ ≠ khách từ chối trả lời ───────────────────────────
 
 test('[soát #203-4] khách đã nêu đủ → không trả giả định mặc định (đó là chuỗi của ca khách từ chối)', () => {
-  const r = kiemTraThongTinPhanLoai('máy sấy sinh tố', { vongHoi: 0, hoSo: { moTa: 'máy sấy sinh tố', thongSo: '350W 220V' } });
+  // Tên bình thường: lọc hết câu → tra luôn, và KHÔNG gán giả định (khách đã NÊU đủ, không phải
+  // khách từ chối trả lời; nói "em giả định 1.5HP" khi khách vừa gõ 1.5HP là nói sai — Điều VIII).
+  const r = kiemTraThongTinPhanLoai('máy bơm nước', { vongHoi: 0, hoSo: { moTa: 'máy bơm nước', thongSo: '1.5HP 220V' } });
   assert.equal(r.canHoi, false, 'đã đủ dữ kiện thì tra luôn');
   assert.equal(r.giaDinh, null,
     `khách đã NÊU đủ, không phải khách từ chối trả lời — không được gán giả định: ${JSON.stringify(r.giaDinh)}`);
+  // Tên nghi gõ nhầm thì câu xác nhận tên vẫn còn (nợ #203 đã trả), nên vẫn hỏi MỘT câu — nhưng
+  // `giaDinhMacDinh` chỉ là chuỗi để DÀNH cho ca khách từ chối, không phải điều bot đang khẳng định.
+  const r2 = kiemTraThongTinPhanLoai('máy sấy sinh tố', { vongHoi: 0, hoSo: { moTa: 'máy sấy sinh tố', thongSo: '350W 220V' } });
+  assert.equal(r2.canHoi, true, 'tên nghi gõ nhầm thì vẫn phải xác nhận tên');
+  assert.equal(r2.giaDinh, undefined, 'nhánh hỏi không trả `giaDinh` — giả định nằm ở `giaDinhMacDinh`');
 });
 
 // ── Điểm 5: đường thật — xuất xứ khách nêu ở lượt trước không được rụng ──────────────────────

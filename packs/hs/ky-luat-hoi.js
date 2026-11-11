@@ -75,6 +75,76 @@ export function cauXinThem(muc, co, duoi, noi = ' và ') {
   return `Anh/chị cho em xin thêm ${con.map((m) => m.chu).join(noi)} nhé — ${duoi}`;
 }
 
+/** Lệnh mở đầu tin khách ("Tra hs …", "mã hs …") — không phải tên hàng, không gửi Cổng. */
+export const LENH_DAU_RE = /^(?:tra\s*hs|m[aã]\s*hs|t[iì]m\s*m[aã]|ph[aâ]n\s*lo[aạ]i)\s*/i;
+
+/** Các đoạn THÔNG SỐ có trong một chuỗi (dùng để không làm rụng thông số khách đã gõ). */
+export function thongSoTrong(s) {
+  const t = String(s || '');
+  const out = [];
+  for (const re of [CONG_SUAT_RE, DIEN_AP_RE, DUNG_TICH_RE, KICH_THUOC_RE]) {
+    const m = t.match(new RegExp(re.source, 'gi'));
+    if (m) out.push(...m.map((x) => x.trim()).filter(Boolean));
+  }
+  return [...new Set(out)];
+}
+
+/** Nối các thông số của `nguon` còn thiếu vào `moTa` — mô tả gửi Cổng không được rụng dữ kiện khách đã gõ. */
+export function giuThongSo(moTa, nguon) {
+  const co = String(moTa || '').toLowerCase();
+  const them = thongSoTrong(nguon).filter((x) => !co.includes(x.toLowerCase()));
+  return [String(moTa || '').trim(), ...them].filter(Boolean).join(' ');
+}
+
+// Biên CUỐI MỘT TỪ tiếng Việt. Không dùng `\b`: `\b` của JS chỉ tính chữ ASCII, nên sau "không"
+// hay "là" (kết bằng chữ có dấu) nó KHÔNG thấy biên và cả mẫu trượt.
+const HET_TU = '(?![\\p{L}\\p{N}])';
+const NGAT = '[\\s,.!:;-]*';
+
+// Câu khách PHỦ ĐỊNH tên bot vừa đoán ("không", "không phải", "sai rồi", "ko ạ", "nhầm").
+const PHU_DINH_RE = new RegExp(
+  `^\\s*(?:kh[oô]ng|ko|kg|sai|nh[aầ]m|ch[uư]a\\s*[đd][uú]ng)${HET_TU}${NGAT}`
+  + `(?:(?:ph[aả]i|[đd][uú]ng|r[oồ]i)${HET_TU}${NGAT})?`, 'iu');
+// Từ đệm mở đầu phần tên khách nói lại ("là máy sấy…", "mà máy sấy…").
+const DEM_DAU_RE = new RegExp(`^(?:l[aà]|m[aà]|n[oó]\\s*l[aà]|[đd][aâ]y\\s*l[aà])${HET_TU}${NGAT}`, 'iu');
+// Từ xã giao ở cuối câu ("… ạ", "… nhé", "thật ạ"). Phải có dấu ngắt hoặc đầu chuỗi ở trước, nếu
+// không thì "mica" bị cắt đuôi thành "mic".
+const XA_GIAO_CUOI_RE = /(?:^|[\s,.!:;-])(?:ạ|a|nh[eé]|nha|nh[aá]|[oơ]i|th[eế]|v[aậ]y|d[aạ])\s*$/iu;
+// Từ xã giao mở đầu câu XÁC NHẬN ("đúng, 350W" → "350W").
+const XAC_NHAN_DAU_RE = /^(?:[đd][uú]ng|oke|ok|chu[aẩ]n|v[aâ]ng|[uừ]|d[aạ])[,.\s]*/iu;
+
+/** Bỏ từ xã giao đầu và cuối câu, giữ lại phần DỮ KIỆN khách nói. */
+export function bocXaGiao(s) {
+  let t = String(s || '').replace(XAC_NHAN_DAU_RE, '').trim();
+  for (let i = 0; i < 3 && XA_GIAO_CUOI_RE.test(t); i += 1) t = t.replace(XA_GIAO_CUOI_RE, '').trim();
+  return t;
+}
+
+/**
+ * Khách có PHỦ ĐỊNH tên bot vừa đoán không, và nếu có thì tên nào được gửi Cổng?
+ *
+ * Bot hỏi "em hiểu là máy xay sinh tố đúng không ạ?" mà khách đáp "không, là máy sấy thật" thì
+ * trước đây bot vẫn dán `tenGoiY` lên đầu rồi nối cả câu phủ định vào sau — Cổng nhận một tên
+ * hàng lai mang CẢ HAI món và chữ "không" ("máy xay sinh tố không, là máy sấy thật ạ"). Hỏi xác
+ * nhận tên mà không nghe câu trả lời "không" thì câu hỏi thành vô ích, và mã + số thuế in ra là
+ * của món khách KHÔNG hỏi (Hiến pháp Điều III và VIII).
+ *
+ * @param {string} text Câu khách gõ
+ * @param {{ tenGoiY?: string, tenGoc?: string }} phien Trạng thái hỏi lại
+ * @returns {{ phuDinh: boolean, ten: string }} `ten`: tên dùng để gửi Cổng (rỗng = không đổi)
+ */
+export function docTraLoiTen(text, { tenGoiY = '', tenGoc = '' } = {}) {
+  const s = String(text || '').trim();
+  if (!PHU_DINH_RE.test(s)) return { phuDinh: false, ten: '' };
+  // Phần SAU chữ phủ định là tên khách nói lại ("không phải, máy sấy thực phẩm 500W").
+  const con = bocXaGiao(s.replace(PHU_DINH_RE, '').replace(DEM_DAU_RE, ''));
+  // Khách chỉ nói "không" mà không nêu tên nào → quay về tên KHÁCH ĐÃ GÕ (`tenGoc`), không dùng
+  // tên bot đoán (`tenGoiY`) — tên vừa bị phủ định không được tới Cổng.
+  const goc = String(tenGoc || '').replace(LENH_DAU_RE, '').trim();
+  const ten = /\p{L}{2}/u.test(con) ? con : goc;
+  return { phuDinh: true, ten: giuThongSo(ten, goc) || String(tenGoiY || '').trim() };
+}
+
 /**
  * Kết quả một nhánh hỏi lại. Kỷ luật hỏi lọc HẾT câu → khách đã NÊU đủ dữ kiện, nên tra luôn
  * (gửi tin rỗng thì khách mất lượt — Điều II) và KHÔNG gán giả định: chuỗi `giaDinh` của nhánh là

@@ -7,8 +7,8 @@
 // `ky-luat-hoi.js`; tệp này chỉ dựng các nhánh hỏi theo mặt hàng và cho mọi câu đi qua `gomCau`.
 import { norm } from './input.js';
 import {
-  CONG_SUAT_RE, DIEN_AP_RE, DUNG_TICH_RE, KICH_THUOC_RE,
-  daNeu, gomCau, cauXinThem, ketQuaHoi,
+  CONG_SUAT_RE, DIEN_AP_RE, DUNG_TICH_RE, KICH_THUOC_RE, LENH_DAU_RE,
+  daNeu, gomCau, cauXinThem, ketQuaHoi, docTraLoiTen, bocXaGiao, giuThongSo,
 } from './ky-luat-hoi.js';
 
 const CU_TRA_RE = /(khong|ko)\s*(ro|biet|chac|quan\s*tam|sao)|cu\s*(tra|lam|chay|tim|cho)|tra\s*(luon|di|nhanh)|mac\s*dinh|sao\s*cung\s*duoc|chiu/i;
@@ -106,8 +106,11 @@ export function kiemTraThongTinPhanLoai(text, { vongHoi = 0, goi = null, hoSo = 
   // 2. Kiểm tra nghi gõ nhầm
   for (const item of GOI_Y_GO_NHAM) {
     if (item.regex.test(s) || (item.normRegex && item.normRegex.test(norm(s)))) {
-      if (co.congSuat && co.dienAp) break; // Đã đủ thông số
-
+      // KHÔNG còn cổng `if (co.congSuat && co.dienAp) break`. Cổng đó làm thông số đủ thì rụng luôn
+      // câu xác nhận TÊN — mà tên là thứ đổi hẳn dòng thuế ("máy xay sinh tố" 8509.40.00 ≠ "máy
+      // sấy" nhóm 8419/8516), nên càng đủ thông số bot càng im, đúng ngược cái cần: thông số đủ
+      // nghĩa là chỉ còn MỘT điều chưa chắc, là tên món (nợ ghi ở PR #203). Thông số khách đã nêu
+      // vẫn không bị xin lại — `cauXinThem` tự rút hết, `gomCau` bỏ câu đã vô ích.
       const thieu = [];
       if (!co.congSuat) thieu.push('congSuat');
       if (!co.dienAp) thieu.push('dienAp');
@@ -238,11 +241,23 @@ export function kiemTraThongTinPhanLoai(text, { vongHoi = 0, goi = null, hoSo = 
 
 /**
  * Xử lý khi khách phản hồi câu hỏi lại của bot.
+ *
+ * Bot vừa hỏi "em hiểu là {tenGoiY} đúng không ạ?" nên câu này có thể là XÁC NHẬN ("đúng, 350W"),
+ * PHỦ ĐỊNH ("không, là máy sấy thực phẩm"), hay buông ("cứ tra đi"). Phủ định thì tên bot đoán
+ * KHÔNG được vào mô tả gửi Cổng — hỏi mà không nghe câu trả lời "không" thì câu hỏi thành vô ích.
+ *
  * @param {string} text Câu khách gõ
  * @param {object} sessionHoiLai Trạng thái hỏi lại trong session
  */
 export function xuLyTraLoiHoiLai(text, sessionHoiLai = {}) {
   const s = String(text || '').trim();
+
+  // Khách PHỦ ĐỊNH tên bot đoán → đọc tên khách nói, lùi về tên khách đã gõ nếu khách chỉ nói "không".
+  // Xét TRƯỚC `nhanDienCuTraDi` vì mẫu "không rõ/không biết" của nó cũng khớp chữ "không" mở đầu.
+  const traLoiTen = docTraLoiTen(s, sessionHoiLai);
+  if (traLoiTen.phuDinh && traLoiTen.ten && !nhanDienCuTraDi(s)) {
+    return { sanSangTra: true, giaDinh: null, moTaTraCuu: traLoiTen.ten };
+  }
 
   // Khách nói "không rõ, cứ tra đi"
   if (nhanDienCuTraDi(s)) {
@@ -254,15 +269,15 @@ export function xuLyTraLoiHoiLai(text, sessionHoiLai = {}) {
     };
   }
 
-  // Khách bổ sung thông số (vd: "đúng, 350W 220V" hoặc "350W 220V")
-  const tenChuan = sessionHoiLai.tenGoiY || sessionHoiLai.tenGoc || '';
-  // Lược bỏ các từ xã giao ("đúng", "oke", "chuẩn", "vâng"...)
-  const thongSoMoi = s.replace(/^(đúng|dung|oke|ok|chuẩn|chuan|vâng|vang|ừ|u|dạ|da)[,.\s]*/i, '').trim();
+  // Khách XÁC NHẬN tên, có thể bổ sung thông số (vd: "đúng, 350W 220V" hoặc "350W 220V")
+  const tenGoc = String(sessionHoiLai.tenGoc || '').replace(LENH_DAU_RE, '').trim();
+  const tenChuan = sessionHoiLai.tenGoiY || tenGoc;
+  // Lược bỏ các từ xã giao ("đúng", "oke", "chuẩn", "vâng", "… ạ")
+  const thongSoMoi = bocXaGiao(s);
 
-  let moTaTraCuu = tenChuan;
-  if (thongSoMoi) {
-    moTaTraCuu = `${tenChuan} ${thongSoMoi}`.trim();
-  }
+  // Giữ THÔNG SỐ khách đã gõ ở tin trước: mô tả tra cứu dựng lại từ `tenGoiY` nên thông số nằm
+  // trong `tenGoc` sẽ rụng, Cổng mất dữ kiện khách đã cung cấp (nợ ghi ở PR #203).
+  const moTaTraCuu = giuThongSo([tenChuan, thongSoMoi].filter(Boolean).join(' ').trim(), tenGoc);
 
   return {
     sanSangTra: true,

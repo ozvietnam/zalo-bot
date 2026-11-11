@@ -12,6 +12,44 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-11 — Issue #177 (nợ của PR #203) / OZV-323: xác nhận tên nghi gõ nhầm khi thông số đã đủ
+
+- **Commit mã nguồn đã đọc:** `0286242` (nhánh `ozv-323-xac-nhan-ten-go-nham`, xếp chồng trên PR #212).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (thêm dòng việc này, gỡ chữ "còn thiếu" ở dòng yêu cầu 2 vì nợ đã trả), `docs/wiki/an-toan.md` (số dòng thật của `packs/hs/packages.js`: 642 → 649), `docs/wiki/log.md`.
+- **Vì sao:** nợ ghi rõ ở PR #203 và trong chính thân `packs/hs/test/ky-luat-hoi.test.mjs`. Đo lại
+  bằng hàm của repo, không phỏng đoán: `kiemTraThongTinPhanLoai('máy sấy sinh tố 350W 220V')` trả
+  `canHoi: false` — nhánh nghi gõ nhầm `break` ngay khi đủ công suất + điện áp nên câu xác nhận TÊN
+  rụng theo. Càng đủ thông số bot càng im, đúng ngược cái cần: thông số đủ nghĩa là chỉ còn MỘT điều
+  chưa chắc, là tên món — mà "máy xay sinh tố" là 8509.40.00 còn "máy sấy" thuộc nhóm 8419/8516,
+  khác chương và khác mức thuế, nên bot in mã + số thuế của món khách KHÔNG hỏi (Điều III: số tiền
+  phải có căn cứ; Điều VIII: không nói như đã biết). Lỗi thứ hai đi kèm:
+  `xuLyTraLoiHoiLai('không, là máy sấy thật ạ', { tenGoiY: 'máy xay sinh tố' })` trả mô tả tra cứu
+  `"máy xay sinh tố không, là máy sấy thật ạ"` — khách PHỦ ĐỊNH mà bot vẫn dán tên mình đoán lên
+  đầu rồi nối cả câu phủ định vào sau; hỏi xác nhận tên mà không nghe câu trả lời "không" thì câu
+  hỏi thành vô ích.
+- **Đã sửa:** bỏ hẳn cổng `if (co.congSuat && co.dienAp) break` — câu xác nhận tên luôn còn, còn câu
+  xin thông số thì `cauXinThem`/`gomCau` tự rút hết nên không hỏi lại điều khách đã nêu.
+  `docTraLoiTen` (`packs/hs/ky-luat-hoi.js:116`) đọc câu phủ định và lấy tên khách nói lại; khách
+  chỉ nói "không ạ" thì lùi về tên khách ĐÃ GÕ, không dùng tên bot đoán. `giuThongSo`
+  (`packs/hs/ky-luat-hoi.js:90`) giữ thông số khách gõ ở tin trước để mô tả dựng lại từ `tenGoiY`
+  không làm rụng dữ kiện.
+- **Bài học kỹ thuật:** biên từ tiếng Việt phải dùng lookahead `\p{L}` chứ không dùng `\b` — `\b`
+  của JS chỉ tính chữ ASCII nên sau "không" hay "là" (kết bằng chữ có dấu) nó không thấy biên và cả
+  mẫu trượt im lặng.
+- **Lỗi thứ ba lộ ra khi bỏ cổng cũ:** nhánh 0b của gói 1 chạy lại `kiemTraThongTinPhanLoai` trên
+  chính câu trả lời của khách, nên khách đáp "không, là máy sấy thực phẩm" thì bot hỏi xác nhận
+  đúng cái tên khách VỪA GÕ ("em hiểu là máy sấy thực phẩm đúng không ạ?") — hỏi lại điều khách đã
+  nêu, và khách không bao giờ tới được mã (0 lần gọi Cổng). Cổng cũ vô tình che lỗi này. Chặn bằng
+  cờ `vuaTraLoiHoiLai` (`packs/hs/packages.js:218`); vòng hỏi tiếp theo do chính nhánh 0a quyết
+  bằng `vongHoi` (trần 2 vòng của #136).
+- **Hai test cũ khoá đúng hành vi sai này, đã sửa:** `packs/hs/test/ky-luat-hoi.test.mjs` ca "HỒ SƠ
+  MẠCH đã có thông số" (chính nó ghi chú đây là nợ) và `packs/hs/test/soat-203.test.mjs` ca
+  "#203-4" — chuyển sang tên KHÔNG nghi gõ nhầm, giữ nguyên ý gốc của hai ca.
+- **Kiểm tra:** `packs/hs/test/xac-nhan-ten.test.mjs` viết ĐỎ trước (8/11 đỏ, 3 chốt ngược xanh ngay
+  để bản vá không thành "hỏi mọi lúc"), có 3 ca đường thật qua `hs.handle` đếm số lần gọi Cổng và
+  đọc `tenHang` gửi đi. Bốn cổng máy: `npm test` 1140/1140, `npm run eval` 32/32,
+  `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
+
 ## 2026-11-11 — PR #204 (soát): bộ đo đọc thêm khuôn giọng Quyên, bỏ 2 ca lấy từ thông báo đính chính
 
 - **Commit mã nguồn đã đọc:** `93e9328` (nhánh `ozv-323-bo-do-do-dung`).

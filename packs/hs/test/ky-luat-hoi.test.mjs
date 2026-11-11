@@ -50,21 +50,20 @@ test('[#177-2] khách đã nói chất liệu ("van bi inox") → không hỏi l
 
 test('[#177-2] HỒ SƠ MẠCH đã có thông số → không hỏi lại thông số đó', () => {
   // Khách gõ thông số ở tin TRƯỚC (#170: hồ sơ tích luỹ), tin này chỉ gõ tên món.
-  // Hồ sơ đã đủ công suất + điện áp → cả hai câu của nhánh "nghi gõ nhầm" bị kỷ luật hỏi lọc hết,
-  // nên không còn gì để hỏi. Đúng hành vi cũ của #136 khi khách gõ đủ thông số ngay trong tin
-  // ("máy sấy sinh tố 350W 220V" cũng không hỏi): nay dữ kiện trong hồ sơ được tính y như trong chữ.
+  // Hồ sơ đã đủ công suất + điện áp → câu XIN THÔNG SỐ của nhánh "nghi gõ nhầm" bị kỷ luật hỏi
+  // lọc hết; dữ kiện trong hồ sơ được tính y như dữ kiện trong chữ.
   //
-  // CÒN THIẾU của #177 (yêu cầu 1, nhịp sau): khi thông số đã đủ thì bot vẫn KHÔNG xác nhận tên
-  // nghi gõ nhầm ("sấy" ↔ "xay") — tên sai đi thẳng tới Cổng. Sửa chỗ đó phải sửa cùng
-  // `xuLyTraLoiHoiLai` (nó dựng lại mô tả tra cứu từ `tenGoiY`, mất thông số khách đã gõ), nên
-  // không gộp vào nhịp này.
+  // Câu xác nhận TÊN thì vẫn còn: tên không phải đại lượng, máy không tự đoán thay khách được
+  // ("sấy" ↔ "xay" đổi hẳn dòng thuế) — nợ của PR #203, nay đã trả, đo ở `xac-nhan-ten.test.mjs`.
   const hoSo = { moTa: 'máy sấy sinh tố', thongSo: '350W 220V' };
   const r = kiemTraThongTinPhanLoai('máy sấy sinh tố', { vongHoi: 0, hoSo });
   assert.deepEqual(r.thieu, [], `thông số đã có trong hồ sơ, đang là ${JSON.stringify(r.thieu)}`);
   assert.doesNotMatch(r.cauHoi || '', /công\s*suất/i, `không được hỏi lại điều khách đã nêu: "${r.cauHoi}"`);
   assert.doesNotMatch(r.cauHoi || '', /điện\s*áp/i, `không được hỏi lại điều khách đã nêu: "${r.cauHoi}"`);
-  // Và khi đã đủ dữ kiện thì tra luôn, không treo khách ở một lượt hỏi rỗng (Điều II).
-  assert.equal(r.canHoi, false);
+  assert.equal(soCau(r.cauHoi || ''), 1, `chỉ còn MỘT câu (xác nhận tên): "${r.cauHoi}"`);
+  // Tên BÌNH THƯỜNG mà hồ sơ đã đủ thì tra luôn, không treo khách ở một lượt hỏi rỗng (Điều II).
+  const r2 = kiemTraThongTinPhanLoai('máy bơm nước', { vongHoi: 0, hoSo: { moTa: 'máy bơm nước', thongSo: '1.5HP 220V' } });
+  assert.equal(r2.canHoi, false);
 });
 
 test('[#177-2] HỒ SƠ MẠCH đã có chất liệu → van bi không bị hỏi lại chất liệu', () => {
