@@ -82,6 +82,12 @@ export default {
         && typeof c.dauHoSo === 'number' && (hoSoNay.dau ?? 0) > c.dauHoSo) {
         return boKetQua(`hồ sơ đã đổi (dấu ${c.dauHoSo} → ${hoSoNay.dau})`);
       }
+      // Kết quả của lượt MỚI NHẤT đã về (kể cả hết hạn) → mạch không còn chờ mã nào nữa. Từ đây ảnh
+      // khách gửi là việc MỚI: `flow-photo.js` quay lại đường xin xác nhận, không tự mở lượt phân
+      // loại (issue #177 yêu cầu 4 — không tiêu điểm Cổng ngoài ý khách).
+      if (c.goi === 1 && (typeof c.luotSo !== 'number' || st.session.choKetQuaGoi1 === c.luotSo)) {
+        st.session.choKetQuaGoi1 = null;
+      }
       const r = res == null ? hetHan(job.maLuot, JOB_TTL_MS) : { ...res, maLuot: job.maLuot };
       const pkg = PACKAGES.find((p) => p.so === c.goi);
       const raw = pkg?.xong ? await pkg.xong(r, c, st.pctx({ hoSo: hoSoNay })) : renderResult(r, { title: `📥 Kết quả lượt ${job.maLuot}` });
