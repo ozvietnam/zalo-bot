@@ -727,7 +727,7 @@ export function createGatewayMetricsCollector({ queueDb }) -> {
 }
 ```
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -751,10 +751,10 @@ test('T811: getMetricsReport tính toán chính xác p95, W và cảnh báo khi 
   assert.ok(report.waitingTimeP95 > 0);
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/gateway/metrics.test.mjs` → FAIL.
-- [ ] **Step 3:** Tạo `gateway/metrics.js` lưu trữ cửa sổ trượt 1 giờ các bản ghi đo lường, tính toán phân vị p50/p95, và xuất định dạng JSON/Prometheus.
-- [ ] **Step 4:** Chạy lại `node --test test/gateway/metrics.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(gateway): implement metrics endpoint and fallback rate alerting (T811)"`
+- [x] **Step 2:** Chạy `node --test test/gateway/metrics.test.mjs` → FAIL.
+- [x] **Step 3:** Tạo `gateway/metrics.js` lưu trữ cửa sổ trượt 1 giờ các bản ghi đo lường, tính toán phân vị p50/p95, và xuất định dạng JSON/Prometheus.
+- [x] **Step 4:** Chạy lại `node --test test/gateway/metrics.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(gateway): implement metrics endpoint and fallback rate alerting (T811)"`
 
 ---
 
