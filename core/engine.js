@@ -224,9 +224,10 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
       audit('route', turn.chatId, turn.convId, key, { pack: pack?.id ?? null });
       if (!pack) return done({ skipped: 'no-pack' });
       Promise.resolve().then(() => channel.typing?.(turn.chatId)).catch(() => {});
-      // Câu "đang tra" ≤ 3 giây khi lượt phải đợi Cổng / việc nền (issue #168, `core/bao-dang-tra.js`).
-      const dangTra = createBaoDangTra({ turn, pack, log, sauMs: config.dangTraSauMs,
-        send: (text) => reply(turn, text, 'p', { kind: 'progress', pack }) });
+      // Câu "đang tra" ≤ 3 giây khi lượt phải đợi Cổng / não / việc nền (issue #168, OZV-496 lỗi 1);
+      // Cổng treo quá `cauTamSauMs` thì một câu tạm, không để khách im (OZV-496 lỗi 2).
+      const dangTra = createBaoDangTra({ turn, pack, log, sauMs: config.dangTraSauMs, cauTamSauMs: config.cauTamSauMs,
+        send: (text, loai) => reply(turn, text, loai === 'tam' ? 'p2' : 'p', { kind: 'progress', pack }) });
       const res = await dangTra.chay(() => pack.handle(turn, dangTra.boc(ctx)));
       const evidence = [...(res.evidence ?? []), turn.text, turn.caption].filter((v) => v != null);
       // Nhãn và món quan tâm gói trả về (`contracts/pack.md`) ghi vào hồ sơ NGAY, trước khi gửi câu

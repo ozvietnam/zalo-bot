@@ -1,4 +1,6 @@
-// #168 (11/11): số tin đã tính cả câu "đang tra" (4 câu trong kịch bản này) — mỗi lượt gọi Cổng hoặc có việc nền gửi đúng một câu đó trước kết quả.
+// #168 (11/11): số tin đã tính cả câu "đang tra" (5 câu trong kịch bản này) — mỗi lượt gọi Cổng hoặc có việc nền gửi đúng một câu đó trước kết quả.
+// OZV-496 (12/11): câu "đang tra" không còn bị cửa gửi bỏ vì trùng chữ khuôn (đảo luật sự cố #9) — tin 3
+// "tra hscode" là câu khách MỚI, nên câu "đang tra" thứ ba (trước đây bị bỏ `similar:1.00`) giờ được gửi: 5 câu.
 // #170 (10/11): tái hiện ĐỦ 7 tin test nhóm Zalo 09:58–10:18 — một khách hỏi MỘT món qua 7 tin.
 // Trước đây bot coi là 6 câu rời rạc, chốt 8538.90 (hàng điện) vì chữ "ON OFF" trên ảnh lấn mô tả chữ.
 // Phải: một hồ sơ mặt hàng được cập nhật dần, ảnh chỉ bổ sung, mâu thuẫn thì hỏi lại một câu.
@@ -48,9 +50,9 @@
 // và cửa chào kết của Lõi đứng SAU `store.messages.add`, nên một tin bị nuốt vẫn cân sổ. Muốn chứng
 // minh tin này KHÔNG bị nuốt thì phải đếm TIN GỬI RA (người soát đo đúng chỗ này, điểm [S12]).
 {"step":"advance","by":"3m"}
-{"step":"expect","sentTo":"c1","count":5}
+{"step":"expect","sentTo":"c1","count":6}
 {"step":"in","update":{"id":"m5","text":"@bot đây nhé, chốt kẹp xoay 1/4 vòng loại núm thấp QCTHL0525-10S, chữ on/off trên núm là vị trí đóng mở của chốt, không liên quan dòng điện"}}
-{"step":"expect","sentTo":"c1","count":7}
+{"step":"expect","sentTo":"c1","count":8}
 
 // 10:12 — tin 6: "@bot OK". Tới đây khách ĐÃ đáp (tin 5) và bot đang tra lại trên hồ sơ gộp, nên
 // "OK" là CHÀO KẾT THẬT: cửa chào kết của Lõi im là đúng, đếm vẫn 4. Trả lời lại sẽ mở việc nền thứ
@@ -58,7 +60,7 @@
 // thì KHÔNG được nuốt" đo qua Lõi thật ở `test/core/tin-cho-tra-loi.test.mjs`.
 {"step":"advance","by":"6m"}
 {"step":"in","update":{"id":"m6","text":"@bot OK"}}
-{"step":"expect","sentTo":"c1","count":7}
+{"step":"expect","sentTo":"c1","count":8}
 
 // 10:18 — tin 7 (CEO, nguyên văn): khách sửa lại hướng đọc rồi yêu cầu DỰNG LẠI toàn bộ hồ sơ
 // từ đầu. Đây là tin mà bot cũ trả "Dữ liệu trước đã được ghi nhận. Bạn cần tra cứu… Gõ menu".
@@ -68,11 +70,11 @@
 // `drain:false` để TÁCH rõ hai tin: câu đáp ngay của bot, rồi mới tới kết quả lượt mới.
 {"step":"in","update":{"id":"m7","text":"@bot chữ on/off là đóng mở, không liên quan dòng điện, xem lại toàn bộ thông tin khách gửi từ đầu tới cuối"},"drain":false}
 // Câu đáp ngay: bot nói rõ đã hiểu lại và đang phân loại lại trên toàn bộ thông tin đã gửi.
-{"step":"expect","sentTo":"c1","count":9}
+{"step":"expect","sentTo":"c1","count":10}
 {"step":"expect","sentTo":"c1","match":"Em phân loại lại trên toàn bộ thông tin anh/chị đã gửi"}
 // Lượt MỚI (mã lượt B) → kết quả về sau: dòng hồ sơ ở đầu tin + mã chốt kẹp (8302.42), KHÔNG 8538.
 {"step":"advance","by":"1m"}
-{"step":"expect","sentTo":"c1","count":10}
+{"step":"expect","sentTo":"c1","count":11}
 {"step":"expect","sentTo":"c1","match":"Em đang tra:.*[Cc]hốt kẹp"}
 {"step":"expect","sentTo":"c1","match":"8302\\.42"}
 {"step":"expect","sentTo":"c1","notMatch":"8538"}

@@ -14,16 +14,19 @@ export const CAU_DANG_TRA = Object.freeze({
   chung: 'Dạ để em tra cho anh/chị ạ, chờ em chút nhé.',
   // Việc nền quá 60 giây chưa xong: báo tiến độ MỘT lần (issue #168, mục 3) — chữ khác hẳn câu đầu.
   tienDo: 'Dạ Cổng vẫn đang phân tích kỹ mặt hàng này, anh/chị đợi em thêm ít phút, xong em gửi ngay ạ.',
+  // Cổng treo quá hạn chờ trong lượt (OZV-496 lỗi 2): câu tạm đúng giọng — không im, không bịa mã.
+  congCham: 'Dạ Cổng đang bận, em xin ít phút rồi tra lại giúp anh/chị ạ.',
 });
 
 /**
  * @param {object} turn
  * @param {object|null} ctx
- * @param {{ congCu?: string|null, viecNen?: boolean, tienDo?: boolean }} info
+ * @param {{ congCu?: string|null, viecNen?: boolean, tienDo?: boolean, congCham?: boolean }} info
  * @returns {string|null}
  */
-export function cauDangTra(turn, ctx, { congCu = null, viecNen = false, tienDo = false } = {}) {
+export function cauDangTra(turn, ctx, { congCu = null, viecNen = false, tienDo = false, congCham = false } = {}) {
   if (tienDo) return CAU_DANG_TRA.tienDo;
+  if (congCham) return CAU_DANG_TRA.congCham;
   if (congCu === 'anh') return CAU_DANG_TRA.anh;
   if (PHAN_LOAI.has(congCu)) return CAU_DANG_TRA.phanLoai;
   if (viecNen) return CAU_DANG_TRA.viecNen;
