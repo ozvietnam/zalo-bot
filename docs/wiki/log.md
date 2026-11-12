@@ -1,6 +1,6 @@
 # Nhật ký wiki
 
-> Cập nhật: 2026-11-13 · commit: 67f8ec9
+> Cập nhật: 2026-11-13 · commit: 63a5419 + 5b441c8
 
 Nhật ký thay đổi của bộ wiki trong docs/wiki. Mỗi dòng ghi: ngày, commit của mã nguồn
 đã đọc khi viết, và những trang bị thay đổi hoặc thêm mới.
@@ -23,6 +23,18 @@ Quy ước:
   4. Test giả: case "bản không dấu" dùng lại đúng chuỗi CÓ dấu; case Gói 6 đặt mã HS ở CUỐI chuỗi nên regex "mã cuối câu" không thấy mã nào.
 - **Vá thế nào (một commit, TDD):** (1) `laDonViDoSauSo` chỉ coi là số lượng khi số trước mã có **dưới 8 chữ số** (mã HS của Cổng có 8 số) — mã đứng sau MÃ HS lại là MÃ NƯỚC, khớp main; (2) `laTuDanXuatXu` so **không phân biệt hoa/thường** (vẫn giữ luật "giữ dấu": "TỦ" → "tủ" ≠ "từ", "TỪ" → "từ" ✓); (3) `maCuoiCau` (Gói 6) chỉ nhận mã cuối câu khi đứng ngay sau MÃ/SỐ ("Nike 64041190 CN") hoặc sau TỪ DẪN ("hàng từ GB", "made in UK") — cùng luật với `maNuocTrongCau`, nên danh từ hàng không còn bị đọc thành nước; (4) viết lại 2 test giả + thêm **2 test HỒI QUY** neo 8 mã sau MÃ HS và 4 chuỗi từ dẫn HOA, kỳ vọng **khớp main** (`GB/MT/LT/MM/KG/CM/ML/KW`; `GB/SK/SG/GB`).
 - **Cổng:** `npm test` (11/11 ở tệp OZV-535, toàn repo xanh), `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.
+## 2026-11-13 — OZV-607: G4 hỏi lại khi có `brain` bật — không gọi Cổng sớm, không báo "đang tra" ở lượt hỏi lại, không chặn câu đáp
+
+- **Commit mã nguồn đã đọc:** `876441c` (`origin/main`), làm trên nhánh `ozv-607-g4-hoi-lai`.
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (thêm dòng OZV-607), `docs/wiki/log.md`.
+- **Vì sao:** chạy thật kịch bản G4 (`eval/qa-that/g4-quyen-hoi-lai.json`) trên `main` `876441c` khi `ctx.brain` bật làm trượt 5/6 bước (1, 2, 4, 5, 6) do 2 nguyên nhân gốc ở tầng nối `routeThongMinh` ↔ gói 1:
+  1. Ở bước 1/4/6 (`"Tra hs máy sấy sinh tố"`), `routeThongMinh` gọi `brain.hieu`, Gemini chọn `phan_loai` và `GOI[0].dung` dựng chuỗi `"Tên hàng: máy sấy sinh tố"`. Khi chuỗi này vào `packs/hs/packages.js:235`, `coNhanChuan` thành `true` (tưởng khách gõ form có nhãn chuẩn) nên bỏ qua hoàn toàn nhánh `0b` (`kiemTraThongTinPhanLoai`), gọi thẳng `phan_loai_hs`, gửi câu `"đang tra"` và tắt luôn giọng Quyên (`chonNhanh: true`). Ngoài ra việc gọi `brain.hieu` còn đánh dấu `nao` ở `core/bao-dang-tra.js:89` khiến lượt hỏi lại bị bắn `"đang tra"` nếu não chậm > 1,5 giây.
+  2. Ở bước 2 (`"đúng, 350W 220V"`) và bước 5 (`"không rõ, cứ tra đi"`), dù `session.hoiLai` đang mở, `routeThongMinh` vẫn gọi `brain.hieu`; não không thấy tên hàng nên trả `hoi_lai`, làm `packs/hs/luong-chu.js:192` trả câu hỏi chung thay vì đi vào nhánh `0a` (`xuLyTraLoiHoiLai`).
+- **Vá thế nào:**
+  1. `packs/hs/brain.js:200`: không hỏi `brain.hieu` khi phiên đang mở `session.hoiLai` hoặc `session.choBoSung`.
+  2. `packs/hs/brain.js:203-206`: khi `r.pkg.so === 1` ở chế độ tự động và `kiemTraThongTinPhanLoai(text, ...).canHoi` là `true`, trả `r` ngay không gọi `brain.hieu`.
+  3. `packs/hs/brain.js:215` và `packs/hs/luong-chu.js:180`: khi não chọn gói 1 (`pkg.so === 1`), giữ nguyên `text` của khách (không bọc `"Tên hàng: …"`) và truyền `cauKhach: text` vào `runPkg`.
+- **Kiểm tra:** 3 test mới trong `packs/hs/test/hoi-lai.test.mjs:129-200` (đỏ 3/3 trước khi sửa, xanh 10/10 sau khi sửa); `node scripts/qa-that.mjs --mock` 6/6, `npm test` xanh, `npm run eval` 32/32, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
 
 ## 2026-11-12 — OZV-489 / OZV-430 điểm 1 (vòng soát 7): khớp tên nước DÀI thắng từ đơn va chạm; regex mã trơ về danh sách main; gộp main 50907f2 vào nhánh
 
