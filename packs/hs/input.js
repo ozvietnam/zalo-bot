@@ -6,6 +6,17 @@ export const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replac
 /** Gộp khoảng trắng + cắt đầu/cuối (giữ nguyên dấu). Dùng chung cho lớp nhận dạng và lớp hồ sơ. */
 export const dai = (s) => String(s || '').replace(/\s+/g, ' ').trim();
 
+/**
+ * Chuỗi có chữ mang DẤU tiếng Việt (hoặc "đ") không?
+ *
+ * Dùng làm rào cho ô "Xuất xứ": mã ISO-3166 không bao giờ có dấu, nên chữ có dấu không thể là mã
+ * — `"Mỹ"` là Hoa Kỳ, không phải `MY` (Malaysia). Xem `countryCode`.
+ *
+ * So trên dạng NFD (dấu tách rời) để bắt cả chữ Zalo/iOS gửi ở dạng tách dấu: `"Mỹ"` dạng NFC là
+ * một ký tự, dạng NFD là "M" + "y" + dấu ngã rời — cả hai đều phải tính là CÓ DẤU.
+ */
+export const coDau = (s) => /[̀-ͯ]|[đĐ]/.test(String(s || '').normalize('NFD'));
+
 // Chữ khách hay gõ vào ô "thương hiệu" nhưng KHÔNG phải nhãn hiệu (issue #169): gửi đi kiểm sở hữu trí tuệ
 // thì Cổng trả đèn ĐỎ sai (có doanh nghiệp đăng ký đúng chữ "OEM") và trừ điểm vô ích.
 const NHAN_CHUNG = new Set(['oem', 'odm', 'no brand', 'nobrand', 'no-brand', 'noname', 'no name',
@@ -79,7 +90,13 @@ export function parseLabeled(text, fields) {
 }
 
 /** Mã nước 2 chữ in hoa đứng riêng (CN, JP, KR…) hoặc tên nước thường gặp. */
-const NUOC = { 'trung quoc': 'CN', tq: 'CN', china: 'CN', 'nhat ban': 'JP', nhat: 'JP', 'han quoc': 'KR', han: 'KR',
+/**
+ * Tên nước/viết tắt tiếng Việt → mã ISO-2. Khoá là bản ĐÃ RỤNG DẤU (so bằng `norm`).
+ *
+ * Xuất ra để test neo được "mọi khoá đều có ca, cả bản có dấu": lỗ đó làm `"Mỹ"` lọt thành `MY`
+ * (Malaysia) qua hai vòng soát PR #214 — xem `test/xuat-xu-ma-nuoc.test.mjs`.
+ */
+export const NUOC = { 'trung quoc': 'CN', tq: 'CN', china: 'CN', 'nhat ban': 'JP', nhat: 'JP', 'han quoc': 'KR', han: 'KR',
   'dai loan': 'TW', 'thai lan': 'TH', 'my': 'US', 'hoa ky': 'US', duc: 'DE', 'an do': 'IN', 'viet nam': 'VN', 'malaysia': 'MY', 'indonesia': 'ID' };
 
 /**
@@ -186,11 +203,22 @@ export function maNuocTrongCau(s) {
 export function countryCode(s) {
   const t = String(s || '').trim();
   const nGoc = boNhanXuatXu(norm(t));
-  // Ngữ cảnh 1 — ô khai riêng một mã. Xét TRƯỚC từ điển tên nước: tra từ điển trước thì `norm`
-  // đưa "MY" về "my" và từ điển đọc thành "Mỹ" ⇒ US, sai hẳn nước (Malaysia thành Hoa Kỳ).
-  if (/^[a-z]{2}$/.test(nGoc) && laMaIso2(nGoc)) return nGoc.toUpperCase();
+  // Ngữ cảnh 1 — ô khai riêng một mã. Xét TRƯỚC từ điển tên nước, vì `norm` đưa "MY" về "my" và
+  // từ điển có khoá `my` = Hoa Kỳ, tra từ điển trước thì Malaysia thành Hoa Kỳ.
+  //
+  // Nhưng hình mã phải xét thêm một rào: GIÁ TRỊ KHÁCH KHAI KHÔNG ĐƯỢC CÓ DẤU. Mã ISO không bao
+  // giờ có dấu, nên chữ có dấu không thể là mã. Xét hình chỉ trên `nGoc` (đã rụng dấu) là lỗi chặn
+  // vòng soát 3 của PR #214 — `"Mỹ"` rụng dấu thành `"my"`, trùng mã ISO Malaysia, nên không bao
+  // giờ xuống tới `NUOC['my'] = 'US'`: khách khai Mỹ mà bot tra thuế Malaysia, lại `giaDinh:false`
+  // nên không hề nói là giả định (Điều III + Điều VIII — số sai trông như thật).
+  //
+  // So dấu trên TOKEN CUỐI của giá trị còn dấu, không so trên cả chuỗi: nhãn ô cũng có dấu
+  // ("Xuất xứ: MY"), so cả chuỗi thì mã thật sau nhãn lại bị bác bỏ.
+  if (/^[a-z]{2}$/.test(nGoc) && laMaIso2(nGoc) && !coDau(dai(t).split(/[\s:\-]+/).filter(Boolean).pop() || '')) {
+    return nGoc.toUpperCase();
+  }
   // Tên nước (có dấu hay không) và viết tắt tiếng Việt: "TQ" không phải mã ISO nên tới đây, và
-  // phải ra CN chứ không ra mã "TQ". "Mỹ" có dấu cũng về đây (không khớp hình hai chữ cái).
+  // phải ra CN chứ không ra mã "TQ". "Mỹ" có dấu cũng về đây (còn dấu nên không khớp hình trên).
   if (NUOC[nGoc]) return NUOC[nGoc];
   if (/^[A-Za-z]{2}$/.test(nGoc)) return null;
   // Ngữ cảnh 2 — mã lẫn trong câu.

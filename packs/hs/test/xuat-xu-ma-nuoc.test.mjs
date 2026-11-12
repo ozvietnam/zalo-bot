@@ -23,7 +23,7 @@
 // mới tới mã 2 chữ), không lọc lúc in ra.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { countryCode, maNuocTrongCau, laMaIso2, tenNuoc } from '../input.js';
+import { countryCode, maNuocTrongCau, laMaIso2, tenNuoc, NUOC } from '../input.js';
 import { fakeMcp } from '../../../test/helpers/fakes.mjs';
 import hs from '../index.js';
 
@@ -312,4 +312,109 @@ test('MA_ISO2: 12 nước FTA mà bản vá vòng 1 bác bỏ đều có trong b
   for (const m of ['SK', 'SI', 'BG', 'HR', 'LT', 'LV', 'EE', 'LU', 'MT', 'CY', 'BN', 'IS']) {
     assert.equal(laMaIso2(m), true, `"${m}" là nước có FTA với VN, phải nhận`);
   }
+});
+
+// ── Vòng soát 3 (giám đốc CHẶN PR #214 lần hai): tên nước CÓ DẤU trùng hình mã ISO ──────────────
+//
+// Bản vá vòng 2 xét hình "hai chữ cái" trên `nGoc = boNhanXuatXu(norm(t))`, mà `norm` đã RỤNG DẤU,
+// nên `"Mỹ" → "my"` trùng mã ISO Malaysia và không bao giờ xuống tới `NUOC['my'] = 'US'`:
+//
+//   ô "Xuất xứ:" khách gõ | main | nhánh vòng 2 | đúng ra
+//   "Mỹ"                  | US   | MY           | US   (Malaysia ≠ Hoa Kỳ)
+//
+// Nặng đúng thứ ta vừa ghi thành luật: `giaDinh:false` nên bot KHÔNG nói giả định, khách đọc thuế
+// Malaysia mà tưởng thuế hàng Mỹ — số sai trông như thật (Điều III + Điều VIII).
+//
+// Vá: mã ISO không bao giờ có dấu ⇒ kiểm hình trên chuỗi CHƯA rụng dấu. KHÔNG vá bằng cách bỏ `MY`
+// khỏi bảng ISO — đó là lặp lại đúng lỗi "bác bỏ nước thật" đã bị chặn ở vòng 2.
+//
+// Vì sao bộ 31 ca của vòng 2 không bắt được: không ca nào dùng tên nước có dấu mà bản không dấu
+// của nó trùng một mã ISO. Lớp dưới đây đóng hẳn lỗ đó — quét MỌI khoá `NUOC`, cả hai dạng chữ.
+
+/** Dạng CÓ DẤU của từng khoá `NUOC` (khoá trong mã nguồn là bản không dấu). */
+const CO_DAU = {
+  'trung quoc': 'Trung Quốc', tq: 'TQ', china: 'China', 'nhat ban': 'Nhật Bản', nhat: 'Nhật',
+  'han quoc': 'Hàn Quốc', han: 'Hàn', 'dai loan': 'Đài Loan', 'thai lan': 'Thái Lan',
+  my: 'Mỹ', 'hoa ky': 'Hoa Kỳ', duc: 'Đức', 'an do': 'Ấn Độ', 'viet nam': 'Việt Nam',
+  malaysia: 'Malaysia', indonesia: 'Indonesia',
+};
+
+test('NUOC: mọi khoá từ điển tên nước đều có ca test (cả bản có dấu)', () => {
+  // Neo: thêm khoá vào `NUOC` mà quên ca test thì đỏ ngay — lỗ đã để "Mỹ" lọt hai vòng soát.
+  assert.deepEqual(Object.keys(NUOC).sort(), Object.keys(CO_DAU).sort(),
+    'mỗi khoá NUOC phải có một dạng có dấu trong CO_DAU');
+});
+
+test('countryCode: mọi tên nước trong NUOC ra đúng mã, cả bản có dấu lẫn không dấu', () => {
+  for (const [khoa, maDung] of Object.entries(NUOC)) {
+    const dang = [CO_DAU[khoa], CO_DAU[khoa].toLowerCase(), CO_DAU[khoa].toUpperCase()];
+    // Khoá mà bản KHÔNG DẤU trùng một mã ISO thật (`my` = Malaysia) chỉ đúng ở dạng CÓ DẤU: gõ
+    // "MY" không dấu là khách khai mã Malaysia, đọc thành Hoa Kỳ mới là sai (ca riêng ở dưới).
+    if (!laMaIso2(khoa)) dang.push(khoa, khoa.toUpperCase());
+    for (const v of dang) {
+      assert.equal(countryCode(v), maDung, `"${v}" là ${maDung} — không được đọc thành mã ISO trùng hình bản không dấu`);
+      assert.equal(countryCode(`Xuất xứ: ${v}`), maDung, `ô có nhãn "Xuất xứ: ${v}" cũng phải ra ${maDung}`);
+      assert.equal(countryCode(`xuat xu: ${v}`), maDung, `nhãn không dấu "xuat xu: ${v}" cũng phải ra ${maDung}`);
+    }
+  }
+});
+
+test('countryCode: "Mỹ" là Hoa Kỳ, "MY" là Malaysia — hai thứ khác nhau, cùng hình khi rụng dấu', () => {
+  for (const v of ['Mỹ', 'mỹ', 'MỸ', 'Xuất xứ: Mỹ', 'xuất xứ: mỹ', 'nước Mỹ']) {
+    assert.equal(countryCode(v), 'US', `"${v}" là Hoa Kỳ ⇒ US, không phải MY (Malaysia)`);
+  }
+  for (const v of ['MY', 'My', 'my', 'Xuất xứ: MY', 'xuat xu: my']) {
+    assert.equal(countryCode(v), 'MY', `"${v}" không dấu là mã ISO Malaysia ⇒ MY`);
+  }
+  // Mã ISO không bao giờ có dấu: chữ có dấu KHÔNG được coi là mã, kể cả khi bản không dấu là mã thật.
+  assert.equal(countryCode('Mỹ'), 'US');
+  assert.equal(tenNuoc(countryCode('Mỹ')), 'Hoa Kỳ');
+  assert.equal(tenNuoc(countryCode('MY')), 'Malaysia');
+});
+
+test('countryCode: dấu rời (NFD) cũng không được đọc thành mã ISO', () => {
+  // Zalo/iOS gửi chữ dạng tách dấu: "Mỹ" = "My" + dấu ngã rời. Nếu chỉ kiểm hình thì "my" lọt.
+  assert.equal(countryCode('Mỹ'.normalize('NFD')), 'US', 'dạng NFD của "Mỹ" vẫn là Hoa Kỳ');
+  assert.equal(countryCode('Xuất xứ: Mỹ'.normalize('NFD')), 'US');
+  assert.equal(countryCode('MY'.normalize('NFD')), 'MY', 'mã thật không có dấu nên NFD không đổi gì');
+});
+
+// Đường thật: khách khai "Mỹ" thì phải tra thuế US và KHÔNG nói giả định.
+for (const [nhan, oXuatXu, mong] of [['"Mỹ" ⇒ US', 'Mỹ', 'US'], ['"My" không dấu ⇒ MY', 'My', 'MY'],
+  ['"Hoa Kỳ" ⇒ US', 'Hoa Kỳ', 'US'], ['"MY" ⇒ MY', 'MY', 'MY'], ['"Malaysia" ⇒ MY', 'Malaysia', 'MY']]) {
+  test(`gói 3 đường thật: ô Xuất xứ ${nhan}`, async () => {
+    const ma = await maNuocGuiCong(G3(oXuatXu));
+    assert.deepEqual(ma, [mong], `ô "${oXuatXu}" phải gửi Cổng ${mong}, đang gửi ${JSON.stringify(ma)}`);
+  });
+}
+
+// Gói 2 với ô "Xuất xứ:" có nhãn. (Dạng một dòng "84137090 Mỹ" đi vào luồng PHÂN LOẠI tên hàng,
+// không phải gói 2 — hành vi sẵn có của `main`, không thuộc điểm nợ này.)
+const G2 = (xx) => `gói 2: Mã HS: 84137090\nXuất xứ: ${xx}`;
+
+test('gói 2 đường thật: ô Xuất xứ "Mỹ" ⇒ tra thuế US, KHÔNG nói giả định', async () => {
+  const { xuatXu, tin } = await luotGoi2(G2('Mỹ'));
+  assert.deepEqual(xuatXu, ['US'], `khách khai Mỹ thì phải tra thuế US, đang tra ${JSON.stringify(xuatXu)}`);
+  assert.ok(!/giả định|gia dinh/i.test(tin.at(-1)), `khách đã khai Mỹ thì tin không được nói "giả định": ${tin.at(-1)?.slice(0, 200)}`);
+});
+
+test('gói 2 đường thật: ô Xuất xứ "MY" không dấu ⇒ tra thuế MY (Malaysia), KHÔNG nói giả định', async () => {
+  const { xuatXu, tin } = await luotGoi2(G2('MY'));
+  assert.deepEqual(xuatXu, ['MY'], `"MY" là mã Malaysia, phải tra đúng nó: ${JSON.stringify(xuatXu)}`);
+  assert.ok(!/giả định|gia dinh/i.test(tin.at(-1)), `khách đã khai MY thì tin không được nói "giả định": ${tin.at(-1)?.slice(0, 200)}`);
+});
+
+test('gói 2 vòng hỏi 2 và 3: khách đổi nước "Mỹ" → "MY" → "Hoa Kỳ", mỗi lượt đúng nước của lượt đó', async () => {
+  const { xuatXu } = await luotGoi2(G2('Mỹ'), G2('MY'), G2('Hoa Kỳ'));
+  assert.deepEqual(xuatXu, ['US', 'MY', 'US'], `ba lượt phải ra ba nước đúng: ${JSON.stringify(xuatXu)}`);
+});
+
+test('gói 3 vòng hỏi 3: ô Xuất xứ "Mỹ" → "MY" → "Nhật Bản"', async () => {
+  const ma = await maNuocGuiCong(G3('Mỹ'), G3('MY'), G3('Nhật Bản'));
+  assert.deepEqual(ma, ['US', 'MY', 'JP'], `cả ba vòng phải ra mã đúng: ${JSON.stringify(ma)}`);
+});
+
+test('gói 3 vòng hỏi 3 không dấu: "My" → "Hoa Ky" → "Malaysia"', async () => {
+  const ma = await maNuocGuiCong(G3('My'), G3('Hoa Ky'), G3('Malaysia'));
+  assert.deepEqual(ma, ['MY', 'US', 'MY'], `câu không dấu: "My" là mã ISO, "Hoa Ky" là Hoa Kỳ: ${JSON.stringify(ma)}`);
 });
