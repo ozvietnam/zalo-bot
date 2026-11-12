@@ -140,7 +140,19 @@ Repo hoàn toàn không lưu trữ tệp dữ liệu biểu thuế hay mã HS c�
 - CI chạy test và eval trên Node 22: `.github/workflows/ci.yml:17` và `.github/workflows/ci.yml:18`.
 
 **Điểm cần lưu ý.**
-Hiện tại có ba tệp vượt quá 300 dòng: `packs/hs/packages.js` (620 dòng), `packs/hs/render.js` (448 dòng) và `core/engine.js` (340 dòng) — đo bằng `wc -l` sau khi gộp `origin/main` vào nhánh PR 176 (2026-11-10). `core/engine.js` vượt mốc vì vá #170 thêm nhánh "bot vừa hỏi lại" và cờ `choKhachTraLoi`; ba tệp này thuộc phạm vi refactor trong các spec nghiệp vụ kế tiếp.
+Hiện tại có ba tệp vượt quá 300 dòng: `packs/hs/packages.js` (665 dòng), `packs/hs/render.js` (471 dòng) và `core/engine.js` (340 dòng) — đo bằng `wc -l` ngày 2026-11-11 trên nhánh PR 213 (vòng soát 3). `packs/hs/packages.js` lên 665 dòng vì vá #177: kỷ luật hỏi truyền hồ sơ mạch cho lớp hỏi lại, nguồn xuất xứ đọc thêm hồ sơ mạch của #170, cờ `vuaTraLoiHoiLai` chặn mở vòng hỏi mới trên chính câu trả lời của khách, vòng hỏi THỨ HAI dựng lại từ mô tả khách vừa sửa (trần 2 vòng của #136), danh sách `tenBiBacBo` đi theo mạch để tên khách đã phủ định không sống lại ở vòng sau, và `tenDaHoi` để vòng sau không hỏi lại y nguyên câu xác nhận tên đã hỏi (vòng soát 3). `core/engine.js` vượt mốc vì vá #170 thêm nhánh "bot vừa hỏi lại" và cờ `choKhachTraLoi`; ba tệp này thuộc phạm vi refactor trong các spec nghiệp vụ kế tiếp.
+
+`packs/hs/dien-cho-thieu.js` hai lần chạm trần rồi được cắt theo đúng ranh trách nhiệm, nên không thành tệp vượt mốc thứ tư:
+
+- vòng soát 2 (chạm 320 dòng): hai hàm ĐO thuần (`coThongSo`, `nhanDienCuTraDi`) chuyển sang `packs/hs/ky-luat-hoi.js` cho đúng phân công "tệp này DỰNG câu hỏi, tệp kia ĐO";
+- vòng soát 3 (chạm 332 dòng sau bản vá hai điểm người soát chặn): hàm ĐỌC câu khách trả lời (`xuLyTraLoiHoiLai`) chuyển sang tệp mới `packs/hs/doc-tra-loi.js`.
+
+Vòng soát 5 của PR 213 cắt tiếp theo cùng ranh đó, vì bản vá hai điểm người soát chặn (khách sửa tên lần thứ hai; khách HỎI LẠI thì câu hỏi bị gửi đi làm tên hàng) đẩy `packs/hs/ky-luat-hoi.js` lên 367 dòng:
+
+- nhận diện câu khách HỎI LẠI (`laCauHoiKhach`, `bocCumHoi`, `laHoiThuocTinh`) sang tệp mới `packs/hs/cau-hoi-khach.js` (85 dòng);
+- các hàm ĐỌC câu trả lời (`docTraLoiTen`, `bocXaGiao`, `laXacNhan`, `bocDemDau`) và các mẫu chữ của chúng về `packs/hs/doc-tra-loi.js` — chúng là phần ĐỌC, không phải phần ĐO.
+
+Nay cả bốn tệp của lớp hỏi lại đều dưới trần: `packs/hs/dien-cho-thieu.js` (275 dòng), `packs/hs/doc-tra-loi.js` (224 dòng), `packs/hs/ky-luat-hoi.js` (208 dòng), `packs/hs/cau-hoi-khach.js` (85 dòng) — đo bằng `wc -l` ngày 2026-11-12 trên nhánh PR 213 (vòng soát 5). Các hàm đã chuyển vẫn được tệp cũ XUẤT LẠI để `packs/hs/packages.js`, `packs/hs/loc-tap-am.js` và các test cũ không phải đổi đường dẫn nhập.
 
 ---
 
@@ -269,7 +281,7 @@ Cơ chế hộp thư riêng cho bản tin giám sát (`scripts/giam-sat/digest.j
 ## Điểm cần lưu ý / Rủi ro đang mở
 
 1. **Cờ kiểm số tiền chưa bật trong gói hải quan**: `moneyCheck: false` tại `packs/hs/index.js:24`. Luật ở lớp cửa `core/gate-decide.js:140` và não biên tập `packs/hs/editor.js:45` đã sẵn sàng, sẽ bật khi biểu thuế có schema chặt chẽ.
-2. **Ba tệp vượt 300 dòng**: `packs/hs/packages.js` (620 dòng), `packs/hs/render.js` (448 dòng) và `core/engine.js` (340 dòng) cần được chia nhỏ theo Điều VI trong các spec nghiệp vụ kế tiếp.
+2. **Ba tệp vượt 300 dòng**: `packs/hs/packages.js` (665 dòng), `packs/hs/render.js` (471 dòng) và `core/engine.js` (340 dòng) cần được chia nhỏ theo Điều VI trong các spec nghiệp vụ kế tiếp.
 3. **Nghiệm thu thực địa 7 ngày**: Tiêu chí SC-002 (bot im trong phòng human) và SC-007 (mọi tin ra có `turn_id` trong audit) đã đạt 100% trong lab và chờ đo 7 ngày thực tế bằng lệnh `npm run do-sc` khi bot mở lại cho khách thật.
 
 ---
