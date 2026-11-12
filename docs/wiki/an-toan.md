@@ -140,7 +140,7 @@ Repo hoàn toàn không lưu trữ tệp dữ liệu biểu thuế hay mã HS c�
 - CI chạy test và eval trên Node 22: `.github/workflows/ci.yml:17` và `.github/workflows/ci.yml:18`.
 
 **Điểm cần lưu ý.**
-Hiện tại có ba tệp vượt quá 300 dòng: `packs/hs/packages.js` (665 dòng), `packs/hs/render.js` (471 dòng) và `core/engine.js` (340 dòng) — đo bằng `wc -l` ngày 2026-11-11 trên nhánh PR 213 (vòng soát 3). `packs/hs/packages.js` lên 665 dòng vì vá #177: kỷ luật hỏi truyền hồ sơ mạch cho lớp hỏi lại, nguồn xuất xứ đọc thêm hồ sơ mạch của #170, cờ `vuaTraLoiHoiLai` chặn mở vòng hỏi mới trên chính câu trả lời của khách, vòng hỏi THỨ HAI dựng lại từ mô tả khách vừa sửa (trần 2 vòng của #136), danh sách `tenBiBacBo` đi theo mạch để tên khách đã phủ định không sống lại ở vòng sau, và `tenDaHoi` để vòng sau không hỏi lại y nguyên câu xác nhận tên đã hỏi (vòng soát 3). `core/engine.js` vượt mốc vì vá #170 thêm nhánh "bot vừa hỏi lại" và cờ `choKhachTraLoi`; ba tệp này thuộc phạm vi refactor trong các spec nghiệp vụ kế tiếp.
+Hiện tại có ba tệp vượt quá 300 dòng: `packs/hs/packages.js` (665 dòng), `packs/hs/render.js` (471 dòng) và `core/engine.js` (341 dòng) — đo bằng `wc -l` ngày 2026-11-11 trên nhánh PR 213 (vòng soát 3), cập nhật 12/11 sau OZV-496. `packs/hs/packages.js` lên 665 dòng vì vá #177: kỷ luật hỏi truyền hồ sơ mạch cho lớp hỏi lại, nguồn xuất xứ đọc thêm hồ sơ mạch của #170, cờ `vuaTraLoiHoiLai` chặn mở vòng hỏi mới trên chính câu trả lời của khách, vòng hỏi THỨ HAI dựng lại từ mô tả khách vừa sửa (trần 2 vòng của #136), danh sách `tenBiBacBo` đi theo mạch để tên khách đã phủ định không sống lại ở vòng sau, và `tenDaHoi` để vòng sau không hỏi lại y nguyên câu xác nhận tên đã hỏi (vòng soát 3). `core/engine.js` vượt mốc vì vá #170 thêm nhánh "bot vừa hỏi lại" và cờ `choKhachTraLoi`; ba tệp này thuộc phạm vi refactor trong các spec nghiệp vụ kế tiếp.
 
 `packs/hs/dien-cho-thieu.js` hai lần chạm trần rồi được cắt theo đúng ranh trách nhiệm, nên không thành tệp vượt mốc thứ tư:
 
@@ -281,7 +281,7 @@ Cơ chế hộp thư riêng cho bản tin giám sát (`scripts/giam-sat/digest.j
 ## Điểm cần lưu ý / Rủi ro đang mở
 
 1. **Cờ kiểm số tiền chưa bật trong gói hải quan**: `moneyCheck: false` tại `packs/hs/index.js:24`. Luật ở lớp cửa `core/gate-decide.js:140` và não biên tập `packs/hs/editor.js:45` đã sẵn sàng, sẽ bật khi biểu thuế có schema chặt chẽ.
-2. **Ba tệp vượt 300 dòng**: `packs/hs/packages.js` (665 dòng), `packs/hs/render.js` (471 dòng) và `core/engine.js` (340 dòng) cần được chia nhỏ theo Điều VI trong các spec nghiệp vụ kế tiếp.
+2. **Ba tệp vượt 300 dòng**: `packs/hs/packages.js` (665 dòng), `packs/hs/render.js` (471 dòng) và `core/engine.js` (341 dòng) cần được chia nhỏ theo Điều VI trong các spec nghiệp vụ kế tiếp.
 3. **Nghiệm thu thực địa 7 ngày**: Tiêu chí SC-002 (bot im trong phòng human) và SC-007 (mọi tin ra có `turn_id` trong audit) đã đạt 100% trong lab và chờ đo 7 ngày thực tế bằng lệnh `npm run do-sc` khi bot mở lại cho khách thật.
 
 ---
