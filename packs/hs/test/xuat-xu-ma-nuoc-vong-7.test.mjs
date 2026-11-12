@@ -84,9 +84,10 @@ test('vòng 7: giữ vòng 4 — UK/ANH/Anh ⇒ GB ở ô nhãn một mã; HK/H�
   assert.equal(countryCode('Nike 64041190 HK'), 'HK');
 });
 
-test('vòng 7: giữ vòng 4 nhóm D — "Mỹ" có dấu là Hoa Kỳ, "my"/"MY" không dấu là Malaysia', () => {
+test('vòng 7: nhóm D — "Mỹ" có dấu là Hoa Kỳ; luật "my" thường đổi ở vòng 8 (xem test vòng 8)', () => {
   assert.equal(findCountryInText('hàng Mỹ'), 'US');
-  assert.equal(findCountryInText('hàng my'), 'MY');
+  // Vòng soát 8 ĐỔI luật "my" không dấu: ở CÂU TỰ DO "my" thường là khách gõ thiếu dấu của
+  // "Mỹ" ⇒ US; Malaysia chỉ khi viết IN HOA "MY" như mã ISO. Ca này chuyển sang test vòng 8.
   // ... nhưng trong câu có tên dài hơn thì tên dài thắng (chính là lỗi vòng 6 vừa sửa).
   assert.equal(findCountryInText('mỹ phẩm Hàn Quốc'), 'KR');
 });

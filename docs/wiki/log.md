@@ -808,3 +808,9 @@ Quy ước:
 - **Quyết định của chủ repo ngày 06/11:** chỉ **ghi nhận** trong trang tiến độ, không sửa
   hiến pháp hay lộ trình. Việc sửa chính thức là một PR riêng, do chủ repo quyết.
 - **Kiểm tra:** chạy `node scripts/kiem-wiki.mjs --nghiem` phải đạt; CI cũng chạy cổng này.
+
+## 2026-11-12 — OZV-489 vòng 8 (vòng chốt) PR #214: quét theo ưu tiên khoá, Gói 6 chỉ nhận mã cuối câu, luật "my" mới, alias UK trong câu
+- `packs/hs/input.js`: `NHOM_KHOA` (khoá `NUOC` nhóm theo số từ, giữ thứ tự khai báo) — `findCountryInText` quét THEO ƯU TIÊN KHOÁ, không theo vị trí; luật `my` (có dấu→US, IN HOA→MY, thường→US); `ALIAS_TRONG_CAU = { UK: 'GB' }` trong `maNuocTrongCau`; `VIET_TAT_KHONG_PHAI_NUOC` xuất ra.
+- `packs/hs/packages.js` Gói 6: chỉ nhận ô có nhãn hoặc mã 2 chữ IN HOA cuối câu — không quét cả câu mô tả (bỏ gán xuất xứ từ tên hàng).
+- Test: mới `packs/hs/test/xuat-xu-ma-nuoc-vong-8.test.mjs`; sửa 2 test luật "my" cũ (vòng 4 nhóm D, vòng 7 nhóm D). 4 cổng: 1311/1311 · eval 32/32 · qa-that 6/6 · wiki ĐẠT.
+- Quét 1915 chuỗi so main `50907f2`: không ca nào main đúng mà nhánh sai.

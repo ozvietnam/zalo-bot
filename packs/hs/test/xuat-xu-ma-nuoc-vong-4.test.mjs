@@ -81,13 +81,13 @@ test('C: Hồng Kông phải gửi HK; XK/VD không phải nước ⇒ rơi về
 
 // ── D. "Mỹ" có dấu = Hoa Kỳ, "MY"/"my" không dấu = Malaysia ─────────────────────────────────
 
-test('D: "Mỹ" (có dấu) là Hoa Kỳ, "MY"/"my" (không dấu) là Malaysia', () => {
+test('D: "Mỹ" (có dấu) là Hoa Kỳ; "MY" in hoa là Malaysia — luật "my" thường đổi ở vòng 8', () => {
   assert.equal(countryCode('hàng Mỹ'), 'US');
   assert.equal(countryCode('hàng Mỹ'.normalize('NFD')), 'US');
-  assert.equal(countryCode('hàng MY'), 'MY', '"MY" là mã ISO Malaysia');
-  assert.equal(countryCode('hàng my'), 'MY', '"my" không dấu là mã ISO Malaysia, không phải Hoa Kỳ');
+  assert.equal(countryCode('hàng MY'), 'MY', '"MY" in hoa là mã ISO Malaysia');
   assert.equal(findCountryInText('hàng Mỹ'), 'US');
-  assert.equal(findCountryInText('hàng my'), 'MY');
+  // Vòng soát 8 ĐỔI luật "my" thường (không dấu, câu tự do): là khách gõ thiếu dấu của
+  // "Mỹ" ⇒ US, Malaysia chỉ khi IN HOA "MY". Ca chuyển sang `xuat-xu-ma-nuoc-vong-8.test.mjs`.
 });
 
 // ── Ràng của bảng alias: CHỈ ở ô CÓ NHÃN, không quét trong câu tự do ───────────────────────────
