@@ -336,7 +336,7 @@ const CO_DAU = {
   'trung quoc': 'Trung Quốc', tq: 'TQ', china: 'China', 'nhat ban': 'Nhật Bản', nhat: 'Nhật',
   'han quoc': 'Hàn Quốc', han: 'Hàn', 'dai loan': 'Đài Loan', 'thai lan': 'Thái Lan',
   my: 'Mỹ', 'hoa ky': 'Hoa Kỳ', duc: 'Đức', 'an do': 'Ấn Độ', 'viet nam': 'Việt Nam',
-  malaysia: 'Malaysia', indonesia: 'Indonesia',
+  malaysia: 'Malaysia', indonesia: 'Indonesia', 'vuong quoc anh': 'Vương quốc Anh', 'hong kong': 'Hồng Kông',
 };
 
 test('NUOC: mọi khoá từ điển tên nước đều có ca test (cả bản có dấu)', () => {

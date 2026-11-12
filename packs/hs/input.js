@@ -97,7 +97,27 @@ export function parseLabeled(text, fields) {
  * (Malaysia) qua hai vòng soát PR #214 — xem `test/xuat-xu-ma-nuoc.test.mjs`.
  */
 export const NUOC = { 'trung quoc': 'CN', tq: 'CN', china: 'CN', 'nhat ban': 'JP', nhat: 'JP', 'han quoc': 'KR', han: 'KR',
-  'dai loan': 'TW', 'thai lan': 'TH', 'my': 'US', 'hoa ky': 'US', duc: 'DE', 'an do': 'IN', 'viet nam': 'VN', 'malaysia': 'MY', 'indonesia': 'ID' };
+  'dai loan': 'TW', 'thai lan': 'TH', 'my': 'US', 'hoa ky': 'US', duc: 'DE', 'an do': 'IN', 'viet nam': 'VN', 'malaysia': 'MY',
+  'indonesia': 'ID', 'vuong quoc anh': 'GB', 'hong kong': 'HK' };
+
+/**
+ * Cách ghi mà khách hay dùng ở ô "Xuất xứ:" nhưng Cổng OZ KHÔNG so như vậy.
+ *
+ * CHỈ áp ở ô CÓ NHÃN — tức chỗ khách CỐ Ý khai đúng một mã/tên nước (`countryCode`), KHÔNG áp
+ * khi quét trong câu tự do: "anh" trong "anh gửi hàng" là đại từ, "UK" trong "size UK 10" là
+ * kích cỡ áo. Bảng này tách riêng khỏi `NUOC` (từ điển tên nước) chính vì vậy.
+ *
+ *   UK  → GB : Cổng so ISO alpha-2 — `hs-code-api/data/iso-3166-vn.json:16` (`GB`/Vương quốc Anh)
+ *             và `hs-code-api/lib/fta.js:43` (UKVFTA.thanhVien = ['VN','GB']). "UK" không phải mã
+ *             nước nào: gửi "UK" thì Cổng báo mã quốc gia không có trong danh mục ISO, không khớp ưu đãi.
+ *   ANH → GB : "Anh" là Vương quốc Anh; cùng hình với tên chính thức trong danh mục Cổng.
+ *   XK  → HK : khách hay gõ "XK" cho Hồng Kông, mà Cổng so `HK` (`hs-code-api/data/iso-3166-vn.json:18`).
+ *             LƯU Ý: "XK" trong Cổng là BIỂU THUẾ XUẤT KHẨU (`hs-code-api/lib/customs-types.js:21`,
+ *             `hs-code-api/data/bieu-thue/README.md:97-98`), không phải nước — tuyệt đối không gửi "XK".
+ *   VD  → VN : mã riêng của dữ liệu khai báo (theo chỉ đạo giám đốc OZV-430 vòng soát 4);
+ *             `grep '"VD"'` toàn repo `hs-code-api` không có kết quả nào — cần đối chiếu lại.
+ */
+export const ALIAS = { UK: 'GB', ANH: 'GB', XK: 'HK', VD: 'VN' };
 
 /**
  * ISO-3166-1 alpha-2 — 249 mã nước/vùng lãnh thổ được gán chính thức (OZV-430 điểm 1).
@@ -162,6 +182,13 @@ const DAN_XUAT_XU = new Set(['in', 'tai', 'tu', 'from', 'origin', 'xu', 'nuoc', 
 const boNhanXuatXu = (n) => n.replace(/^(xuat xu|xuatxu|xx|origin|nuoc)\s*[:\-]?\s*/, '');
 
 /**
+ * Tách chuỗi thành "từ" theo CHỮ UNICODE (chữ + dấu): "Mỹ" dạng NFD ("M" + "y" + dấu rời) là
+ * MỘT từ, không phải "My". Bỏ `\p{M}` khỏi mẫu thì dấu rời bị tách mất và "Mỹ" trở lại thành
+ * "my" — đúng lỗi "Mỹ = Malaysia" mà vòng soát 3 của PR #214 đã chặn.
+ */
+const tachTu = (s) => [...String(s || '').matchAll(/[\p{L}\p{N}][\p{L}\p{N}\p{M}]*/gu)].map((m) => m[0]);
+
+/**
  * Mã nước LẪN giữa chữ khác trong ô ("SX tại SK", "made in BN", "van bi DN25 PN16 CF8M").
  *
  * Đây là ngữ cảnh NGUY HIỂM: mã nước trùng hàng loạt viết tắt kỹ thuật, nên không thể chấp cả
@@ -179,11 +206,18 @@ const boNhanXuatXu = (n) => n.replace(/^(xuat xu|xuatxu|xx|origin|nuoc)\s*[:\-]?
  */
 export function maNuocTrongCau(s) {
   const t = String(s || '');
-  for (const m of t.matchAll(/(?:^|[^A-Za-z0-9])([A-Z]{2})(?![A-Za-z0-9])/g)) {
-    const ma = m[1];
+  // Tách "từ" theo CHỮ UNICODE (chữ + dấu): "VIỆT" là MỘT từ, không phải "VI" + "ỆT".
+  // Regex ASCII cũ (`[A-Z]{2}` + ranh giới `[^A-Za-z0-9]`) cắt mảnh từ có dấu rồi đọc phần
+  // còn lại thành mã ISO THẬT: "VIỆT NAM" → "VI" (Virgin Islands), "MỸ" (dạng NFD) → "MY"
+  // (Malaysia), "ĐỒNG" → "NG" (Nigeria), "GHẾ" → "GH" (Ghana), "PHÊ" → "PH" (Philippines).
+  const tu = tachTu(t);
+  for (let i = 0; i < tu.length; i++) {
+    const ma = tu[i];
+    if (/[\p{M}]/u.test(ma)) continue;          // từ có dấu ⇒ KHÔNG phải mã ISO
+    if (!/^[A-Z]{2}$/.test(ma)) continue;        // mã ISO: đúng 2 chữ IN HOA, không dấu
     if (!laMaIso2(ma) || VIET_TAT_KHONG_PHAI_NUOC.has(ma)) continue;
-    const truoc = norm(t.slice(0, m.index + m[0].length - 2)).replace(/[^a-z0-9 ]/g, ' ').trim().split(' ').pop();
-    const laCuoi = t.slice(m.index + m[0].length).replace(/[^A-Za-z0-9]/g, '') === '';
+    const truoc = i > 0 ? norm(tu[i - 1]) : '';
+    const laCuoi = i === tu.length - 1;
     if (DAN_XUAT_XU.has(truoc) || laCuoi) return ma;
   }
   return null;
@@ -197,13 +231,15 @@ export function maNuocTrongCau(s) {
  *      BẢNG ISO ĐẦY ĐỦ. Không ai gõ riêng một mã "SX" vào ô Xuất xứ để nói "sản xuất".
  *   2. Mã lẫn giữa chữ khác ⇒ `maNuocTrongCau` với ba rào hình/tên/vị trí.
  *
- * Dùng lại cách của repo `hs-code-api` (`scripts/import-oz-declarations.mjs:87` `mapOriginToIso2`):
- * tra từ điển tên nước rồi mới chấp mã 2 chữ.
+ * Dùng lại cách của repo `hs-code-api`: danh mục nước Cổng so là ISO-3166-1 alpha-2
+ * (`hs-code-api/data/iso-3166-vn.json`) và danh sách ưu đãi so mã 2 chữ (`hs-code-api/lib/fta.js:30-48`, `thanhVien`).
+ * KHÔNG dùng `hs-code-api/scripts/import-oz-declarations.mjs:87` `mapOriginToIso2` làm chuẩn — hàm đó
+ * nhận MỌI cặp chữ 2 ký tự nên không phải bảng tra nước (cũng là nơi gốc của việc gửi mã rác lên Cổng).
  */
 export function countryCode(s) {
   const t = String(s || '').trim();
   const nGoc = boNhanXuatXu(norm(t));
-  // Ngữ cảnh 1 — ô khai riêng một mã. Xét TRƯỚC từ điển tên nước, vì `norm` đưa "MY" về "my" và
+  // Ngữ cảnh 1 — ô khai riêng MỘT mã/tên. Xét TRƯỚC từ điển tên nước, vì `norm` đưa "MY" về "my" và
   // từ điển có khoá `my` = Hoa Kỳ, tra từ điển trước thì Malaysia thành Hoa Kỳ.
   //
   // Nhưng hình mã phải xét thêm một rào: GIÁ TRỊ KHÁCH KHAI KHÔNG ĐƯỢC CÓ DẤU. Mã ISO không bao
@@ -214,8 +250,13 @@ export function countryCode(s) {
   //
   // So dấu trên TOKEN CUỐI của giá trị còn dấu, không so trên cả chuỗi: nhãn ô cũng có dấu
   // ("Xuất xứ: MY"), so cả chuỗi thì mã thật sau nhãn lại bị bác bỏ.
-  if (/^[a-z]{2}$/.test(nGoc) && laMaIso2(nGoc) && !coDau(dai(t).split(/[\s:\-]+/).filter(Boolean).pop() || '')) {
-    return nGoc.toUpperCase();
+  //
+  // Bảng ALIAS ("UK" → "GB", "Anh" → "GB", "XK" → "HK", "VD" → "VN") chỉ dùng ở đây — ô CÓ NHÃN,
+  // tức chỗ khách cố ý khai MỘT mã/tên. Trong câu tự do thì không dùng (xem `ALIAS`).
+  if (nGoc && !/\s/.test(nGoc) && !coDau(dai(t).split(/[\s:\-]+/).filter(Boolean).pop() || '')) {
+    const chu = nGoc.toUpperCase();
+    if (ALIAS[chu]) return ALIAS[chu];
+    if (laMaIso2(chu)) return chu;
   }
   // Tên nước (có dấu hay không) và viết tắt tiếng Việt: "TQ" không phải mã ISO nên tới đây, và
   // phải ra CN chứ không ra mã "TQ". "Mỹ" có dấu cũng về đây (còn dấu nên không khớp hình trên).
@@ -229,9 +270,23 @@ export function countryCode(s) {
 }
 
 export function findCountryInText(s) {
-  const n = norm(s);
-  for (const [k, v] of Object.entries(NUOC)) if (new RegExp(`(^|\\s)(xuat xu |tu |hang )?${k}(\\s|$|,)`).test(n)) return v;
-  const m = String(s || '').match(/(?:^|\s)(CN|JP|KR|TW|TH|US|DE|IN|MY|ID|VN)(?=\s|$|,)/);
+  const raw = String(s || '');
+  // So từng CỬA SỔ từ (1–3 từ) trên chuỗi CHƯA rụng dấu — không rụng dấu cả câu, vì "Mỹ"
+  // (Hoa Kỳ) và "my" (mã ISO Malaysia) là HAI nước khác nhau, chỉ khác nhau ở dấu.
+  const tu = tachTu(raw);
+  for (let i = 0; i < tu.length; i++) {
+    for (const len of [3, 2, 1]) {
+      const phan = tu.slice(i, i + len);
+      if (phan.length < len) continue;
+      const khoa = norm(phan.join(' '));
+      const ma = NUOC[khoa];
+      if (!ma) continue;
+      // "my" KHÔNG DẤU là mã ISO Malaysia ⇒ MY; chỉ "Mỹ" CÓ DẤU mới là Hoa Kỳ ⇒ US.
+      if (khoa === 'my' && !phan.some((w) => coDau(w))) return 'MY';
+      return ma;
+    }
+  }
+  const m = raw.match(/(?:^|\s)(CN|JP|KR|TW|TH|US|DE|IN|MY|ID|VN|GB|HK)(?=\s|$|,)/);
   return m ? m[1] : null;
 }
 
@@ -241,7 +296,8 @@ export const XUAT_XU_MAC_DINH = 'CN';
 export const tenNuoc = (ma) => {
   const m = String(ma || '').toUpperCase();
   const hoa = { CN: 'Trung Quốc', JP: 'Nhật Bản', KR: 'Hàn Quốc', TW: 'Đài Loan', TH: 'Thái Lan',
-    US: 'Hoa Kỳ', DE: 'Đức', IN: 'Ấn Độ', VN: 'Việt Nam', MY: 'Malaysia', ID: 'Indonesia' };
+    US: 'Hoa Kỳ', DE: 'Đức', IN: 'Ấn Độ', VN: 'Việt Nam', MY: 'Malaysia', ID: 'Indonesia',
+    GB: 'Vương quốc Anh', HK: 'Hồng Kông' };
   return hoa[m] || m;
 };
 

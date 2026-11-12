@@ -12,6 +12,62 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-12 — OZV-430 điểm 1 (vòng soát 4): bộ dựng mã nước phải hiểu chữ Unicode + Anh/Hồng Kông
+
+- **Commit mã nguồn đã đọc:** `a7988ff` (nhánh `ozv-430-don-no-packs-hs`), đối chứng `origin/main` = `d776735`.
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (dòng OZV-430 điểm 1), `docs/wiki/an-toan.md`
+  (thêm `packs/hs/input.js` vào danh sách tệp vượt 300 dòng — 293 → 349 dòng), `docs/wiki/log.md`.
+- **Vì sao:** giám đốc chặn PR #214 lần ba với bốn nhóm lỗi còn lại. Vòng 3 vá được ô CÓ NHÃN,
+  nhưng bộ dựng mã trong CÂU TỰ DO vẫn dùng regex ASCII `[A-Z]{2}` + ranh giới `[^A-Za-z0-9]`,
+  nên chữ có dấu bị CẮT mảnh và phần còn lại đọc thành mã ISO **thật**:
+
+  | câu khách gõ | mã bot gửi Cổng (vòng 3) | đúng ra | mã ISO bị đọc nhầm |
+  | --- | --- | --- | --- |
+  | `hàng VIỆT NAM` | `VI` | `VN` | Virgin Islands |
+  | `hàng MỸ` (dạng NFD) | `MY` | `US` | Malaysia |
+  | `hàng ĐỒNG` | `NG` | không có nước | Nigeria |
+  | `hàng GHẾ` | `GH` | không có nước | Ghana |
+  | `CÀ PHÊ` | `PH` | không có nước | Philippines |
+
+  Gửi mã sai ⇒ Cổng không khớp dòng FTA nào nên ưu đãi C/O mẫu E rụng, khách đọc mức thuế cao
+  hơn thật mà tưởng đã tra đúng (Điều III), và mã này đi thẳng vào `sinh_mo_ta_khai_bao` tức
+  in lên MÔ TẢ KHAI BÁO khách dán vào tờ khai (Điều VIII).
+- **Vá thế nào (một commit, bốn nhóm):**
+  1. **A — bộ dựng mã hiểu chữ Unicode.** `tachTu` (`packs/hs/input.js:189`) tách "từ" theo
+     `[\p{L}\p{N}][\p{L}\p{N}\p{M}]*` nên "VIỆT" là MỘT từ; từ có dấu (`\p{M}`) không phải mã ISO.
+     `maNuocTrongCau` (`packs/hs/input.js:207`) và `findCountryInText` (`packs/hs/input.js:272`)
+     dùng chung hàm này — trước đó hai bên lệch nhau: `findCountryInText` tách bằng
+     `[\p{L}\p{N}]+` nên dấu rời (NFD) bị RƠI và "Mỹ" lại thành "my".
+  2. **B — Anh = `GB`.** Cổng OZ so ISO alpha-2 — ở repo **hs-code-api**: tệp iso-3166-vn.json
+     trong thư mục `data` dòng 16 (`GB`) và tệp fta.js trong thư mục `lib` dòng 43
+     (`ukvfta.thanhVien = ['VN','GB']`). "UK" không phải mã nước nào — gửi "UK" thì Cổng báo
+     mã quốc gia không có trong danh mục ISO (tệp declaration-validator.js trong thư mục `lib`
+     dòng 368) và không khớp ưu đãi (tệp fta.js trong thư mục `lib` dòng 81).
+  3. **C — Hồng Kông = `HK`.** Tệp iso-3166-vn.json trong thư mục `data` dòng 18 của repo đó.
+     **"XK" KHÔNG phải Hồng Kông**: trong Cổng, "XK" là BIỂU THUẾ XUẤT KHẨU (tệp
+     customs-types.js trong thư mục `lib` dòng 21; tệp README.md trong thư mục `data/bieu-thue`
+     dòng 97-98 — `EV-XK`/`UKV-XK`/`CPTPP-XK` là các sheet xuất khẩu), đường so ưu đãi thật là
+     tệp fta.js trong thư mục `lib` dòng 73-83 so mã 2 chữ với `thanhVien`. Ô "Xuất xứ: XK"
+     vẫn đọc thành `HK` (khách hay gõ XK cho Hồng Kông) nhưng KHÔNG BAO GIỜ gửi "XK" lên Cổng.
+  4. **D — "Mỹ" (có dấu) = Hoa Kỳ, "MY"/"my" (không dấu) = Malaysia.** Khoá `'my'` trong từ điển
+     `NUOC` (`packs/hs/input.js:99`) **GIỮ** (xoá đi là lặp lại đúng lỗi "bác bỏ nước thật" bị
+     chặn ở vòng 2); `findCountryInText` nay so trên từ CHƯA rụng dấu nên phân biệt được hai nước.
+- **Bảng `ALIAS` riêng, chỉ dùng ở ô CÓ NHÃN** (`packs/hs/input.js:120`): `UK→GB`, `ANH→GB`,
+  `XK→HK`, `VD→VN`. KHÔNG dùng khi quét trong câu tự do: "anh" trong "anh gửi hàng" là đại từ,
+  "UK" trong "size UK 10" là kích cỡ áo. `VD→VN` lấy theo chỉ đạo giám đốc; `grep '"VD"'` toàn
+  repo `hs-code-api` không có kết quả nào — đã ghi chú trong mã nguồn để đối chiếu lại.
+- **Sửa trích dẫn sai:** `countryCode` trước đây trích tệp import-oz-declarations.mjs trong thư
+  mục `scripts` của repo **hs-code-api** dòng 87 (`mapOriginToIso2`) — hàm đó nhận MỌI cặp chữ
+  2 ký tự nên không phải bảng tra nước (cũng là nơi gốc của việc gửi mã rác lên Cổng). Nay trích
+  đúng tệp iso-3166-vn.json trong thư mục `data` + tệp fta.js trong thư mục `lib` dòng 30-48.
+- **Bài học ghi lại:** cùng một bài toán ("đọc xuất xứ") có HAI đường vào — ô có nhãn và câu tự do —
+  nên mọi hàm đọc phải dùng CHUNG một cách tách từ; hai bản tách lệch nhau làm lỗi "Mỹ = Malaysia"
+  quay lại đúng lúc sửa xong. Và: khi sửa bảng dữ liệu, phải tra bằng chứng ở repo Cổng (`hs-code-api`)
+  trước khi tin tên gọi — giám đốc đoán "XK = Hồng Kông" theo tên sheet `EV-XK`, nhưng đọc
+  tệp customs-types.js trong thư mục `lib` của repo đó mới thấy XK là hướng XUẤT KHẨU.
+- **Cổng máy:** `npm test` 1289/1289 (+20 test đạt) · `npm run eval` 32/32 · `node scripts/qa-that.mjs --mock`
+  6/6 · `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
+
 ## 2026-11-12 — OZV-430 điểm 1 (vòng soát 3): tên nước có dấu thôi bị đọc thành mã ISO
 
 - **Commit mã nguồn đã đọc:** `f8083c8` (nhánh `ozv-430-don-no-packs-hs`), đối chứng `origin/main` = `d776735`.

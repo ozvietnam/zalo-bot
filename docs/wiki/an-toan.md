@@ -23,7 +23,7 @@ Nơi duy nhất trong toàn bộ mã nguồn sản xuất gọi `channel.sendTex
 | III | Số tiền do code tra | Cửa sẵn sàng (`core/gate-decide.js:140`, `core/sanitizer.js:189`, `packs/hs/editor.js:45`; gói hs đặt `moneyCheck: false` ở `packs/hs/index.js:24`) |
 | IV | Bằng chứng thắng lời khai | Đạt (`core/store/schema.js:35`, `core/gate.js:59`, `core/engine.js:143`, `scripts/audit.mjs:1`) |
 | V | Tri thức một nhà | Đạt (`packs/hs/packages.js:142`, `core/mcp.js:90`, `core/registry.js:9`) |
-| VI | Đơn giản, không phụ thuộp | Đạt phần lớn (`package.json:8` Node ≥ 22.13, 0 dependency; 1 tệp `core/` vượt 300 dòng (`core/engine.js`); 2 tệp `packs/hs/` vượt 300 dòng) |
+| VI | Đơn giản, không phụ thuộp | Đạt phần lớn (`package.json:8` Node ≥ 22.13, 0 dependency; 1 tệp `core/` vượt 300 dòng (`core/engine.js`); 3 tệp `packs/hs/` vượt 300 dòng) |
 | VII | Sai thì dừng | Đạt (`core/gate-decide.js:91`, `core/gate.js:214`, `core/handoff-ticket.js:107`, `server.js:74`, `server.js:87`) |
 | VIII | Trung thực với khách | Đạt (`core/intents.js:185`, `core/intents.js:202`, `packs/hs/packages.js:196`) |
 | IX | Bí mật không bao giờ lộ | Đạt (`core/redact.js:16`, `core/sdt.js:167`, `core/sanitizer.js:77`, `scripts/audit.mjs:29`, `core/gate-decide.js:135`) |
@@ -140,7 +140,7 @@ Repo hoàn toàn không lưu trữ tệp dữ liệu biểu thuế hay mã HS c�
 - CI chạy test và eval trên Node 22: `.github/workflows/ci.yml:17` và `.github/workflows/ci.yml:18`.
 
 **Điểm cần lưu ý.**
-Hiện tại có ba tệp vượt quá 300 dòng: `packs/hs/packages.js` (669 dòng), `packs/hs/render.js` (471 dòng) và `core/engine.js` (340 dòng) — đo bằng `wc -l` ngày 2026-11-12 trên nhánh PR 214 (vòng soát 2). `packs/hs/packages.js` lên 669 dòng vì vá #177: kỷ luật hỏi truyền hồ sơ mạch cho lớp hỏi lại, nguồn xuất xứ đọc thêm hồ sơ mạch của #170, cờ `vuaTraLoiHoiLai` chặn mở vòng hỏi mới trên chính câu trả lời của khách, vòng hỏi THỨ HAI dựng lại từ mô tả khách vừa sửa (trần 2 vòng của #136), danh sách `tenBiBacBo` đi theo mạch để tên khách đã phủ định không sống lại ở vòng sau, và `tenDaHoi` để vòng sau không hỏi lại y nguyên câu xác nhận tên đã hỏi (vòng soát 3). `core/engine.js` vượt mốc vì vá #170 thêm nhánh "bot vừa hỏi lại" và cờ `choKhachTraLoi`; ba tệp này thuộc phạm vi refactor trong các spec nghiệp vụ kế tiếp.
+Hiện tại có bốn tệp vượt quá 300 dòng: `packs/hs/packages.js` (669 dòng), `packs/hs/render.js` (471 dòng), `core/engine.js` (340 dòng) và `packs/hs/input.js` (349 dòng) — đo bằng `wc -l` ngày 2026-11-12 trên nhánh PR 214 (vòng soát 2/4). `packs/hs/packages.js` lên 669 dòng vì vá #177: kỷ luật hỏi truyền hồ sơ mạch cho lớp hỏi lại, nguồn xuất xứ đọc thêm hồ sơ mạch của #170, cờ `vuaTraLoiHoiLai` chặn mở vòng hỏi mới trên chính câu trả lời của khách, vòng hỏi THỨ HAI dựng lại từ mô tả khách vừa sửa (trần 2 vòng của #136), danh sách `tenBiBacBo` đi theo mạch để tên khách đã phủ định không sống lại ở vòng sau, và `tenDaHoi` để vòng sau không hỏi lại y nguyên câu xác nhận tên đã hỏi (vòng soát 3). `core/engine.js` vượt mốc vì vá #170 thêm nhánh "bot vừa hỏi lại" và cờ `choKhachTraLoi`. `packs/hs/input.js` lên 349 dòng vì OZV-430 vòng soát 4 bổ sung bộ dựng mã nước hiểu chữ Unicode, bảng `ALIAS` (UK→GB, Anh→GB, XK→HK, VD→VN) và từ điển tên nước Anh/Hồng Kông — kèm chú giải và bằng chứng về mã Cổng OZ so; bốn tệp này thuộc phạm vi refactor trong các spec nghiệp vụ kế tiếp.
 
 `packs/hs/dien-cho-thieu.js` hai lần chạm trần rồi được cắt theo đúng ranh trách nhiệm, nên không thành tệp vượt mốc thứ tư:
 
@@ -281,7 +281,7 @@ Cơ chế hộp thư riêng cho bản tin giám sát (`scripts/giam-sat/digest.j
 ## Điểm cần lưu ý / Rủi ro đang mở
 
 1. **Cờ kiểm số tiền chưa bật trong gói hải quan**: `moneyCheck: false` tại `packs/hs/index.js:24`. Luật ở lớp cửa `core/gate-decide.js:140` và não biên tập `packs/hs/editor.js:45` đã sẵn sàng, sẽ bật khi biểu thuế có schema chặt chẽ.
-2. **Ba tệp vượt 300 dòng**: `packs/hs/packages.js` (669 dòng), `packs/hs/render.js` (471 dòng) và `core/engine.js` (340 dòng) cần được chia nhỏ theo Điều VI trong các spec nghiệp vụ kế tiếp.
+2. **Bốn tệp vượt 300 dòng**: `packs/hs/packages.js` (669 dòng), `packs/hs/render.js` (471 dòng), `core/engine.js` (340 dòng) và `packs/hs/input.js` (349 dòng) cần được chia nhỏ theo Điều VI trong các spec nghiệp vụ kế tiếp.
 3. **Nghiệm thu thực địa 7 ngày**: Tiêu chí SC-002 (bot im trong phòng human) và SC-007 (mọi tin ra có `turn_id` trong audit) đã đạt 100% trong lab và chờ đo 7 ngày thực tế bằng lệnh `npm run do-sc` khi bot mở lại cho khách thật.
 
 ---
