@@ -1,10 +1,20 @@
 // core/sanitizer.js — Mô-đun thuần che thông tin nhạy cảm & kiểm số theo giá trị.
 // Tuân thủ Điều VI Hiến pháp: hàm thuần túy, không I/O, không thư viện ngoài, < 300 dòng.
-// Chỉ export, chưa nối vào đường chạy hiện tại (dùng cho hợp đồng dùng chung và PR sau).
-
+// Dùng chung cho packs/hs/editor.js (soDungChuan) và scripts/giam-sat/an-danh.js (cheSdt, cheSoTaiKhoan).
 const LOP_DAU = '.\\-\\s()';
 const CHAY_SO = new RegExp(`\\d+(?:[${LOP_DAU}]*\\d+)*`, 'g');
-const TU_KHOA_TK = /(?:stk|số\s+tài\s+khoản|so\s+tai\s+khoan|tài\s+khoản|tai\s+khoan|tk|ngân\s+hàng|bank)(?:\s+[A-Za-zÀ-ỹ]+){0,3}\s*[:#-]?\s*(\d[\d\s.\-]{5,20}\d|\d{6,19})/gi;
+const TU_KHOA_TK = '(?:stk|số\\s+tài\\s+khoản|so\\s+tai\\s+khoan|tài\\s+khoản|tai\\s+khoan|tk|ngân\\s+hàng|ngan\\s+hang|bank|vietcombank|vcb|techcombank|tcb|mbbank|mb\\s+bank|mb|acb|bidv|agribank|tpbank|vpbank|sacombank|vietinbank|ctg|vib|ocb|shb|msb|hdbank|eximbank|scb|lienvietpostbank|lpbank|bac\\s*a\\s*bank|baoviet\\s*bank|pvcombank|kienlongbank|nam\\s*a\\s*bank|seabank|pg\\s*bank|saigonbank|shinhan(?:\\s*bank)?|woori(?:\\s*bank)?)';
+const SO_STK = '(\\d[\\d\\s.\\-]{4,20}\\d|\\d{6,19})';
+// Nhóm 1 = từ khoá, nhóm 2 = dãy số (STK_SAU); nhóm 1 = dãy số, nhóm 2 = từ khoá (STK_TRUOC)
+const STK_SAU = new RegExp(`(?<![\\p{L}\\p{N}])(${TU_KHOA_TK})(?![\\p{L}\\p{N}])(?:\\s+[\\p{L}]+){0,3}\\s*[:#-]?\\s*${SO_STK}(?!\\d)`, 'giu');
+const STK_TRUOC = new RegExp(`(?<!\\d)${SO_STK}\\s*[:#-]?\\s*(?<![\\p{L}\\p{N}])(${TU_KHOA_TK})(?![\\p{L}\\p{N}])`, 'giu');
+// Mã HS viết có dấu chấm (8437.10.99) không bao giờ là số tài khoản
+const RE_MA_HS_CHAM = /^\d{4}\.\d{2}\.\d{2}(?:\.\d{2})?$/;
+// Ngữ cảnh nghiệp vụ hải quan ngay trước dãy số: tờ khai, mã HS, mã hàng...
+// `(?:\s*tk)?` để nhìn qua được cụm `tk` xen giữa: `tờ khai tk <số>` vẫn được bảo vệ
+const RE_NGHIEP_VU = /(?:tờ\s*khai|to\s*khai|mã\s*hs|ma\s*hs|hs\s*code|nhóm\s*hs|nhom\s*hs|mã\s*hàng|ma\s*hang)(?:\s*tk)?\s*[:#-]?\s*$/i;
+// 'tk' đứng một mình là từ khoá yếu (còn là viết tắt của "tờ khai"), đòi >= 9 chữ số
+const RE_TU_KHOA_YEU = /^tk$/i;
 
 /** Mã HS có phải không? Dài 8 hoặc 10 số, không bắt đầu bằng `0`. */
 export function looksLikeHs(raw) {
@@ -35,7 +45,6 @@ export function timKhoangSdt(text) {
   const src = String(text ?? '').normalize('NFKC');
   const spans = [];
   const dich = new RegExp(`([${LOP_DAU}]+)`);
-
   for (const c of src.matchAll(CHAY_SO)) {
     const run = c[0];
     const goc = c.index;
@@ -61,11 +70,11 @@ export function timKhoangSdt(text) {
       }
     }
   }
-
-  // Gộp khoảng chồng lấn
-  const xep = spans.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  return gopKhoang(spans);
+}
+function gopKhoang(spans) {
   const gop = [];
-  for (const [s, e] of xep) {
+  for (const [s, e] of spans.sort((a, b) => a[0] - b[0] || a[1] - b[1])) {
     const cuoi = gop[gop.length - 1];
     if (cuoi && s <= cuoi[1]) cuoi[1] = Math.max(cuoi[1], e);
     else gop.push([s, e]);
@@ -91,17 +100,24 @@ export function cheSdt(text, mask = '***') {
 export function timKhoangStk(text) {
   const src = String(text ?? '');
   const spans = [];
-  TU_KHOA_TK.lastIndex = 0;
-  let m;
-  while ((m = TU_KHOA_TK.exec(src)) !== null) {
-    const soRaw = m[1];
-    const soChuan = soRaw.replace(/\D/g, '');
-    if (soChuan.length >= 6 && soChuan.length <= 19) {
-      const idx = m.index + m[0].lastIndexOf(soRaw);
-      spans.push([idx, idx + soRaw.length]);
+  for (const [re, min, sau] of [[STK_SAU, 6, true], [STK_TRUOC, 8, false]]) {
+    for (const m of src.matchAll(re)) {
+      const soRaw = sau ? m[2] : m[1];
+      const tuKhoa = sau ? m[1] : m[2];
+      // Mã HS viết có dấu chấm: không bao giờ che
+      if (RE_MA_HS_CHAM.test(soRaw)) continue;
+      // Ngữ cảnh nghiệp vụ hải quan ngay trước (cửa sổ 30 ký tự nhìn lui)
+      if (RE_NGHIEP_VU.test(src.slice(Math.max(0, m.index - 30), m.index))) continue;
+      // `tk` đứng một mình là từ khoá yếu: đòi >= 9 chữ số mới coi là STK
+      const nguong = RE_TU_KHOA_YEU.test(tuKhoa) ? 9 : min;
+      const soChuan = soRaw.replace(/\D/g, '');
+      if (soChuan.length >= nguong && soChuan.length <= 19) {
+        const idx = sau ? m.index + m[0].lastIndexOf(soRaw) : m.index;
+        spans.push([idx, idx + soRaw.length]);
+      }
     }
   }
-  return spans;
+  return gopKhoang(spans);
 }
 
 /** Che số tài khoản ngân hàng trong văn bản khi có ngữ cảnh từ khóa. */

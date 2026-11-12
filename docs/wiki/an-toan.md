@@ -135,7 +135,7 @@ Repo hoàn toàn không lưu trữ tệp dữ liệu biểu thuế hay mã HS c�
 
 - Khai báo phiên bản Node: `package.json:8` (`>=22.13`).
 - Không có `dependencies` trong `package.json`: toàn bộ hệ thống sử dụng thư viện chuẩn của Node.js (bao gồm `node:sqlite` mở ở `core/store.js:9`).
-- Giới hạn độ dài tệp: các tệp trong `core/` phần lớn dưới 300 dòng (ví dụ `core/gate.js`: 232 dòng, `core/handoff.js`: 297 dòng, `core/sanitizer.js`: 218 dòng, `core/sdt.js`: 178 dòng); ngoại lệ đang mở được ghi ở mục "Điểm cần lưu ý" bên dưới.
+- Giới hạn độ dài tệp: các tệp trong `core/` phần lớn dưới 300 dòng (ví dụ `core/gate.js`: 232 dòng, `core/handoff.js`: 297 dòng, `core/sanitizer.js`: 234 dòng, `core/sdt.js`: 178 dòng); ngoại lệ đang mở được ghi ở mục "Điểm cần lưu ý" bên dưới.
 - CLI tra cứu audit cũng dưới 300 dòng: `scripts/audit.mjs` (249 dòng).
 - CI chạy test và eval trên Node 22: `.github/workflows/ci.yml:17` và `.github/workflows/ci.yml:18`.
 
