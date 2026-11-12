@@ -12,6 +12,36 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-12 — OZV-430 điểm 1 (vòng soát 3): tên nước có dấu thôi bị đọc thành mã ISO
+
+- **Commit mã nguồn đã đọc:** `f8083c8` (nhánh `ozv-430-don-no-packs-hs`), đối chứng `origin/main` = `d776735`.
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (dòng OZV-430 điểm 1), `docs/wiki/log.md`.
+- **Vì sao:** giám đốc chặn PR #214 lần hai. Bản vá vòng 2 xét hình "hai chữ cái" trên
+  `nGoc = boNhanXuatXu(norm(t))`, mà `norm` đã **rụng dấu**, nên `"Mỹ" → "my"` trùng mã ISO
+  Malaysia và không bao giờ xuống tới `NUOC['my'] = 'US'`. Bảng so sánh hai worktree:
+
+  | ô "Xuất xứ:" khách gõ | main (`d776735`) | nhánh vòng 2 | nhánh nay |
+  | --- | --- | --- | --- |
+  | `Mỹ` / `mỹ` / `MỸ` | `US` | **`MY`** ✗ | `US` |
+  | `Xuất xứ: Mỹ` | `null` | **`MY`** ✗ | `US` |
+  | `MY` / `My` / `my` | `MY` | `MY` | `MY` |
+  | `Hoa Kỳ` / `Malaysia` | `US` / `MY` | `US` / `MY` | `US` / `MY` |
+
+  Nguy đúng thứ vừa ghi thành luật: `giaDinh:false` nên bot KHÔNG nói giả định, khách đọc thuế
+  Malaysia mà tưởng thuế hàng Mỹ — số sai trông như thật (Điều III + Điều VIII).
+- **Vá thế nào:** mã ISO-3166 **không bao giờ có dấu** ⇒ thêm rào `coDau` (`packs/hs/input.js:9`)
+  cho ngữ cảnh "ô khai riêng một mã". So dấu trên **token cuối** của giá trị còn dấu, không so cả
+  chuỗi, vì nhãn ô cũng có dấu ("Xuất xứ: MY") — so cả chuỗi thì mã thật sau nhãn lại bị bác bỏ.
+  **Không** bỏ `MY` khỏi bảng ISO: đó là lặp lại đúng lỗi "bác bỏ nước thật" bị chặn ở vòng 2.
+- **Bài học ghi vào test:** 31 ca của vòng 2 không bắt được vì không ca nào dùng tên nước CÓ DẤU
+  mà bản không dấu trùng một mã ISO — lỗi lọt qua 4 cổng xanh hai lần liền. Nay `NUOC` được xuất
+  ra (`packs/hs/input.js:88`) và có ca đòi **mọi khoá từ điển đều có ca cả bản có dấu**: thêm khoá
+  mà quên ca test là đỏ ngay. Thêm ca **dấu rời NFD** (Zalo/iOS gửi "Mỹ" = "My" + dấu ngã rời).
+  Bộ `packs/hs/test/xuat-xu-ma-nuoc.test.mjs` lên **70 ca**.
+- **Cổng máy:** `npm test` 1283/1283 + 34 · `npm run eval` 32/32 · `node scripts/qa-that.mjs --mock`
+  6/6 · `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang). Ba script đo luồng tên của giám đốc
+  (`v6`, `v6b`, `v6d`) chạy trên hai worktree ra **giống hệt nhau** — không hồi quy.
+
 ## 2026-11-12 — OZV-430 điểm 1: ô "Xuất xứ" chỉ cho mã nước THẬT đi tới Cổng
 
 - **Commit mã nguồn đã đọc:** `d776735` (nhánh `ozv-430-don-no-packs-hs`, dựng từ `origin/main` sau khi PR #213 đã gộp).
