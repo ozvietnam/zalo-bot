@@ -125,6 +125,9 @@ test('vòng 8 hồi quy 2: gói 6 chỉ nhận ô có nhãn hoặc mã IN HOA cu
     ['gói 6 Nike 64041190 CN', 'CN', 'mã cuối câu'],
     ['gói 6 Nike 64041190 TQ', 'CN', 'viết tắt tiếng Việt cuối câu'],
     ['gói 6 Nike 64041190 SX', null, '"SX" là viết tắt "sản xuất", không phải Sint Maarten'],
+    // Vòng 9 PR #214: alias ở cuối câu mà KHÔNG có từ dẫn thì không phải nước ("UK" = kích cỡ giày).
+    ['gói 6 Nike 64041190 áo size UK', null, '"UK" là kích cỡ giày, không phải xuất xứ'],
+    ['gói 6 Nike 64041190 made in UK', 'GB', '"made in UK" là Vương quốc Anh'],
     ['gói 6 Hòa Phát ống thép đúc 73041900', null, 'tên hàng có "đúc" ⇒ chưa khai nước, không được gán Đức'],
     ['gói 6 Jasic máy hàn 85153100', null, 'tên hàng có "hàn" ⇒ không được gán Hàn Quốc'],
     ['gói 6 Thorakao mỹ phẩm 33049930', null, 'tên hàng có "mỹ" ⇒ không được gán Hoa Kỳ'],

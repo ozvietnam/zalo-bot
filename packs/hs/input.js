@@ -224,6 +224,21 @@ const maAliasTrongCau = (s) => {
   return null;
 };
 
+/**
+ * ALIAS ở CUỐI câu — chỉ nhận khi đứng NGAY SAU từ dẫn xuất xứ ("made in UK" ⇒ GB).
+ *
+ * Cùng luật với `maNuocTrongCau` (vòng soát 9 PR #214): alias cuối câu mà không có từ dẫn thì
+ * KHÔNG phải nước — "áo size UK" là kích cỡ giày. Gói 6 dùng hàm này cho luật "mã cuối câu".
+ * @returns {string|null}
+ */
+export const aliasCuoiCau = (s) => {
+  const tu = tachTu(s);
+  const i = tu.length - 1;
+  if (i < 1) return null;
+  const a = ALIAS_TRONG_CAU[tu[i]];
+  return a && DAN_XUAT_XU.has(norm(tu[i - 1])) ? a : null;
+};
+
 /** Bỏ nhãn ô xuất xứ ở đầu giá trị ("Xuất xứ: SK", "origin: HR", "xx TQ") để còn lại phần khách khai. */
 const boNhanXuatXu = (n) => n.replace(/^(xuat xu|xuatxu|xx|origin|nuoc)\s*[:\-]?\s*/, '');
 
@@ -245,7 +260,8 @@ const tachTu = (s) => [...String(s || '').matchAll(/[\p{L}\p{N}][\p{L}\p{N}\p{M}
  *      cần danh sách tên nào, nên không bị trôi khi khách gõ ký hiệu kỹ thuật mới).
  *   2. TÊN — bỏ nhóm trùng viết tắt tiếng Việt/kỹ thuật (`VIET_TAT_KHONG_PHAI_NUOC`).
  *   3. VỊ TRÍ — chỉ nhận mã đứng ngay sau từ dẫn xuất xứ ("tại SK", "made in BN", "từ BG") hoặc
- *      đứng cuối ô ("nước MT"). Mã nằm lửng giữa câu không phải khai xuất xứ.
+ *      đứng cuối ô ("nước MT"). Mã nằm lửng giữa câu không phải khai xuất xứ. ALIAS ("UK") thì
+ *      PHẢI có từ dẫn — alias cuối câu không từ dẫn là kích cỡ ("áo size UK"), không phải nước.
  *
  * Chỉ quét mã IN HOA, như mã gốc trên `main` vẫn làm: cặp chữ thường hai ký tự là từ trong câu.
  * @returns {string|null}
@@ -265,7 +281,11 @@ export function maNuocTrongCau(s) {
     if (!alias && (!laMaIso2(ma) || VIET_TAT_KHONG_PHAI_NUOC.has(ma))) continue;
     const truoc = i > 0 ? norm(tu[i - 1]) : '';
     const laCuoi = i === tu.length - 1;
-    if (DAN_XUAT_XU.has(truoc) || laCuoi) return alias || ma;
+    // ALIAS ("UK") chỉ được nhận khi đứng NGAY SAU từ dẫn xuất xứ ("made in UK") — đứng cuối
+    // câu mà không có từ dẫn thì KHÔNG phải nước ("áo size UK" là kích cỡ giày, không phải xuất
+    // xứ; đọc thành GB là bịa nước ⇒ đèn rủi ro nhãn hiệu sai — vòng soát 9 PR #214).
+    // MÃ ISO THẬT thì vẫn nhận được ở cuối câu ("nước MT") — luật này giữ nguyên.
+    if (DAN_XUAT_XU.has(truoc) || (!alias && laCuoi)) return alias || ma;
   }
   return null;
 }

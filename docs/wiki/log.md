@@ -814,3 +814,10 @@ Quy ước:
 - `packs/hs/packages.js` Gói 6: chỉ nhận ô có nhãn hoặc mã 2 chữ IN HOA cuối câu — không quét cả câu mô tả (bỏ gán xuất xứ từ tên hàng).
 - Test: mới `packs/hs/test/xuat-xu-ma-nuoc-vong-8.test.mjs`; sửa 2 test luật "my" cũ (vòng 4 nhóm D, vòng 7 nhóm D). 4 cổng: 1311/1311 · eval 32/32 · qa-that 6/6 · wiki ĐẠT.
 - Quét 1915 chuỗi so main `50907f2`: không ca nào main đúng mà nhánh sai.
+
+## 2026-11-13 — OZV-489 / OZV-430 điểm 1 (vòng soát 9) PR #214: alias ở cuối câu mà không có từ dẫn thì không phải nước
+- **Lỗi thật (giám đốc chặn ở head `6972e8b`):** gói 6 "Nike 64041190 áo size UK" đẩy `xuatXu: 'GB'` lên Cổng (`kiem_tra_shtt`) — "UK" ở đây là kích cỡ giày, không phải xuất xứ; đèn rủi ro nhãn hiệu sai.
+- **Gốc (đo được, không đoán):** vòng 8 cho alias đi CHUNG nhánh với mã ISO ở `maNuocTrongCau` (`|| laCuoi`) nên "áo size UK" ⇒ GB; thêm nữa Gói 6 lấy mã cuối câu rồi đưa qua `countryCode('UK')` ⇒ bảng `ALIAS` ⇒ GB. Hai cửa, một luật.
+- **Vá:** `packs/hs/input.js` — alias trong câu CHỈ được nhận khi đứng ngay sau từ dẫn xuất xứ (`DAN_XUAT_XU`): "made in UK" ⇒ GB, "áo size UK" ⇒ null; mã ISO THẬT ở cuối câu vẫn nhận như cũ ("Nike 64041190 CN" ⇒ CN). Hàm mới `aliasCuoiCau` dùng chung cho Gói 6. `packs/hs/packages.js` Gói 6 — mã cuối câu là alias thì phải qua `aliasCuoiCau`; ô CÓ NHÃN giữ nguyên ("Xuất xứ: UK" ⇒ GB).
+- **Không vỡ:** ô nhãn trần `UK`/`ANH`/`Anh` ⇒ GB · "made in UK" ⇒ GB · "size UK 10" ⇒ null · mã ISO thật cuối câu ⇒ giữ.
+- **Test:** mới `packs/hs/test/xuat-xu-ma-nuoc-vong-9.test.mjs` (4 test tiêu chí); thêm 2 ca đầu-cuối vào test "hồi quy 2" của `packs/hs/test/xuat-xu-ma-nuoc-vong-8.test.mjs` (đo qua `hs.handle`, Gói 6). 4 cổng: npm test 1315/1315 · eval 32/32 · qa-that 6/6 · wiki ĐẠT (16 trang).

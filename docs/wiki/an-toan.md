@@ -140,7 +140,7 @@ Repo hoàn toàn không lưu trữ tệp dữ liệu biểu thuế hay mã HS c�
 - CI chạy test và eval trên Node 22: `.github/workflows/ci.yml:17` và `.github/workflows/ci.yml:18`.
 
 **Điểm cần lưu ý.**
-Hiện tại có bốn tệp vượt quá 300 dòng: `packs/hs/packages.js` (676 dòng), `packs/hs/render.js` (471 dòng), `core/engine.js` (341 dòng) và `packs/hs/input.js` (416 dòng) — đo bằng `wc -l` ngày 2026-11-12 trên nhánh PR 214 sau khi gộp main `50907f2` (PR #215).
+Hiện tại có bốn tệp vượt quá 300 dòng: `packs/hs/packages.js` (681 dòng), `packs/hs/render.js` (471 dòng), `core/engine.js` (341 dòng) và `packs/hs/input.js` (436 dòng) — đo bằng `wc -l` ngày 2026-11-13 (giờ VN) trên nhánh PR 214 (vòng soát 9), sau khi gộp main `50907f2` (PR #215).
 
 `packs/hs/dien-cho-thieu.js` hai lần chạm trần rồi được cắt theo đúng ranh trách nhiệm, nên không thành tệp vượt mốc thứ tư:
 
@@ -281,7 +281,7 @@ Cơ chế hộp thư riêng cho bản tin giám sát (`scripts/giam-sat/digest.j
 ## Điểm cần lưu ý / Rủi ro đang mở
 
 1. **Cờ kiểm số tiền chưa bật trong gói hải quan**: `moneyCheck: false` tại `packs/hs/index.js:24`. Luật ở lớp cửa `core/gate-decide.js:140` và não biên tập `packs/hs/editor.js:45` đã sẵn sàng, sẽ bật khi biểu thuế có schema chặt chẽ.
-2. **Bốn tệp vượt 300 dòng**: `packs/hs/packages.js` (676 dòng), `packs/hs/render.js` (471 dòng), `core/engine.js` (341 dòng) và `packs/hs/input.js` (416 dòng) cần được chia nhỏ theo Điều VI trong các spec nghiệp vụ kế tiếp.
+2. **Bốn tệp vượt 300 dòng**: `packs/hs/packages.js` (681 dòng), `packs/hs/render.js` (471 dòng), `core/engine.js` (341 dòng) và `packs/hs/input.js` (436 dòng) cần được chia nhỏ theo Điều VI trong các spec nghiệp vụ kế tiếp.
 3. **Nghiệm thu thực địa 7 ngày**: Tiêu chí SC-002 (bot im trong phòng human) và SC-007 (mọi tin ra có `turn_id` trong audit) đã đạt 100% trong lab và chờ đo 7 ngày thực tế bằng lệnh `npm run do-sc` khi bot mở lại cho khách thật.
 
 ---
