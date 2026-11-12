@@ -144,10 +144,15 @@ Hiện tại có ba tệp vượt quá 300 dòng: `packs/hs/packages.js` (665 d�
 
 `packs/hs/dien-cho-thieu.js` hai lần chạm trần rồi được cắt theo đúng ranh trách nhiệm, nên không thành tệp vượt mốc thứ tư:
 
-- vòng soát 2 (chạm 320 dòng): hai hàm ĐO thuần (`coThongSo`, `nhanDienCuTraDi`) chuyển sang `packs/hs/ky-luat-hoi.js` (295 dòng) cho đúng phân công "tệp này DỰNG câu hỏi, tệp kia ĐO";
-- vòng soát 3 (chạm 332 dòng sau bản vá hai điểm người soát chặn): hàm ĐỌC câu khách trả lời (`xuLyTraLoiHoiLai`) chuyển sang tệp mới `packs/hs/doc-tra-loi.js` (99 dòng).
+- vòng soát 2 (chạm 320 dòng): hai hàm ĐO thuần (`coThongSo`, `nhanDienCuTraDi`) chuyển sang `packs/hs/ky-luat-hoi.js` cho đúng phân công "tệp này DỰNG câu hỏi, tệp kia ĐO";
+- vòng soát 3 (chạm 332 dòng sau bản vá hai điểm người soát chặn): hàm ĐỌC câu khách trả lời (`xuLyTraLoiHoiLai`) chuyển sang tệp mới `packs/hs/doc-tra-loi.js`.
 
-Nay `packs/hs/dien-cho-thieu.js` còn 268 dòng. Cả ba hàm đã chuyển vẫn được `packs/hs/dien-cho-thieu.js` XUẤT LẠI để `packs/hs/packages.js`, `packs/hs/loc-tap-am.js` và các test cũ không phải đổi đường dẫn nhập.
+Vòng soát 5 của PR 213 cắt tiếp theo cùng ranh đó, vì bản vá hai điểm người soát chặn (khách sửa tên lần thứ hai; khách HỎI LẠI thì câu hỏi bị gửi đi làm tên hàng) đẩy `packs/hs/ky-luat-hoi.js` lên 367 dòng:
+
+- nhận diện câu khách HỎI LẠI (`laCauHoiKhach`, `bocCumHoi`, `laHoiThuocTinh`) sang tệp mới `packs/hs/cau-hoi-khach.js` (85 dòng);
+- các hàm ĐỌC câu trả lời (`docTraLoiTen`, `bocXaGiao`, `laXacNhan`, `bocDemDau`) và các mẫu chữ của chúng về `packs/hs/doc-tra-loi.js` — chúng là phần ĐỌC, không phải phần ĐO.
+
+Nay cả bốn tệp của lớp hỏi lại đều dưới trần: `packs/hs/dien-cho-thieu.js` (275 dòng), `packs/hs/doc-tra-loi.js` (224 dòng), `packs/hs/ky-luat-hoi.js` (208 dòng), `packs/hs/cau-hoi-khach.js` (85 dòng) — đo bằng `wc -l` ngày 2026-11-12 trên nhánh PR 213 (vòng soát 5). Các hàm đã chuyển vẫn được tệp cũ XUẤT LẠI để `packs/hs/packages.js`, `packs/hs/loc-tap-am.js` và các test cũ không phải đổi đường dẫn nhập.
 
 ---
 

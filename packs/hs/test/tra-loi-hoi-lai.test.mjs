@@ -25,7 +25,7 @@
 //      chưa đưa thông số thì bot đi tra luôn với mô tả cụt, trong khi trần của #136 là 2 vòng.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { docTraLoiTen, bocXaGiao } from '../ky-luat-hoi.js';
+import { docTraLoiTen, bocXaGiao } from '../doc-tra-loi.js';
 import { kiemTraThongTinPhanLoai, xuLyTraLoiHoiLai } from '../dien-cho-thieu.js';
 import { fakeMcp } from '../../../test/helpers/fakes.mjs';
 import hs from '../index.js';

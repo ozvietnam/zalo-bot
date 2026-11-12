@@ -146,6 +146,8 @@ export function kiemTraThongTinPhanLoai(text, {
         // phủ định TÊN. Các nhánh dưới hỏi THUỘC TÍNH ("có mạ kẽm không ạ?") — đọc "không mạ kẽm"
         // thành phủ định tên là bot nói ngược khách (điểm 2 người soát nêu).
         hoiXacNhanTen: xacNhanTen,
+        // Nhánh này hỏi TÊN món (và xin thông số) — câu đáp có tên mới là khách SỬA TÊN.
+        hoiThuocTinh: false,
         cauHoi: gomCau([
           { cau: xacNhanTen
             ? `Dạ anh/chị ơi, em hiểu là {b}${item.chuan}{/b}${item.moRong ? ` (${item.moRong})` : ''} đúng không ạ?`
@@ -212,6 +214,9 @@ export function kiemTraThongTinPhanLoai(text, {
     return ketQuaHoi({
       s,
       tenGoiY: sSach,
+      // Nhánh này hỏi CÔNG DỤNG ("gia đình hay công nghiệp ạ?") — câu đáp là thuộc tính của đúng
+      // món khách đã gõ, không phải tên món mới: đọc nó thành tên mới là làm rụng tên hàng.
+      hoiThuocTinh: true,
       thieu: [...(coLoaiCongDung ? [] : ['congDung']), ...muc.filter((m) => !co[m.khoa]).map((m) => m.khoa)],
       cauHoi: gomCau([
         { cau: cau1, dai: ['congDung'] },
@@ -255,6 +260,8 @@ export function kiemTraThongTinPhanLoai(text, {
     return ketQuaHoi({
       s,
       tenGoiY: sSach,
+      // Nhánh này hỏi CHẤT LIỆU / QUY CÁCH ("đồng, inox hay nhựa ạ?", "đúc hay hàn ạ?").
+      hoiThuocTinh: true,
       thieu: [...(daiCau1.every((k) => co[k]) ? [] : daiCau1), ...muc.filter((m) => !co[m.khoa]).map((m) => m.khoa)],
       cauHoi: gomCau([
         { cau: cau1, dai: daiCau1 },

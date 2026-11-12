@@ -11,6 +11,12 @@
 // Các nhánh hỏi lại theo mặt hàng (nghi gõ nhầm, điện gia dụng, cơ khí) nằm ở `dien-cho-thieu.js`
 // (Điều VI: mỗi tệp một trách nhiệm, dưới 300 dòng).
 import { norm } from './input.js';
+// Nhận diện câu khách HỎI LẠI nằm ở `cau-hoi-khach.js` (Điều VI: mỗi tệp một trách nhiệm, dưới
+// 300 dòng — bản vá vòng soát 5 đẩy tệp này lên 367 dòng). Xuất lại ở đây để `doc-tra-loi.js` và
+// các test nhập từ một cửa như trước.
+import { laCauHoiKhach, bocCumHoi, laHoiThuocTinh } from './cau-hoi-khach.js';
+
+export { laCauHoiKhach, bocCumHoi, laHoiThuocTinh };
 
 // Các ĐẠI LƯỢNG lớp hỏi lại có thể hỏi. Mỗi khoá dưới đây là một đại lượng; câu hỏi khai báo nó
 // hỏi những đại lượng nào, nhờ đó `gomCau` biết câu nào đã thành vô ích.
@@ -153,7 +159,7 @@ const LOAI_HANG_RE = /\b(lo[aạ]i|ki[eể]u|d[aạ]ng|h[aà]ng|m[oó]n|c[aá]i)
  * soát PR #213: Cổng nhận "0.5kW 220V 350W" rồi trả về một mã bịa).
  */
 export function coTenTrong(s) {
-  const chu = chuTrong(s)
+  const chu = chuTrong(bocCumHoi(s))
     .replace(new RegExp(CONG_DUNG_RE.source, 'giu'), ' ')
     .replace(LOAI_HANG_RE, ' ');
   return /\p{L}{2}/u.test(chu.replace(/[^\p{L}\s]/gu, ' '));
@@ -176,109 +182,10 @@ export function giuThongSo(moTa, nguon) {
   return [t, ...[...new Set(them)].filter((x) => !co.includes(x.toLowerCase()))].filter(Boolean).join(' ');
 }
 
-// Biên CUỐI MỘT TỪ tiếng Việt. Không dùng `\b`: `\b` của JS chỉ tính chữ ASCII, nên sau "không"
-// hay "là" (kết bằng chữ có dấu) nó KHÔNG thấy biên và cả mẫu trượt.
-const HET_TU = '(?![\\p{L}\\p{N}])';
-const NGAT = '[\\s,.!:;-]*';
-
-// Tiền tố lễ phép đứng TRƯỚC chữ phủ định ("Dạ không…", "vâng không phải…", "ừ không…").
-// Thiếu nó thì "Dạ không, là máy sấy thật ạ" — câu người Việt nói hàng ngày — trượt hẳn khỏi
-// PHU_DINH_RE và rơi lại đúng lỗi PR #213 đi sửa (điểm 3 của người soát).
-const LE_PHEP_DAU = `(?:(?:d[aạ]|v[aâ]ng|[uừ]|[oơ]k?e?)${HET_TU}${NGAT})?`;
-// Câu khách PHỦ ĐỊNH tên bot vừa đoán ("không", "không phải", "sai rồi", "ko ạ", "nhầm").
-const PHU_DINH_RE = new RegExp(
-  `^\\s*${LE_PHEP_DAU}(?:kh[oô]ng|ko|kg|sai|nh[aầ]m|ch[uư]a\\s*[đd][uú]ng)${HET_TU}${NGAT}`
-  + `(?:(?:ph[aả]i|[đd][uú]ng|r[oồ]i)${HET_TU}${NGAT})?`, 'iu');
-// Từ đệm mở đầu phần tên khách nói lại ("là máy sấy…", "mà máy sấy…").
-const DEM_DAU_RE = new RegExp(`^(?:l[aà]|m[aà]|n[oó]\\s*l[aà]|[đd][aâ]y\\s*l[aà])${HET_TU}${NGAT}`, 'iu');
-
-/**
- * Bỏ từ đệm mở đầu phần tên khách nói lại ("là máy sấy thực phẩm" → "máy sấy thực phẩm").
- *
- * Người Việt sửa tên hay nói thẳng, không mở đầu bằng "không": "là máy sấy thực phẩm". Chữ "là"
- * không phải tên hàng — để nó đi tới Cổng là mô tả khai báo có rác, mà mô tả này in thẳng cho
- * khách dùng (Điều VIII). `docTraLoiTen` đã bóc cụm này ở nhánh PHỦ ĐỊNH; tách ra để nhánh khách
- * sửa tên mà KHÔNG phủ định cũng dùng được cùng một luật (vòng soát 4 của PR #213).
- */
-export function bocDemDau(s) {
-  return String(s || '').replace(DEM_DAU_RE, '').trim();
-}
-// Từ xã giao/đệm đứng NGAY SAU chữ phủ định ("không phải ĐÂU Ạ", "không NHÉ, 350W").
-// `XA_GIAO_CUOI_RE` chỉ cắt ở cuối chuỗi nên phần giữa còn nguyên, lại đủ ≥2 chữ cái ⇒
-// `coTenTrong` tưởng là tên mới ⇒ VỨT SẠCH tên hàng khách đã gõ: "không nhé, 350W 220V" →
-// "nhé, 350W 220V" gửi Cổng (điểm 2 vòng soát 2 của PR #213).
-const DEM = '(?:[đd][aâ]u|[aạ]|[aà]|nh[eé]|nh[aá]|nha|[oơ]i|m[aà]|th[eế]|v[aậ]y)';
-// Cả phần còn lại CHỈ là từ đệm → khách chỉ phủ định, không nêu tên nào.
-const DEM_SAU_HET_RE = new RegExp(`^(?:${DEM}${HET_TU}${NGAT})+$`, 'iu');
-// Cụm từ đệm được ĐÓNG bằng dấu ngắt ("nhé, …", "ạ, là máy sấy"). Bắt buộc có dấu ngắt để không
-// cắt oan tên hàng mở đầu bằng từ đồng âm ("nha khoa", "mà" trong tên riêng): "không nha khoa"
-// giữ nguyên "nha khoa".
-const DEM_SAU_DAU_RE = new RegExp(`^(?:${DEM}${HET_TU}\\s*)+[,.!:;-]+\\s*`, 'iu');
-// Từ xã giao ở cuối câu ("… ạ", "… nhé", "thật ạ"). Phải có dấu ngắt hoặc đầu chuỗi ở trước, nếu
-// không thì "mica" bị cắt đuôi thành "mic". KHÔNG có "da" không dấu: "túi da", "ví bằng da" là
-// CHẤT LIỆU, mà chất liệu đổi chương thuế (túi da 4202 ≠ túi nhựa) — điểm 3 của người soát PR #213.
-const XA_GIAO_CUOI_RE = /(?:^|[\s,.!:;-])(?:ạ|a|nh[eé]|nha|nh[aá]|[oơ]i|th[eế]|v[aậ]y|dạ)\s*$/iu;
-// Từ xã giao mở đầu câu XÁC NHẬN ("đúng, 350W" → "350W"). Cũng không nhận "da" không dấu.
-const XAC_NHAN_DAU_RE = /^(?:[đd][uú]ng|oke|ok|chu[aẩ]n|v[aâ]ng|[uừ]|dạ)[,.\s]*/iu;
-
-/** Bỏ từ xã giao đầu và cuối câu, giữ lại phần DỮ KIỆN khách nói. */
-export function bocXaGiao(s) {
-  let t = String(s || '').replace(XAC_NHAN_DAU_RE, '').replace(DEM_SAU_DAU_RE, '').trim();
-  for (let i = 0; i < 3 && XA_GIAO_CUOI_RE.test(t); i += 1) t = t.replace(XA_GIAO_CUOI_RE, '').trim();
-  return t;
-}
-
-/**
- * Khách có XÁC NHẬN RÕ tên bot đoán không ("đúng ạ", "chuẩn", "vâng")?
- *
- * Chỉ lời xác nhận RÕ mới cho phép tên BOT ĐOÁN thay tên KHÁCH TỰ GÕ. Khách đáp mỗi thông số
- * ("350W 220V") là trả lời câu xin thông số, KHÔNG phải đồng ý đổi tên món — coi im lặng là đồng ý
- * thì bot lặng lẽ tráo "máy sấy" thành "máy xay" rồi in mã + thuế của món khách không hỏi
- * (vòng soát 3 của PR #213; Điều III, Điều VIII).
- */
-export function laXacNhan(s) {
-  return XAC_NHAN_DAU_RE.test(String(s || '').trim());
-}
-
-/**
- * Khách có PHỦ ĐỊNH tên bot vừa đoán không, và nếu có thì tên nào được gửi Cổng?
- *
- * Bot hỏi "em hiểu là máy xay sinh tố đúng không ạ?" mà khách đáp "không, là máy sấy thật" thì
- * trước đây bot vẫn dán `tenGoiY` lên đầu rồi nối cả câu phủ định vào sau — Cổng nhận một tên
- * hàng lai mang CẢ HAI món và chữ "không" ("máy xay sinh tố không, là máy sấy thật ạ"). Hỏi xác
- * nhận tên mà không nghe câu trả lời "không" thì câu hỏi thành vô ích, và mã + số thuế in ra là
- * của món khách KHÔNG hỏi (Hiến pháp Điều III và VIII).
- *
- * CHỈ đọc khi câu bot đang treo ĐÚNG là câu xác nhận tên (`hoiXacNhanTen`). Không có cổng này thì
- * câu trả lời THUỘC TÍNH mở đầu bằng "không" cũng bị cắt mất chữ "không" và mất luôn tên hàng:
- * "không mạ kẽm, đúc DN50" → "mạ kẽm, đúc DN50" — bot nói NGƯỢC điều khách vừa nói, rồi in mã và
- * số thuế của mặt hàng khác mà khách không có cách nào biết (điểm 2, nặng nhất, của người soát
- * PR #213; Điều III và Điều VIII).
- *
- * @param {string} text Câu khách gõ
- * @param {{ tenGoiY?: string, tenGoc?: string, hoiXacNhanTen?: boolean }} phien Trạng thái hỏi lại
- * @returns {{ phuDinh: boolean, ten: string }} `ten`: tên dùng để gửi Cổng (rỗng = không đổi)
- */
-export function docTraLoiTen(text, { tenGoiY = '', tenGoc = '', hoiXacNhanTen = false } = {}) {
-  const s = String(text || '').trim();
-  if (!hoiXacNhanTen) return { phuDinh: false, ten: '' };
-  if (!PHU_DINH_RE.test(s)) return { phuDinh: false, ten: '' };
-  // Phần SAU chữ phủ định là tên khách nói lại ("không phải, máy sấy thực phẩm 500W").
-  // Bóc cả cụm xã giao/đệm NGAY SAU chữ phủ định ("không phải đâu ạ", "không nhé, 350W") —
-  // không bóc thì cụm đó đủ ≥2 chữ cái và bị coi là tên mới, tên hàng thật rụng hẳn.
-  let sau = s.replace(PHU_DINH_RE, '');
-  if (DEM_SAU_HET_RE.test(sau.trim())) sau = '';          // chỉ có từ đệm → khách chỉ nói "không"
-  else sau = sau.replace(DEM_SAU_DAU_RE, '');             // "ạ, là máy sấy" → "là máy sấy"
-  const con = bocXaGiao(sau.replace(DEM_DAU_RE, ''));
-  // Khách chỉ nói "không", hoặc chỉ sửa THÔNG SỐ ("không, 0.5kW 220V") mà không nêu tên nào →
-  // quay về tên KHÁCH ĐÃ GÕ (`tenGoc`), không dùng tên bot đoán (`tenGoiY`): tên vừa bị phủ định
-  // không được tới Cổng. Phép thử là `coTenTrong` (đo phần CHỮ sau khi bóc thông số), không phải
-  // "có ≥ 2 chữ cái" — đơn vị đo cũng có 2 chữ cái nên phép cũ làm tên hàng rụng hẳn (điểm 1
-  // người soát PR #213 nêu). Thông số MỚI của khách vẫn được giữ, và thắng số cũ cùng loại.
-  const goc = String(tenGoc || '').replace(LENH_DAU_RE, '').trim();
-  const ten = coTenTrong(con) ? con : `${chuTrong(goc)} ${con}`.trim();
-  return { phuDinh: true, ten: giuThongSo(ten, goc) || String(tenGoiY || '').trim() };
-}
+// Các hàm ĐỌC câu khách trả lời (`docTraLoiTen`, `bocXaGiao`, `laXacNhan`, `bocDemDau`) và các
+// mẫu chữ của chúng nằm ở `doc-tra-loi.js` — đúng phân công ghi ở đầu bốn tệp: tệp này ĐO điều
+// khách đã nêu, `doc-tra-loi.js` ĐỌC câu trả lời. Chuyển ở vòng soát 5 của PR #213 vì bản vá hai
+// điểm người soát chặn đẩy tệp này lên 367 dòng, vượt trần 300 của Điều VI.
 
 /**
  * Kết quả một nhánh hỏi lại. Kỷ luật hỏi lọc HẾT câu → khách đã NÊU đủ dữ kiện, nên tra luôn
@@ -288,8 +195,14 @@ export function docTraLoiTen(text, { tenGoiY = '', tenGoc = '', hoiXacNhanTen = 
  *
  * `hoiXacNhanTen`: tin này CÓ hỏi "em hiểu là <tên> đúng không ạ?" hay không. Chỉ nhánh đó mới
  * được đọc câu "không…" của khách là phủ định TÊN (xem `docTraLoiTen`).
+ *
+ * `hoiThuocTinh`: tin này hỏi THUỘC TÍNH của mặt hàng (chất liệu / quy cách / công dụng) chứ không
+ * hỏi TÊN món. Nhánh thuộc tính thì câu đáp của khách là thuộc tính của ĐÚNG món đó, nên không
+ * được đọc thành tên món mới (xem `laHoiThuocTinh` và `xuLyTraLoiHoiLai`).
  */
-export function ketQuaHoi({ s, tenGoiY, thieu, cauHoi, giaDinh, hoiXacNhanTen = false }) {
+export function ketQuaHoi({ s, tenGoiY, thieu, cauHoi, giaDinh, hoiXacNhanTen = false, hoiThuocTinh = false }) {
   if (!String(cauHoi || '').trim()) return { canHoi: false, giaDinh: null, thieu: [] };
-  return { canHoi: true, tenGoc: s, tenGoiY, thieu, cauHoi, giaDinhMacDinh: giaDinh, hoiXacNhanTen };
+  return {
+    canHoi: true, tenGoc: s, tenGoiY, thieu, cauHoi, giaDinhMacDinh: giaDinh, hoiXacNhanTen, hoiThuocTinh,
+  };
 }

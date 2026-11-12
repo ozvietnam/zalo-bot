@@ -20,7 +20,8 @@
 //      — RỤNG HẲN tên hàng, vì `coTenTrong` không bóc được cụm công dụng nên đếm nó thành tên mới.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { daNeu, docTraLoiTen, CHAT_LIEU_RE, QUY_CACH_RE, CONG_DUNG_RE } from '../ky-luat-hoi.js';
+import { daNeu, CHAT_LIEU_RE, QUY_CACH_RE, CONG_DUNG_RE } from '../ky-luat-hoi.js';
+import { docTraLoiTen } from '../doc-tra-loi.js';
 import { kiemTraThongTinPhanLoai, xuLyTraLoiHoiLai } from '../dien-cho-thieu.js';
 import { fakeMcp } from '../../../test/helpers/fakes.mjs';
 import hs from '../index.js';

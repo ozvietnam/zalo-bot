@@ -1,6 +1,6 @@
 # Nhật ký wiki
 
-> Cập nhật: 2026-11-12 · commit: 7be2f94
+> Cập nhật: 2026-11-12 · commit: bdb9dcd
 
 Nhật ký thay đổi của bộ wiki trong docs/wiki. Mỗi dòng ghi: ngày, commit của mã nguồn
 đã đọc khi viết, và những trang bị thay đổi hoặc thêm mới.
@@ -11,6 +11,61 @@ Quy ước:
 - Ghi rõ **vì sao** đổi, không chỉ ghi "sửa lỗi".
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
+
+## 2026-11-12 — Vòng soát 5 PR #213 / OZV-323: hai HỒI QUY của bản vá vòng 4 — sửa tên LẦN HAI, và câu HỎI của khách bị gửi đi làm tên hàng
+
+- **Commit mã nguồn đã đọc:** `bdb9dcd` (nhánh `ozv-323-xac-nhan-ten-go-nham`, không rebase — nhánh đang gánh cả #212).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (bổ sung vòng soát 5 vào dòng OZV-323; sửa trích dẫn `laXacNhan` sang `packs/hs/doc-tra-loi.js:178` sau khi chuyển tệp), `docs/wiki/an-toan.md` (lần cắt tệp thứ ba của lớp hỏi lại và số dòng thật của bốn tệp), `docs/wiki/log.md`.
+- **Vì sao:** giám đốc soát vòng 5 CHẶN hai điểm. `soat-khac` (Gemini) lượt này ra ĐẠT nhưng script
+  đo tay của giám đốc dựng lại được hai lỗi, và cả hai là **HỒI QUY** — đo cùng những câu đó trên
+  `origin/main` (`9275a14`) bằng cùng một script trên đường thật `hs.handle` thì `main` ra ĐÚNG HƠN.
+  Bảng đo hai nhánh (tên hàng gửi Cổng):
+
+  | câu khách | PR #213 trước vá | main |
+  | --- | --- | --- |
+  | "máy sấy sinh tố" → "máy sấy thực phẩm" → "máy sấy công nghiệp" → "350W 220V" | `máy sấy thực phẩm máy sấy công nghiệp` | `máy sấy thực phẩm 350W 220V` |
+  | "may say sinh to" → "may say thuc pham" → "may say cong nghiep" → "350W 220V" | `máy sấy thực phẩm may say cong nghiep` | `máy sấy thực phẩm 350W 220V` |
+  | "máy sấy sinh tố" → "là sao ạ" | `sao` — TÊN HÀNG RỤNG HẲN | `máy xay sinh tố là sao 350W 220V` |
+  | "máy sấy sinh tố" → "nghĩa là gì ạ" | `nghĩa` — TÊN HÀNG RỤNG HẲN | `máy xay sinh tố nghĩa 350W 220V` |
+  | "máy sấy sinh tố" → "ý em là sao ạ?" | `ý là sao` — TÊN HÀNG RỤNG HẲN | `máy xay sinh tố ý là sao 350W 220V` |
+
+  1. **Khách sửa tên LẦN THỨ HAI thì bệnh ghép đôi của vòng 4 trở lại.** Cờ `khachDuaTenMoi` của
+     bản vá vòng 4 treo vào `hoiXacNhanTen` — một biến **đổi giá trị giữa các vòng hỏi**: sau lần
+     sửa tên thứ nhất, tên là do KHÁCH gõ nên bot thôi hỏi xác nhận (`hoiXacNhanTen: false`), nên
+     lần sửa thứ hai rơi đúng nhánh nối hai tên. Cổng nhận một mặt hàng lai mang CẢ HAI món khách
+     đã sửa, bot in mã + thuế của thứ không tồn tại (Điều III, Điều VIII).
+     → Vá: thứ cần phân biệt không phải "có hỏi xác nhận tên hay không" mà là nhánh đang treo hỏi
+     **TÊN** hay hỏi **THUỘC TÍNH**. Hàm mới `laHoiThuocTinh` đọc cờ `hoiThuocTinh` do chính NHÁNH
+     khai lúc dựng câu hỏi, không suy từ trạng thái vòng hỏi; phiên cũ thì suy từ `thieu`.
+  2. **Khách HỎI LẠI thì câu hỏi của khách bị gửi đi làm TÊN HÀNG.** `coTenTrong` đếm chữ của câu
+     hỏi thành tên mới, nên bot đi tra mã của chữ "sao" — mã chắc chắn sai, mà mô tả khai báo in
+     thẳng cho khách dùng. `main` sai nhẹ hơn vì vẫn giữ được tên hàng.
+     → Vá: hàm mới `laCauHoiKhach`/`bocCumHoi`, **dùng lại cách của repo `ai-live`** (hàm `laCauHoi`
+     ở tệp phong/nguon-tiktok.js của repo đó, dòng 28 — tra bằng MCP `sourcebot`): đo bằng CỤM CHỮ
+     HỎI chứ không bằng dấu "?" trơ, vì dấu hỏi trơ bắt oan câu khách sửa tên có kèm "?". Câu hỏi
+     thì không bật `khachDuaTenMoi`: tên hàng khách đã gõ giữ nguyên, thông số nêu kèm vẫn giữ, và
+     còn vòng thì bot tự hỏi tiếp một câu cho khách (Điều II). `docTraLoiTen` cũng chặn câu hỏi mở
+     đầu bằng chữ phủ định ("không hiểu ạ" — trước vá Cổng nhận tên hàng là "hiểu").
+- **Một đỏ do chính bản vá, thợ tự dựng được:** mẫu hỏi tách riêng "gì" bắt oan chữ "gia" trong
+  "gia dụng"/"gia đình" nên ca `[#213-7]` (câu đáp CÔNG DỤNG) rụng tên hàng — nay viết đủ cụm
+  "là gì"/"gì vậy" và chốt biên từ Unicode hai đầu.
+- **Điều VI (lần cắt tệp thứ ba của lớp hỏi lại):** bản vá đẩy `packs/hs/ky-luat-hoi.js` lên 367
+  dòng (cổng `test/core/wiki-no-lon-dong.test.mjs` bắt đỏ). Cắt theo đúng ranh trách nhiệm như hai
+  lần trước: nhận diện câu khách HỎI LẠI sang tệp mới `packs/hs/cau-hoi-khach.js` (85 dòng), các
+  hàm ĐỌC câu trả lời (`docTraLoiTen`, `bocXaGiao`, `laXacNhan`, `bocDemDau`) về
+  `packs/hs/doc-tra-loi.js` (224 dòng) — chúng là phần ĐỌC, không phải phần ĐO. Nay cả bốn tệp đều
+  dưới trần: `packs/hs/dien-cho-thieu.js` 275, `packs/hs/doc-tra-loi.js` 224,
+  `packs/hs/ky-luat-hoi.js` 208, `packs/hs/cau-hoi-khach.js` 85. Các hàm đã chuyển vẫn được tệp cũ
+  XUẤT LẠI để chỗ nhập cũ không phải đổi đường dẫn.
+- **Nợ sẵn có trên `main`, KHÔNG nong PR ra sửa:** tin đến SAU khi lượt đã chốt đi qua HỒ SƠ GỘP
+  của #170 nên mô tả mang cả tên cũ — khoá hành vi hiện tại bằng ca `[#213-13b]`, xin xếp vào
+  **OZV-371** cùng điểm 8 ("ok" làm câu trả lời rỗng nghĩa).
+- **Test:** `packs/hs/test/soat-213-vong5.test.mjs` (20 ca — 4 ca `[#213-13]` cho chặn 1, 9 ca
+  `[#213-14]` cho chặn 2, 5 chốt ngược `[#213-15]` đúng danh sách giám đốc dặn; 11 ca đi đường thật
+  qua `hs.handle`, mọi ca mới có cả bản có dấu và không dấu, và có ca cho **vòng hỏi thứ HAI/BA** —
+  đúng chỗ bốn vòng qua lỗi đều trốn). 4 ca đỏ trước bản vá.
+- **Cổng:** `npm test` 1213/1213 · `npm run eval` 32/32 · `node scripts/qa-that.mjs --mock` 6/6 ·
+  `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
 
 ## 2026-11-12 — Vòng soát 4 PR #213 / OZV-323: hai HỒI QUY của chính bản vá — ghép đôi mặt hàng và hai số cùng loại đánh nhau
 
