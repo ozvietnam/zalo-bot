@@ -208,8 +208,56 @@ export const laMaIso2 = (ma) => MA_ISO2.has(String(ma || '').toUpperCase());
  */
 export const VIET_TAT_KHONG_PHAI_NUOC = new Set(['SX', 'IN', 'CO', 'CF', 'PN', 'SS', 'GI']);
 
-/** Từ dẫn xuất xứ: mã nước đứng NGAY SAU một trong các chữ này là nước khách khai. */
-const DAN_XUAT_XU = new Set(['in', 'tai', 'tu', 'from', 'origin', 'xu', 'nuoc', 'hang', 'made', 'o', 'cua']);
+/**
+ * TỪ DẪN XUẤT XỨ — mã nước đứng NGAY SAU một trong các từ này là nước khách khai.
+ *
+ * Tách làm HAI TẦNG vì "so trên chuỗi đã rụng dấu" làm từ dẫn trùng DANH TỪ HÀNG (OZV-535
+ * nhóm 2): `"ổ"`→`o`, `"tủ"`→`tu`, `"cửa"`→`cua` — rụng dấu xong trùng đúng từ dẫn, nên
+ * `"ổ BI"` / `"tủ BT"` / `"cửa AL"` bị đọc thành nước. Tầng "giữ dấu" loại được ba ca đó.
+ *
+ *   TẦNG 1 — tiếng Anh (`DAN_XUAT_XU_EN`): so trên chuỗi đã rụng dấu, không trùng danh từ hàng.
+ *   TẦNG 2 — tiếng Việt (`DAN_XUAT_XU_VN`): so trên chuỗi GIỮ DẤU, nên "tủ" ≠ "từ",
+ *     "ổ" ≠ "ở", "cửa" ≠ "của". Bản KHÔNG dấu chỉ nhận ở `DAN_XUAT_XU_ASCII` (chỉ "hang").
+ *   TẦNG 3 — từ dẫn YẾU (`DAN_XUAT_XU_VN_YEU` = "nước"): "nước" vừa là từ dẫn ("nước GB",
+ *     "hàng nước GB") vừa là DANH TỪ HÀNG cực phổ biến ("máy lọc nước", "nước RO" = nước
+ *     thấm ngược) — nên chỉ được nhận khi đứng ở ĐẦU giá trị ("nước GB") hoặc sau một từ dẫn
+ *     khác ("hàng nước GB"); đứng sau danh từ hàng thì không được nhận ("máy lọc nước RO").
+ */
+const DAN_XUAT_XU_EN = new Set(['made', 'in', 'from', 'origin', 'xu']);
+const DAN_XUAT_XU_VN = new Set(['tại', 'từ', 'ở', 'của', 'hàng']);
+const DAN_XUAT_XU_ASCII = new Set(['hang']);
+const DAN_XUAT_XU_VN_YEU = new Set(['nước']);
+/** Bản không dấu của từ dẫn tiếng Việt mà KHÔNG được đứng đầu câu ("tu BT" = "tủ BT"!). */
+const DAN_XUAT_XU_ASCII_KHONG_DAU_DAU = new Set(['tu', 'tai']);
+
+/**
+ * ĐƠN VỊ ĐO hay gặp ở CUỐI câu mô tả hàng — mã 2 chữ trùng mã nước ISO-2 (OZV-535 nhóm 1).
+ *
+ * Chỉ loại khi mã đứng NGAY SAU một CON SỐ: "ổ cứng 500 GB" là 500 gigabyte, không phải
+ * Vương quốc Anh. Ô CÓ NHÃN không đổi: "Xuất xứ: MM" vẫn là Malta (khách CỐ Ý khai mã).
+ */
+export const DON_VI_DO = new Set(['GB', 'KG', 'MM', 'CM', 'ML', 'KW', 'MT', 'LT']);
+
+/** Mã đứng ngay sau một con số và nằm trong danh sách đơn vị đo ⇒ đơn vị đo, không phải nước. */
+const laDonViDoSauSo = (ma, truoc) => DON_VI_DO.has(ma) && /^\d+(?:[.,]\d+)?$/.test(String(truoc || '').trim());
+
+/** Token trước có phải con số không? ("Nike 64041190 CN" ⇒ "CN" đứng sau mã HS). */
+const laSo = (tok) => /^\d+(?:[.,]\d+)?$/.test(String(tok || '').trim());
+
+/**
+ * Token `tu[i]` có phải TỪ DẪN XUẤT XỨ không? (xem chú thích `DAN_XUAT_XU_EN`).
+ * @param {string[]} tu danh sách từ đã tách
+ * @param {number} i vị trí từ đang xét
+ */
+const laTuDanXuatXu = (tu, i) => {
+  const t = String(tu[i] || '').trim();
+  if (DAN_XUAT_XU_EN.has(norm(t))) return true;
+  if (DAN_XUAT_XU_VN.has(t)) return true;
+  if (DAN_XUAT_XU_ASCII.has(t)) return true;
+  if (DAN_XUAT_XU_VN_YEU.has(t)) return i === 0 || (i > 0 && laTuDanXuatXu(tu, i - 1));
+  if (DAN_XUAT_XU_ASCII_KHONG_DAU_DAU.has(t)) return i > 0;
+  return false;
+};
 
 /**
  * Alias trong câu tự do, rào VỊ TRÍ: chỉ nhận khi mã alias đứng NGAY SAU từ dẫn xuất xứ
@@ -219,7 +267,7 @@ const maAliasTrongCau = (s) => {
   const tu = tachTu(s);
   for (let i = 1; i < tu.length; i++) {
     const a = ALIAS_TRONG_CAU[tu[i]];
-    if (a && DAN_XUAT_XU.has(norm(tu[i - 1]))) return a;
+    if (a && laTuDanXuatXu(tu, i - 1)) return a;
   }
   return null;
 };
@@ -236,7 +284,22 @@ export const aliasCuoiCau = (s) => {
   const i = tu.length - 1;
   if (i < 1) return null;
   const a = ALIAS_TRONG_CAU[tu[i]];
-  return a && DAN_XUAT_XU.has(norm(tu[i - 1])) ? a : null;
+  return a && laTuDanXuatXu(tu, i - 1) ? a : null;
+};
+
+/**
+ * Mã 2 chữ IN HOA đứng CUỐI câu — nhưng KHÔNG phải ĐƠN VỊ ĐO đứng sau số (OZV-535 nhóm 1).
+ *
+ * Gói 6 lấy mã cuối câu theo luật "mã 2 chữ in hoa đứng cuối tin"; "ổ cứng 500 GB" thì "GB"
+ * là gigabyte, không phải Vương quốc Anh.
+ * @returns {string|null}
+ */
+export const maCuoiCau = (s) => {
+  const t = String(s || '');
+  const m = t.match(/\b([A-Z]{2})\s*$/);
+  if (!m) return null;
+  const truoc = t.slice(0, m.index).trim().split(/\s+/).pop() || '';
+  return laDonViDoSauSo(m[1], truoc) ? null : m[1];
 };
 
 /** Bỏ nhãn ô xuất xứ ở đầu giá trị ("Xuất xứ: SK", "origin: HR", "xx TQ") để còn lại phần khách khai. */
@@ -279,13 +342,25 @@ export function maNuocTrongCau(s) {
     if (!/^[A-Z]{2}$/.test(ma)) continue;        // mã ISO: đúng 2 chữ IN HOA, không dấu
     const alias = ALIAS_TRONG_CAU[ma];           // "made in UK" ⇒ GB (vòng soát 8)
     if (!alias && (!laMaIso2(ma) || VIET_TAT_KHONG_PHAI_NUOC.has(ma))) continue;
-    const truoc = i > 0 ? norm(tu[i - 1]) : '';
+    const truoc = i > 0 ? tu[i - 1] : '';
     const laCuoi = i === tu.length - 1;
+    // RÀO ĐƠN VỊ ĐO (OZV-535 nhóm 1): mã đứng ngay sau CON SỐ và mã nằm trong `DON_VI_DO`
+    // ⇒ "500 GB" là gigabyte, không phải Vương quốc Anh.
+    if (laDonViDoSauSo(ma, truoc)) continue;
+    // TỪ DẪN XUẤT XỨ (OZV-535 nhóm 2): so theo tầng, từ tiếng Việt GIỮ DẤU — "ổ BI", "tủ BT",
+    // "cửa AL" là DANH TỪ HÀNG trùng từ dẫn, không phải xuất xứ.
+    const tuDan = i > 0 && laTuDanXuatXu(tu, i - 1);
     // ALIAS ("UK") chỉ được nhận khi đứng NGAY SAU từ dẫn xuất xứ ("made in UK") — đứng cuối
     // câu mà không có từ dẫn thì KHÔNG phải nước ("áo size UK" là kích cỡ giày, không phải xuất
     // xứ; đọc thành GB là bịa nước ⇒ đèn rủi ro nhãn hiệu sai — vòng soát 9 PR #214).
-    // MÃ ISO THẬT thì vẫn nhận được ở cuối câu ("nước MT") — luật này giữ nguyên.
-    if (DAN_XUAT_XU.has(truoc) || (!alias && laCuoi)) return alias || ma;
+    if (alias) { if (tuDan) return alias; continue; }
+    if (tuDan) return ma;
+    // Ô khai chỉ có MỘT mã ("SK", "MM"): khách CỐ Ý khai mã nước ⇒ nhận, như `main`.
+    if (tu.length === 1) return ma;
+    // MÃ ISO THẬT ở cuối câu: chỉ nhận khi đứng NGAY SAU MÃ/SỐ ("Nike 64041190 CN" ⇒ CN).
+    // Đứng sau DANH TỪ HÀNG ("tủ BT", "cửa AL", "máy lọc nước RO") thì mã đó là viết tắt kỹ
+    // thuật, KHÔNG phải nước (OZV-535 nhóm 2) — trước đây mọi mã ISO ở cuối câu đều lọt.
+    if (laCuoi && laSo(truoc)) return ma;
   }
   return null;
 }
@@ -373,8 +448,17 @@ export function findCountryInText(s) {
   // "GB" vào đây là bắt "500 GB" của "ổ cứng 500 GB SSD" thành Vương quốc Anh (dung lượng).
   // GB/HK trần trong câu vẫn đọc được qua `maNuocTrongCau` ("hàng từ GB", "made in HK",
   // "Nike ... HK" cuối câu) — chỗ đó có rào vị trí, không bắt bừa mã đứng giữa câu.
-  const m = raw.match(/(?:^|\s)(CN|JP|KR|TW|TH|US|DE|IN|MY|ID|VN)(?=\s|$|,)/);
-  return m ? m[1] : null;
+  //
+  // OZV-535 nhóm 3: "MADE IN JP" — chữ "IN" trong cụm "made in" là GIỚI TỪ, không phải mã nước
+  // Ấn Độ; mã nước là chữ sau nó ("JP"). Bỏ qua "IN" đứng ngay sau "made" rồi lấy mã kế tiếp.
+  const re = /(?:^|\s)(CN|JP|KR|TW|TH|US|DE|IN|MY|ID|VN)(?=\s|$|,)/g;
+  let mm;
+  while ((mm = re.exec(raw)) !== null) {
+    const truoc = raw.slice(0, mm.index).trim().split(/\s+/).pop() || '';
+    if (mm[1] === 'IN' && norm(truoc) === 'made') continue;
+    return mm[1];
+  }
+  return null;
 }
 
 /** Nước mặc định khi khách chưa nói — chỉ dùng kèm cờ `giaDinh` của `xuatXuCua`. */
