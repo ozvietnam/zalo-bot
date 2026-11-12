@@ -111,13 +111,19 @@ export const NUOC = { 'trung quoc': 'CN', tq: 'CN', china: 'CN', 'nhat ban': 'JP
  *             và `hs-code-api/lib/fta.js:43` (UKVFTA.thanhVien = ['VN','GB']). "UK" không phải mã
  *             nước nào: gửi "UK" thì Cổng báo mã quốc gia không có trong danh mục ISO, không khớp ưu đãi.
  *   ANH → GB : "Anh" là Vương quốc Anh; cùng hình với tên chính thức trong danh mục Cổng.
- *   XK  → HK : khách hay gõ "XK" cho Hồng Kông, mà Cổng so `HK` (`hs-code-api/data/iso-3166-vn.json:18`).
- *             LƯU Ý: "XK" trong Cổng là BIỂU THUẾ XUẤT KHẨU (`hs-code-api/lib/customs-types.js:21`,
- *             `hs-code-api/data/bieu-thue/README.md:97-98`), không phải nước — tuyệt đối không gửi "XK".
- *   VD  → VN : mã riêng của dữ liệu khai báo (theo chỉ đạo giám đốc OZV-430 vòng soát 4);
- *             `grep '"VD"'` toàn repo `hs-code-api` không có kết quả nào — cần đối chiếu lại.
+ *
+ * KHÔNG map — vòng soát 4 giám đốc chặn hai alias cũ `XK → HK` và `VD → VN`:
+ *   - "XK" không phải nước: ở Cổng OZ nó là BIỂU THUẾ XUẤT KHẨU (`hs-code-api/lib/customs-types.js:20`
+ *     chiều xuất khẩu; `hs-code-api/data/bieu-thue/README.md` sheet `XK` = "Biểu thuế xuất khẩu",
+ *     `EV-XK`/`UKV-XK`/`CPTPP-XK` = "Biểu XK ưu đãi theo hiệp định"). Hồng Kông là `HK`
+ *     (`hs-code-api/data/iso-3166-vn.json:18`) và không thuộc FTA nào (`hs-code-api/lib/fta.js:30-48`)
+ *     ⇒ `XK → HK` không đổi mức thuế, chỉ khai một nước khách chưa nói.
+ *   - "VD" không có trong danh mục Cổng (`grep '"VD"'` toàn repo `hs-code-api` không ra) và không
+ *     phải mã ISO ⇒ `VD → VN` là bịa nước.
+ *   Cả hai rơi về giả định có nói của `xuatXuCua` (`{ ma: XUAT_XU_MAC_DINH, giaDinh: true }`) —
+ *   bot vẫn tra được nhưng nói rõ là giả định, không bịa nước (Điều VIII).
  */
-export const ALIAS = { UK: 'GB', ANH: 'GB', XK: 'HK', VD: 'VN' };
+export const ALIAS = { UK: 'GB', ANH: 'GB' };
 
 /**
  * ISO-3166-1 alpha-2 — 249 mã nước/vùng lãnh thổ được gán chính thức (OZV-430 điểm 1).
@@ -251,7 +257,7 @@ export function countryCode(s) {
   // So dấu trên TOKEN CUỐI của giá trị còn dấu, không so trên cả chuỗi: nhãn ô cũng có dấu
   // ("Xuất xứ: MY"), so cả chuỗi thì mã thật sau nhãn lại bị bác bỏ.
   //
-  // Bảng ALIAS ("UK" → "GB", "Anh" → "GB", "XK" → "HK", "VD" → "VN") chỉ dùng ở đây — ô CÓ NHÃN,
+  // Bảng ALIAS ("UK" → "GB", "Anh" → "GB") chỉ dùng ở đây — ô CÓ NHÃN,
   // tức chỗ khách cố ý khai MỘT mã/tên. Trong câu tự do thì không dùng (xem `ALIAS`).
   if (nGoc && !/\s/.test(nGoc) && !coDau(dai(t).split(/[\s:\-]+/).filter(Boolean).pop() || '')) {
     const chu = nGoc.toUpperCase();

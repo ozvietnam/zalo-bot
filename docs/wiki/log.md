@@ -12,7 +12,33 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
-## 2026-11-12 — OZV-430 điểm 1 (vòng soát 4): bộ dựng mã nước phải hiểu chữ Unicode + Anh/Hồng Kông
+## 2026-11-12 — OZV-489 / OZV-430 điểm 1 (vòng soát 5): bỏ alias XK→HK và VD→VN khỏi bảng ALIAS
+
+- **Commit mã nguồn đã đọc:** `e27d52e` (bản vá vòng 4 đã commit trên nhánh `ozv-430-don-no-packs-hs`), đối chứng `origin/main` = `d776735`.
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (dòng OZV-430 điểm 1: vòng soát 5), `docs/wiki/an-toan.md` (số dòng `packs/hs/input.js` 349 → 355), `docs/wiki/log.md`.
+- **Vì sao:** giám đốc soát vòng 4 của PR #214 CHẶN 2 dòng alias còn lại trong bảng `ALIAS`
+  (`XK → HK`, `VD → VN`) — không phải phỏng đoán, đã tra MCP sourcebot repo `hs-code-api`:
+  - **`XK` không phải nước.** Ở Cổng OZ, `XK` là BIỂU THUẾ XUẤT KHẨU (tệp customs-types.js trong
+    thư mục `lib` của repo đó dòng 20 dùng `XK` làm chiều xuất khẩu; tệp README.md trong thư mục
+    `data/bieu-thue` của repo đó — sheet `XK` = "Biểu thuế xuất khẩu", `EV-XK`/`UKV-XK`/`CPTPP-XK`
+    = "Biểu XK ưu đãi theo hiệp định"). Hồng Kông là `HK` (tệp iso-3166-vn.json trong thư mục `data`
+    của repo đó dòng 18) và KHÔNG thuộc FTA nào (tệp fta.js trong thư mục `lib` của repo đó dòng 30-48)
+    ⇒ `XK → HK` không đổi mức thuế, chỉ khai một nước khách chưa nói.
+  - **`VD` không có trong danh mục Cổng** (`grep '"VD"'` toàn repo `hs-code-api` không ra) và không
+    phải mã ISO ⇒ `VD → VN` là bịa nước.
+- **Vá thế nào (một commit):**
+  1. `packs/hs/input.js`: `ALIAS = { UK: 'GB', ANH: 'GB' }`; chú giải ngay trên bảng ghi rõ VÌ SAO
+     KHÔNG map XK/VD (dẫn chứng tệp như trên) và hai mã này rơi về giả định có nói của `xuatXuCua`
+     (`{ ma: XUAT_XU_MAC_DINH, giaDinh: true }`) — bot vẫn tra được nhưng nói rõ giả định (Điều VIII).
+  2. `packs/hs/test/xuat-xu-ma-nuoc-vong-4.test.mjs` nhóm C: `countryCode('XK'/'VD')` ⇒ `null`,
+     thêm ràng `!('XK' in ALIAS) && !('VD' in ALIAS)`, thêm `xuatXuCua({ nhan: 'XK'/'VD' })` ⇒
+     `{ ma: 'CN', giaDinh: true }`; GIỮ nguyên ca Hồng Kông thật (`HK`, `Hong Kong`, `Hồng Kông` ⇒ `HK`).
+     Đỏ trước, xanh sau. Không đụng nhóm A/B/D.
+  3. `docs/wiki/an-toan.md`: input.js 349 → 355 dòng (test wiki-no-lon-dong đỏ trước khi sửa số).
+- **Bốn cổng trên commit vá:** `npm test` 1289/1289, `npm run eval` 32/32,
+  `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
+
+
 
 - **Commit mã nguồn đã đọc:** `a7988ff` (nhánh `ozv-430-don-no-packs-hs`), đối chứng `origin/main` = `d776735`.
 - **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (dòng OZV-430 điểm 1), `docs/wiki/an-toan.md`

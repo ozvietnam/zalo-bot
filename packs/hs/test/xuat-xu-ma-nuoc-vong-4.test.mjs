@@ -19,13 +19,14 @@
 //   A. Bộ dựng mã phải hiểu CHỮ UNICODE (chữ + dấu) — không cắt "VIỆT" thành "VI".
 //   B. Anh phải gửi "GB": Cổng so ISO alpha-2 (hs-code-api `data/iso-3166-vn.json:16`;
 //      `lib/fta.js:43` UKVFTA.thanhVien = ['VN','GB']), "UK" không phải mã nước nào.
-//   C. Hồng Kông phải gửi "HK" (`data/iso-3166-vn.json:18`). "XK" trong Cổng là BIỂU THUẾ
-//      XUẤT KHẨU (`lib/customs-types.js:21`, `data/bieu-thue/README.md:97-98`), KHÔNG phải nước.
+//   C. Hồng Kông phải gửi "HK" (`data/iso-3166-vn.json:18`). "XK"/"VD" KHÔNG phải nước — "XK" là
+//      BIỂU THUẾ XUẤT KHẨU (`lib/customs-types.js:20`, `data/bieu-thue/README.md`), "VD" không có
+//      trong danh mục Cổng ⇒ cả hai rơi về giả định có nói, không được bịa nước (vòng soát 4 bỏ alias).
 //   D. "Mỹ" (CÓ DẤU) = Hoa Kỳ (US); "MY"/"my" (KHÔNG DẤU) = Malaysia (MY). Khoá `my` trong
 //      từ điển phải GIỮ (xoá đi là lặp lại đúng lỗi "bác bỏ nước thật" đã bị chặn ở vòng 2).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { countryCode, maNuocTrongCau, findCountryInText, tenNuoc, NUOC, ALIAS } from '../input.js';
+import { countryCode, maNuocTrongCau, findCountryInText, tenNuoc, NUOC, ALIAS, xuatXuCua } from '../input.js';
 
 // ── A. Bộ dựng mã phải hiểu chữ Unicode ───────────────────────────────────────────────────────
 
@@ -63,12 +64,19 @@ test('B: Anh phải gửi GB cho Cổng (Cổng không so "UK")', () => {
 
 // ── C. Hồng Kông = HK ────────────────────────────────────────────────────────────────────────
 
-test('C: Hồng Kông phải gửi HK (XK là biểu xuất khẩu, không phải nước)', () => {
+test('C: Hồng Kông phải gửi HK; XK/VD không phải nước ⇒ rơi về giả định, không bịa', () => {
   for (const v of ['Hồng Kông', 'hồng kông', 'Hong Kong', 'Xuất xứ: Hồng Kông', 'Xuất xứ: Hong Kong', 'HK', 'hk']) {
     assert.equal(countryCode(v), 'HK', `"${v}" là Hồng Kông ⇒ HK`);
   }
-  assert.equal(countryCode('XK'), 'HK', '"XK" là cách gõ của Hồng Kông mà khách hay dùng');
   assert.equal(tenNuoc('HK'), 'Hồng Kông');
+  // "XK" ở Cổng là BIỂU THUẾ XUẤT KHẨU (không phải nước), "VD" không có trong danh mục Cổng
+  // và không phải mã ISO — vòng soát 4 bỏ hai alias cũ XK→HK, VD→VN khỏi bảng.
+  assert.equal(countryCode('XK'), null, '"XK" là biểu thuế xuất khẩu, không phải nước');
+  assert.equal(countryCode('VD'), null, '"VD" không có trong danh mục Cổng, không phải nước');
+  assert.ok(!('XK' in ALIAS) && !('VD' in ALIAS), 'XK/VD không được nằm trong bảng ALIAS');
+  // Khách khai rác ở ô Xuất xứ ⇒ bot KHÔNG bịa nước khách chưa nói: giả định CN + nói rõ giả định.
+  assert.deepEqual(xuatXuCua({ nhan: 'XK' }), { ma: 'CN', giaDinh: true });
+  assert.deepEqual(xuatXuCua({ nhan: 'VD' }), { ma: 'CN', giaDinh: true });
 });
 
 // ── D. "Mỹ" có dấu = Hoa Kỳ, "MY"/"my" không dấu = Malaysia ─────────────────────────────────
