@@ -279,11 +279,18 @@ export function findCountryInText(s) {
   const raw = String(s || '');
   // So từng CỬA SỔ từ (1–3 từ) trên chuỗi CHƯA rụng dấu — không rụng dấu cả câu, vì "Mỹ"
   // (Hoa Kỳ) và "my" (mã ISO Malaysia) là HAI nước khác nhau, chỉ khác nhau ở dấu.
+  //
+  // DÀI TRƯỚC, NGẮN SAU — BẤT KỂ VỊ TRÍ (vòng soát 7 PR #214): quét theo vị trí trái→phải
+  // (vòng `i` ngoài) thì một TỪ ĐƠN va chạm đứng trước nuốt TÊN NƯỚC 2 từ đứng sau:
+  // "ong thép đúc Trung Quốc" dừng ngay ở "đúc" (Đức) và không bao giờ tới "trung quốc";
+  // "mỹ phẩm Hàn Quốc" dừng ở "mỹ" (Hoa Kỳ); "my pham han quoc" dừng ở "my" (Malaysia).
+  // main vẫn ra đúng 6 ca này vì nó duyệt `NUOC` theo thứ tự khoá — khoá 2 từ đứng trước
+  // khoá 1 từ — tức cũng là khớp dài thắng. Đưa luật đó về tường minh: mọi cửa sổ 3 từ
+  // trước, rồi 2 từ, cuối cùng mới tới 1 từ.
   const tu = tachTu(raw);
-  for (let i = 0; i < tu.length; i++) {
-    for (const len of [3, 2, 1]) {
+  for (const len of [3, 2, 1]) {
+    for (let i = 0; i + len <= tu.length; i++) {
       const phan = tu.slice(i, i + len);
-      if (phan.length < len) continue;
       const khoa = norm(phan.join(' '));
       const ma = NUOC[khoa];
       if (!ma) continue;
@@ -292,7 +299,11 @@ export function findCountryInText(s) {
       return ma;
     }
   }
-  const m = raw.match(/(?:^|\s)(CN|JP|KR|TW|TH|US|DE|IN|MY|ID|VN|GB|HK)(?=\s|$|,)/);
+  // Regex mã trơ cuối cùng GIỮ DANH SÁCH CỦA MAIN (không GB/HK — vòng soát 7 PR #214): thêm
+  // "GB" vào đây là bắt "500 GB" của "ổ cứng 500 GB SSD" thành Vương quốc Anh (dung lượng).
+  // GB/HK trần trong câu vẫn đọc được qua `maNuocTrongCau` ("hàng từ GB", "made in HK",
+  // "Nike ... HK" cuối câu) — chỗ đó có rào vị trí, không bắt bừa mã đứng giữa câu.
+  const m = raw.match(/(?:^|\s)(CN|JP|KR|TW|TH|US|DE|IN|MY|ID|VN)(?=\s|$|,)/);
   return m ? m[1] : null;
 }
 

@@ -1,6 +1,6 @@
 # Nhật ký wiki
 
-> Cập nhật: 2026-11-12 · commit: b4d5ca9
+> Cập nhật: 2026-11-12 · commit: ce59cc1
 
 Nhật ký thay đổi của bộ wiki trong docs/wiki. Mỗi dòng ghi: ngày, commit của mã nguồn
 đã đọc khi viết, và những trang bị thay đổi hoặc thêm mới.
@@ -11,6 +11,15 @@ Quy ước:
 - Ghi rõ **vì sao** đổi, không chỉ ghi "sửa lỗi".
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
+
+## 2026-11-12 — OZV-489 / OZV-430 điểm 1 (vòng soát 7): khớp tên nước DÀI thắng từ đơn va chạm; regex mã trơ về danh sách main; gộp main 50907f2 vào nhánh
+
+- **Commit mã nguồn đã đọc:** `ce59cc1` (nhánh `ozv-430-don-no-packs-hs` sau khi gộp main `50907f2` — PR #215 đã lên main lúc 16:45 VN), đối chứng `origin/main` = `50907f2`.
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (dòng OZV-430 điểm 1: thêm vòng 7, đổi trạng thái "chờ soát vòng 5"→"vòng 7"), `docs/wiki/an-toan.md` (số dòng `packs/hs/input.js` 355 → 366; gộp mục đếm tệp vượt 300 dòng với bản cập nhật sau #215: engine.js 341), `docs/wiki/log.md`.
+- **Vì sao:** giám đốc soát vòng 6 CHẶN với **6 hồi quy thật so với main** (kiểm tay từng ca trên worktree `cf49b45`, kèm soát chéo Gemini): vòng 4 đổi `findCountryInText` quét theo VỊ TRÍ trái→phải nên TỪ ĐƠN va chạm đứng trước ("đúc"→Đức, "hàn"→Hàn Quốc, "mỹ/mỳ"→Hoa Kỳ) nuốt TÊN NƯỚC 2 từ đứng sau; riêng "ổ cứng 500 GB SSD" sai vì regex mã trơ vòng 4 thêm `GB` nên bắt "GB" là DUNG LƯỢNG. Cả 6 câu là mô tả hàng khách gõ hàng ngày — sai nước là sai mức thuế in cho khách (Điều III) và mã đi vào mô tả khai báo (Điều VIII).
+- **Vá thế nào (một commit):** đưa luật của main về tường minh — quét MỌI cửa sổ 3 từ trước, rồi 2 từ, cuối cùng 1 từ, bất kể vị trí (main đạt được điều này một cách ngầm do duyệt `NUOC` theo thứ tự khoá, khoá 2 từ đứng trước); regex mã trơ cuối `findCountryInText` bỏ `GB|HK` về đúng danh sách của main — GB/HK trần trong câu vẫn đọc được qua `maNuocTrongCau` ("hàng từ GB", "made in HK", "Nike … HK" cuối câu), chỗ có rào vị trí nên không bắt bừa.
+- **Gộp main trước theo chỉ đạo:** giám đốc dặn rebase lên `50907f2`; nhánh đã đẩy lên origin (PR #214) nên rebase buộc force-push — luật công ty cấm. Gộp (merge) `origin/main` vào nhánh (`ce59cc1`): cùng hiệu lực với rebase (test chạy trên trạng thái có #215, PR hết xung đột) mà push thường. Xung đột 3 trang wiki giải theo hướng GIỮ CẢ HAI PHÍA (OZV-496 của main + các vòng của nhánh), số đếm tệp vượt 300 dòng lấy theo đo thật trên cây đã gộp.
+- **Test:** `packs/hs/test/xuat-xu-ma-nuoc-vong-7.test.mjs` (7 test — 6 ca hồi quy đúng bảng giám đốc, đường quyết định `xuatXuCua`/`countryCode`, chốt ngược giữ vòng 4–5: XK/VD→null, UK/ANH/Anh→GB, HK/Hồng Kông→HK, "Mỹ"→US/"my"→MY, ca main đang đúng vẫn đúng). **4/7 test đỏ trước bản vá.** Bốn cổng trên bản vá: `npm test` 1304/1304, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
 
 ## 2026-11-12 — OZV-496: bot không im khi Cổng chậm — "đang tra" ≤ 3 giây + câu tạm khi hết 120 giây chờ Cổng
 
