@@ -2,7 +2,7 @@
 // Mỗi gói gom 1 hoặc nhiều công cụ của Cổng OZ (MCP). Muốn thêm gói khi Cổng có công cụ mới:
 // thêm một mục vào PACKAGES (so, ten, congCu, mau, chay). Gói chỉ hiện khi Cổng có đủ công cụ bắt buộc.
 // Gói có việc nền (1, 4) tách chay thành batDau (gọi Cổng, không chờ) + xong (dựng chữ từ kết quả) để index.js giao việc cho lõi.
-import { parseLabeled, firstHs8, allHs8, soHieuList, countryCode, findCountryInText, norm, laNhanChung, xuatXuCua, chuHoSoChoXuatXu, tenNuoc } from './input.js';
+import { parseLabeled, firstHs8, allHs8, soHieuList, countryCode, norm, laNhanChung, xuatXuCua, chuHoSoChoXuatXu, tenNuoc, VIET_TAT_KHONG_PHAI_NUOC, ALIAS_TRONG_CAU, aliasCuoiCau } from './input.js';
 import { renderResult, renderClassify, nhacPhongVe, renderPhanLoaiDayDu, nhanXuatXu } from './render.js';
 import { renderShtt, nhacNhanChung, donNhanChung } from './render-shtt.js';
 import { plain } from './style.js';
@@ -594,8 +594,24 @@ export const PACKAGES = [
       // Từ chung chung ("oem", "no brand"…): không gọi Cổng, không trừ điểm — issue #169.
       if (laNhanChung(tenNhan)) return `${nhacNhanChung(tenNhan)}\n\nAnh/chị gửi đúng nhãn in trên hàng (hoặc ảnh logo) để em kiểm giúp nhé.`;
       // Chỉ gửi xuất xứ khi khách thực sự đưa (dòng "Xuất xứ:" hoặc mã nước cuối tin "Nike 64041190 CN") — không đoán.
+      //
+      // HAI NGUỒN, HAI LUẬT (OZV-430 điểm 1, vòng soát 8): ô CÓ NHÃN "Xuất xứ:" là khách cố ý
+      // khai nên `countryCode` chấp cả bảng ISO; ngoài ra CHỈ nhận MÃ 2 CHỮ IN HOA ĐỨNG CUỐI
+      // câu ("Nike 64041190 CN", "Nike 64041190 TQ"), có rào `VIET_TAT_KHONG_PHAI_NUOC`
+      // ("Nike 64041190 SX" không thành Sint Maarten).
+      //
+      // KHÔNG quét cả câu mô tả (lỗi vòng soát 8): khách ghi tên hàng có từ trùng tên nước
+      // ("Hòa Phát ống thép đúc 73041900", "Thorakao mỹ phẩm 33049930") là chưa hề khai xuất
+      // xứ — quét tiếp thì bot tự gán nước rồi đẩy sang `kiem_tra_shtt`, sai đèn rủi ro.
       const cuoi = (conLai.match(/\b([A-Z]{2})\s*$/) || [])[1];
-      const xuatXu = (v.xuatXu && countryCode(v.xuatXu)) || (cuoi && countryCode(cuoi)) || null;
+      // MÃ CUỐI CÂU: mã ISO thật thì nhận như cũ ("Nike 64041190 CN" ⇒ CN). ALIAS ("UK") thì CHỈ
+      // nhận khi đứng NGAY SAU từ dẫn xuất xứ ("made in UK" ⇒ GB) — "áo size UK" là kích cỡ
+      // giày, KHÔNG phải nước (vòng soát 9 PR #214: gói 6 gửi mã rác lên Cổng làm đèn rủi ro sai).
+      const xuatXu = (v.xuatXu && countryCode(v.xuatXu))
+        || (cuoi && !VIET_TAT_KHONG_PHAI_NUOC.has(cuoi)
+          ? (ALIAS_TRONG_CAU[cuoi] ? aliasCuoiCau(conLai) : countryCode(cuoi))
+          : null)
+        || null;
       const r = await ctx.mcp.callTool('kiem_tra_shtt', clean({ tenNhan, maHs, xuatXu, tenNguoiNhap: v.tenNguoiNhap }));
       const tieuDe = `{b}®️ Rủi ro nhãn hiệu "${tenNhan}"${maHs ? ` — ${fmtHs(maHs)}` : ''}{/b}`;
       // Bản đầy (chứng cứ, nguồn, mốc dữ liệu) để khách gõ "chi tiết" xem lại; tin chính chỉ 4 dòng.

@@ -1,6 +1,6 @@
 # Nhật ký wiki
 
-> Cập nhật: 2026-11-12 · commit: bdb9dcd
+> Cập nhật: 2026-11-12 · commit: ce59cc1
 
 Nhật ký thay đổi của bộ wiki trong docs/wiki. Mỗi dòng ghi: ngày, commit của mã nguồn
 đã đọc khi viết, và những trang bị thay đổi hoặc thêm mới.
@@ -12,6 +12,15 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-12 — OZV-489 / OZV-430 điểm 1 (vòng soát 7): khớp tên nước DÀI thắng từ đơn va chạm; regex mã trơ về danh sách main; gộp main 50907f2 vào nhánh
+
+- **Commit mã nguồn đã đọc:** `ce59cc1` (nhánh `ozv-430-don-no-packs-hs` sau khi gộp main `50907f2` — PR #215 đã lên main lúc 16:45 VN), đối chứng `origin/main` = `50907f2`.
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (dòng OZV-430 điểm 1: thêm vòng 7, đổi trạng thái "chờ soát vòng 5"→"vòng 7"), `docs/wiki/an-toan.md` (số dòng `packs/hs/input.js` 355 → 366; gộp mục đếm tệp vượt 300 dòng với bản cập nhật sau #215: engine.js 341), `docs/wiki/log.md`.
+- **Vì sao:** giám đốc soát vòng 6 CHẶN với **6 hồi quy thật so với main** (kiểm tay từng ca trên worktree `cf49b45`, kèm soát chéo Gemini): vòng 4 đổi `findCountryInText` quét theo VỊ TRÍ trái→phải nên TỪ ĐƠN va chạm đứng trước ("đúc"→Đức, "hàn"→Hàn Quốc, "mỹ/mỳ"→Hoa Kỳ) nuốt TÊN NƯỚC 2 từ đứng sau; riêng "ổ cứng 500 GB SSD" sai vì regex mã trơ vòng 4 thêm `GB` nên bắt "GB" là DUNG LƯỢNG. Cả 6 câu là mô tả hàng khách gõ hàng ngày — sai nước là sai mức thuế in cho khách (Điều III) và mã đi vào mô tả khai báo (Điều VIII).
+- **Vá thế nào (một commit):** đưa luật của main về tường minh — quét MỌI cửa sổ 3 từ trước, rồi 2 từ, cuối cùng 1 từ, bất kể vị trí (main đạt được điều này một cách ngầm do duyệt `NUOC` theo thứ tự khoá, khoá 2 từ đứng trước); regex mã trơ cuối `findCountryInText` bỏ `GB|HK` về đúng danh sách của main — GB/HK trần trong câu vẫn đọc được qua `maNuocTrongCau` ("hàng từ GB", "made in HK", "Nike … HK" cuối câu), chỗ có rào vị trí nên không bắt bừa.
+- **Gộp main trước theo chỉ đạo:** giám đốc dặn rebase lên `50907f2`; nhánh đã đẩy lên origin (PR #214) nên rebase buộc force-push — luật công ty cấm. Gộp (merge) `origin/main` vào nhánh (`ce59cc1`): cùng hiệu lực với rebase (test chạy trên trạng thái có #215, PR hết xung đột) mà push thường. Xung đột 3 trang wiki giải theo hướng GIỮ CẢ HAI PHÍA (OZV-496 của main + các vòng của nhánh), số đếm tệp vượt 300 dòng lấy theo đo thật trên cây đã gộp.
+- **Test:** `packs/hs/test/xuat-xu-ma-nuoc-vong-7.test.mjs` (7 test — 6 ca hồi quy đúng bảng giám đốc, đường quyết định `xuatXuCua`/`countryCode`, chốt ngược giữ vòng 4–5: XK/VD→null, UK/ANH/Anh→GB, HK/Hồng Kông→HK, "Mỹ"→US/"my"→MY, ca main đang đúng vẫn đúng). **4/7 test đỏ trước bản vá.** Bốn cổng trên bản vá: `npm test` 1304/1304, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
+
 ## 2026-11-12 — OZV-496: bot không im khi Cổng chậm — "đang tra" ≤ 3 giây + câu tạm khi hết 120 giây chờ Cổng
 
 - **Commit mã nguồn đã đọc:** `cf49b45` (nhánh `ozv-430-don-no-packs-hs` là main hiện tại lúc bắt đầu; làm trên worktree riêng, nhánh `ozv-496-bot-khong-im-khi-cong-cham`).
@@ -22,6 +31,159 @@ Quy ước:
   Sửa trong lượt (không đụng hàng đợi ưu tiên spec 008 — đã tra, `gateway/` là Cổng AI Studio, không nằm trên đường phân loại mã): bọc thêm `brain.hieu`/`editor.chot` để "đang tra" bắn ngay khi đợi não; thêm câu tạm `congCham` sau `CAU_TAM_SAU_MS = 120_000`; cửa gửi bước 6 bỏ so chữ khuôn cho tin `progress` (đảo luật sự cố #9 — câu "đang tra" của câu khách MỚI không còn bị bỏ `similar:1.00`).
   Số đo kèm theo lần đo 12/11: bộ 50 ca dựng từ văn bản pháp luật — top-1 **66 %**, top-3 **80 %**, 7 ca không ra mã.
 - **Kiểm tra:** `npm test` xanh, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.
+
+## 2026-11-12 — OZV-489 / OZV-430 điểm 1 (vòng soát 5): bỏ alias XK→HK và VD→VN khỏi bảng ALIAS
+
+- **Commit mã nguồn đã đọc:** `e27d52e` (bản vá vòng 4 đã commit trên nhánh `ozv-430-don-no-packs-hs`), đối chứng `origin/main` = `d776735`.
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (dòng OZV-430 điểm 1: vòng soát 5), `docs/wiki/an-toan.md` (số dòng `packs/hs/input.js` 349 → 355), `docs/wiki/log.md`.
+- **Vì sao:** giám đốc soát vòng 4 của PR #214 CHẶN 2 dòng alias còn lại trong bảng `ALIAS`
+  (`XK → HK`, `VD → VN`) — không phải phỏng đoán, đã tra MCP sourcebot repo `hs-code-api`:
+  - **`XK` không phải nước.** Ở Cổng OZ, `XK` là BIỂU THUẾ XUẤT KHẨU (tệp customs-types.js trong
+    thư mục `lib` của repo đó dòng 20 dùng `XK` làm chiều xuất khẩu; tệp README.md trong thư mục
+    `data/bieu-thue` của repo đó — sheet `XK` = "Biểu thuế xuất khẩu", `EV-XK`/`UKV-XK`/`CPTPP-XK`
+    = "Biểu XK ưu đãi theo hiệp định"). Hồng Kông là `HK` (tệp iso-3166-vn.json trong thư mục `data`
+    của repo đó dòng 18) và KHÔNG thuộc FTA nào (tệp fta.js trong thư mục `lib` của repo đó dòng 30-48)
+    ⇒ `XK → HK` không đổi mức thuế, chỉ khai một nước khách chưa nói.
+  - **`VD` không có trong danh mục Cổng** (`grep '"VD"'` toàn repo `hs-code-api` không ra) và không
+    phải mã ISO ⇒ `VD → VN` là bịa nước.
+- **Vá thế nào (một commit):**
+  1. `packs/hs/input.js`: `ALIAS = { UK: 'GB', ANH: 'GB' }`; chú giải ngay trên bảng ghi rõ VÌ SAO
+     KHÔNG map XK/VD (dẫn chứng tệp như trên) và hai mã này rơi về giả định có nói của `xuatXuCua`
+     (`{ ma: XUAT_XU_MAC_DINH, giaDinh: true }`) — bot vẫn tra được nhưng nói rõ giả định (Điều VIII).
+  2. `packs/hs/test/xuat-xu-ma-nuoc-vong-4.test.mjs` nhóm C: `countryCode('XK'/'VD')` ⇒ `null`,
+     thêm ràng `!('XK' in ALIAS) && !('VD' in ALIAS)`, thêm `xuatXuCua({ nhan: 'XK'/'VD' })` ⇒
+     `{ ma: 'CN', giaDinh: true }`; GIỮ nguyên ca Hồng Kông thật (`HK`, `Hong Kong`, `Hồng Kông` ⇒ `HK`).
+     Đỏ trước, xanh sau. Không đụng nhóm A/B/D.
+  3. `docs/wiki/an-toan.md`: input.js 349 → 355 dòng (test wiki-no-lon-dong đỏ trước khi sửa số).
+- **Bốn cổng trên commit vá:** `npm test` 1289/1289, `npm run eval` 32/32,
+  `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
+
+
+
+- **Commit mã nguồn đã đọc:** `a7988ff` (nhánh `ozv-430-don-no-packs-hs`), đối chứng `origin/main` = `d776735`.
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (dòng OZV-430 điểm 1), `docs/wiki/an-toan.md`
+  (thêm `packs/hs/input.js` vào danh sách tệp vượt 300 dòng — 293 → 349 dòng), `docs/wiki/log.md`.
+- **Vì sao:** giám đốc chặn PR #214 lần ba với bốn nhóm lỗi còn lại. Vòng 3 vá được ô CÓ NHÃN,
+  nhưng bộ dựng mã trong CÂU TỰ DO vẫn dùng regex ASCII `[A-Z]{2}` + ranh giới `[^A-Za-z0-9]`,
+  nên chữ có dấu bị CẮT mảnh và phần còn lại đọc thành mã ISO **thật**:
+
+  | câu khách gõ | mã bot gửi Cổng (vòng 3) | đúng ra | mã ISO bị đọc nhầm |
+  | --- | --- | --- | --- |
+  | `hàng VIỆT NAM` | `VI` | `VN` | Virgin Islands |
+  | `hàng MỸ` (dạng NFD) | `MY` | `US` | Malaysia |
+  | `hàng ĐỒNG` | `NG` | không có nước | Nigeria |
+  | `hàng GHẾ` | `GH` | không có nước | Ghana |
+  | `CÀ PHÊ` | `PH` | không có nước | Philippines |
+
+  Gửi mã sai ⇒ Cổng không khớp dòng FTA nào nên ưu đãi C/O mẫu E rụng, khách đọc mức thuế cao
+  hơn thật mà tưởng đã tra đúng (Điều III), và mã này đi thẳng vào `sinh_mo_ta_khai_bao` tức
+  in lên MÔ TẢ KHAI BÁO khách dán vào tờ khai (Điều VIII).
+- **Vá thế nào (một commit, bốn nhóm):**
+  1. **A — bộ dựng mã hiểu chữ Unicode.** `tachTu` (`packs/hs/input.js:189`) tách "từ" theo
+     `[\p{L}\p{N}][\p{L}\p{N}\p{M}]*` nên "VIỆT" là MỘT từ; từ có dấu (`\p{M}`) không phải mã ISO.
+     `maNuocTrongCau` (`packs/hs/input.js:207`) và `findCountryInText` (`packs/hs/input.js:272`)
+     dùng chung hàm này — trước đó hai bên lệch nhau: `findCountryInText` tách bằng
+     `[\p{L}\p{N}]+` nên dấu rời (NFD) bị RƠI và "Mỹ" lại thành "my".
+  2. **B — Anh = `GB`.** Cổng OZ so ISO alpha-2 — ở repo **hs-code-api**: tệp iso-3166-vn.json
+     trong thư mục `data` dòng 16 (`GB`) và tệp fta.js trong thư mục `lib` dòng 43
+     (`ukvfta.thanhVien = ['VN','GB']`). "UK" không phải mã nước nào — gửi "UK" thì Cổng báo
+     mã quốc gia không có trong danh mục ISO (tệp declaration-validator.js trong thư mục `lib`
+     dòng 368) và không khớp ưu đãi (tệp fta.js trong thư mục `lib` dòng 81).
+  3. **C — Hồng Kông = `HK`.** Tệp iso-3166-vn.json trong thư mục `data` dòng 18 của repo đó.
+     **"XK" KHÔNG phải Hồng Kông**: trong Cổng, "XK" là BIỂU THUẾ XUẤT KHẨU (tệp
+     customs-types.js trong thư mục `lib` dòng 21; tệp README.md trong thư mục `data/bieu-thue`
+     dòng 97-98 — `EV-XK`/`UKV-XK`/`CPTPP-XK` là các sheet xuất khẩu), đường so ưu đãi thật là
+     tệp fta.js trong thư mục `lib` dòng 73-83 so mã 2 chữ với `thanhVien`. Ô "Xuất xứ: XK"
+     vẫn đọc thành `HK` (khách hay gõ XK cho Hồng Kông) nhưng KHÔNG BAO GIỜ gửi "XK" lên Cổng.
+  4. **D — "Mỹ" (có dấu) = Hoa Kỳ, "MY"/"my" (không dấu) = Malaysia.** Khoá `'my'` trong từ điển
+     `NUOC` (`packs/hs/input.js:99`) **GIỮ** (xoá đi là lặp lại đúng lỗi "bác bỏ nước thật" bị
+     chặn ở vòng 2); `findCountryInText` nay so trên từ CHƯA rụng dấu nên phân biệt được hai nước.
+- **Bảng `ALIAS` riêng, chỉ dùng ở ô CÓ NHÃN** (`packs/hs/input.js:120`): `UK→GB`, `ANH→GB`,
+  `XK→HK`, `VD→VN`. KHÔNG dùng khi quét trong câu tự do: "anh" trong "anh gửi hàng" là đại từ,
+  "UK" trong "size UK 10" là kích cỡ áo. `VD→VN` lấy theo chỉ đạo giám đốc; `grep '"VD"'` toàn
+  repo `hs-code-api` không có kết quả nào — đã ghi chú trong mã nguồn để đối chiếu lại.
+- **Sửa trích dẫn sai:** `countryCode` trước đây trích tệp import-oz-declarations.mjs trong thư
+  mục `scripts` của repo **hs-code-api** dòng 87 (`mapOriginToIso2`) — hàm đó nhận MỌI cặp chữ
+  2 ký tự nên không phải bảng tra nước (cũng là nơi gốc của việc gửi mã rác lên Cổng). Nay trích
+  đúng tệp iso-3166-vn.json trong thư mục `data` + tệp fta.js trong thư mục `lib` dòng 30-48.
+- **Bài học ghi lại:** cùng một bài toán ("đọc xuất xứ") có HAI đường vào — ô có nhãn và câu tự do —
+  nên mọi hàm đọc phải dùng CHUNG một cách tách từ; hai bản tách lệch nhau làm lỗi "Mỹ = Malaysia"
+  quay lại đúng lúc sửa xong. Và: khi sửa bảng dữ liệu, phải tra bằng chứng ở repo Cổng (`hs-code-api`)
+  trước khi tin tên gọi — giám đốc đoán "XK = Hồng Kông" theo tên sheet `EV-XK`, nhưng đọc
+  tệp customs-types.js trong thư mục `lib` của repo đó mới thấy XK là hướng XUẤT KHẨU.
+- **Cổng máy:** `npm test` 1289/1289 (+20 test đạt) · `npm run eval` 32/32 · `node scripts/qa-that.mjs --mock`
+  6/6 · `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
+
+## 2026-11-12 — OZV-430 điểm 1 (vòng soát 3): tên nước có dấu thôi bị đọc thành mã ISO
+
+- **Commit mã nguồn đã đọc:** `f8083c8` (nhánh `ozv-430-don-no-packs-hs`), đối chứng `origin/main` = `d776735`.
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (dòng OZV-430 điểm 1), `docs/wiki/log.md`.
+- **Vì sao:** giám đốc chặn PR #214 lần hai. Bản vá vòng 2 xét hình "hai chữ cái" trên
+  `nGoc = boNhanXuatXu(norm(t))`, mà `norm` đã **rụng dấu**, nên `"Mỹ" → "my"` trùng mã ISO
+  Malaysia và không bao giờ xuống tới `NUOC['my'] = 'US'`. Bảng so sánh hai worktree:
+
+  | ô "Xuất xứ:" khách gõ | main (`d776735`) | nhánh vòng 2 | nhánh nay |
+  | --- | --- | --- | --- |
+  | `Mỹ` / `mỹ` / `MỸ` | `US` | **`MY`** ✗ | `US` |
+  | `Xuất xứ: Mỹ` | `null` | **`MY`** ✗ | `US` |
+  | `MY` / `My` / `my` | `MY` | `MY` | `MY` |
+  | `Hoa Kỳ` / `Malaysia` | `US` / `MY` | `US` / `MY` | `US` / `MY` |
+
+  Nguy đúng thứ vừa ghi thành luật: `giaDinh:false` nên bot KHÔNG nói giả định, khách đọc thuế
+  Malaysia mà tưởng thuế hàng Mỹ — số sai trông như thật (Điều III + Điều VIII).
+- **Vá thế nào:** mã ISO-3166 **không bao giờ có dấu** ⇒ thêm rào `coDau` (`packs/hs/input.js:9`)
+  cho ngữ cảnh "ô khai riêng một mã". So dấu trên **token cuối** của giá trị còn dấu, không so cả
+  chuỗi, vì nhãn ô cũng có dấu ("Xuất xứ: MY") — so cả chuỗi thì mã thật sau nhãn lại bị bác bỏ.
+  **Không** bỏ `MY` khỏi bảng ISO: đó là lặp lại đúng lỗi "bác bỏ nước thật" bị chặn ở vòng 2.
+- **Bài học ghi vào test:** 31 ca của vòng 2 không bắt được vì không ca nào dùng tên nước CÓ DẤU
+  mà bản không dấu trùng một mã ISO — lỗi lọt qua 4 cổng xanh hai lần liền. Nay `NUOC` được xuất
+  ra (`packs/hs/input.js:88`) và có ca đòi **mọi khoá từ điển đều có ca cả bản có dấu**: thêm khoá
+  mà quên ca test là đỏ ngay. Thêm ca **dấu rời NFD** (Zalo/iOS gửi "Mỹ" = "My" + dấu ngã rời).
+  Bộ `packs/hs/test/xuat-xu-ma-nuoc.test.mjs` lên **70 ca**.
+- **Cổng máy:** `npm test` 1283/1283 + 34 · `npm run eval` 32/32 · `node scripts/qa-that.mjs --mock`
+  6/6 · `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang). Ba script đo luồng tên của giám đốc
+  (`v6`, `v6b`, `v6d`) chạy trên hai worktree ra **giống hệt nhau** — không hồi quy.
+
+## 2026-11-12 — OZV-430 điểm 1: ô "Xuất xứ" chỉ cho mã nước THẬT đi tới Cổng
+
+- **Commit mã nguồn đã đọc:** `d776735` (nhánh `ozv-430-don-no-packs-hs`, dựng từ `origin/main` sau khi PR #213 đã gộp).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (thêm dòng OZV-430 điểm 1), `docs/wiki/log.md`.
+- **Vì sao:** `countryCode` chỉ kiểm **hình** ("hai chữ cái") chứ không kiểm mã đó có phải nước
+  thật không, nên mọi viết tắt khách gõ trong ô "Xuất xứ:" đều thành mã nước và đi thẳng tới Cổng
+  OZ. Đo trên đường thật `hs.handle` (gói 3 "Viết mô tả khai báo", gói 6 "Rủi ro nhãn hiệu"), bảng
+  so sánh hai worktree:
+
+  | ô "Xuất xứ:" khách gõ | main (`d776735`) | nhánh này |
+  | --- | --- | --- |
+  | `TQ` | `TQ` | `CN` |
+  | `SX tại TQ` | `SX` | `CN` |
+  | `QC tại VN` | `QC` | `VN` |
+  | `hàng CE` | `CE` | (không gửi nước) |
+  | `JP` / `Nhật Bản` | `JP` | `JP` (giữ nguyên) |
+  | `CF8M` / `PN16` | (không gửi) | (không gửi, giữ nguyên) |
+
+  Hai điều của hiến pháp bị chạm: **Điều III** — mức MFN/ACFTA Cổng trả phụ thuộc mã nước, gửi
+  `SX` hay `TQ` là tra thuế theo một thứ không phải nước nên Cổng không khớp dòng FTA nào, ưu đãi
+  C/O mẫu E rụng và khách đọc mức thuế cao hơn thực tế; **Điều VIII** — mã này còn đi vào
+  `sinh_mo_ta_khai_bao`, tức in lên **mô tả khai báo** khách dán vào chỉ tiêu 1.78 tờ khai, nên
+  "xuất xứ SX" là hồ sơ sai.
+- **Vá ở cửa dữ liệu, không lọc lúc in:** danh sách mã ISO-2 bot biết `MA_NUOC_BIET` +
+  `laMaNuoc` (`packs/hs/input.js:99`, `packs/hs/input.js:105`); mã ngoài danh sách trả `null`, và
+  "TQ" đọc thành `CN` như `findCountryInText` vẫn làm (`packs/hs/input.js:107`). Thứ tự quan trọng:
+  mã ISO hai chữ cái xét TRƯỚC từ điển tên nước, vì `norm('MY')` ra `'my'` và từ điển đọc thành
+  "Mỹ" ⇒ `US`, sai hẳn nước. Vòng quét mã trong câu chỉ nhận chữ IN HOA — quét cả chữ thường thì
+  "made in JP" lấy `in` (Ấn Độ) và đè mất `JP` (lỗi này bản vá đầu của thợ có thật, test bắt được).
+- **Dùng lại, không làm kiểu riêng:** tra MCP `sourcebot` thấy repo `hs-code-api` đã có đúng cách
+  này ở hàm `mapOriginToIso2` (scripts/import-oz-declarations.mjs dòng 87 của repo đó: tra từ điển
+  tên nước trước, rồi mới chấp mã 2 chữ) và bảng tên nước → ISO-2 ở lib/origin-hints.js của repo
+  đó. Làm theo thứ tự đó.
+- **Test:** `packs/hs/test/xuat-xu-ma-nuoc.test.mjs` (22 ca — đi đường thật `hs.handle` ở cả gói 3
+  và gói 6, có bản **vòng hỏi 2 và 3** khi khách sửa ô Xuất xứ, và cả câu **có dấu lẫn không dấu**).
+  16/22 ca đỏ trước bản vá. Đo không hồi quy luồng tên: ba script đo luồng tên của giám đốc (v6,
+  v6b, v6d trong /tmp/soat5) chạy trên hai
+  worktree (nhánh và `origin/main`) ra **giống hệt nhau**. Bốn cổng: `npm test` 1235/1235 + 34,
+  `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6,
+  `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
 
 ## 2026-11-12 — Vòng soát 5 PR #213 / OZV-323: hai HỒI QUY của bản vá vòng 4 — sửa tên LẦN HAI, và câu HỎI của khách bị gửi đi làm tên hàng
 
@@ -608,6 +770,28 @@ Quy ước:
   - `docs/wiki/an-toan.md`: kiểm lại Điều VI — đã trỏ đúng `package.json:8`, không cần sửa.
 - **Ngoài wiki:** thêm giao thức đầu phiên / cuối phiên vào `AGENTS.md`; thêm dòng cảnh báo tài liệu cũ ở đầu `docs/TIEP-TUC.md`.
 
+## 2026-11-12 (nhịp chiều) — OZV-430 điểm 1 vòng soát 2: tách hai ngữ cảnh đọc mã nước
+
+- **Nhánh:** `ozv-430-don-no-packs-hs`, commit `6d203dd`, PR #214 (chờ giám đốc soát lại).
+- **Vì sao có vòng 2:** giám đốc CHẶN bản vá đầu. Bản đầu dùng MỘT danh sách 56 mã viết tay
+  (`MA_NUOC_BIET`) cho cả hai ngữ cảnh đọc mã nước, nên bác bỏ 12 nước CÓ FTA với Việt Nam
+  (`SK SI BG HR LT LV EE LU MT CY` của EVFTA, `BN` ATIGA/CPTPP, `IS`). Khách gõ "84137090 SK"
+  thì bot tra thuế **Trung Quốc** và còn nói "giả định" — nặng hơn bệnh đang chữa, vì sai sang
+  một nước CÓ THẬT, có FTA khác, nên Cổng trả về con số trông như thật.
+- **Đổi hành vi:** tách hai ngữ cảnh trong `packs/hs/input.js` — ô khai riêng một mã chấp bảng
+  ISO-3166-1 alpha-2 đầy đủ (`MA_ISO2`, 249 mã); mã lẫn giữa chữ khác đi `maNuocTrongCau` với ba
+  rào hình/tên/vị trí. Gói 6 (`packs/hs/packages.js:602`) thôi đẩy mã cuối câu tự do qua
+  `countryCode`. Chi tiết và lý do từng chỗ: `docs/wiki/tien-do.md` (dòng OZV-430 điểm 1).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (dòng OZV-430 điểm 1 — ghi lại gốc lỗi, cách tách
+  hai ngữ cảnh, và lý do KHÔNG dùng ISO đầy đủ cho cả hai); `docs/wiki/an-toan.md` (số dòng thật
+  của `packs/hs/packages.js`: 665 → 669, cho khớp cổng kiểm wiki).
+- **Bài học ghi lại (để lần sau không mắc lại):** bản vá kiểu **danh sách cho phép** thì BẮT BUỘC
+  có ca test "có thật mà ngoài danh sách" — đó là chỗ allowlist luôn hỏng. Bộ 22 ca của vòng 1 chỉ
+  gồm thứ bản vá nhắm tới (mã rác + 11 nước trong từ điển `tenNuoc`) nên không bắt được. Cách đo
+  bắt ra lỗi: chạy **cùng một script** trên worktree nhánh và `origin/main` rồi so bảng.
+- **Cổng máy:** `npm test` 1269/1269 (+34 test đạt) · `npm run eval` 32/32 · `node scripts/qa-that.mjs --mock`
+  6/6 · `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang). CI PR #214 xanh hai job trên `6d203dd`.
+
 ## 2026-11-07 — Tạo wiki lần đầu
 
 - **Commit mã nguồn đã đọc:** `64a728a` (nhánh main).
@@ -624,3 +808,16 @@ Quy ước:
 - **Quyết định của chủ repo ngày 06/11:** chỉ **ghi nhận** trong trang tiến độ, không sửa
   hiến pháp hay lộ trình. Việc sửa chính thức là một PR riêng, do chủ repo quyết.
 - **Kiểm tra:** chạy `node scripts/kiem-wiki.mjs --nghiem` phải đạt; CI cũng chạy cổng này.
+
+## 2026-11-12 — OZV-489 vòng 8 (vòng chốt) PR #214: quét theo ưu tiên khoá, Gói 6 chỉ nhận mã cuối câu, luật "my" mới, alias UK trong câu
+- `packs/hs/input.js`: `NHOM_KHOA` (khoá `NUOC` nhóm theo số từ, giữ thứ tự khai báo) — `findCountryInText` quét THEO ƯU TIÊN KHOÁ, không theo vị trí; luật `my` (có dấu→US, IN HOA→MY, thường→US); `ALIAS_TRONG_CAU = { UK: 'GB' }` trong `maNuocTrongCau`; `VIET_TAT_KHONG_PHAI_NUOC` xuất ra.
+- `packs/hs/packages.js` Gói 6: chỉ nhận ô có nhãn hoặc mã 2 chữ IN HOA cuối câu — không quét cả câu mô tả (bỏ gán xuất xứ từ tên hàng).
+- Test: mới `packs/hs/test/xuat-xu-ma-nuoc-vong-8.test.mjs`; sửa 2 test luật "my" cũ (vòng 4 nhóm D, vòng 7 nhóm D). 4 cổng: 1311/1311 · eval 32/32 · qa-that 6/6 · wiki ĐẠT.
+- Quét 1915 chuỗi so main `50907f2`: không ca nào main đúng mà nhánh sai.
+
+## 2026-11-13 — OZV-489 / OZV-430 điểm 1 (vòng soát 9) PR #214: alias ở cuối câu mà không có từ dẫn thì không phải nước
+- **Lỗi thật (giám đốc chặn ở head `6972e8b`):** gói 6 "Nike 64041190 áo size UK" đẩy `xuatXu: 'GB'` lên Cổng (`kiem_tra_shtt`) — "UK" ở đây là kích cỡ giày, không phải xuất xứ; đèn rủi ro nhãn hiệu sai.
+- **Gốc (đo được, không đoán):** vòng 8 cho alias đi CHUNG nhánh với mã ISO ở `maNuocTrongCau` (`|| laCuoi`) nên "áo size UK" ⇒ GB; thêm nữa Gói 6 lấy mã cuối câu rồi đưa qua `countryCode('UK')` ⇒ bảng `ALIAS` ⇒ GB. Hai cửa, một luật.
+- **Vá:** `packs/hs/input.js` — alias trong câu CHỈ được nhận khi đứng ngay sau từ dẫn xuất xứ (`DAN_XUAT_XU`): "made in UK" ⇒ GB, "áo size UK" ⇒ null; mã ISO THẬT ở cuối câu vẫn nhận như cũ ("Nike 64041190 CN" ⇒ CN). Hàm mới `aliasCuoiCau` dùng chung cho Gói 6. `packs/hs/packages.js` Gói 6 — mã cuối câu là alias thì phải qua `aliasCuoiCau`; ô CÓ NHÃN giữ nguyên ("Xuất xứ: UK" ⇒ GB).
+- **Không vỡ:** ô nhãn trần `UK`/`ANH`/`Anh` ⇒ GB · "made in UK" ⇒ GB · "size UK 10" ⇒ null · mã ISO thật cuối câu ⇒ giữ.
+- **Test:** mới `packs/hs/test/xuat-xu-ma-nuoc-vong-9.test.mjs` (4 test tiêu chí); thêm 2 ca đầu-cuối vào test "hồi quy 2" của `packs/hs/test/xuat-xu-ma-nuoc-vong-8.test.mjs` (đo qua `hs.handle`, Gói 6). 4 cổng: npm test 1315/1315 · eval 32/32 · qa-that 6/6 · wiki ĐẠT (16 trang).
