@@ -63,6 +63,31 @@ test('OZV-535 nhóm 1: mã ISO thật đứng sau MÃ HS vẫn là nước (khô
   assert.equal(maCuoiCau('Nike 64041190 CN'), 'CN');
 });
 
+// HỒI QUY (vòng soát đã chặn): mã đơn vị đo đứng sau MÃ HS 8 số KHÔNG phải đơn vị đo.
+// "Nike 64041190 GB" là mã HS rồi mã nước (main đọc vậy) — mất nó là mất nước có FTA EU
+// (`GB` Vương quốc Anh, `MT` Malta, `LT` Litva) ⇒ khách đọc ra mức thuế sai (Điều III).
+test('OZV-535 hồi quy: mã đứng sau MÃ HS 8 số là MÃ NƯỚC, không phải đơn vị đo', () => {
+  for (const ma of ['GB', 'MT', 'LT', 'MM', 'KG', 'CM', 'ML', 'KW']) {
+    const s = `Nike 64041190 ${ma}`;
+    assert.equal(countryCode(s), ma, `"${s}" phải ra ${ma} (khớp main)`);
+    assert.equal(maNuocTrongCau(s), ma, `"${s}" phải ra ${ma} (khớp main)`);
+    assert.equal(xuatXuCua({ nhan: s }).ma, ma, `"${s}" phải ra ${ma} (khớp main)`);
+    assert.equal(xuatXuCua({ nhan: s }).giaDinh, false, `"${s}": khách đã nói nước thì không được nói "giả định"`);
+  }
+});
+
+// HỒI QUY (vòng soát đã chặn): từ dẫn xuất xứ VIẾT HOA bị bỏ qua vì so trực tiếp (không hạ
+// chữ thường) ⇒ "Từ GB" / "Tại SK" / "SX TẠI SG" / "HÀNG TỪ UK" rơi về giả định CN.
+// Khách gõ CAPS trên Zalo là chuyện thường; giá trị mong đợi khớp main.
+test('OZV-535 hồi quy: từ dẫn xuất xứ VIẾT HOA vẫn nhận nước', () => {
+  for (const [s, mong] of [['Từ GB', 'GB'], ['Tại SK', 'SK'], ['SX TẠI SG', 'SG'], ['HÀNG TỪ UK', 'GB']]) {
+    assert.equal(countryCode(s), mong, `"${s}" phải ra ${mong} (khớp main)`);
+    assert.equal(maNuocTrongCau(s), mong, `"${s}" phải ra ${mong} (khớp main)`);
+    assert.equal(xuatXuCua({ nhan: s }).ma, mong, `"${s}" phải ra ${mong} (khớp main)`);
+    assert.equal(xuatXuCua({ nhan: s }).giaDinh, false, `"${s}": khách đã nói nước thì không được nói "giả định"`);
+  }
+});
+
 // ── Nhóm 2: danh từ hàng trùng từ dẫn ──────────────────────────────────────────────────────
 
 const DAN_TU = [
@@ -70,7 +95,7 @@ const DAN_TU = [
   ['ổ BI', 'BI', 'Bhutan — "ổ" là ổ cứng'],
   ['tủ BT', 'BT', 'Belarus — "tủ" là tủ lạnh'],
   ['cửa AL', 'AL', 'Albania — "cửa" là cửa sắt'],
-  ['máy lọc nước RO', 'RO', 'bản không dấu'],
+  ['may loc nuoc RO', 'RO', 'bản không dấu của "máy lọc nước RO"'],
   ['o BI', 'BI', 'bản không dấu của "ổ BI"'],
 ];
 
@@ -111,7 +136,11 @@ test('OZV-535 nhóm 3: "made in ..." bình thường vẫn nhận nước', () =
 
 test('OZV-535 nhóm 1 + 2: gói 6 không tự gán nước từ đơn vị đo / danh từ hàng', async () => {
   // "gói 6 ..." = chọn thẳng gói 6 (giống cách test vòng 8 gọi Cổng).
-  for (const q of ['gói 6 ổ cứng 500 GB', 'gói 6 Karofi máy lọc nước RO 84212100', 'gói 6 bao 50 KG']) {
+  //
+  // MÃ HS đặt TRƯỚC mã cuối câu: nếu đặt SAU ("... RO 84212100") thì regex "mã cuối câu" không
+  // thấy mã nào ⇒ ca xanh dù nhóm 2 chưa sửa (lỗi test giả mà vòng soát đã chặn).
+  for (const q of ['gói 6 ổ cứng 500 GB', 'gói 6 84212100 máy lọc nước RO', 'gói 6 84212100 tủ BT',
+    'gói 6 84212100 cửa AL', 'gói 6 bao 50 KG']) {
     const ctx = ctx6();
     await hs.handle(turn6(q), ctx);
     const shtt = ctx.mcp.calls.find((c) => c.name === 'kiem_tra_shtt');

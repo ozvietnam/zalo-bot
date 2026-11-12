@@ -238,24 +238,45 @@ const DAN_XUAT_XU_ASCII_KHONG_DAU_DAU = new Set(['tu', 'tai']);
  */
 export const DON_VI_DO = new Set(['GB', 'KG', 'MM', 'CM', 'ML', 'KW', 'MT', 'LT']);
 
-/** Mã đứng ngay sau một con số và nằm trong danh sách đơn vị đo ⇒ đơn vị đo, không phải nước. */
-const laDonViDoSauSo = (ma, truoc) => DON_VI_DO.has(ma) && /^\d+(?:[.,]\d+)?$/.test(String(truoc || '').trim());
+/**
+ * Mã đứng ngay sau một CON SỐ LƯỢNG và nằm trong danh sách đơn vị đo ⇒ đơn vị đo, không phải nước.
+ *
+ * RÀO SỐ LƯỢNG vs MÃ HS (vòng soát OZV-535): con số TRƯỚC mã có thể là MÃ HS 8 số của Cổng
+ * ("Nike 64041190 GB"), không phải số lượng ("500 GB" là 500 gigabyte). Nếu không rào, mã nước
+ * đứng sau mã HS bị nuốt: khách khai Vương quốc Anh (`GB`) / Malta (`MT`) / Litva (`LT`) ⇒ bot
+ * rơi về giả định Trung Quốc, khách đọc ra mức thuế sai (Điều III). Mã HS của Cổng có 8 số
+ * (`packs/hs/packages.js:40` `/^\d{8}$/`) ⇒ số từ 8 chữ số trở lên KHÔNG phải số lượng.
+ */
+const laDonViDoSauSo = (ma, truoc) => {
+  if (!DON_VI_DO.has(ma)) return false;
+  const s = String(truoc || '').trim();
+  if (!/^\d+(?:[.,]\d+)?$/.test(s)) return false;
+  return s.replace(/\D/g, '').length < 8;
+};
 
 /** Token trước có phải con số không? ("Nike 64041190 CN" ⇒ "CN" đứng sau mã HS). */
 const laSo = (tok) => /^\d+(?:[.,]\d+)?$/.test(String(tok || '').trim());
 
 /**
  * Token `tu[i]` có phải TỪ DẪN XUẤT XỨ không? (xem chú thích `DAN_XUAT_XU_EN`).
+ *
+ * KHÔNG phân biệt HOA/THƯỜNG (vòng soát OZV-535): so trực tiếp thì "Từ GB" / "Tại SK" /
+ * "SX TẠI SG" / "HÀNG TỪ UK" bị bỏ qua ⇒ khách gõ CAPS trên Zalo là chuyện thường, mà rơi về
+ * giả định Trung Quốc thì khách đọc ra mức thuế sai (Điều III).
+ *
+ * Hạ chữ thường KHÔNG làm mất phân biệt "giữ dấu" — "từ" ≠ "tủ", "tại" ≠ "tai", "của" ≠ "cửa":
+ * bảng tiếng Việt so trên chuỗi GIỮ DẤU nên "TỦ" → "tủ" vẫn không khớp khoá "từ".
  * @param {string[]} tu danh sách từ đã tách
  * @param {number} i vị trí từ đang xét
  */
 const laTuDanXuatXu = (tu, i) => {
   const t = String(tu[i] || '').trim();
+  const tK = t.toLowerCase();
   if (DAN_XUAT_XU_EN.has(norm(t))) return true;
-  if (DAN_XUAT_XU_VN.has(t)) return true;
-  if (DAN_XUAT_XU_ASCII.has(t)) return true;
-  if (DAN_XUAT_XU_VN_YEU.has(t)) return i === 0 || (i > 0 && laTuDanXuatXu(tu, i - 1));
-  if (DAN_XUAT_XU_ASCII_KHONG_DAU_DAU.has(t)) return i > 0;
+  if (DAN_XUAT_XU_VN.has(tK)) return true;
+  if (DAN_XUAT_XU_ASCII.has(tK)) return true;
+  if (DAN_XUAT_XU_VN_YEU.has(tK)) return i === 0 || (i > 0 && laTuDanXuatXu(tu, i - 1));
+  if (DAN_XUAT_XU_ASCII_KHONG_DAU_DAU.has(tK)) return i > 0;
   return false;
 };
 
@@ -288,10 +309,16 @@ export const aliasCuoiCau = (s) => {
 };
 
 /**
- * Mã 2 chữ IN HOA đứng CUỐI câu — nhưng KHÔNG phải ĐƠN VỊ ĐO đứng sau số (OZV-535 nhóm 1).
+ * Mã 2 chữ IN HOA đứng CUỐI câu — nhưng KHÔNG phải ĐƠN VỊ ĐO đứng sau số (OZV-535 nhóm 1)
+ * và KHÔNG phải mã đứng sau DANH TỪ HÀNG (OZV-535 nhóm 2).
  *
  * Gói 6 lấy mã cuối câu theo luật "mã 2 chữ in hoa đứng cuối tin"; "ổ cứng 500 GB" thì "GB"
- * là gigabyte, không phải Vương quốc Anh.
+ * là gigabyte, không phải Vương quốc Anh; "84212100 máy lọc nước RO" thì "RO" là nước lọc
+ * thấm ngược, không phải Romania.
+ *
+ * Vì vậy mã cuối câu CHỈ được nhận khi đứng ngay sau MÃ/SỐ ("Nike 64041190 CN" ⇒ CN) hoặc
+ * ngay sau TỪ DẪN xuất xứ ("hàng từ GB" ⇒ GB, "made in UK" ⇒ UK) — cùng luật với
+ * `maNuocTrongCau` (vòng soát 9 PR #214), nên gói 6 không tự gán nước cho danh từ hàng.
  * @returns {string|null}
  */
 export const maCuoiCau = (s) => {
@@ -299,7 +326,12 @@ export const maCuoiCau = (s) => {
   const m = t.match(/\b([A-Z]{2})\s*$/);
   if (!m) return null;
   const truoc = t.slice(0, m.index).trim().split(/\s+/).pop() || '';
-  return laDonViDoSauSo(m[1], truoc) ? null : m[1];
+  if (laDonViDoSauSo(m[1], truoc)) return null;
+  const tu = tachTu(t);
+  const i = tu.length - 1;
+  const truocToken = i > 0 ? tu[i - 1] : '';
+  const sauMaHoacTuDan = laSo(truocToken) || (i > 0 && laTuDanXuatXu(tu, i - 1));
+  return sauMaHoacTuDan ? m[1] : null;
 };
 
 /** Bỏ nhãn ô xuất xứ ở đầu giá trị ("Xuất xứ: SK", "origin: HR", "xx TQ") để còn lại phần khách khai. */

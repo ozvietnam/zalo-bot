@@ -1,6 +1,6 @@
 # Nhật ký wiki
 
-> Cập nhật: 2026-11-12 · commit: ce59cc1
+> Cập nhật: 2026-11-13 · commit: 67f8ec9
 
 Nhật ký thay đổi của bộ wiki trong docs/wiki. Mỗi dòng ghi: ngày, commit của mã nguồn
 đã đọc khi viết, và những trang bị thay đổi hoặc thêm mới.
@@ -11,6 +11,18 @@ Quy ước:
 - Ghi rõ **vì sao** đổi, không chỉ ghi "sửa lỗi".
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
+
+## 2026-11-13 — OZV-535 vòng soát 2: sửa 4 lỗi giám đốc chặn (mã sau MÃ HS, từ dẫn HOA/THƯỜNG, Gói 6 nhóm 2, test giả)
+
+- **Commit mã nguồn đã đọc:** `67f8ec9` + vá vòng 2 trên nhánh `ozv-535-nuoc-don-vi-tu-dan` (PR #216), đối chứng `main` = `876441c`.
+- **Trang wiki đã sửa:** `docs/wiki/an-toan.md` (số dòng thật `packs/hs/input.js` 520 → **552**), `docs/wiki/tien-do.md` (dòng OZV-535: trạng thái lần 2 + mô tả 4 lỗi đã sửa + số test 9 → 11), `docs/wiki/log.md`.
+- **Vì sao:** giám đốc soát vòng 1 (13/11) CHẶN với **4 lỗi tự tái hiện được** trên chính nhánh — trong đó 2 lỗi là **HỒI QUY so với main** và 1 lỗi là **test giả** (case xanh không hề đi qua nhánh cần kiểm):
+  1. `laDonViDoSauSo` khớp luôn MÃ HS 8 số ⇒ mã nước đứng sau mã HS bị nuốt: "Nike 64041190 GB" rơi về giả định CN (mất `GB` Vương quốc Anh; `MT`/`LT` có FTA EU ⇒ mức thuế sai, Điều III).
+  2. `laTuDanXuatXu` so trực tiếp, không hạ chữ thường ⇒ từ dẫn VIẾT HOA bị bỏ qua ("Từ GB", "Tại SK", "SX TẠI SG", "HÀNG TỪ UK") ⇒ cũng rơi về giả định CN.
+  3. Gói 6 chưa rào nhóm 2 ⇒ "gói 6 84212100 máy lọc nước RO" còn ra `RO` (Romania).
+  4. Test giả: case "bản không dấu" dùng lại đúng chuỗi CÓ dấu; case Gói 6 đặt mã HS ở CUỐI chuỗi nên regex "mã cuối câu" không thấy mã nào.
+- **Vá thế nào (một commit, TDD):** (1) `laDonViDoSauSo` chỉ coi là số lượng khi số trước mã có **dưới 8 chữ số** (mã HS của Cổng có 8 số) — mã đứng sau MÃ HS lại là MÃ NƯỚC, khớp main; (2) `laTuDanXuatXu` so **không phân biệt hoa/thường** (vẫn giữ luật "giữ dấu": "TỦ" → "tủ" ≠ "từ", "TỪ" → "từ" ✓); (3) `maCuoiCau` (Gói 6) chỉ nhận mã cuối câu khi đứng ngay sau MÃ/SỐ ("Nike 64041190 CN") hoặc sau TỪ DẪN ("hàng từ GB", "made in UK") — cùng luật với `maNuocTrongCau`, nên danh từ hàng không còn bị đọc thành nước; (4) viết lại 2 test giả + thêm **2 test HỒI QUY** neo 8 mã sau MÃ HS và 4 chuỗi từ dẫn HOA, kỳ vọng **khớp main** (`GB/MT/LT/MM/KG/CM/ML/KW`; `GB/SK/SG/GB`).
+- **Cổng:** `npm test` (11/11 ở tệp OZV-535, toàn repo xanh), `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.
 
 ## 2026-11-12 — OZV-489 / OZV-430 điểm 1 (vòng soát 7): khớp tên nước DÀI thắng từ đơn va chạm; regex mã trơ về danh sách main; gộp main 50907f2 vào nhánh
 
