@@ -638,6 +638,28 @@ Quy ước:
   - `docs/wiki/an-toan.md`: kiểm lại Điều VI — đã trỏ đúng `package.json:8`, không cần sửa.
 - **Ngoài wiki:** thêm giao thức đầu phiên / cuối phiên vào `AGENTS.md`; thêm dòng cảnh báo tài liệu cũ ở đầu `docs/TIEP-TUC.md`.
 
+## 2026-11-12 (nhịp chiều) — OZV-430 điểm 1 vòng soát 2: tách hai ngữ cảnh đọc mã nước
+
+- **Nhánh:** `ozv-430-don-no-packs-hs`, commit `6d203dd`, PR #214 (chờ giám đốc soát lại).
+- **Vì sao có vòng 2:** giám đốc CHẶN bản vá đầu. Bản đầu dùng MỘT danh sách 56 mã viết tay
+  (`MA_NUOC_BIET`) cho cả hai ngữ cảnh đọc mã nước, nên bác bỏ 12 nước CÓ FTA với Việt Nam
+  (`SK SI BG HR LT LV EE LU MT CY` của EVFTA, `BN` ATIGA/CPTPP, `IS`). Khách gõ "84137090 SK"
+  thì bot tra thuế **Trung Quốc** và còn nói "giả định" — nặng hơn bệnh đang chữa, vì sai sang
+  một nước CÓ THẬT, có FTA khác, nên Cổng trả về con số trông như thật.
+- **Đổi hành vi:** tách hai ngữ cảnh trong `packs/hs/input.js` — ô khai riêng một mã chấp bảng
+  ISO-3166-1 alpha-2 đầy đủ (`MA_ISO2`, 249 mã); mã lẫn giữa chữ khác đi `maNuocTrongCau` với ba
+  rào hình/tên/vị trí. Gói 6 (`packs/hs/packages.js:602`) thôi đẩy mã cuối câu tự do qua
+  `countryCode`. Chi tiết và lý do từng chỗ: `docs/wiki/tien-do.md` (dòng OZV-430 điểm 1).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (dòng OZV-430 điểm 1 — ghi lại gốc lỗi, cách tách
+  hai ngữ cảnh, và lý do KHÔNG dùng ISO đầy đủ cho cả hai); `docs/wiki/an-toan.md` (số dòng thật
+  của `packs/hs/packages.js`: 665 → 669, cho khớp cổng kiểm wiki).
+- **Bài học ghi lại (để lần sau không mắc lại):** bản vá kiểu **danh sách cho phép** thì BẮT BUỘC
+  có ca test "có thật mà ngoài danh sách" — đó là chỗ allowlist luôn hỏng. Bộ 22 ca của vòng 1 chỉ
+  gồm thứ bản vá nhắm tới (mã rác + 11 nước trong từ điển `tenNuoc`) nên không bắt được. Cách đo
+  bắt ra lỗi: chạy **cùng một script** trên worktree nhánh và `origin/main` rồi so bảng.
+- **Cổng máy:** `npm test` 1269/1269 (+34 test đạt) · `npm run eval` 32/32 · `node scripts/qa-that.mjs --mock`
+  6/6 · `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang). CI PR #214 xanh hai job trên `6d203dd`.
+
 ## 2026-11-07 — Tạo wiki lần đầu
 
 - **Commit mã nguồn đã đọc:** `64a728a` (nhánh main).
