@@ -82,13 +82,47 @@ export function parseLabeled(text, fields) {
 const NUOC = { 'trung quoc': 'CN', tq: 'CN', china: 'CN', 'nhat ban': 'JP', nhat: 'JP', 'han quoc': 'KR', han: 'KR',
   'dai loan': 'TW', 'thai lan': 'TH', 'my': 'US', 'hoa ky': 'US', duc: 'DE', 'an do': 'IN', 'viet nam': 'VN', 'malaysia': 'MY', 'indonesia': 'ID' };
 
+/**
+ * Mã ISO-3166 alpha-2 bot BIẾT NÓI TÊN (OZV-430 điểm 1). Đây là cửa dữ liệu: mã nào không có
+ * trong đây thì KHÔNG được coi là nước.
+ *
+ * Trước đây `countryCode` chỉ kiểm HÌNH ("hai chữ cái") nên mọi viết tắt khách gõ trong ô
+ * "Xuất xứ:" đều lọt thành mã nước và đi thẳng tới Cổng OZ: "SX tại TQ" → `SX`, "QC tại VN" →
+ * `QC`, "hàng CE" → `CE`, và cả "TQ" → `TQ` (TQ không có trong ISO-3166; Cổng không khớp dòng FTA
+ * nào nên ưu đãi C/O mẫu E rụng, khách đọc mức thuế cao hơn thật — Điều III). Mã này còn đi vào
+ * `sinh_mo_ta_khai_bao`, tức in lên MÔ TẢ KHAI BÁO khách dán vào chỉ tiêu 1.78 tờ khai (Điều VIII).
+ *
+ * Dùng lại cách của repo `hs-code-api` (`scripts/import-oz-declarations.mjs:87` `mapOriginToIso2`):
+ * tra từ điển tên nước trước, rồi mới chấp mã 2 chữ — và chỉ chấp mã trong danh sách.
+ * Danh sách = đúng những mã `tenNuoc` nói được tên tiếng Việt, cộng các nước bạn hàng hay gặp.
+ */
+const MA_NUOC_BIET = new Set(['CN', 'JP', 'KR', 'TW', 'TH', 'US', 'DE', 'IN', 'VN', 'MY', 'ID',
+  'SG', 'PH', 'KH', 'LA', 'MM', 'HK', 'MO', 'AU', 'NZ', 'CA', 'MX', 'BR', 'RU', 'TR',
+  'GB', 'FR', 'IT', 'ES', 'NL', 'BE', 'CH', 'AT', 'SE', 'NO', 'DK', 'FI', 'PL', 'CZ', 'IE', 'PT',
+  'AE', 'SA', 'IL', 'EG', 'ZA', 'BD', 'PK', 'LK', 'CL', 'AR', 'PE', 'UA', 'HU', 'RO', 'GR']);
+
+/** Mã 2 chữ có phải nước bot biết không? Đây là cửa duy nhất quyết định "mã này là nước". */
+export const laMaNuoc = (ma) => MA_NUOC_BIET.has(String(ma || '').toUpperCase());
+
 export function countryCode(s) {
   const t = String(s || '').trim();
-  if (/^[A-Za-z]{2}$/.test(t)) return t.toUpperCase();
+  // Ô chỉ có hai chữ cái: là NƯỚC khi mã đó có thật. "MY" phải giữ nghĩa Malaysia — nếu tra từ
+  // điển trước thì `norm` đưa "MY" về "my" và từ điển đọc thành "Mỹ" ⇒ US, sai hẳn nước.
+  if (/^[A-Za-z]{2}$/.test(t) && laMaNuoc(t)) return t.toUpperCase();
+  // Tên nước (có dấu hay không) và viết tắt tiếng Việt: "TQ" không phải mã ISO nên tới đây, và
+  // phải ra CN chứ không ra mã "TQ". "Mỹ" có dấu cũng về đây (không khớp hình hai chữ cái).
   const n = norm(t).replace(/^(xuat xu|xx|origin)\s*/, '');
   if (NUOC[n]) return NUOC[n];
-  const m = t.match(/(?:^|\s)([A-Z]{2})(?:\s|$)/);
-  return m ? m[1] : null;
+  if (/^[A-Za-z]{2}$/.test(t)) return null;
+  // Chữ kèm trong ô ("SX tại TQ", "QC tại VN", "made in JP"): quét cả câu, lấy mã NƯỚC THẬT đầu
+  // tiên — không lấy chữ viết tắt đứng đầu chỉ vì nó có hai chữ cái.
+  // Chỉ quét mã IN HOA, như mã gốc vẫn làm: chữ thường hai ký tự là từ trong câu, không phải mã
+  // ("made in JP" mà quét cả chữ thường thì "in" thành Ấn Độ và đè mất JP).
+  for (const m of t.matchAll(/(?:^|[^A-Za-z])([A-Z]{2})(?=$|[^A-Za-z])/g)) {
+    if (laMaNuoc(m[1])) return m[1];
+  }
+  // Còn lại để `findCountryInText` đọc tên nước/viết tắt tiếng Việt trong câu ("SX tại TQ" ⇒ CN).
+  return findCountryInText(t);
 }
 
 export function findCountryInText(s) {
