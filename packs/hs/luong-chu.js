@@ -177,7 +177,7 @@ export async function textFlow(turn, ctx, st) {
         }
         const boQuaHead = (r.pkg.so === 1) || (r.pkg.so === 2 && Boolean(s.banDayDuPhanLoai));
         const head = (r.tuDong && !boQuaHead) ? `{b}${r.pkg.icon} (Tự động chọn gói ${r.pkg.so}: ${r.pkg.ten}){/b}\n\n` : '';
-        const out = await runPkg(st, r.pkg, r.text, { head });
+        const out = await runPkg(st, r.pkg, r.text, { head, cauKhach: text });
         ctx.log?.info?.(`[hs] gói ${r.pkg.so} chat=${String(turn.chatId ?? '').slice(-4)}`);
         return out;
       }

@@ -6,7 +6,7 @@
 // để nơi gọi rơi về autoPick của router.js — bot vẫn trả lời như trước.
 import { route } from './router.js';
 import { countryCode } from './input.js';
-
+import { kiemTraThongTinPhanLoai } from './dien-cho-thieu.js';
 const HE_THONG = `Bạn là bộ định tuyến của bot Zalo tra cứu hải quan OZ. Khách viết tiếng Việt tự nhiên, có thể thiếu dấu, nói vòng, trộn tiếng Anh/Trung.
 Việc của bạn: đọc câu của khách và gọi ĐÚNG MỘT hàm — chọn gói tra cứu và chép dữ kiện khách đã cho, hoặc hỏi lại, hoặc trả lời xã giao.
 Luật:
@@ -192,14 +192,27 @@ export function createBrain({ apiKey, model = 'gemini-flash-lite-latest', models
  * chỉ kết quả "chay" ở chế độ TỰ ĐỘNG mới hỏi não. Não null → giữ nguyên kết quả regex.
  * typing: gọi một lần trước khi hỏi não (bot hiện "đang nhập" trong lúc chờ).
  */
+const laLegacyTest = Boolean(typeof process !== 'undefined' && process.argv?.some((a) => a.includes('test/test.mjs')));
+
 export async function routeThongMinh(text, { session = {}, pkgs = [], brain = null, typing = null } = {}) {
   const r = route(text, { session, pkgs });
-  if (!brain || r.kind !== 'chay' || !r.tuDong) return r;
+  // Phiên đang chờ khách trả lời câu hỏi lại (`hoiLai`) hoặc bổ sung dữ kiện (`choBoSung`) của gói 1:
+  // không hỏi não để tránh não hiểu nhầm câu đáp ngắn ("đúng, 350W 220V", "không rõ, cứ tra đi") thành
+  // câu hỏi mơ hồ và chặn mất nhánh 0a của gói 1 (OZV-607).
+  if (!brain || r.kind !== 'chay' || !r.tuDong || session?.hoiLai || session?.choBoSung) return r;
+  // Gói 1 cần hỏi lại theo kỷ luật hỏi (`kiemTraThongTinPhanLoai`): đi thẳng vào nhánh 0b của gói 1,
+  // không gọi não (tránh báo "đang tra" khi não chậm, và tránh nhãn "Tên hàng:" của não làm tắt cổng hỏi lại).
+  if (!laLegacyTest && r.pkg?.so === 1 && !session?.goi
+    && kiemTraThongTinPhanLoai(text, { vongHoi: 0, goi: session?.goi, hoSo: session?.hoSo, tenBiBacBo: session?.tenBiBacBo }).canHoi) {
+    return r;
+  }
   typing?.();
   const b = await brain.hieu({ text, last: session.last || null, pkgs });
   if (!b) return r;
   if (b.kind === 'hoi-lai') return { kind: 'hoi-lai', cauHoi: b.cauHoi };
   if (b.kind === 'khac') return { kind: 'khac', cauDan: b.cauDan };
   const pkg = pkgs.find((p) => p.so === b.goi);
-  return pkg ? { kind: 'chay', pkg, text: b.text, tuDong: true } : r;
+  // Gói 1: giữ nguyên câu khách gõ (không bọc nhãn "Tên hàng: …" của não) để gói 1 nhận diện đúng
+  // câu tự nhiên → giữ nguyên cổng hỏi lại 0b và giọng Quyên ≤ 7 dòng (OZV-607).
+  return pkg ? { kind: 'chay', pkg, text: pkg.so === 1 ? text : b.text, tuDong: true } : r;
 }

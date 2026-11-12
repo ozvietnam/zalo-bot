@@ -16,12 +16,12 @@ const ALL = ['phan_loai_hs', 'ket_qua_phan_loai', 'tra_thue', 'tra_thu_tuc_nhap_
 const ML = '11111111-2222-4333-8444-555555555555';
 
 /** ctx giả: MCP có đủ 16 công cụ, phiên là object thường (xem `hs.test.mjs`). */
-function fakeCtx(overrides = {}, { vision = null, history = () => [] } = {}) {
+function fakeCtx(overrides = {}, { vision = null, brain = null, history = () => [] } = {}) {
   const script = Object.fromEntries(ALL.map((n) => [n, () => ({ ok: true, data: { ketQua: `ok ${n}` } })]));
   for (const [k, v] of Object.entries(overrides)) script[k] = typeof v === 'function' ? v : () => v;
   const store = {};
   const ctx = {
-    mcp: fakeMcp(script), tools: new Set(ALL), vision, customer: null, history,
+    mcp: fakeMcp(script), tools: new Set(ALL), vision, brain, customer: null, history,
     session: { get: () => structuredClone(store), set: (p) => Object.assign(store, structuredClone(p)) },
     now: () => new Date('2026-11-10T03:00:00Z'), log: { info() {}, error() {} },
   };
@@ -109,4 +109,92 @@ test('[S25] câu hỏi "hỏi lại" còn mở + "xem lại toàn bộ": phải 
   assert.equal(store.hoiLai, null, 'câu hỏi cũ phải đóng');
   assert.doesNotMatch(plain(r.replies[0]?.text ?? ''), /công suất/i, 'không được hỏi lại câu cũ');
   assert.match(plain(r.replies[0]?.text ?? ''), /phân loại lại/i, 'phải nói rõ đang phân loại lại');
+});
+
+// ── [OZV-607] G4 khi có brain bật (main 876441c): não không được chặn cổng hỏi lại hay nuốt câu đáp ──
+function fakeBrainG4() {
+  let soLanGoi = 0;
+  return {
+    get soLanGoi() { return soLanGoi; },
+    async hieu({ text }) {
+      soLanGoi++;
+      if (/máy\s*(sấy|xay)\s*sinh\s*tố/i.test(String(text || ''))) {
+        return { kind: 'chay', goi: 1, text: `Tên hàng: ${String(text).replace(/^tra\s*hs\s*/i, '').trim()}` };
+      }
+      return { kind: 'hoi-lai', cauHoi: 'Dạ, bạn muốn tra cứu thuế, thủ tục hay viết mô tả gì cho mặt hàng này ạ?' };
+    },
+  };
+}
+
+test('[OZV-607] có brain bật: "Tra hs máy sấy sinh tố" hỏi lại trước (0 lần gọi Cổng, 0 việc nền, 0 gọi não); lượt 2 "đúng, 350W 220V" ra 8509.40.00 giọng Quyên', async () => {
+  const brain = fakeBrainG4();
+  const { ctx, calls } = fakeCtx(
+    {
+      phan_loai_hs: { ok: true, data: { maLuot: ML, trangThai: 'DANG_XU_LY' } },
+      tra_thue: { ok: true, data: { ketQua: 'Thuế NK ưu đãi (MFN): 25% | ACFTA (C/O mẫu E): 0% | VAT: 8%' } },
+    },
+    { brain },
+  );
+  const a = await hs.handle(turn('Tra hs máy sấy sinh tố'), ctx);
+  const txtA = plain(a.replies[0]?.text ?? '');
+  assert.match(txtA, /máy xay sinh tố/i, 'lượt 1 phải hỏi xác nhận máy xay sinh tố');
+  assert.match(txtA, /công suất/i, 'lượt 1 phải hỏi công suất');
+  assert.match(txtA, /điện áp/i, 'lượt 1 phải hỏi điện áp');
+  assert.doesNotMatch(txtA, /8509|Thuế suất|Tự động chọn gói/i, 'lượt 1 không được đổ kết quả hay gắn nhãn tự động');
+  assert.equal(tenHangDaTra(calls).length, 0, 'lượt 1 thiếu thông số thì KHÔNG được gọi Cổng');
+  assert.equal(a.jobs.length, 0, 'lượt 1 hỏi lại thì không có việc nền (không gửi "đang tra")');
+  assert.equal(brain.soLanGoi, 0, 'lượt 1 đã thuộc cổng hỏi lại của gói 1 thì không gọi não (tránh báo "đang tra" khi não chậm)');
+
+  const b = await hs.handle(turn('đúng, 350W 220V'), ctx);
+  const ts = tenHangDaTra(calls);
+  assert.equal(ts.length, 1, `lượt 2 phải gọi Cổng đúng 1 lần (đang có ${ts.length})`);
+  assert.match(ts[0], /máy xay sinh tố/i);
+  assert.match(ts[0], /350W/i);
+  assert.equal(b.jobs.length, 1, 'lượt 2 phải tạo việc nền chờ kết quả phân loại');
+
+  const xong = await hs.onJobResult(b.jobs[0], { ok: true, trangThai: 'XONG', data: { maDeXuat: '85094000' } }, ctx);
+  const txtXong = plain(xong.replies[0]?.text ?? '');
+  assert.match(txtXong, /8509\.40\.00/, 'phải trả mã 8509.40.00');
+  assert.match(txtXong, /soạn luôn mô tả khai báo/i, 'phải trả theo giọng Quyên ngắn gọn');
+  assert.doesNotMatch(txtXong, /Tự động chọn gói|Gõ "menu"/i, 'giọng Quyên không dán tiêu đề tự động hay footer menu');
+
+  const ct = await hs.handle(turn('chi tiết'), ctx);
+  const txtCt = plain(ct.replies[0]?.text ?? '');
+  assert.match(txtCt, /Bản chi tiết/, 'gõ "chi tiết" phải mở lại bản đầy đủ');
+  assert.match(txtCt, /8509\.40\.00/);
+});
+
+test('[OZV-607] có brain bật: "không rõ, cứ tra đi" → tra theo giả định, nêu rõ giả định ở dòng 1', async () => {
+  const brain = fakeBrainG4();
+  const { ctx, calls } = fakeCtx(
+    { phan_loai_hs: { ok: true, data: { maLuot: ML, trangThai: 'DANG_XU_LY' } } },
+    { brain },
+  );
+  await hs.handle(turn('Tra hs máy sấy sinh tố'), ctx);
+  assert.equal(tenHangDaTra(calls).length, 0);
+
+  const b = await hs.handle(turn('không rõ, cứ tra đi'), ctx);
+  const ts = tenHangDaTra(calls);
+  assert.equal(ts.length, 1, `phải gọi Cổng đúng 1 lần (đang có ${ts.length})`);
+  assert.match(ts[0], /máy xay sinh tố/i);
+  assert.match(ts[0], /gia dụng/i);
+  assert.equal(b.jobs.length, 1);
+
+  const xong = await hs.onJobResult(b.jobs[0], { ok: true, trangThai: 'XONG', data: { maDeXuat: '85094000' } }, ctx);
+  const dong1 = plain(xong.replies[0]?.text ?? '').split('\n')[0] || '';
+  assert.match(dong1, /theo giả định/i, `dòng 1 phải nêu rõ giả định: "${dong1}"`);
+  assert.match(dong1, /máy xay sinh tố/i, `dòng 1 phải nêu món giả định: "${dong1}"`);
+  assert.match(plain(xong.replies[0]?.text ?? ''), /8509\.40\.00/);
+});
+
+test('[OZV-607] có brain bật: câu tự do đã đủ thông số ("Tra hs máy xay sinh tố 350W 220V") vẫn giữ giọng Quyên, không bị nhãn "Tên hàng:" của não tắt giọng Quyên', async () => {
+  const brain = fakeBrainG4();
+  const { ctx } = fakeCtx(
+    { phan_loai_hs: { ok: true, data: { maLuot: ML, trangThai: 'DANG_XU_LY' } } },
+    { brain },
+  );
+  const a = await hs.handle(turn('Tra hs máy xay sinh tố 350W 220V'), ctx);
+  assert.equal(a.jobs.length, 1);
+  assert.equal(a.jobs[0].context.giongQuyen, true, 'câu tự do phải bật giongQuyen');
+  assert.equal(a.jobs[0].context.chonNhanh, false, 'câu tự do không được bị gắn chonNhanh=true');
 });
