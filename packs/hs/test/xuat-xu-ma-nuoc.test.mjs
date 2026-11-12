@@ -1,6 +1,6 @@
 // OZV-430 điểm 1: `countryCode` nhận MỌI cặp chữ in hoa làm mã nước.
 //
-// Nhánh dự phòng của `countryCode` (`packs/hs/input.js:87,90`) chỉ kiểm HÌNH ("hai chữ cái") chứ
+// Nhánh dự phòng của `countryCode` (`packs/hs/input.js:107`) chỉ kiểm HÌNH ("hai chữ cái") chứ
 // không kiểm cái mã đó có phải NƯỚC THẬT không. Hậu quả đo được trên đường thật `hs.handle`
 // (script `/tmp/soat5/v7b-xx.mjs`, gói 3 "Viết mô tả khai báo" và gói 6 "Rủi ro nhãn hiệu"):
 //

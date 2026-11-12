@@ -1,6 +1,6 @@
 # Nhật ký wiki
 
-> Cập nhật: 2026-11-12 · commit: bdb9dcd
+> Cập nhật: 2026-11-12 · commit: b4d5ca9
 
 Nhật ký thay đổi của bộ wiki trong docs/wiki. Mỗi dòng ghi: ngày, commit của mã nguồn
 đã đọc khi viết, và những trang bị thay đổi hoặc thêm mới.
@@ -11,6 +11,47 @@ Quy ước:
 - Ghi rõ **vì sao** đổi, không chỉ ghi "sửa lỗi".
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
+
+## 2026-11-12 — OZV-430 điểm 1: ô "Xuất xứ" chỉ cho mã nước THẬT đi tới Cổng
+
+- **Commit mã nguồn đã đọc:** `d776735` (nhánh `ozv-430-don-no-packs-hs`, dựng từ `origin/main` sau khi PR #213 đã gộp).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (thêm dòng OZV-430 điểm 1), `docs/wiki/log.md`.
+- **Vì sao:** `countryCode` chỉ kiểm **hình** ("hai chữ cái") chứ không kiểm mã đó có phải nước
+  thật không, nên mọi viết tắt khách gõ trong ô "Xuất xứ:" đều thành mã nước và đi thẳng tới Cổng
+  OZ. Đo trên đường thật `hs.handle` (gói 3 "Viết mô tả khai báo", gói 6 "Rủi ro nhãn hiệu"), bảng
+  so sánh hai worktree:
+
+  | ô "Xuất xứ:" khách gõ | main (`d776735`) | nhánh này |
+  | --- | --- | --- |
+  | `TQ` | `TQ` | `CN` |
+  | `SX tại TQ` | `SX` | `CN` |
+  | `QC tại VN` | `QC` | `VN` |
+  | `hàng CE` | `CE` | (không gửi nước) |
+  | `JP` / `Nhật Bản` | `JP` | `JP` (giữ nguyên) |
+  | `CF8M` / `PN16` | (không gửi) | (không gửi, giữ nguyên) |
+
+  Hai điều của hiến pháp bị chạm: **Điều III** — mức MFN/ACFTA Cổng trả phụ thuộc mã nước, gửi
+  `SX` hay `TQ` là tra thuế theo một thứ không phải nước nên Cổng không khớp dòng FTA nào, ưu đãi
+  C/O mẫu E rụng và khách đọc mức thuế cao hơn thực tế; **Điều VIII** — mã này còn đi vào
+  `sinh_mo_ta_khai_bao`, tức in lên **mô tả khai báo** khách dán vào chỉ tiêu 1.78 tờ khai, nên
+  "xuất xứ SX" là hồ sơ sai.
+- **Vá ở cửa dữ liệu, không lọc lúc in:** danh sách mã ISO-2 bot biết `MA_NUOC_BIET` +
+  `laMaNuoc` (`packs/hs/input.js:99`, `packs/hs/input.js:105`); mã ngoài danh sách trả `null`, và
+  "TQ" đọc thành `CN` như `findCountryInText` vẫn làm (`packs/hs/input.js:107`). Thứ tự quan trọng:
+  mã ISO hai chữ cái xét TRƯỚC từ điển tên nước, vì `norm('MY')` ra `'my'` và từ điển đọc thành
+  "Mỹ" ⇒ `US`, sai hẳn nước. Vòng quét mã trong câu chỉ nhận chữ IN HOA — quét cả chữ thường thì
+  "made in JP" lấy `in` (Ấn Độ) và đè mất `JP` (lỗi này bản vá đầu của thợ có thật, test bắt được).
+- **Dùng lại, không làm kiểu riêng:** tra MCP `sourcebot` thấy repo `hs-code-api` đã có đúng cách
+  này ở hàm `mapOriginToIso2` (scripts/import-oz-declarations.mjs dòng 87 của repo đó: tra từ điển
+  tên nước trước, rồi mới chấp mã 2 chữ) và bảng tên nước → ISO-2 ở lib/origin-hints.js của repo
+  đó. Làm theo thứ tự đó.
+- **Test:** `packs/hs/test/xuat-xu-ma-nuoc.test.mjs` (22 ca — đi đường thật `hs.handle` ở cả gói 3
+  và gói 6, có bản **vòng hỏi 2 và 3** khi khách sửa ô Xuất xứ, và cả câu **có dấu lẫn không dấu**).
+  16/22 ca đỏ trước bản vá. Đo không hồi quy luồng tên: ba script đo luồng tên của giám đốc (v6,
+  v6b, v6d trong /tmp/soat5) chạy trên hai
+  worktree (nhánh và `origin/main`) ra **giống hệt nhau**. Bốn cổng: `npm test` 1235/1235 + 34,
+  `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6,
+  `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
 
 ## 2026-11-12 — Vòng soát 5 PR #213 / OZV-323: hai HỒI QUY của bản vá vòng 4 — sửa tên LẦN HAI, và câu HỎI của khách bị gửi đi làm tên hàng
 
