@@ -12,6 +12,17 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-12 — OZV-496: bot không im khi Cổng chậm — "đang tra" ≤ 3 giây + câu tạm khi hết 120 giây chờ Cổng
+
+- **Commit mã nguồn đã đọc:** `cf49b45` (nhánh `ozv-430-don-no-packs-hs` là main hiện tại lúc bắt đầu; làm trên worktree riêng, nhánh `ozv-496-bot-khong-im-khi-cong-cham`).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (dòng OZV-496 mới, ghi số đo thật 12/11), `docs/wiki/an-toan.md` (số dòng `core/engine.js` 340 → 341 sau khi thêm 1 dòng ở OZV-496), `docs/wiki/log.md`.
+- **Vì sao:** đo thật 12/11 trên Cổng OZ thật phát hiện hai lỗi làm bot im:
+  1. **"đang tra" về muộn** — não Gemini chậm 5–9 giây TRƯỚC lần gọi Cổng đầu tiên; `qa-that` chạy thật đo 9,3 s / 5,9 s / 5,4 s, vượt mốc ≤ 3 giây của issue #168. G4 (giọng Quyên) bước 1→2 và G5 trượt vì lý do này; `qa-that` thật đạt **4/6 ĐẠT**.
+  2. **Cổng treo quá 120 giây thì bot im toàn lượt** — đã báo "đang tra" rồi mà lượt không xong, khách bị bỏ.
+  Sửa trong lượt (không đụng hàng đợi ưu tiên spec 008 — đã tra, `gateway/` là Cổng AI Studio, không nằm trên đường phân loại mã): bọc thêm `brain.hieu`/`editor.chot` để "đang tra" bắn ngay khi đợi não; thêm câu tạm `congCham` sau `CAU_TAM_SAU_MS = 120_000`; cửa gửi bước 6 bỏ so chữ khuôn cho tin `progress` (đảo luật sự cố #9 — câu "đang tra" của câu khách MỚI không còn bị bỏ `similar:1.00`).
+  Số đo kèm theo lần đo 12/11: bộ 50 ca dựng từ văn bản pháp luật — top-1 **66 %**, top-3 **80 %**, 7 ca không ra mã.
+- **Kiểm tra:** `npm test` xanh, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.
+
 ## 2026-11-12 — OZV-489 / OZV-430 điểm 1 (vòng soát 5): bỏ alias XK→HK và VD→VN khỏi bảng ALIAS
 
 - **Commit mã nguồn đã đọc:** `e27d52e` (bản vá vòng 4 đã commit trên nhánh `ozv-430-don-no-packs-hs`), đối chứng `origin/main` = `d776735`.

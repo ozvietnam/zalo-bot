@@ -77,5 +77,8 @@ export function loadConfig(env = process.env) {
     capVoiceDay: int(env, 'CAP_VOICE_DAY', 50, 0),
     // Lượt phải đợi Cổng quá ngần này mili giây thì gửi câu "đang tra" (issue #168, mục ≤ 3 giây).
     dangTraSauMs: int(env, 'DANG_TRA_SAU_MS', 1500, 0),
+    // Đã báo "đang tra" mà lượt vẫn chưa xong sau ngần này (tính từ đầu lượt) → một câu tạm
+    // "Cổng đang bận" đúng giọng, không để khách im (OZV-496 lỗi 2; QA thật 12/11 im 120 giây). 0 = tắt.
+    cauTamSauMs: int(env, 'CAU_TAM_SAU_MS', 120_000, 0),
   });
 }

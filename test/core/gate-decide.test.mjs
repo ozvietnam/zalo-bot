@@ -259,11 +259,22 @@ test('6 (#201) chữ khách RỖNG hoặc thiếu → coi như KHÔNG BIẾT, v�
   assert.match(run({ recentBotTexts: [{ text: GIONG, at: truoc(20_000) }] }, { askKey: 'thuế bao nhiêu?' }).reason, /^similar:/);
 });
 
-test('6 (#201) câu "đang tra" là chữ khuôn → KHÔNG được miễn trừ, hai câu khách khác nhau vẫn drop', () => {
-  // `progress` giống nhau với mọi câu hỏi và không mang tin riêng của câu nào: lặp lại là tin rác
-  // (sự cố #9). Nên dù hai câu khách khác nhau, câu "đang tra" thứ hai vẫn bị bỏ.
+test('6 (OZV-496 đảo luật cũ) câu "đang tra" (progress) KHÔNG bị so chữ khuôn → hai câu khách khác nhau đều được báo', () => {
+  // Luật cũ (trước OZV-496): `progress` là chữ khuôn nên lặp là tin rác (sự cố #9) → câu thứ hai bị
+  // bỏ `similar:1.00`. QA thật 12/11 (G4 giọng Quyên bước 1→2) cho thấy giữ luật đó là bỏ đúng câu
+  // đang tra của câu khách MỚI: khách hỏi tiếp trong 60 giây bị im toàn lượt trong lúc Cổng treo
+  // 120 giây. Mỗi lượt tối đa MỘT câu progress (khoá idem `r:<conv>:<turn>:p` chặn trong lượt),
+  // nên giữa hai câu khách khác nhau, câu khuôn lặp là lời đáp đúng của câu mới.
   const f = { recentBotTexts: [{ text: GIONG, at: truoc(20_000), askKey: 'tra giúp mã 84137090' }] };
-  assert.match(run(f, { kind: 'progress', askKey: 'thuế bao nhiêu?' }).reason, /^similar:/);
+  const r = run(f, { kind: 'progress', askKey: 'thuế bao nhiêu?' });
+  assert.deepEqual(r, { decision: 'send', reason: 'ok' });
+});
+
+test('6 (OZV-496) progress vẫn chịu mọi luật khác (idem, giờ yên) — chỉ miễn so chữ khuôn', () => {
+  assert.equal(run({ idemExists: true }, { kind: 'progress', text: 'Dạ em đang tra ạ' }).reason, 'duplicate-idem');
+  const dem = '2026-11-04T16:30:00.000Z'; // 23:30 VN
+  assert.deepEqual(run({ now: dem }, { kind: 'progress', text: 'Dạ em đang tra ạ', inReplyToAt: '2026-11-04T16:29:59.000Z' }),
+    { decision: 'drop', reason: 'progress:quiet-hours' });
 });
 
 test('6 mốc gửi là số mili giây hoặc Date → vẫn lọc cửa sổ đúng', () => {
