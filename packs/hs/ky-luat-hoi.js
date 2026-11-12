@@ -191,6 +191,18 @@ const PHU_DINH_RE = new RegExp(
   + `(?:(?:ph[aả]i|[đd][uú]ng|r[oồ]i)${HET_TU}${NGAT})?`, 'iu');
 // Từ đệm mở đầu phần tên khách nói lại ("là máy sấy…", "mà máy sấy…").
 const DEM_DAU_RE = new RegExp(`^(?:l[aà]|m[aà]|n[oó]\\s*l[aà]|[đd][aâ]y\\s*l[aà])${HET_TU}${NGAT}`, 'iu');
+
+/**
+ * Bỏ từ đệm mở đầu phần tên khách nói lại ("là máy sấy thực phẩm" → "máy sấy thực phẩm").
+ *
+ * Người Việt sửa tên hay nói thẳng, không mở đầu bằng "không": "là máy sấy thực phẩm". Chữ "là"
+ * không phải tên hàng — để nó đi tới Cổng là mô tả khai báo có rác, mà mô tả này in thẳng cho
+ * khách dùng (Điều VIII). `docTraLoiTen` đã bóc cụm này ở nhánh PHỦ ĐỊNH; tách ra để nhánh khách
+ * sửa tên mà KHÔNG phủ định cũng dùng được cùng một luật (vòng soát 4 của PR #213).
+ */
+export function bocDemDau(s) {
+  return String(s || '').replace(DEM_DAU_RE, '').trim();
+}
 // Từ xã giao/đệm đứng NGAY SAU chữ phủ định ("không phải ĐÂU Ạ", "không NHÉ, 350W").
 // `XA_GIAO_CUOI_RE` chỉ cắt ở cuối chuỗi nên phần giữa còn nguyên, lại đủ ≥2 chữ cái ⇒
 // `coTenTrong` tưởng là tên mới ⇒ VỨT SẠCH tên hàng khách đã gõ: "không nhé, 350W 220V" →

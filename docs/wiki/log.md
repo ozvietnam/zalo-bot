@@ -1,6 +1,6 @@
 # Nhật ký wiki
 
-> Cập nhật: 2026-11-11 · commit: dc03bfb
+> Cập nhật: 2026-11-12 · commit: 7be2f94
 
 Nhật ký thay đổi của bộ wiki trong docs/wiki. Mỗi dòng ghi: ngày, commit của mã nguồn
 đã đọc khi viết, và những trang bị thay đổi hoặc thêm mới.
@@ -11,6 +11,50 @@ Quy ước:
 - Ghi rõ **vì sao** đổi, không chỉ ghi "sửa lỗi".
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
+
+## 2026-11-12 — Vòng soát 4 PR #213 / OZV-323: hai HỒI QUY của chính bản vá — ghép đôi mặt hàng và hai số cùng loại đánh nhau
+
+- **Commit mã nguồn đã đọc:** `7be2f94` (nhánh `ozv-323-xac-nhan-ten-go-nham`, không rebase — nhánh đang gánh cả #212).
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (bổ sung vòng soát 4 vào dòng OZV-323), `docs/wiki/an-toan.md` (số dòng thật sau bản vá: `packs/hs/ky-luat-hoi.js` 283 → 295, `packs/hs/doc-tra-loi.js` 80 → 99), `docs/wiki/log.md`.
+- **Vì sao:** giám đốc soát vòng 4 CHẶN hai điểm, cả hai là **HỒI QUY** — đo cùng những câu đó trên
+  `origin/main` (`9275a14`) bằng cùng một script trên đường thật `hs.handle` thì `main` ra ĐÚNG, mã
+  mới của PR làm nó sai. Bảng đo hai nhánh:
+
+  | câu khách | PR #213 trước vá | main |
+  | --- | --- | --- |
+  | "máy sấy sinh tố" → "máy sấy thực phẩm ạ" → "350W 220V" | `máy sấy sinh tố máy sấy thực phẩm 350W 220V` | `máy sấy thực phẩm 350W 220V` |
+  | "máy sấy sinh tố" → "là máy sấy thực phẩm" → "350W 220V" | ghép, lọt cả chữ "là" | `máy sấy thực phẩm 350W 220V` |
+  | "Tra hs máy sấy sinh tố 350W" → "350W 220V" | `… 350W 350W 220V` | không lặp |
+  | "Tra hs máy xay sinh tố 350W" → "500W 220V" | `… 350W 500W 220V` | số MỚI thắng |
+
+  1. **Khách sửa tên mà KHÔNG mở đầu bằng "không" ⇒ Cổng nhận GHÉP ĐÔI hai mặt hàng.** Người Việt
+     sửa tên hay nói thẳng ("máy sấy thực phẩm ạ"), không nói "không". Lúc đó `docTraLoiTen` không
+     vào nhánh phủ định, `laXacNhan` cũng false ⇒ `botDoanTen` = true ⇒ `tenChuan = tenGoc`, rồi
+     phép đo `trung` ra false nên tên CŨ bị dán lên trước tên MỚI. `packs/hs/packages.js:218` còn
+     ghi tên ghép đó vào `tenGoc` nên nó **sống trong session** sang vòng sau: khách buông "cứ tra
+     đi" ở vòng 2 thì GIẢ ĐỊNH cũng mang hai món. Bot in mã + thuế của một thứ không tồn tại
+     (Điều III, Điều VIII).
+  2. **Thông số cũ còn trong `tenChuan` ⇒ hai con số cùng loại đánh nhau.** `giuThongSo` được viết
+     ra ĐÚNG để quyết số nào sống (số MỚI cùng loại thắng số CŨ), nhưng nó không bao giờ thấy xung
+     đột vì số cũ đã lọt vào qua phần TÊN: lặp "350W 350W", và nặng hơn là khách SỬA số
+     ("350W" → "500W") mà Cổng nhận cả hai, không biết số nào thật.
+- **Đã vá** (đúng một chỗ: dòng nối mô tả ở `packs/hs/doc-tra-loi.js`): cờ `khachDuaTenMoi` =
+  `coTenTrong(thongSoMoi)` ở nhánh CÓ hỏi xác nhận tên ⇒ tên khách **THAY** `tenChuan`, không nối
+  vào sau; phần tên truyền vào `giuThongSo` là `chuTrong(tenChuan)` chứ không phải `tenChuan` thô,
+  để `giuThongSo(…, tenGoc)` là chỗ DUY NHẤT quyết thông số nào sống. Hàm `bocDemDau` tách ra từ
+  `DEM_DAU_RE` (`packs/hs/ky-luat-hoi.js`) để nhánh khách sửa tên mà KHÔNG phủ định cũng bỏ được từ
+  đệm "là" — trước đó chỉ nhánh phủ định bóc cụm này. Chỉ xét ở nhánh `hoiXacNhanTen`: nhánh hỏi
+  THUỘC TÍNH ("inox hay thép?") thì câu đáp là CHẤT LIỆU của đúng món đó, đọc thành tên mới là làm
+  rụng hẳn tên hàng ("van bi" → Cổng chỉ nhận "inox 304 DN50").
+- **Nợ sẵn có trên `main`, KHÔNG nong PR này ra sửa:** tin đến SAU khi lượt đã chốt (khách buông
+  "cứ tra đi" rồi mới gõ "350W 220V") đi qua HỒ SƠ GỘP của #170 nên mô tả mang cả tên cũ — đo y hệt
+  trên `main`. Chỉ KHOÁ hành vi hiện tại bằng ca `[#213-10b]`.
+- **Điểm 3 của `soat-khac` (Gemini):** giám đốc dựng lại không ra, đã ghi "báo sai" ở PR.
+- **Test:** `packs/hs/test/soat-213-vong4.test.mjs` (16 ca — 4 ca `[#213-10]` cho chặn 1 gồm bản
+  không dấu, 5 ca `[#213-11]` cho chặn 2, 6 chốt ngược `[#213-12]` đúng danh sách giám đốc dặn,
+  11 ca đi đường thật qua `hs.handle` đọc `tenHang` thật sự gửi Cổng). **8 ca đỏ trước bản vá.**
+- **Bốn cổng:** `npm test` 1193/1193 + 34, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock`
+  6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
 
 ## 2026-11-11 — Vòng soát 3 PR #213 / OZV-323: bot LẶNG LẼ TRÁO tên khách, và `\b` trượt chữ Việt có dấu
 

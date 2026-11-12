@@ -144,8 +144,8 @@ Hiện tại có ba tệp vượt quá 300 dòng: `packs/hs/packages.js` (665 d�
 
 `packs/hs/dien-cho-thieu.js` hai lần chạm trần rồi được cắt theo đúng ranh trách nhiệm, nên không thành tệp vượt mốc thứ tư:
 
-- vòng soát 2 (chạm 320 dòng): hai hàm ĐO thuần (`coThongSo`, `nhanDienCuTraDi`) chuyển sang `packs/hs/ky-luat-hoi.js` (283 dòng) cho đúng phân công "tệp này DỰNG câu hỏi, tệp kia ĐO";
-- vòng soát 3 (chạm 332 dòng sau bản vá hai điểm người soát chặn): hàm ĐỌC câu khách trả lời (`xuLyTraLoiHoiLai`) chuyển sang tệp mới `packs/hs/doc-tra-loi.js` (80 dòng).
+- vòng soát 2 (chạm 320 dòng): hai hàm ĐO thuần (`coThongSo`, `nhanDienCuTraDi`) chuyển sang `packs/hs/ky-luat-hoi.js` (295 dòng) cho đúng phân công "tệp này DỰNG câu hỏi, tệp kia ĐO";
+- vòng soát 3 (chạm 332 dòng sau bản vá hai điểm người soát chặn): hàm ĐỌC câu khách trả lời (`xuLyTraLoiHoiLai`) chuyển sang tệp mới `packs/hs/doc-tra-loi.js` (99 dòng).
 
 Nay `packs/hs/dien-cho-thieu.js` còn 268 dòng. Cả ba hàm đã chuyển vẫn được `packs/hs/dien-cho-thieu.js` XUẤT LẠI để `packs/hs/packages.js`, `packs/hs/loc-tap-am.js` và các test cũ không phải đổi đường dẫn nhập.
 

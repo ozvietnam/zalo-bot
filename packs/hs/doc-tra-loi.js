@@ -13,6 +13,7 @@
 import { norm } from './input.js';
 import {
   LENH_DAU_RE, nhanDienCuTraDi, docTraLoiTen, bocXaGiao, giuThongSo, chuTrong, laXacNhan,
+  coTenTrong, bocDemDau,
 } from './ky-luat-hoi.js';
 
 /**
@@ -60,17 +61,35 @@ export function xuLyTraLoiHoiLai(text, sessionHoiLai = {}) {
   // tên khách gõ, không phải tên bot đoán.
   const botDoanTen = sessionHoiLai.hoiXacNhanTen && !laXacNhan(s);
   const tenChuan = (botDoanTen ? tenGoc : sessionHoiLai.tenGoiY) || sessionHoiLai.tenGoiY || tenGoc;
-  // Lược bỏ các từ xã giao ("đúng", "oke", "chuẩn", "vâng", "… ạ")
-  const thongSoMoi = bocXaGiao(s);
+  // Lược bỏ các từ xã giao ("đúng", "oke", "chuẩn", "vâng", "… ạ") và từ đệm mở đầu ("là máy sấy…").
+  const thongSoMoi = bocDemDau(bocXaGiao(s));
+
+  // Khách SỬA TÊN mà không mở đầu bằng "không" ("máy sấy thực phẩm ạ", "là máy sấy thực phẩm") —
+  // người Việt sửa tên hay nói thẳng như vậy. Tên mới THAY tên cũ, KHÔNG nối vào sau: nối thì Cổng
+  // nhận một mặt hàng lai mang CẢ HAI món ("máy sấy sinh tố máy sấy thực phẩm"), rồi `packages.js`
+  // ghi tên ghép đó vào `tenGoc` nên nó sống trong session sang vòng sau — bot in mã + thuế của
+  // một thứ không tồn tại (vòng soát 4 PR #213; Điều III, Điều VIII).
+  //
+  // Chỉ xét ở nhánh CÓ hỏi xác nhận tên: nhánh hỏi THUỘC TÍNH ("inox hay thép?", "đúc hay hàn?")
+  // thì câu đáp là CHẤT LIỆU/QUY CÁCH của đúng món đó, không phải tên món mới — đọc nó thành tên
+  // mới là làm rụng hẳn tên hàng khách đã gõ ("van bi" → Cổng chỉ nhận "inox 304 DN50").
+  // Việc HỎI xác nhận tên mới vẫn do `kiemTraThongTinPhanLoai` lo ở vòng sau, không đổi ở đây.
+  const khachDuaTenMoi = Boolean(sessionHoiLai.hoiXacNhanTen) && coTenTrong(thongSoMoi);
 
   // Câu khách vừa gõ ĐÃ CHỨA tên món rồi ("máy sấy" → khách gõ "máy sấy sinh tố") thì không dán
   // tên cũ lên đầu nữa: Cổng nhận "máy sấy máy sấy sinh tố" — mô tả rác, mà mô tả khai báo này in
   // thẳng cho khách dùng (Điều VIII).
   const trung = thongSoMoi && norm(thongSoMoi).includes(norm(chuTrong(tenChuan)));
 
+  // Phần CHỮ của tên, KHÔNG mang thông số: thông số cũ phải đi qua `giuThongSo` dưới đây, đó là
+  // chỗ DUY NHẤT quyết số nào sống (số MỚI cùng loại thắng số CŨ). Nối `tenChuan` thô là lọt số cũ
+  // vào qua cửa TÊN, nên `giuThongSo` không bao giờ thấy xung đột: khách sửa "350W" thành "500W"
+  // mà Cổng nhận cả hai, không biết số nào thật — và cùng một số thì lặp "350W 350W" (vòng soát 4).
+  const phanTen = trung || khachDuaTenMoi ? '' : chuTrong(tenChuan);
+
   // Giữ THÔNG SỐ khách đã gõ ở tin trước: mô tả tra cứu dựng lại từ `tenGoiY` nên thông số nằm
   // trong `tenGoc` sẽ rụng, Cổng mất dữ kiện khách đã cung cấp (nợ ghi ở PR #203).
-  const moTaTraCuu = giuThongSo([trung ? '' : tenChuan, thongSoMoi].filter(Boolean).join(' ').trim(), tenGoc);
+  const moTaTraCuu = giuThongSo([phanTen, thongSoMoi].filter(Boolean).join(' ').trim(), tenGoc);
 
   return {
     sanSangTra: true,
