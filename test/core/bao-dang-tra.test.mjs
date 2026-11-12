@@ -39,7 +39,7 @@ function goiGia({ goiCong = true, congMs = 0, viec = false, coCau = true, traLoi
   };
 }
 
-function dung({ pack, congMs = 0, start = START, config = {}, mcpTraVe = null } = {}) {
+function dung({ pack, congMs = 0, start = START, config = {}, mcpTraVe = null, brain = null, editor = null } = {}) {
   const store = openStore();
   const clock = fakeClock(start);
   const ch = kenhDoGio();
@@ -54,7 +54,7 @@ function dung({ pack, congMs = 0, start = START, config = {}, mcpTraVe = null } 
     async listTools() { return [{ name: 'tra_thue' }, { name: 'ket_qua_phan_loai' }]; },
   };
   const engine = createEngine({
-    config: { botNames: ['OZ'], ...config }, store, channel: ch, mcp, registry: createRegistry([pack]), gate, now: clock.now,
+    config: { botNames: ['OZ'], ...config }, store, channel: ch, mcp, brain, editor, registry: createRegistry([pack]), gate, now: clock.now,
     log: { info() {}, warn() {}, error() {} }, advance: (ms) => { if (ms > clock.now().getTime()) clock.set(ms); },
   });
   return { store, clock, ch, gate, engine };
@@ -179,10 +179,92 @@ test('chữ câu đang tra: giọng Quyên, ngắn, không emoji, đúng loại 
   assert.equal(cauDangTra({}, null, { congCu: 'anh' }), CAU_DANG_TRA.anh);
   assert.equal(cauDangTra({}, null, { congCu: 'kiem_ma_to_khai', viecNen: true }), CAU_DANG_TRA.viecNen);
   assert.equal(cauDangTra({}, null, { congCu: 'tra_thue' }), CAU_DANG_TRA.chung);
+  assert.equal(cauDangTra({}, null, { congCham: true }), CAU_DANG_TRA.congCham);
   for (const c of Object.values(CAU_DANG_TRA)) {
     assert.match(c, /^Dạ /);
     assert.match(c, /anh\/chị/);
     assert.ok(c.length <= 110, c);
     assert.doesNotMatch(c, /\p{Extended_Pictographic}/u);
   }
+});
+
+// ─────────── OZV-496: bot không im khi Cổng chậm (QA thật 12/11, lỗi 1 + 2) ───────────
+// QA thật 12/11 (SHA d776735): G4 giọng Quyên/G5 chờ não định tuyến 5–9 giây trước lượt gọi Cổng
+// đầu tiên nên câu "đang tra" chỉ ra SAU não; G4 bước 2 hỏi tiếp sau bước 1 có 45 giây thì câu
+// "đang tra" bị cửa bỏ `similar:1.00` (chống trùng chữ khuôn) và Cổng treo >120 giây → khách im.
+test('OZV-496 (a) não định tuyến chậm 4 giây TRƯỚC lượt gọi Cổng: câu "đang tra" vẫn ra ≤ 3 giây', async () => {
+  const pack = { ...goiGia(), async handle(turn, ctx) {
+    // Não hiểu câu hỏi chạy trước, mất 4 giây (Gemini thật 12/11 mất 5–9 giây) — lượt gọi Cổng chỉ
+    // bắt đầu SAU não. Đánh dấu phải coi não cũng là "lượt đang đợi việc chậm", không đợi tới Cổng.
+    await ctx.brain.hieu({ text: turn.text });
+    await ctx.mcp.callTool('tra_thue', { maHs: '85094000' });
+    return { replies: [{ text: 'Dạ mã phù hợp là 8509.40.00 ạ.' }] };
+  } };
+  const brain = { hieu: async () => { await ngu(4000); return null; } };
+  const { engine, ch } = dung({ pack, brain });
+  const t0 = Date.now();
+  await engine.process(tin('m1', 'thuế 85094000'));
+  assert.equal(ch.sent.length, 2, JSON.stringify(ch.sent));
+  assert.ok(laDangTra(ch.sent[0].text), `tin đầu phải là câu đang tra: ${ch.sent[0].text}`);
+  assert.match(ch.sent[1].text, /8509\.40\.00/);
+  const sau = ch.luc[0] - t0;
+  assert.ok(sau <= 3000, `câu đang tra ra sau ${sau} ms (> 3000)`);
+});
+
+test('OZV-496 (a2) não biên tập chậm (editor.chot) cũng được đánh dấu, không đợi Cổng', async () => {
+  const pack = { ...goiGia({ goiCong: false }), async handle(turn, ctx) {
+    await ctx.editor.chot({ text: 'mô tả', loai: 'biên tập' });
+    return { replies: [{ text: 'Dạ mã phù hợp là 8509.40.00 ạ.' }] };
+  } };
+  const editor = { chot: async () => { await ngu(80); return null; } };
+  const { engine, ch } = dung({ pack, editor, config: { dangTraSauMs: 20 } });
+  await engine.process(tin('m1', 'máy xay sinh tố 350W'));
+  const texts = ch.sent.map((m) => m.text);
+  assert.equal(texts.length, 2, JSON.stringify(texts));
+  assert.ok(laDangTra(texts[0]), texts[0]);
+});
+
+test('OZV-496 (b) Cổng treo quá hạn chờ: có câu tạm đúng giọng, KHÔNG im, KHÔNG bịa mã', async () => {
+  // Hạn câu tạm thu nhỏ còn 150 ms để test nhanh; Cổng "treo" 300 ms rồi mới trả (thật: 120 giây).
+  const { engine, ch } = dung({ pack: goiGia(), congMs: 300, config: { dangTraSauMs: 20, cauTamSauMs: 150 } });
+  await engine.process(tin('m1', 'thuế 85094000'));
+  const texts = ch.sent.map((m) => m.text);
+  assert.equal(texts.length, 3, JSON.stringify(texts));
+  assert.ok(laDangTra(texts[0]), `tin đầu phải là câu đang tra: ${texts[0]}`);
+  assert.equal(texts[1], CAU_DANG_TRA.congCham, 'câu tạm phải ra khi Cổng treo');
+  assert.match(texts[2], /8509\.40\.00/, 'kết quả vẫn tới sau khi Cổng hồi phục');
+  // KHÔNG bịa mã: câu tạm không chứa số nào trông như mã HS.
+  assert.doesNotMatch(CAU_DANG_TRA.congCham, /\d{4}/);
+});
+
+test('OZV-496 (b2) lượt NHANH không chờ ai: không có câu tạm (khỏi ồn), đúng một tin kết quả', async () => {
+  const { engine, ch } = dung({ pack: goiGia(), congMs: 5, config: { dangTraSauMs: 10_000, cauTamSauMs: 10 } });
+  await engine.process(tin('m1', 'thuế 85094000'));
+  assert.deepEqual(ch.sent.map((m) => m.text), ['Dạ mã phù hợp là 8509.40.00 ạ.']);
+});
+
+test('OZV-496 (b3) gói không soạn câu (không có cauDangTra): lõi KHÔNG tự soạn câu tạm', async () => {
+  const { engine, ch } = dung({ pack: goiGia({ coCau: false }), congMs: 300, config: { dangTraSauMs: 20, cauTamSauMs: 150 } });
+  await engine.process(tin('m1', 'thuế 85094000'));
+  assert.deepEqual(ch.sent.map((m) => m.text), ['Dạ mã phù hợp là 8509.40.00 ạ.']);
+});
+
+test('OZV-496 (c) hỏi tiếp ngay sau lượt trước: câu "đang tra" của câu MỚI không bị cửa bỏ similar', async () => {
+  // QA thật 12/11 G4 bước 1→2: bước 2 nhắn sau bước 1 có 45 giây, cùng chờ Cổng → câu khuôn
+  // "đang tra" bị bước 6 của cửa bỏ `similar:1.00` trong dupDirectMs 60 giây → khách im toàn lượt.
+  const { engine, ch } = dung({ pack: goiGia({ viec: true }), congMs: 100 });
+  await engine.process(tin('m1', 'máy xay sinh tố gia đình 350W'));
+  await engine.drain();
+  await engine.process(tin('m2', 'máy xay sinh tố công nghiệp 1500W'));
+  await engine.drain();
+  const texts = ch.sent.map((m) => m.text);
+  assert.equal(texts.filter((t) => laDangTra(t)).length, 2, `mỗi câu khách một câu đang tra: ${JSON.stringify(texts)}`);
+});
+
+test('OZV-496 (d) câu tạm chỉ MỘT câu mỗi lượt, Cổng treo qua hạn rồi trả vẫn chỉ một câu tạm', async () => {
+  const { engine, ch } = dung({ pack: goiGia(), congMs: 400, config: { dangTraSauMs: 20, cauTamSauMs: 100 } });
+  await engine.process(tin('m1', 'thuế 85094000'));
+  const texts = ch.sent.map((m) => m.text);
+  assert.equal(texts.filter((t) => t === CAU_DANG_TRA.congCham).length, 1, JSON.stringify(texts));
+  assert.equal(texts.length, 3);
 });
