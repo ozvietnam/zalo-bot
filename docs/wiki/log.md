@@ -859,3 +859,10 @@ Quy ước:
 - **Vá** `packs/hs/input.js`: (1) `DAN_XUAT_XU_VN_YEU` nhận thêm bản KHÔNG dấu `"nuoc"` (luật yếu y hệt "nước": đứng đầu giá trị hoặc sau một từ dẫn khác) và bản không dấu của "ở"/"của" (`"o"`, `"cua"`) vào tầng không-dấu; (2) `laDonViDoSauSo` đếm chữ số trên NGUYÊN VĂN phần chữ trước mã (thêm `tachTuViTri` để lấy vị trí) — mã HS "6404.11.90" = 8 chữ số ⇒ không phải số lượng; (3) tầng không-dấu chỉ nhận khi đứng sau MỘT TỪ, không phải sau con số ⇒ "hàng tu GB" / "SX tai TQ" còn nhận, còn "85371099 tu BT" không.
 - **Đánh đổi có chủ ý (báo giám đốc):** "64041190 tu GB" (mã HS + "tu" không dấu) cũng rơi về `null` như "tủ BT" — cùng lớp lỗi danh từ hàng; khách muốn nói "từ GB" thì viết có dấu ("từ GB") hoặc bỏ "tu" ("64041190 GB").
 - **Test** `packs/hs/test/xuat-xu-ma-nuoc-ozv-535.test.mjs`: thêm 3 khối hồi quy (không dấu · mã HS có dấu chấm · danh từ hàng sau mã HS) — 14 test; đỏ trước trên code cũ (3 khối mới fail), xanh sau vá.
+## 2026-11-13 — OZV-577 / T808 (Spec 008) PR #217: ẩn danh hai chiều dữ liệu khách trước khi vào hàng đợi AI Studio
+- **Tệp mới:** `gateway/anonymizer.js` (~215 dòng, < 300 — Hiến pháp Điều VI) + `test/gateway/anonymizer.test.mjs` (4 test).
+- **Dùng lại, không viết bộ lọc số điện thoại thứ hai:** ngữ pháp SĐT DUY NHẤT của repo `core/sdt.js` (`findPhoneSpans`, `looksLikeHsCode`) + bộ che bí mật `core/redact.js` (`redact`) — cùng bộ luật mà `core/customers.js` và `scripts/audit.mjs` dùng.
+- **Che:** SĐT → `[SĐT]` · số tài khoản ngân hàng → `[STK]` (ngữ cảnh `STK/tài khoản`, dải 11–16 số, hoặc dạng `4-4-4`) · khoá `sk-…` → `[TOKEN]` · tên khách → `Khách` (nhóm: `Khách A`, `Khách B`… theo thứ tự trong phiên, gán nhất quán theo `convId`).
+- **Khôi phục:** `deanonymizeDraft(draftText, anonymizeMap)` trả tên gọi tự nhiên của khách (nhãn dài thay trước nhãn ngắn ⇒ `Khách A` không bị cắt thành `Khách`). SĐT/STK/token vẫn giữ che khi gửi.
+- **Chưa nối vào đường chạy:** đây mới là phần ẩn danh (FR-007); phần điều phối não CSKH (T809) mới là chỗ gọi vào. Không đụng `core/gate*`, `server.js`.
+- **Cổng:** `node --test test/gateway/anonymizer.test.mjs` 4/4 · `npm test` exit 0 · eval 32/32 · wiki ĐẠT (16 trang).
