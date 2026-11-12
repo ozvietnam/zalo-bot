@@ -1,6 +1,6 @@
 # Nhật ký wiki
 
-> Cập nhật: 2026-11-12 · commit: ce59cc1
+> Cập nhật: 2026-11-13 · commit: 876441c
 
 Nhật ký thay đổi của bộ wiki trong docs/wiki. Mỗi dòng ghi: ngày, commit của mã nguồn
 đã đọc khi viết, và những trang bị thay đổi hoặc thêm mới.
@@ -11,6 +11,19 @@ Quy ước:
 - Ghi rõ **vì sao** đổi, không chỉ ghi "sửa lỗi".
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
+
+## 2026-11-13 — OZV-607: G4 hỏi lại khi có `brain` bật — không gọi Cổng sớm, không báo "đang tra" ở lượt hỏi lại, không chặn câu đáp
+
+- **Commit mã nguồn đã đọc:** `876441c` (`origin/main`), làm trên nhánh `ozv-607-g4-hoi-lai`.
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (thêm dòng OZV-607), `docs/wiki/log.md`.
+- **Vì sao:** chạy thật kịch bản G4 (`eval/qa-that/g4-quyen-hoi-lai.json`) trên `main` `876441c` khi `ctx.brain` bật làm trượt 5/6 bước (1, 2, 4, 5, 6) do 2 nguyên nhân gốc ở tầng nối `routeThongMinh` ↔ gói 1:
+  1. Ở bước 1/4/6 (`"Tra hs máy sấy sinh tố"`), `routeThongMinh` gọi `brain.hieu`, Gemini chọn `phan_loai` và `GOI[0].dung` dựng chuỗi `"Tên hàng: máy sấy sinh tố"`. Khi chuỗi này vào `packs/hs/packages.js:235`, `coNhanChuan` thành `true` (tưởng khách gõ form có nhãn chuẩn) nên bỏ qua hoàn toàn nhánh `0b` (`kiemTraThongTinPhanLoai`), gọi thẳng `phan_loai_hs`, gửi câu `"đang tra"` và tắt luôn giọng Quyên (`chonNhanh: true`). Ngoài ra việc gọi `brain.hieu` còn đánh dấu `nao` ở `core/bao-dang-tra.js:89` khiến lượt hỏi lại bị bắn `"đang tra"` nếu não chậm > 1,5 giây.
+  2. Ở bước 2 (`"đúng, 350W 220V"`) và bước 5 (`"không rõ, cứ tra đi"`), dù `session.hoiLai` đang mở, `routeThongMinh` vẫn gọi `brain.hieu`; não không thấy tên hàng nên trả `hoi_lai`, làm `packs/hs/luong-chu.js:192` trả câu hỏi chung thay vì đi vào nhánh `0a` (`xuLyTraLoiHoiLai`).
+- **Vá thế nào:**
+  1. `packs/hs/brain.js:200`: không hỏi `brain.hieu` khi phiên đang mở `session.hoiLai` hoặc `session.choBoSung`.
+  2. `packs/hs/brain.js:203-206`: khi `r.pkg.so === 1` ở chế độ tự động và `kiemTraThongTinPhanLoai(text, ...).canHoi` là `true`, trả `r` ngay không gọi `brain.hieu`.
+  3. `packs/hs/brain.js:215` và `packs/hs/luong-chu.js:180`: khi não chọn gói 1 (`pkg.so === 1`), giữ nguyên `text` của khách (không bọc `"Tên hàng: …"`) và truyền `cauKhach: text` vào `runPkg`.
+- **Kiểm tra:** 3 test mới trong `packs/hs/test/hoi-lai.test.mjs:129-200` (đỏ 3/3 trước khi sửa, xanh 10/10 sau khi sửa); `node scripts/qa-that.mjs --mock` 6/6, `npm test` xanh, `npm run eval` 32/32, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
 
 ## 2026-11-12 — OZV-489 / OZV-430 điểm 1 (vòng soát 7): khớp tên nước DÀI thắng từ đơn va chạm; regex mã trơ về danh sách main; gộp main 50907f2 vào nhánh
 
