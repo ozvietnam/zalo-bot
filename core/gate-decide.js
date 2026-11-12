@@ -139,25 +139,30 @@ export function decide(msg, facts = {}, rules = {}) {
     // chữ và vẫn chặn; câu khách KHÁC nhau → là câu hỏi mới, không được bỏ oan.
     // Không biết (tin cũ, người gọi không khai) thì vẫn đem ra so — hướng an toàn.
     //
-    // Miễn trừ này KHÔNG áp cho câu "đang tra" (`progress`): câu đó là CHỮ KHUÔN, giống nhau với mọi
-    // câu hỏi và không mang thông tin riêng của câu nào, nên lặp lại chỉ là tin rác — đúng sự cố #9
-    // (`research.md:18`: khách nhận cùng câu khuôn lần thứ 3). Nó vẫn chống trùng theo cửa sổ như cũ.
+    // Câu "đang tra" (`progress`) KHÔNG bị so chữ ở bước này (OZV-496, đảo luật cũ): luật cũ coi câu
+    // khuôn lặp là tin rác (sự cố #9) nên câu thứ hai trong 60 giây bị bỏ `similar:1.00` — QA thật
+    // 12/11 (G4 giọng Quyên bước 1→2) cho thấy đó là bỏ đúng câu đang tra của câu khách MỚI: khách
+    // hỏi tiếp trong lúc Cổng treo bị IM TOÀN LƯỢT 120 giây. Mỗi lượt tối đa MỘT câu progress
+    // (khoá idem `r:<conv>:<turn>:p` đã chặn trong lượt), nên giữa hai câu khách khác nhau, câu
+    // khuôn lặp là lời đáp đúng của câu mới. Sự cố #9 giờ đã do idem lượt + trần `p`/`p2` giữ.
     //
     // Chữ khách RỖNG cũng tính là KHÔNG BIẾT: khách gõ trống trơn ("@bot", chỉ gọi tên bot rồi thôi)
     // thì đó không phải một câu hỏi, không được lấy làm bằng chứng "hai câu khác nhau". Thiếu luật
     // này thì một cái huých "@bot" và một câu "@bot tra hscode" bị coi là hai câu, và khách nhận hai
     // tin "Em đang tra: …" y nhau (điểm [S6] của người soát, `packs/hs/chay-goi.js:57`).
-    const dupMs = isDirectReply(msg, nowMs, r) ? r.dupDirectMs : r.dupWindowMs;
-    const hoi = msg.kind === PROGRESS ? null : (normVi(msg.askKey) || null);
-    let best = 0;
-    for (const prev of facts.recentBotTexts ?? []) {
-      const at = typeof prev === 'string' || prev?.at == null ? null : toMs(prev.at);
-      if (at != null && nowMs - at > dupMs) continue;
-      const hoiTruoc = typeof prev === 'string' ? null : (normVi(prev?.askKey) || null);
-      if (hoi != null && hoiTruoc != null && hoi !== hoiTruoc) continue;
-      best = Math.max(best, jaccard(text, typeof prev === 'string' ? prev : prev?.text));
+    if (msg.kind !== PROGRESS) {
+      const dupMs = isDirectReply(msg, nowMs, r) ? r.dupDirectMs : r.dupWindowMs;
+      const hoi = normVi(msg.askKey) || null;
+      let best = 0;
+      for (const prev of facts.recentBotTexts ?? []) {
+        const at = typeof prev === 'string' || prev?.at == null ? null : toMs(prev.at);
+        if (at != null && nowMs - at > dupMs) continue;
+        const hoiTruoc = typeof prev === 'string' ? null : (normVi(prev?.askKey) || null);
+        if (hoi != null && hoiTruoc != null && hoi !== hoiTruoc) continue;
+        best = Math.max(best, jaccard(text, typeof prev === 'string' ? prev : prev?.text));
+      }
+      if (best >= r.similarity) return out('drop', `similar:${best.toFixed(2)}`);
     }
-    if (best >= r.similarity) return out('drop', `similar:${best.toFixed(2)}`);
   }
 
   // 7: staff_relay là lời người thật, không kiểm (thi hành vẫn ghi audit)
