@@ -827,4 +827,5 @@ Quy ước:
 - **Vá** `packs/hs/input.js`: `DON_VI_DO` + rào "mã ngay sau CON SỐ" (ô CÓ NHÃN giữ nguyên: "Xuất xứ: MM" ⇒ Malta); từ dẫn xuất xứ theo TẦNG (tiếng Việt GIỮ DẤU, "nước" là từ dẫn yếu); mã ISO cuối câu chỉ nhận khi đứng sau MÃ/SỐ; regex mã trơ bỏ "IN" ngay sau "made". `packs/hs/packages.js` Gói 6: hàm mới `maCuoiCau` (mã cuối câu đứng sau số là đơn vị đo ⇒ không phải nước).
 - **Test mới** `packs/hs/test/xuat-xu-ma-nuoc-ozv-535.test.mjs` (9 test, 3 nhóm lỗi + ô có nhãn + chốt ngược Gói 6 qua `hs.handle`).
 - **Hồi quy** 411 chuỗi (test xuất xứ + 50 câu khách eval) so `main` `876441c`: 5 ca `main` đọc sai nay sửa, 19 ca chỉ khác ở hàm nội bộ, 2 ca là tiêu đề rác mà nhánh đọc đúng hơn; không ca nào `main` đúng mà nhánh sai.
-- 4 cổng: `npm test` xanh · `npm run eval` 32/32 · `node scripts/qa-that.mjs --mock` 6/6 · `node scripts/kiem-wiki.mjs --ngriem` ĐẠT.
+- 4 cổng: `npm test` 1324/1324 · `npm run eval` 32/32 · `node scripts/qa-that.mjs --mock` 6/6 · `node scripts/kiem-wiki.mjs --ngriem` ĐẠT (16 trang).
+- PR #216 (nhánh `ozv-535-nuoc-don-vi-tu-dan`) — mở vào `main`, CHỜ giám đốc soát, thợ không tự gộp.
