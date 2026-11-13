@@ -102,11 +102,14 @@ test('ca 3: Cổng lỗi / hết giờ / trả rỗng ⇒ không hỏi (để g�
   const rong = ctxGia({ ok: true, questions: [] });
   assert.equal((await hoiTheoSoTay(rong, { s: 'x', moTa: 'x', hoSo: { maHs: '85094000' } })).canHoi, false);
 
-  const cham = {
-    mcp: { callTool: () => new Promise((res) => { setTimeout(() => res(BA_CAU), 200).unref?.(); }) },
-  };
+  // Lời gọi "chậm": test tự cầm tay lời hứa rồi mở khoá sau khi assert. KHÔNG dùng `setTimeout`
+  // — đồng hồ unref để lời hứa treo qua cuối test thì node:test huỷ ca này và mọi ca sau
+  // ("Promise resolution is still pending but the event loop has already resolved", CI 43508123974).
+  let moKhoa = null;
+  const cham = { mcp: { callTool: () => new Promise((res) => { moKhoa = () => res(BA_CAU); }) } };
   const r = await hoiTheoSoTay(cham, { s: 'x', moTa: 'x', hoSo: { maHs: '85094000' }, hanGioMs: 20 });
   assert.equal(r.canHoi, false, 'quá hạn giờ riêng ⇒ dự phòng, không nghẽn lượt');
+  moKhoa?.(); // dọn lời hứa còn treo, không để nó sống qua cuối ca
 });
 
 test('ca 3b: chưa có mã ứng viên ≥6 số ⇒ KHÔNG gọi mạng', async () => {
