@@ -293,6 +293,51 @@ test('waitJob: ngưỡng chờ mặc định đủ dài cho Cổng (đo thực t
   assert.match(r.thongBao, new RegExp(`kết quả ${ML}`));
 });
 
+// --- OZV-769 (#177): Cổng báo nextAction RETRY (ENGINE_TIMEOUT) → bot phải GỌI LẠI, đừng bỏ khách giữa đường ---
+// Đo thực tế 24h (02:45 14/11, bot.db): cả ngày đúng 1 lượt tra HS và nó trả "AI bận/quá thời gian"
+// → tỉ lệ phục vụ 0. Trước đây waitJob thoát ngay khi trangThai !== 'DANG_XU_LY', không xem nextAction.
+const RETRY_KQ = {
+  ok: true, trangThai: 'XONG',
+  ketQua: { status: 'NEEDS_EXPERT', results: [],
+    nextAction: { type: 'RETRY', reasonCode: 'ENGINE_TIMEOUT', reasonVi: 'AI bận hoặc quá thời gian — gọi lại sau ít phút.' } },
+};
+
+test('waitJob: Cổng báo RETRY hai lần rồi lần ba trả kết quả thật → khách nhận được mã HS', async () => {
+  let n = 0;
+  const ctx = {
+    pollMs: 1, notify: async () => {},
+    mcp: { callTool: async () => (++n <= 2 ? RETRY_KQ
+      : { ok: true, trangThai: 'XONG', ketQua: { status: 'OK', results: [{ hsCode: '8414.59.49' }] }, data: { maDeXuat: '84145949' } }) },
+  };
+  const r = await waitJob(ctx, { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' }, 'ket_qua_phan_loai', { retryMs: [1, 1] });
+  assert.equal(n, 3, `phải gọi lại Cổng sau mỗi lần RETRY (số lần gọi: ${n})`);
+  assert.equal(r.data?.maDeXuat, '84145949', 'phải trả kết quả thật của lần gọi lại');
+  assert.notEqual(r.ketQua?.nextAction?.type, 'RETRY', 'không được trả về verdict RETRY khi đã có kết quả');
+});
+
+test('waitJob: Cổng báo RETRY mãi → câu trung thực + mã lượt, KHÔNG bịa mã HS', async () => {
+  let n = 0;
+  const ctx = { pollMs: 1, notify: async () => {}, mcp: { callTool: async () => { n++; return RETRY_KQ; } } };
+  const r = await waitJob(ctx, { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' }, 'ket_qua_phan_loai', { retryMs: [1, 1] });
+  assert.ok(n >= 3 && n <= 4, `tối đa 2 lần gọi lại sau lần hỏi đầu (số lần gọi: ${n})`);
+  const choKhach = String(r.thongBaoKhach || r.ketQua?.nextAction?.reasonVi || '');
+  assert.ok(choKhach.length > 0, 'phải có câu báo cho khách');
+  assert.doesNotMatch(choKhach, /\d{4}\.\d{2}\.\d{2}/, 'KHÔNG được có chuỗi giống mã HS (Điều II: không bịa mã)');
+  assert.match(JSON.stringify(r), new RegExp(ML), 'phải giữ mã lượt để khách gõ "kết quả <maLuot>"');
+});
+
+test('waitJob: RETRY không làm tổng thời gian vượt ngưỡng WAIT_JOB_MAX_MS', async () => {
+  let n = 0;
+  const t0 = Date.now();
+  const ctx = { pollMs: 5, notify: async () => {}, mcp: { callTool: async () => { n++; return RETRY_KQ; } } };
+  const r = await waitJob(ctx, { ok: true, maLuot: ML, trangThai: 'DANG_XU_LY' }, 'ket_qua_phan_loai',
+    { maxMs: 40, retryMs: [5000, 5000] });
+  const troi = Date.now() - t0;
+  assert.ok(troi < 2000, `tổng thời gian phải nằm trong ngưỡng, đã trôi ${troi}ms với maxMs=40`);
+  assert.ok(n >= 1, 'vẫn phải hỏi Cổng ít nhất một lần');
+  assert.ok(r.thongBaoKhach || r.thongBao, 'hết ngưỡng thì rơi về câu hết hạn như cũ');
+});
+
 // --- LỖI 3: tiêu đề phân loại KHÔNG được cắt cụt giữa chữ ---
 test('tiêu đề phân loại không bị cắt cụt giữa chừng', async () => {
   const ten = 'Quạt tản nhiệt AF12038B22HR công suất 10W điện áp 100-240VAC lưu lượng gió 127CFM 3.6m3/h kích thước 120 x 120 x 38 mm chất liệu nhựa dùng cho tủ điện mới 100%';

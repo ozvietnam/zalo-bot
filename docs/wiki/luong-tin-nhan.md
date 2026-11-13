@@ -1,6 +1,6 @@
 # Luồng tin nhắn
 
-> Cập nhật: 2026-11-07 · commit: 0842386
+> Cập nhật: 2026-11-14 · commit: 401d34a
 
 Một tin khách đi qua những hàm nào, từ lúc vào tới lúc gửi đi.
 
@@ -78,6 +78,7 @@ tránh xoá nhầm webhook production (`channels/zalo-bot.js:54`, `channels/zalo
 | Cổng OZ lỗi | Câu báo **chung**, không kèm lỗi gốc | `packs/hs/index.js:91` (chi tiết chỉ vào log ở `packs/hs/index.js:90`) |
 | Cổng OZ lỗi ở tầng lõi | Câu báo chung của lõi (có thẻ màu `{orange}`), có kèm menu gói | `core/engine.js:13` (gửi ở `core/engine.js:139`) |
 | Gọi Cổng OZ lỗi khi xử lý ảnh | Câu báo chung cho khách, không lộ lỗi Gemini | `packs/hs/vision.js:26-33` |
+| Cổng xong lượt nhưng máy phân loại bận (`nextAction.type = RETRY` hoặc `reasonCode = ENGINE_TIMEOUT`) | Hỏi Cổng lại, tối đa 2 lần, giãn cách 20s rồi 60s, vẫn trong ngưỡng 10 phút; hết lượt gọi lại thì trả đúng câu "AI bận…" của Cổng, không bịa mã | `packs/hs/jobs.js:32` (nhận verdict), `packs/hs/jobs.js:73` (gọi lại), giãn cách ở `packs/hs/jobs.js:29` |
 
 ## Ba đường chạy nền
 

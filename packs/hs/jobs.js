@@ -20,6 +20,20 @@ export const hetHan = (maLuot, maxMs = WAIT_JOB_MAX_MS) => {
   return { ok: false, thongBao: t, thongBaoKhach: t };   // thongBaoKhach: câu do gói tự soạn, được phép hiện cho khách
 };
 
+/**
+ * Giãn cách giữa các lần GỌI LẠI khi Cổng báo nextAction RETRY (OZV-769, issue #177).
+ * Đo thực tế 24h (14/11, bot.db): cả ngày đúng một lượt tra HS và nó trả "AI bận hoặc quá thời
+ * gian" → khách về tay không. Cổng đã nói rõ "gọi lại sau ít phút" nên bot phải tự gọi lại.
+ * Tối đa 2 lần gọi lại, giãn cách tăng dần, và toàn bộ vẫn nằm trong WAIT_JOB_MAX_MS.
+ */
+export const RETRY_CHO_MS = [20_000, 60_000];
+
+/** Cổng xong lượt nhưng máy phân loại bận/quá giờ: verdict RETRY → hỏi lại là có thể có kết quả thật. */
+export const laRetry = (k) => {
+  const na = (k?.ketQua || k?.data?.ketQua)?.nextAction;
+  return na?.type === 'RETRY' || na?.reasonCode === 'ENGINE_TIMEOUT';
+};
+
 /** Không chờ: biên nhận {maLuot, trangThai: DANG_XU_LY} → { job: {maLuot, resultTool} }; còn lại (hoặc Cổng thiếu resultTool) → { result: r }. */
 export function toJob(r, resultTool, ctx = {}) {
   const maLuot = r?.maLuot || r?.data?.maLuot;
@@ -29,12 +43,15 @@ export function toJob(r, resultTool, ctx = {}) {
 }
 
 /** Đường cũ (lib/bot.js, tới T016): chờ trong lượt, hỏi lại tới khi xong. Gói mới dùng toJob. */
-export async function waitJob(ctx, r, resultTool, { everyMs = 6000, maxMs = WAIT_JOB_MAX_MS, label = 'Đang xử lý' } = {}) {
+export async function waitJob(ctx, r, resultTool, { everyMs = 6000, maxMs = WAIT_JOB_MAX_MS, label = 'Đang xử lý',
+  retryMs = RETRY_CHO_MS } = {}) {
   const { job } = toJob(r, resultTool, ctx);
   if (!job) return r;
   const { maLuot } = job;
   // Không gửi câu chờ "⏳ Đang …" (chủ repo bỏ 06/11): khách chỉ nhận kết quả. `label` giữ cho tương thích chữ ký.
   void label;
+  const gianCach = ctx.retryMs ?? retryMs;
+  let daGoiLai = 0;
   const until = Date.now() + maxMs;
   let loiLanCuoi = null;
   while (Date.now() < until) {
@@ -49,7 +66,19 @@ export async function waitJob(ctx, r, resultTool, { everyMs = 6000, maxMs = WAIT
       continue;
     }
     const s = k?.trangThai || k?.data?.trangThai;
-    if (s !== 'DANG_XU_LY') return { ...k, maLuot };
+    if (s === 'DANG_XU_LY') continue;
+    // Cổng xong lượt nhưng máy phân loại bận/quá giờ (nextAction RETRY): GỌI LẠI thay vì bỏ khách
+    // giữa đường (OZV-769). Hết lượt gọi lại thì trả đúng verdict của Cổng — câu "AI bận…" là câu
+    // trung thực, KHÔNG bịa mã (Điều II). Hết thời gian thì rơi về hetHan() như cũ.
+    if (laRetry(k)) {
+      if (daGoiLai >= gianCach.length) return { ...k, maLuot };
+      const cho = gianCach[daGoiLai];
+      if (cho >= until - Date.now()) break;
+      daGoiLai++;
+      await sleep(cho);
+      continue;
+    }
+    return { ...k, maLuot };
   }
   // Hết hạn: nếu lần hỏi cuối lỗi truyền tải thì báo lỗi tạm thời (không phải "hết hạn").
   if (loiLanCuoi) return { ok: false, loi: 'CONG_LOI_TAM_THOI', thongBao: 'Cổng tra cứu OZ đang lỗi tạm thời, bạn thử lại sau ít phút nhé.', maLuot };
