@@ -41,9 +41,13 @@ const RE_CANH_HS = /m[aãaáàảạ]\s*hs\b|hs\s*code\b|\bhs\b/i;
  * Từ khoá MST / mã số thuế DÍNH LIỀN trước số (qua norm — bỏ dấu).
  * Cho chen: cong ty / cty / don vi / cua / ben / em / minh / la / : / -
  * Neo `$` — không tha SĐT đứng sau trong cùng câu chỉ vì MST xuất hiện sớm hơn.
+ * Dạng tuyến tính (OZV-743): mỗi lần lặp phải khớp từ khoá không rỗng hoặc
+ * dấu `:/-` — không `(?:…)?` trong `*` (tránh backtracking mũ).
+ * Nhánh từ khoá dùng `\s*` (không `\s+`) để khớp `mst:cong ty` / `mst:congty`.
  */
-const RE_CANH_MST_LIEN =
-  /(?:\bmst\b|ma\s*so\s*thue)(?:\s*(?:cua|ben|cong\s*ty|cty|don\s*vi|em|minh|la|:|-)?)*\s*$/;
+/** Xuất để bài kiểm thời gian OZV-743 bắt backtracking mũ. */
+export const RE_CANH_MST_LIEN =
+  /(?:\bmst\b|ma\s*so\s*thue)(?:\s*(?:cua|ben|cong\s*ty|cty|don\s*vi|em|minh|la)|\s*[:\-])*\s*$/;
 const MST_W = [31, 29, 23, 19, 17, 13, 7, 5, 3];
 
 const MAX_PHIEN = 500;
