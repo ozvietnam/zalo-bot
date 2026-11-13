@@ -51,7 +51,7 @@ export function createEngine({ config = {}, store, channel, mcp, vision = null, 
   // nên `core/handoff.js` dựng bản riêng cho phiếu mà hai bản vẫn đọc/ghi cùng một chỗ. Ngày nào
   // `core/customers.js` có bộ nhớ đệm thì hai bản sẽ lệch nhau — lúc đó phải truyền một bản dùng chung.
   const customers = createCustomers({ store, config, now });
-  const gn = giongNoi ?? createGiongNoi({ apiKey: config.geminiKey, model: config.geminiTtsModel, voice: config.geminiTtsVoice, prompt: config.geminiTtsPrompt, dataDir: config.dataDir, publicBaseUrl: config.publicBaseUrl, log });
+  const gn = giongNoi ?? createGiongNoi({ apiKey: config.geminiKey, model: config.geminiTtsModel, voice: config.geminiTtsVoice, prompt: config.geminiTtsPrompt, dataDir: config.dataDir, publicBaseUrl: config.publicBaseUrl, ttsTimeoutMs: config.geminiTtsTimeoutMs, ffmpegTimeoutMs: config.ffmpegTimeoutMs, log });
   const voiceRoute = createVoiceRoute({ store, gate, giongNoi: gn, config, log, audit: (t, c, co, tu, d) => store.audit.add({ at: now().toISOString(), turn_id: tu, chat_id: c, conv_id: co ?? null, type: t, data: d }) });
 
   /** Hồ sơ là SỔ PHỤ: ghi lỗi (db khoá) thì lượt vẫn chạy tiếp, không được đẩy khách sang câu

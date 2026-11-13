@@ -68,6 +68,7 @@ Các lỗi dưới đây do review nội bộ phát hiện trước khi merge, k
 - **Mặc định trong code là một quyết định sản phẩm.** Sai mặc định TTL đã làm lệch cả tài liệu lẫn hành vi (`docs/sdd/B1-review.md:65`); bản tương thích cho test có mặc định nguy hiểm hơn bản thật (`docs/sdd/T015-review.md:69`). Mỗi mặc định phải có test.
 - **Đừng tin câu "đã xong" nếu không có bản ghi.** Sự cố agent khai "đã đặt lịch" khi không có gì xảy ra (`specs/001-nen-tang-chung/research.md:22`) và sự cố tự chấm điểm (`specs/001-nen-tang-chung/research.md:25`) cùng một gốc rễ.
 - **Làm nhiều việc song song thì phải stage đúng đường dẫn.** Một lệnh stage "tất cả" đã cuốn tệp của người khác (`docs/sdd/001-ledger.md:35`).
+- **Mọi lời gọi mạng hay `spawn` phải có hạn giờ — nếu không, bot im hẳn.** Một lượt tin chạy trong khoá hàng đợi theo người (`core/webhook.js` → `core/queue.js` → `core/engine.js`). Lời gọi treo không hạn giờ giữ khoá đó vĩnh viễn, nên mọi tin sau của **chính khách đó** xếp hàng mãi mãi mà không ai biết. `try/catch` không cứu được: không có hạn giờ thì không có lỗi để bắt. Khâu TTS từng sót đúng lỗi này (OZV-709): `fetch` tới Gemini TTS thiếu `signal`, và `spawn('ffmpeg')` không hạn giờ nên `close` không bao giờ bắn. Luật soát: **mọi `fetch` mới phải có `AbortSignal.timeout`, mọi `spawn` mới phải có hẹn giờ kèm `kill`**, hạn lấy từ `core/config.js`.
 
 ## 4. Nguồn
 
