@@ -525,7 +525,7 @@ test('T807: validateResultSchema kiểm tra cấu trúc JSON theo schema yêu c�
 
 ### T808 [P] Ẩn danh hai chiều và bảo vệ dữ liệu khách hàng (`gateway/anonymizer.js`) (FR-007, US3, Hiến pháp IX)
 
-Hiện thực hóa bộ xử lý ẩn danh dữ liệu khách hàng trước khi đưa vào hàng đợi AI Studio và hoàn nguyên dữ liệu sau khi nhận kết quả nháp. Sử dụng chung ngữ pháp phát hiện số điện thoại chuẩn của repo để che số điện thoại khách hàng, thay thế tên khách bằng "Khách" (hoặc "Khách A", "Khách B" trong nhóm), che token bí mật (`sk-gia-loi-goc`), che số tài khoản ngân hàng. Lưu bảng ánh xạ danh tính tạm thời trong phiên để khôi phục tên gọi tự nhiên của khách trước khi đưa câu trả lời vào cửa gửi.
+Hiện thực hóa bộ xử lý ẩn danh dữ liệu khách hàng trước khi đưa vào hàng đợi AI Studio và hoàn nguyên dữ liệu sau khi nhận kết quả nháp. Sử dụng chung ngữ pháp phát hiện số điện thoại chuẩn của repo để che số điện thoại khách hàng, thay thế tên khách bằng NHÃN DẤU ĐÓNG KHUNG `[KHACH]` (nhóm: `[KHACH_A]`, `[KHACH_B]`… theo thứ tự gặp trong phiên) — dùng dấu đóng khung vì nhãn chữ thô "Khách" khiến khôi phục đụng vào chữ "Khách hàng" trong câu; che token bí mật (`sk-gia-loi-goc`), che số tài khoản ngân hàng (dùng lại `timKhoangStk` của `core/sanitizer.js`, không viết bộ lọc SĐT/STK thứ hai). Lưu bảng ánh xạ danh tính tạm thời trong phiên để khôi phục tên gọi tự nhiên của khách trước khi đưa câu trả lời vào cửa gửi.
 
 **Files:** Create `gateway/anonymizer.js` · Create `test/gateway/anonymizer.test.mjs`
 
@@ -539,7 +539,7 @@ export function anonymizePrompt({ text, customerName, convId }) -> {
 export function deanonymizeDraft(draftText, anonymizeMap) -> string
 ```
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -563,10 +563,10 @@ test('T808: Ẩn danh số điện thoại và thay tên khách thành "Khách" 
   assert.equal(finalDraft, 'Dạ em chào Nguyễn Văn A, thủ tục nhập xe nâng bao gồm đăng kiểm...');
 });
 ```
-- [ ] **Step 2:** Chạy `node --test test/gateway/anonymizer.test.mjs` → FAIL.
-- [ ] **Step 3:** Tạo `gateway/anonymizer.js` sử dụng regex chuẩn phát hiện SĐT Việt Nam, thay thế token/STK, quản lý placeholder `[TEN_KHACH]`, và hàm thay thế ngược.
-- [ ] **Step 4:** Chạy lại `node --test test/gateway/anonymizer.test.mjs` → PASS.
-- [ ] **Step 5:** `git commit -m "feat(gateway): implement bidirectional customer data anonymization (T808)"`
+- [x] **Step 2:** Chạy `node --test test/gateway/anonymizer.test.mjs` → FAIL.
+- [x] **Step 3:** Tạo `gateway/anonymizer.js` sử dụng regex chuẩn phát hiện SĐT Việt Nam, thay thế token/STK, quản lý placeholder `[TEN_KHACH]`, và hàm thay thế ngược.
+- [x] **Step 4:** Chạy lại `node --test test/gateway/anonymizer.test.mjs` → PASS.
+- [x] **Step 5:** `git commit -m "feat(gateway): implement bidirectional customer data anonymization (T808)"`
 
 ---
 
