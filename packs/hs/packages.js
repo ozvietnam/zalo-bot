@@ -2,7 +2,7 @@
 // Mỗi gói gom 1 hoặc nhiều công cụ của Cổng OZ (MCP). Muốn thêm gói khi Cổng có công cụ mới:
 // thêm một mục vào PACKAGES (so, ten, congCu, mau, chay). Gói chỉ hiện khi Cổng có đủ công cụ bắt buộc.
 // Gói có việc nền (1, 4) tách chay thành batDau (gọi Cổng, không chờ) + xong (dựng chữ từ kết quả) để index.js giao việc cho lõi.
-import { parseLabeled, firstHs8, allHs8, soHieuList, countryCode, norm, laNhanChung, xuatXuCua, chuHoSoChoXuatXu, tenNuoc, VIET_TAT_KHONG_PHAI_NUOC, ALIAS_TRONG_CAU, aliasCuoiCau } from './input.js';
+import { parseLabeled, firstHs8, allHs8, soHieuList, countryCode, norm, laNhanChung, xuatXuCua, chuHoSoChoXuatXu, tenNuoc, VIET_TAT_KHONG_PHAI_NUOC, ALIAS_TRONG_CAU, aliasCuoiCau, maCuoiCau } from './input.js';
 import { renderResult, renderClassify, nhacPhongVe, renderPhanLoaiDayDu, nhanXuatXu } from './render.js';
 import { renderShtt, nhacNhanChung, donNhanChung } from './render-shtt.js';
 import { plain } from './style.js';
@@ -603,7 +603,7 @@ export const PACKAGES = [
       // KHÔNG quét cả câu mô tả (lỗi vòng soát 8): khách ghi tên hàng có từ trùng tên nước
       // ("Hòa Phát ống thép đúc 73041900", "Thorakao mỹ phẩm 33049930") là chưa hề khai xuất
       // xứ — quét tiếp thì bot tự gán nước rồi đẩy sang `kiem_tra_shtt`, sai đèn rủi ro.
-      const cuoi = (conLai.match(/\b([A-Z]{2})\s*$/) || [])[1];
+      const cuoi = maCuoiCau(conLai);
       // MÃ CUỐI CÂU: mã ISO thật thì nhận như cũ ("Nike 64041190 CN" ⇒ CN). ALIAS ("UK") thì CHỈ
       // nhận khi đứng NGAY SAU từ dẫn xuất xứ ("made in UK" ⇒ GB) — "áo size UK" là kích cỡ
       // giày, KHÔNG phải nước (vòng soát 9 PR #214: gói 6 gửi mã rác lên Cổng làm đèn rủi ro sai).

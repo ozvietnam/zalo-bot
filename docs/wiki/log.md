@@ -1,6 +1,6 @@
 # Nhật ký wiki
 
-> Cập nhật: 2026-11-13 · commit: 876441c
+> Cập nhật: 2026-11-13 · commit: 63a5419 + 5b441c8
 
 Nhật ký thay đổi của bộ wiki trong docs/wiki. Mỗi dòng ghi: ngày, commit của mã nguồn
 đã đọc khi viết, và những trang bị thay đổi hoặc thêm mới.
@@ -12,6 +12,17 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-13 — OZV-535 vòng soát 2: sửa 4 lỗi giám đốc chặn (mã sau MÃ HS, từ dẫn HOA/THƯỜNG, Gói 6 nhóm 2, test giả)
+
+- **Commit mã nguồn đã đọc:** `67f8ec9` + vá vòng 2 trên nhánh `ozv-535-nuoc-don-vi-tu-dan` (PR #216), đối chứng `main` = `876441c`.
+- **Trang wiki đã sửa:** `docs/wiki/an-toan.md` (số dòng thật `packs/hs/input.js` 520 → **552**), `docs/wiki/tien-do.md` (dòng OZV-535: trạng thái lần 2 + mô tả 4 lỗi đã sửa + số test 9 → 11), `docs/wiki/log.md`.
+- **Vì sao:** giám đốc soát vòng 1 (13/11) CHẶN với **4 lỗi tự tái hiện được** trên chính nhánh — trong đó 2 lỗi là **HỒI QUY so với main** và 1 lỗi là **test giả** (case xanh không hề đi qua nhánh cần kiểm):
+  1. `laDonViDoSauSo` khớp luôn MÃ HS 8 số ⇒ mã nước đứng sau mã HS bị nuốt: "Nike 64041190 GB" rơi về giả định CN (mất `GB` Vương quốc Anh; `MT`/`LT` có FTA EU ⇒ mức thuế sai, Điều III).
+  2. `laTuDanXuatXu` so trực tiếp, không hạ chữ thường ⇒ từ dẫn VIẾT HOA bị bỏ qua ("Từ GB", "Tại SK", "SX TẠI SG", "HÀNG TỪ UK") ⇒ cũng rơi về giả định CN.
+  3. Gói 6 chưa rào nhóm 2 ⇒ "gói 6 84212100 máy lọc nước RO" còn ra `RO` (Romania).
+  4. Test giả: case "bản không dấu" dùng lại đúng chuỗi CÓ dấu; case Gói 6 đặt mã HS ở CUỐI chuỗi nên regex "mã cuối câu" không thấy mã nào.
+- **Vá thế nào (một commit, TDD):** (1) `laDonViDoSauSo` chỉ coi là số lượng khi số trước mã có **dưới 8 chữ số** (mã HS của Cổng có 8 số) — mã đứng sau MÃ HS lại là MÃ NƯỚC, khớp main; (2) `laTuDanXuatXu` so **không phân biệt hoa/thường** (vẫn giữ luật "giữ dấu": "TỦ" → "tủ" ≠ "từ", "TỪ" → "từ" ✓); (3) `maCuoiCau` (Gói 6) chỉ nhận mã cuối câu khi đứng ngay sau MÃ/SỐ ("Nike 64041190 CN") hoặc sau TỪ DẪN ("hàng từ GB", "made in UK") — cùng luật với `maNuocTrongCau`, nên danh từ hàng không còn bị đọc thành nước; (4) viết lại 2 test giả + thêm **2 test HỒI QUY** neo 8 mã sau MÃ HS và 4 chuỗi từ dẫn HOA, kỳ vọng **khớp main** (`GB/MT/LT/MM/KG/CM/ML/KW`; `GB/SK/SG/GB`).
+- **Cổng:** `npm test` (11/11 ở tệp OZV-535, toàn repo xanh), `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6, `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.
 ## 2026-11-13 — OZV-607: G4 hỏi lại khi có `brain` bật — không gọi Cổng sớm, không báo "đang tra" ở lượt hỏi lại, không chặn câu đáp
 
 - **Commit mã nguồn đã đọc:** `876441c` (`origin/main`), làm trên nhánh `ozv-607-g4-hoi-lai`.
@@ -834,3 +845,17 @@ Quy ước:
 - **Vá:** `packs/hs/input.js` — alias trong câu CHỈ được nhận khi đứng ngay sau từ dẫn xuất xứ (`DAN_XUAT_XU`): "made in UK" ⇒ GB, "áo size UK" ⇒ null; mã ISO THẬT ở cuối câu vẫn nhận như cũ ("Nike 64041190 CN" ⇒ CN). Hàm mới `aliasCuoiCau` dùng chung cho Gói 6. `packs/hs/packages.js` Gói 6 — mã cuối câu là alias thì phải qua `aliasCuoiCau`; ô CÓ NHÃN giữ nguyên ("Xuất xứ: UK" ⇒ GB).
 - **Không vỡ:** ô nhãn trần `UK`/`ANH`/`Anh` ⇒ GB · "made in UK" ⇒ GB · "size UK 10" ⇒ null · mã ISO thật cuối câu ⇒ giữ.
 - **Test:** mới `packs/hs/test/xuat-xu-ma-nuoc-vong-9.test.mjs` (4 test tiêu chí); thêm 2 ca đầu-cuối vào test "hồi quy 2" của `packs/hs/test/xuat-xu-ma-nuoc-vong-8.test.mjs` (đo qua `hs.handle`, Gói 6). 4 cổng: npm test 1315/1315 · eval 32/32 · qa-that 6/6 · wiki ĐẠT (16 trang).
+
+## 2026-11-13 — OZV-535: ba nhóm lỗi đọc nhầm mã nước có sẵn ở `packs/hs` (đơn vị đo cuối câu · danh từ hàng trùng từ dẫn · "MADE IN JP")
+- **Đo trước** (so `main` `876441c`): "ổ cứng 500 GB" ⇒ `GB`, "bao 50 KG" ⇒ `KG`, "ống 100 MM" ⇒ `MM`, "bơm 5 KW" ⇒ `KW`, "chai 500 ML" ⇒ `ML`; "máy lọc nước RO" ⇒ `RO` (Romania), "ổ BI" ⇒ `BI` (Bhutan), "tủ BT" ⇒ `BT` (Belarus), "cửa AL" ⇒ `AL` (Albania); "MADE IN JP" ⇒ `IN` (Ấn Độ). Mã sai này ra `giaDinh:false` ⇒ bot không nói "giả định" (Điều VIII) và đi thẳng vào `sinh_mo_ta_khai_bao` (Điều III).
+- **Vá** `packs/hs/input.js`: `DON_VI_DO` + rào "mã ngay sau CON SỐ" (ô CÓ NHÃN giữ nguyên: "Xuất xứ: MM" ⇒ Malta); từ dẫn xuất xứ theo TẦNG (tiếng Việt GIỮ DẤU, "nước" là từ dẫn yếu); mã ISO cuối câu chỉ nhận khi đứng sau MÃ/SỐ; regex mã trơ bỏ "IN" ngay sau "made". `packs/hs/packages.js` Gói 6: hàm mới `maCuoiCau` (mã cuối câu đứng sau số là đơn vị đo ⇒ không phải nước).
+- **Test mới** `packs/hs/test/xuat-xu-ma-nuoc-ozv-535.test.mjs` (9 test, 3 nhóm lỗi + ô có nhãn + chốt ngược Gói 6 qua `hs.handle`).
+- **Hồi quy** 411 chuỗi (test xuất xứ + 50 câu khách eval) so `main` `876441c`: 5 ca `main` đọc sai nay sửa, 19 ca chỉ khác ở hàm nội bộ, 2 ca là tiêu đề rác mà nhánh đọc đúng hơn; không ca nào `main` đúng mà nhánh sai.
+- 4 cổng: `npm test` 1324/1324 · `npm run eval` 32/32 · `node scripts/qa-that.mjs --mock` 6/6 · `node scripts/kiem-wiki.mjs --ngriem` ĐẠT (16 trang).
+- PR #216 (nhánh `ozv-535-nuoc-don-vi-tu-dan`) — mở vào `main`, CHỜ giám đốc soát, thợ không tự gộp.
+
+## 2026-11-13 — OZV-535 vòng 3 (soát vòng 3 CHẶN, trả thợ): khôi phục nước gõ không dấu · mã HS có dấu chấm · rào danh từ hàng sau mã HS
+- **Sai lệch đo được (giám đốc chặn ở `d25b905`):** (1) `"hàng nuoc UK"` — `main` `5b441c8` ⇒ `GB`, nhánh ⇒ `null` ⇒ mất nước ⇒ bot tính thuế theo Trung Quốc + báo "giả định Trung Quốc" (Điều III); (2) `"Nike 6404.11.90 GB"` — `main` ⇒ `GB`, nhánh ⇒ `null` (mã HS có DẤU CHẤM bị `tachTu` cắt thành "6404" "11" "90" nên đếm chữ số trên token "90" ⇒ tưởng số lượng ⇒ nuốt mã nước); (3) `"85371099 tu BT"` ⇒ `BT` (Belarus) — rào `'tu'`/`'tai'` chỉ chặn ở vị trí đầu chuỗi ⇒ "mã HS + tủ BT" lọt.
+- **Vá** `packs/hs/input.js`: (1) `DAN_XUAT_XU_VN_YEU` nhận thêm bản KHÔNG dấu `"nuoc"` (luật yếu y hệt "nước": đứng đầu giá trị hoặc sau một từ dẫn khác) và bản không dấu của "ở"/"của" (`"o"`, `"cua"`) vào tầng không-dấu; (2) `laDonViDoSauSo` đếm chữ số trên NGUYÊN VĂN phần chữ trước mã (thêm `tachTuViTri` để lấy vị trí) — mã HS "6404.11.90" = 8 chữ số ⇒ không phải số lượng; (3) tầng không-dấu chỉ nhận khi đứng sau MỘT TỪ, không phải sau con số ⇒ "hàng tu GB" / "SX tai TQ" còn nhận, còn "85371099 tu BT" không.
+- **Đánh đổi có chủ ý (báo giám đốc):** "64041190 tu GB" (mã HS + "tu" không dấu) cũng rơi về `null` như "tủ BT" — cùng lớp lỗi danh từ hàng; khách muốn nói "từ GB" thì viết có dấu ("từ GB") hoặc bỏ "tu" ("64041190 GB").
+- **Test** `packs/hs/test/xuat-xu-ma-nuoc-ozv-535.test.mjs`: thêm 3 khối hồi quy (không dấu · mã HS có dấu chấm · danh từ hàng sau mã HS) — 14 test; đỏ trước trên code cũ (3 khối mới fail), xanh sau vá.
