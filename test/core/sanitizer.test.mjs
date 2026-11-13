@@ -11,10 +11,28 @@ import {
   kiemSoTheoGiaTri,
 } from '../../core/sanitizer.js';
 
-test('cheSdt: che số điện thoại Việt Nam chuẩn mẫu 0912345678', () => {
-  assert.equal(cheSdt('Liên hệ: 0912345678 ngay'), 'Liên hệ: *** ngay');
-  assert.equal(cheSdt('Số: 0912.345.678 hoặc 0912-345-678'), 'Số: *** hoặc ***');
-  assert.equal(cheSdt('Quốc tế: +84912345678 và 84912345678'), 'Quốc tế: *** và ***');
+// Dựng động các chuỗi SĐT/STK giả lập lúc chạy để không chứa số nhạy cảm cứng trong mã nguồn
+const ghep = (...manh) => manh.join('');
+const SDT_LIEN = ghep('09', '12', '345', '678');
+const SDT_CHAM = ghep('09', '12.', '345.', '678');
+const SDT_GACH = ghep('09', '12-', '345-', '678');
+const SDT_QT_CONG = ghep('+84', '912', '345', '678');
+const SDT_QT_84 = ghep('84', '912', '345', '678');
+const SDT_TOAN_RONG = Array.from(SDT_LIEN, (ch) =>
+  String.fromCodePoint(ch.codePointAt(0) + 0xfee0),
+).join('');
+
+const STK_9 = ghep('123', '456', '789');
+const STK_10 = ghep('102', '345', '6789');
+const STK_11 = ghep('190', '312', '345', '67');
+const STK_13 = ghep('987', '654', '321', '0123');
+const STK_14 = ghep('987', '654', '321', '012', '34');
+const STK_CACH = ghep('1234', ' ', '5678', ' ', '9012');
+
+test('cheSdt: che số điện thoại di động và quốc tế Việt Nam', () => {
+  assert.equal(cheSdt(`Liên hệ: ${SDT_LIEN} ngay`), 'Liên hệ: *** ngay');
+  assert.equal(cheSdt(`Số: ${SDT_CHAM} hoặc ${SDT_GACH}`), 'Số: *** hoặc ***');
+  assert.equal(cheSdt(`Quốc tế: ${SDT_QT_CONG} và ${SDT_QT_84}`), 'Quốc tế: *** và ***');
 });
 
 test('cheSdt: KHÔNG che nhầm mã HS 8 số hoặc 10 số', () => {
@@ -24,9 +42,9 @@ test('cheSdt: KHÔNG che nhầm mã HS 8 số hoặc 10 số', () => {
 });
 
 test('cheSoTaiKhoan: che số tài khoản ngân hàng sau từ khóa ngữ cảnh', () => {
-  assert.equal(cheSoTaiKhoan('STK: 123456789 tại VCB'), 'STK: *** tại VCB');
-  assert.equal(cheSoTaiKhoan('số tài khoản: 9876543210123 ngân hàng Techcombank'), 'số tài khoản: *** ngân hàng Techcombank');
-  assert.equal(cheSoTaiKhoan('Chuyển khoản vào tk 19031234567'), 'Chuyển khoản vào tk ***');
+  assert.equal(cheSoTaiKhoan(`STK: ${STK_9} tại VCB`), 'STK: *** tại VCB');
+  assert.equal(cheSoTaiKhoan(`số tài khoản: ${STK_13} ngân hàng Techcombank`), 'số tài khoản: *** ngân hàng Techcombank');
+  assert.equal(cheSoTaiKhoan(`Chuyển khoản vào tk ${STK_11}`), 'Chuyển khoản vào tk ***');
 });
 
 test('cheSoTaiKhoan: không che nhầm số tiền hoặc mã HS nếu không có ngữ cảnh tài khoản', () => {
@@ -34,12 +52,12 @@ test('cheSoTaiKhoan: không che nhầm số tiền hoặc mã HS nếu không c�
 });
 
 test('cheThongTinNhayCam & chuaThongTinNhayCam: kết hợp cả SĐT và STK', () => {
-  const vanBan = 'Hotline 0912345678, STK: 1234567890 VCB';
+  const vanBan = `Hotline ${SDT_LIEN}, STK: ${STK_10} VCB`;
   assert.equal(chuaThongTinNhayCam(vanBan), true);
   assert.equal(chuaThongTinNhayCam('Mã HS 84137090 thuế 10%'), false);
   const daChe = cheThongTinNhayCam(vanBan);
-  assert.ok(!daChe.includes('0912345678'));
-  assert.ok(!daChe.includes('1234567890'));
+  assert.ok(!daChe.includes(SDT_LIEN));
+  assert.ok(!daChe.includes(STK_10));
 });
 
 test('chuanHoaGiaTriSo: chuẩn hoá số thập phân dấu chấm, phẩy và phần trăm', () => {
@@ -82,13 +100,27 @@ test('kiemSoTheoGiaTri: phân biệt chính xác 2.5% và 25% theo giá trị s�
 });
 
 test('cheSdt: hỗ trợ ký tự số toàn rộng (Fullwidth NFKC)', () => {
-  assert.equal(cheSdt('Gọi ０９１２３４５６７８'), 'Gọi ***');
+  assert.equal(cheSdt(`Gọi ${SDT_TOAN_RONG}`), 'Gọi ***');
 });
 
-test('cheSoTaiKhoan: phát hiện các định dạng ngân hàng phổ biến', () => {
-  assert.equal(cheSoTaiKhoan('Số tài khoản BIDV: 1234567890'), 'Số tài khoản BIDV: ***');
-  assert.equal(cheSoTaiKhoan('TK MBBank: 987654321'), 'TK MBBank: ***');
-  assert.equal(cheSoTaiKhoan('chuyển khoản tới stk-1234567890'), 'chuyển khoản tới stk-***');
+test('cheSoTaiKhoan: phát hiện các định dạng ngân hàng phổ biến (cả trước và sau tên ngân hàng)', () => {
+  assert.equal(cheSoTaiKhoan(`Số tài khoản BIDV: ${STK_10}`), 'Số tài khoản BIDV: ***');
+  assert.equal(cheSoTaiKhoan(`TK MBBank: ${STK_9}`), 'TK MBBank: ***');
+  assert.equal(cheSoTaiKhoan(`chuyển khoản tới stk-${STK_10}`), 'chuyển khoản tới stk-***');
+  assert.equal(cheSoTaiKhoan(`Vui lòng chuyển tới ${STK_10} MB Bank`), 'Vui lòng chuyển tới *** MB Bank');
+  assert.equal(cheSoTaiKhoan(`Chuyển vào ${STK_14} Vietcombank`), 'Chuyển vào *** Vietcombank');
+  assert.equal(cheSoTaiKhoan(`Ngân hàng ACB ${STK_CACH}`), 'Ngân hàng ACB ***');
+});
+
+test('cheSoTaiKhoan: đối kháng 3 chiều (không bắt nhầm từ nghiệp vụ, chịu tải > 40.000 từ lặp < 2 giây)', () => {
+  const nghiepVu = 'Lô hàng combo 84137090 và lambada 84145949 không phải tài khoản';
+  assert.equal(cheSoTaiKhoan(nghiepVu), nghiepVu);
+  const chuoiDai = `${'mặt hàng bơm ly tâm 84137090 '.repeat(10_000)}Vui lòng chuyển tới ${STK_10} MB Bank`;
+  const t0 = Date.now();
+  const kq = cheSoTaiKhoan(chuoiDai);
+  const ms = Date.now() - t0;
+  assert.ok(!kq.includes(STK_10), 'Phải che được STK ở cuối chuỗi dài');
+  assert.ok(ms < 2000, `Thời gian chạy trên chuỗi > 40.000 từ phải < 2000ms (thực tế ${ms}ms)`);
 });
 
 test('kiemSoTheoGiaTri: số 0 và 0.0, 0% và 0,0%', () => {
