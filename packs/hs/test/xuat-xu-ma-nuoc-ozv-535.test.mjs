@@ -132,6 +132,45 @@ test('OZV-535 nhóm 3: "made in ..." bình thường vẫn nhận nước', () =
   }
 });
 
+// HỒI QUY (vòng soát 3): khách gõ tiếng Việt KHÔNG DẤU — "hàng nuoc UK" phải ra GB như `main`.
+// Không nhận "nuoc" ⇒ MẤT nước ⇒ bot tính thuế theo Trung Quốc + báo "giả định Trung Quốc"
+// (Điều III). Cùng lớp: "hang cua UK" / "hang o UK" (bản không dấu của "hàng của/ở UK").
+test('OZV-535 hồi quy: từ dẫn xuất xứ viết KHÔNG DẤU vẫn nhận nước', () => {
+  for (const [s, mong] of [['hàng nuoc UK', 'GB'], ['hang nuoc UK', 'GB'], ['hàng nuoc GB', 'GB'],
+    ['hang cua UK', 'GB'], ['hang o UK', 'GB'], ['nuoc GB', 'GB']]) {
+    assert.equal(countryCode(s), mong, `"${s}" phải ra ${mong} (khớp main)`);
+    assert.equal(maNuocTrongCau(s), mong, `"${s}" phải ra ${mong} (khớp main)`);
+    assert.equal(xuatXuCua({ nhan: s }).ma, mong, `"${s}" phải ra ${mong} (khớp main)`);
+    assert.equal(xuatXuCua({ nhan: s }).giaDinh, false, `"${s}": khách đã nói nước thì không được nói "giả định"`);
+  }
+});
+
+// HỒI QUY (vòng soát 3): mã HS có DẤU CHẤM nuốt mã nước — "Nike 6404.11.90 GB" phải ra GB.
+// `tachTu` cắt "6404.11.90" thành "6404" "11" "90" ⇒ đếm chữ số trên token "90" thì tưởng là
+// SỐ LƯỢNG ⇒ mất nước (GB/MT/LT có FTA EU ⇒ khách đọc ra mức thuế sai — Điều III).
+test('OZV-535 hồi quy: mã nước đứng sau mã HS CÓ DẤU CHẤM vẫn là nước', () => {
+  for (const ma of ['GB', 'MT', 'LT', 'MM', 'KG', 'CM', 'ML', 'KW']) {
+    const s = `Nike 6404.11.90 ${ma}`;
+    assert.equal(countryCode(s), ma, `"${s}" phải ra ${ma} (khớp main)`);
+    assert.equal(maNuocTrongCau(s), ma, `"${s}" phải ra ${ma} (khớp main)`);
+    assert.equal(xuatXuCua({ nhan: s }).ma, ma, `"${s}" phải ra ${ma} (khớp main)`);
+    assert.equal(xuatXuCua({ nhan: s }).giaDinh, false, `"${s}": khách đã nói nước thì không được nói "giả định"`);
+  }
+});
+
+// NHÓM 2 (vòng soát 3): "85371099 tu BT" — mã HS + "tủ BT" (danh từ hàng) KHÔNG phải Belarus.
+// Rào "tu"/"tai"/"o"/"cua" (bản không dấu) chỉ chặn ở đầu chuỗi ⇒ "tu" sau mã HS lọt ⇒ mã nước
+// đọc thành nước thật ⇒ `giaDinh:false` ⇒ bot KHÔNG nói "giả định" mà đi thẳng vào thuế.
+test('OZV-535 nhóm 2: mã HS + danh từ hàng viết KHÔNG DẤU không phải nước', () => {
+  for (const s of ['85371099 tu BT', '85371099 tai BT', '64041190 tu GB']) {
+    assert.equal(countryCode(s), null, `"${s}": mã sau danh từ hàng không phải nước`);
+    assert.equal(maNuocTrongCau(s), null, `"${s}": không được ra mã nước nào`);
+    assert.equal(findCountryInText(s), null, `"${s}": không được ra mã nước nào`);
+    assert.equal(maCuoiCau(s), null, `"${s}": gói 6 cũng không được tự gán nước`);
+    assert.equal(xuatXuCua({ nhan: s }).giaDinh, true, `"${s}": không khai nước thì phải nói rõ là giả định`);
+  }
+});
+
 // ── Gói 6 (đường thật): mã cuối câu cũng phải qua rào đơn vị đo ──────────────────────────────
 
 test('OZV-535 nhóm 1 + 2: gói 6 không tự gán nước từ đơn vị đo / danh từ hàng', async () => {

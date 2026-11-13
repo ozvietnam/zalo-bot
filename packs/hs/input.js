@@ -226,9 +226,25 @@ export const VIET_TAT_KHONG_PHAI_NUOC = new Set(['SX', 'IN', 'CO', 'CF', 'PN', '
 const DAN_XUAT_XU_EN = new Set(['made', 'in', 'from', 'origin', 'xu']);
 const DAN_XUAT_XU_VN = new Set(['tại', 'từ', 'ở', 'của', 'hàng']);
 const DAN_XUAT_XU_ASCII = new Set(['hang']);
-const DAN_XUAT_XU_VN_YEU = new Set(['nước']);
-/** Bản không dấu của từ dẫn tiếng Việt mà KHÔNG được đứng đầu câu ("tu BT" = "tủ BT"!). */
-const DAN_XUAT_XU_ASCII_KHONG_DAU_DAU = new Set(['tu', 'tai']);
+/**
+ * Từ dẫn YẾU — có "nước" (giữ dấu) và "nuoc" (KHÔNG dấu).
+ *
+ * Khách gõ tiếng Việt không dấu trên Zalo là chuyện thường: "hàng nuoc UK" mà không nhận
+ * "nuoc" là MẤT nước ⇒ bot rơi về giả định Trung Quốc + báo "giả định Trung Quốc" (Điều III).
+ * `nuoc` nhận đúng luật của "nước": đứng đầu giá trị ("nuoc GB") hoặc sau một từ dẫn khác
+ * ("hàng nuoc GB"); đứng sau danh từ hàng thì không ("may loc nuoc RO").
+ */
+const DAN_XUAT_XU_VN_YEU = new Set(['nước', 'nuoc']);
+/**
+ * Bản KHÔNG DẤU của từ dẫn tiếng Việt mà KHÔNG được đứng đầu câu ("tu BT" = "tủ BT"!)
+ * và KHÔNG được đứng ngay sau MÃ/SỐ ("85371099 tu BT" = mã HS + "tủ BT", KHÔNG phải
+ * "từ Belarus").
+ *
+ * Chỉ nhận khi đứng sau MỘT TỪ: "hàng tu GB", "hang tu BG", "SX tai TQ" — còn "tu BT" (đầu
+ * câu) và "85371099 tu BT" (sau mã HS) thì không nhận. Đây là cùng lớp lỗi với danh từ hàng
+ * có dấu ("tủ BT", "cửa AL") — mã đứng sau danh từ hàng là viết tắt kỹ thuật, không phải nước.
+ */
+const DAN_XUAT_XU_ASCII_KHONG_DAU_DAU = new Set(['tu', 'tai', 'o', 'cua']);
 
 /**
  * ĐƠN VỊ ĐO hay gặp ở CUỐI câu mô tả hàng — mã 2 chữ trùng mã nước ISO-2 (OZV-535 nhóm 1).
@@ -246,12 +262,16 @@ export const DON_VI_DO = new Set(['GB', 'KG', 'MM', 'CM', 'ML', 'KW', 'MT', 'LT'
  * đứng sau mã HS bị nuốt: khách khai Vương quốc Anh (`GB`) / Malta (`MT`) / Litva (`LT`) ⇒ bot
  * rơi về giả định Trung Quốc, khách đọc ra mức thuế sai (Điều III). Mã HS của Cổng có 8 số
  * (`packs/hs/packages.js:40` `/^\d{8}$/`) ⇒ số từ 8 chữ số trở lên KHÔNG phải số lượng.
+ *
+ * `truoc` là NGUYÊN VĂN phần chữ trước mã (KHÔNG phải token đã tách): `tachTu` cắt
+ * "6404.11.90" thành "6404" "11" "90", nên token ngay trước mã nước là "90" (2 chữ số) ⇒ tưởng
+ * là SỐ LƯỢNG ⇒ nuốt mất mã nước đứng sau mã HS CÓ DẤU CHẤM (vòng soát 3 PR #216).
  */
 const laDonViDoSauSo = (ma, truoc) => {
   if (!DON_VI_DO.has(ma)) return false;
-  const s = String(truoc || '').trim();
-  if (!/^\d+(?:[.,]\d+)?$/.test(s)) return false;
-  return s.replace(/\D/g, '').length < 8;
+  const so = (String(truoc || '').trim().match(/(\d[\d.,]*)$/) || [])[1] || '';
+  if (!so) return false;
+  return so.replace(/\D/g, '').length < 8;
 };
 
 /** Token trước có phải con số không? ("Nike 64041190 CN" ⇒ "CN" đứng sau mã HS). */
@@ -266,6 +286,10 @@ const laSo = (tok) => /^\d+(?:[.,]\d+)?$/.test(String(tok || '').trim());
  *
  * Hạ chữ thường KHÔNG làm mất phân biệt "giữ dấu" — "từ" ≠ "tủ", "tại" ≠ "tai", "của" ≠ "cửa":
  * bảng tiếng Việt so trên chuỗi GIỮ DẤU nên "TỦ" → "tủ" vẫn không khớp khoá "từ".
+ *
+ * Bản KHÔNG DẤU ("tu" "tai" "o" "cua") chỉ nhận khi đứng sau MỘT TỪ, không phải sau con số:
+ * "hàng tu GB" / "SX tai TQ" là từ dẫn thật; "85371099 tu BT" là mã HS + "tủ BT" (danh từ hàng)
+ * ⇒ mã nước đứng sau nó KHÔNG phải xuất xứ (vòng soát 3 PR #216).
  * @param {string[]} tu danh sách từ đã tách
  * @param {number} i vị trí từ đang xét
  */
@@ -276,7 +300,7 @@ const laTuDanXuatXu = (tu, i) => {
   if (DAN_XUAT_XU_VN.has(tK)) return true;
   if (DAN_XUAT_XU_ASCII.has(tK)) return true;
   if (DAN_XUAT_XU_VN_YEU.has(tK)) return i === 0 || (i > 0 && laTuDanXuatXu(tu, i - 1));
-  if (DAN_XUAT_XU_ASCII_KHONG_DAU_DAU.has(tK)) return i > 0;
+  if (DAN_XUAT_XU_ASCII_KHONG_DAU_DAU.has(tK)) return i > 0 && !laSo(tu[i - 1]);
   return false;
 };
 
@@ -325,7 +349,7 @@ export const maCuoiCau = (s) => {
   const t = String(s || '');
   const m = t.match(/\b([A-Z]{2})\s*$/);
   if (!m) return null;
-  const truoc = t.slice(0, m.index).trim().split(/\s+/).pop() || '';
+  const truoc = t.slice(0, m.index).trim();
   if (laDonViDoSauSo(m[1], truoc)) return null;
   const tu = tachTu(t);
   const i = tu.length - 1;
@@ -342,7 +366,13 @@ const boNhanXuatXu = (n) => n.replace(/^(xuat xu|xuatxu|xx|origin|nuoc)\s*[:\-]?
  * MỘT từ, không phải "My". Bỏ `\p{M}` khỏi mẫu thì dấu rời bị tách mất và "Mỹ" trở lại thành
  * "my" — đúng lỗi "Mỹ = Malaysia" mà vòng soát 3 của PR #214 đã chặn.
  */
-const tachTu = (s) => [...String(s || '').matchAll(/[\p{L}\p{N}][\p{L}\p{N}\p{M}]*/gu)].map((m) => m[0]);
+/**
+ * Như `tachTu` nhưng kèm VỊ TRÍ bắt đầu trong chuỗi gốc — cần khi rào theo NGUYÊN VĂN
+ * (mã HS có dấu chấm "6404.11.90" bị `tachTu` cắt thành ba token).
+ */
+const tachTuViTri = (s) => [...String(s || '').matchAll(/[\p{L}\p{N}][\p{L}\p{N}\p{M}]*/gu)].map((m) => ({ tu: m[0], viTri: m.index }));
+
+const tachTu = (s) => tachTuViTri(s).map((x) => x.tu);
 
 /**
  * Mã nước LẪN giữa chữ khác trong ô ("SX tại SK", "made in BN", "van bi DN25 PN16 CF8M").
@@ -367,7 +397,8 @@ export function maNuocTrongCau(s) {
   // Regex ASCII cũ (`[A-Z]{2}` + ranh giới `[^A-Za-z0-9]`) cắt mảnh từ có dấu rồi đọc phần
   // còn lại thành mã ISO THẬT: "VIỆT NAM" → "VI" (Virgin Islands), "MỸ" (dạng NFD) → "MY"
   // (Malaysia), "ĐỒNG" → "NG" (Nigeria), "GHẾ" → "GH" (Ghana), "PHÊ" → "PH" (Philippines).
-  const tu = tachTu(t);
+  const dsTu = tachTuViTri(t);
+  const tu = dsTu.map((x) => x.tu);
   for (let i = 0; i < tu.length; i++) {
     const ma = tu[i];
     if (/[\p{M}]/u.test(ma)) continue;          // từ có dấu ⇒ KHÔNG phải mã ISO
@@ -377,8 +408,11 @@ export function maNuocTrongCau(s) {
     const truoc = i > 0 ? tu[i - 1] : '';
     const laCuoi = i === tu.length - 1;
     // RÀO ĐƠN VỊ ĐO (OZV-535 nhóm 1): mã đứng ngay sau CON SỐ và mã nằm trong `DON_VI_DO`
-    // ⇒ "500 GB" là gigabyte, không phải Vương quốc Anh.
-    if (laDonViDoSauSo(ma, truoc)) continue;
+    // ⇒ "500 GB" là gigabyte, không phải Vương quốc Anh. Đếm chữ số trên NGUYÊN VĂN phần
+    // chữ trước mã: token trước mã trong "6404.11.90 GB" chỉ là "90" ⇒ tưởng số lượng ⇒
+    // nuốt mất mã nước đứng sau mã HS có dấu chấm (vòng soát 3 PR #216).
+    const truocGoc = i > 0 ? t.slice(0, dsTu[i].viTri).trim() : '';
+    if (laDonViDoSauSo(ma, truocGoc)) continue;
     // TỪ DẪN XUẤT XỨ (OZV-535 nhóm 2): so theo tầng, từ tiếng Việt GIỮ DẤU — "ổ BI", "tủ BT",
     // "cửa AL" là DANH TỪ HÀNG trùng từ dẫn, không phải xuất xứ.
     const tuDan = i > 0 && laTuDanXuatXu(tu, i - 1);
