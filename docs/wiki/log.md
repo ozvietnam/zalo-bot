@@ -14,13 +14,20 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-13 — OZV-693: MST checksum TT105 + không lộ SĐT (vòng soát PR #223)
+
+- **Vì sao:** vòng 1 chỉ gọi `laMstHopLe` ở nhánh SĐT nhưng hàm dùng công thức sai (`du === d[9]`); MST công khai tỉnh 01 vẫn bị `[SĐT]`. Đồng thời bỏ qua che khi checksum “đúng” theo công thức sai → lộ SĐT đầu số di động trùng dạng.
+- **Vá (TDD):** (1) `laMstHopLe` theo TT105 — `(10 - (sum%11)) === d[9]`, `sum%11===0` → không hợp lệ; (2) đầu số di động `isDomestic` luôn che, trừ MST chi nhánh `10 số-XXX`.
+- **Test:** MST công khai tỉnh 01 giữ; SĐT đầu số di động vẫn che; MST HCM + đuôi chi nhánh checksum đúng thì giữ. `test/gateway/anonymizer.test.mjs` **18/18**.
+- **Chưa làm:** nối module vào luồng AI (T809).
+
 ## 2026-11-13 — OZV-693: MST 10 số checksum hợp lệ (kể cả bắt đầu bằng 0) không bị che nhầm [SĐT]
 
 - **Vì sao:** lỗi có sẵn trên main — MST DN tỉnh mã `0…` trùng dạng SĐT; guard MST chỉ bỏ qua nhánh `[STK]` (`RE_SO_TRAN`), còn `findPhoneSpans` vẫn gắn `[SĐT]`. AI Studio mất ngữ cảnh tra cứu MST.
 - **Vá (TDD):** trong `cheSdtVaStk`, lọc khoảng SĐT nếu `laMstHopLe` đúng; checksum sai vẫn che. Không đụng `core/sdt.js`.
 - **Test:** thêm ca OZV-693; sửa mô tả ca T808 MST checksum sai. `test/gateway/anonymizer.test.mjs` **18/18**.
 - **Bảng so main vs nhánh (11 ca, mỗi ca 1 tiến trình node):** chỉ `mst-0-hop-le` đổi (main `[SĐT]` → nhánh giữ số); 10 ca còn lại không hồi quy.
-- **Chưa làm:** nối module vào luồng AI (T809).
+- **Chưa làm:** nối module vào luồng AI (T809). (Siêu bởi mục soát TT105 phía trên.)
 
 ## 2026-11-13 — OZV-685 / T808 vòng 3: STK không từ khoá · tên NFD/không dấu · mã đơn · memberNames
 

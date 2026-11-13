@@ -9,14 +9,15 @@
  * (timKhoangStk), `core/redact.js`, `packs/hs/input.js` (`norm` — so tên).
  *
  * Giới hạn số trần: che dãy 8–20 chữ số (kể cả không từ khoá), trừ SĐT, mã HS
- * có dấu/ngữ cảnh "mã HS", MST checksum hợp lệ (kể cả bắt đầu bằng 0 — không
- * nhầm [SĐT]), ngày-giờ 14 số YYYYMMDDHHmmss. MST checksum sai vẫn che.
+ * có dấu/ngữ cảnh "mã HS", MST checksum TT105 hợp lệ (kể cả bắt đầu bằng 0 —
+ * không nhầm [SĐT]; đầu số di động 03/05/07/08/09 vẫn luôn che), ngày-giờ 14 số
+ * YYYYMMDDHHmmss. MST checksum sai vẫn che.
  * Nhóm: truyền `memberNames` để che tên thành viên khác; thiếu danh sách thì
  * chỉ che được tên đã biết trong phiên — không tuyên bố ẩn danh hai chiều đủ
  * cho nhóm khi chưa có memberNames.
  */
 
-import { findPhoneSpans, looksLikeHsCode } from '../core/sdt.js';
+import { findPhoneSpans, isDomestic, looksLikeHsCode } from '../core/sdt.js';
 import { timKhoangStk } from '../core/sanitizer.js';
 import { redact } from '../core/redact.js';
 import { norm } from '../packs/hs/input.js';
@@ -87,14 +88,18 @@ function gopKhoang(spans) {
 
 const chongLan = (s, e, spans) => spans.some(([as, ae]) => s < ae && as < e);
 
-/** MST DN 10 số — checksum mod 11 (trọng số chuẩn); 10 → không hợp lệ. */
+/**
+ * MST DN 10/13 số — checksum TT105/2020: hợp lệ khi `10 - (sum % 11) === d[9]`.
+ * `sum % 11 === 0` → `10 - 0 = 10` không phải chữ số kiểm 0..9 → không hợp lệ.
+ */
 function laMstHopLe(digits) {
   const d = digitsOf(digits);
   if (d.length !== 10 && d.length !== 13) return false;
   const base = d.slice(0, 10);
   const sum = MST_W.reduce((s, w, i) => s + w * Number(base[i]), 0);
-  const du = sum % 11;
-  return du !== 10 && du === Number(base[9]);
+  const rem = sum % 11;
+  if (rem === 0) return false;
+  return (10 - rem) === Number(base[9]);
 }
 
 /** Ngày-giờ dài dạng YYYYMMDDHHmmss (vd mã đơn) — không coi là STK. */
@@ -119,10 +124,19 @@ function giuMaHs(src, raw, s) {
 
 function cheSdtVaStk(src) {
   const stkUuTien = gopKhoang(timKhoangStk(src));
-  // MST DN thường bắt đầu bằng 0 (tỉnh) → trùng dạng SĐT; chỉ bỏ qua khi checksum mod 11 đúng.
+  // MST DN thường bắt đầu bằng 0 (tỉnh) → trùng dạng SĐT.
+  // Checksum TT105 đúng thì bỏ qua che — TRỪ đầu số di động VN (03/05/07/08/09):
+  // luôn che, an toàn hơn tiện lợi (tránh lộ SĐT khách sang AI Studio).
   const sdt = findPhoneSpans(src).filter(([s, e]) => {
     if (chongLan(s, e, stkUuTien)) return false;
-    if (laMstHopLe(src.slice(s, e))) return false;
+    const raw = src.slice(s, e);
+    const d = digitsOf(raw);
+    if (laMstHopLe(d)) {
+      // Đầu số di động: luôn che, trừ MST chi nhánh dạng 10 số + "-XXX".
+      const coChiNhanh = /^-\d{3}(?!\d)/.test(src.slice(e));
+      if (isDomestic(d) && !coChiNhanh) return true;
+      return false;
+    }
     return true;
   });
   const stkTran = [];
