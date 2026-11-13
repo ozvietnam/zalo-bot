@@ -72,3 +72,16 @@ test('quickstart.md: các tệp và lệnh tham chiếu đều tồn tại', () 
   assert.match(qsContent, /localhost:3010\/health/);
   assert.match(qsContent, /localhost:3010\/metrics/);
 });
+
+test('package.json: scripts.test gom đủ test/core, test/giam-sat, test/gateway, packs và test/test.mjs (OZV-686)', () => {
+  const testScript = packageJson.scripts?.test || '';
+  for (const glob of [
+    'test/core/**/*.test.mjs',
+    'test/giam-sat/**/*.test.mjs',
+    'test/gateway/**/*.test.mjs',
+    'packs/**/*.test.mjs',
+    'test/test.mjs',
+  ]) {
+    assert.ok(testScript.includes(glob), `scripts.test trong package.json phải chứa ${glob}`);
+  }
+});
