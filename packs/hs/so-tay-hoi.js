@@ -164,12 +164,19 @@ export function cauHoiTuHoSo(hoSo, { s = '', env = {} } = {}) {
 /** `ctx.tools` có liệt kê thì phải có công cụ; không liệt kê thì coi như có (giống `packages.js`). */
 const coCongCu = (ctx) => !ctx?.tools || ctx.tools.has(TOOL);
 
-/** Gọi `callTool` với hạn giờ riêng — bọc `engine-ctx`/`bao-dang-tra` bỏ mất đối số thứ ba. */
+/**
+ * Gọi `callTool` với hạn giờ riêng — bọc `engine-ctx`/`bao-dang-tra` bỏ mất đối số thứ ba.
+ *
+ * KHÔNG `unref()` đồng hồ này: ta đang CHỜ nó để quyết dự phòng, nên nó phải neo vòng lặp sự
+ * kiện. Có `unref()` thì trên Node 22 (bản CI dùng) vòng lặp cạn việc trước khi hạn giờ bắn và
+ * node:test huỷ ca đang chạy cùng mọi ca sau — "Promise resolution is still pending but the
+ * event loop has already resolved" (CI 43508123974, 43512075073; Node 24 ở máy thợ không lộ).
+ * `clearTimeout` ở `finally` đã dọn đồng hồ ngay khi có kết quả nên nó không giữ tiến trình sống.
+ */
 function goiCoHan(ctx, args, hanGioMs) {
   let hen = null;
   const het = new Promise((_, loi) => {
     hen = setTimeout(() => loi(new Error('so_tay_questions: het gio')), hanGioMs);
-    hen.unref?.();
   });
   return Promise.race([Promise.resolve().then(() => ctx.mcp.callTool(TOOL, args)), het])
     .finally(() => { if (hen) clearTimeout(hen); });
