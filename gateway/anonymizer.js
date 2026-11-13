@@ -9,7 +9,8 @@
  * (timKhoangStk), `core/redact.js`, `packs/hs/input.js` (`norm` — so tên).
  *
  * Giới hạn số trần: che dãy 8–20 chữ số (kể cả không từ khoá), trừ SĐT, mã HS
- * có dấu/ngữ cảnh "mã HS", MST checksum hợp lệ, ngày-giờ 14 số YYYYMMDDHHmmss.
+ * có dấu/ngữ cảnh "mã HS", MST checksum hợp lệ (kể cả bắt đầu bằng 0 — không
+ * nhầm [SĐT]), ngày-giờ 14 số YYYYMMDDHHmmss. MST checksum sai vẫn che.
  * Nhóm: truyền `memberNames` để che tên thành viên khác; thiếu danh sách thì
  * chỉ che được tên đã biết trong phiên — không tuyên bố ẩn danh hai chiều đủ
  * cho nhóm khi chưa có memberNames.
@@ -118,7 +119,12 @@ function giuMaHs(src, raw, s) {
 
 function cheSdtVaStk(src) {
   const stkUuTien = gopKhoang(timKhoangStk(src));
-  const sdt = findPhoneSpans(src).filter(([s, e]) => !chongLan(s, e, stkUuTien));
+  // MST DN thường bắt đầu bằng 0 (tỉnh) → trùng dạng SĐT; chỉ bỏ qua khi checksum mod 11 đúng.
+  const sdt = findPhoneSpans(src).filter(([s, e]) => {
+    if (chongLan(s, e, stkUuTien)) return false;
+    if (laMstHopLe(src.slice(s, e))) return false;
+    return true;
+  });
   const stkTran = [];
   for (const m of src.matchAll(RE_SO_TRAN)) {
     const raw = m[0];

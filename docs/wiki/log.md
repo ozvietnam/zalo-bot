@@ -1,5 +1,6 @@
 # Nhật ký wiki
 
+> Cập nhật: 2026-11-13 · commit: (OZV-693 / MST checksum bắt đầu bằng 0)
 > Cập nhật: 2026-11-13 · commit: (OZV-685 / T808 vòng 3)
 > Cập nhật: 2026-11-13 · commit: f0ecd11
 
@@ -12,6 +13,14 @@ Quy ước:
 - Ghi rõ **vì sao** đổi, không chỉ ghi "sửa lỗi".
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
+
+## 2026-11-13 — OZV-693: MST 10 số checksum hợp lệ (kể cả bắt đầu bằng 0) không bị che nhầm [SĐT]
+
+- **Vì sao:** lỗi có sẵn trên main — MST DN tỉnh mã `0…` trùng dạng SĐT; guard MST chỉ bỏ qua nhánh `[STK]` (`RE_SO_TRAN`), còn `findPhoneSpans` vẫn gắn `[SĐT]`. AI Studio mất ngữ cảnh tra cứu MST.
+- **Vá (TDD):** trong `cheSdtVaStk`, lọc khoảng SĐT nếu `laMstHopLe` đúng; checksum sai vẫn che. Không đụng `core/sdt.js`.
+- **Test:** thêm ca OZV-693; sửa mô tả ca T808 MST checksum sai. `test/gateway/anonymizer.test.mjs` **18/18**.
+- **Bảng so main vs nhánh (11 ca, mỗi ca 1 tiến trình node):** chỉ `mst-0-hop-le` đổi (main `[SĐT]` → nhánh giữ số); 10 ca còn lại không hồi quy.
+- **Chưa làm:** nối module vào luồng AI (T809).
 
 ## 2026-11-13 — OZV-685 / T808 vòng 3: STK không từ khoá · tên NFD/không dấu · mã đơn · memberNames
 
