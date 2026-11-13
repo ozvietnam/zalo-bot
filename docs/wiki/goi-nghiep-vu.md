@@ -18,7 +18,7 @@ Lõi không biết gói làm gì. Lõi chỉ lọc gói theo đối tượng ng�
 
 | Số | Gói | Id | Công cụ Cổng OZ (tên hàm thật) | Khách gửi | Đặc biệt |
 |---|---|---|---|---|---|
-| 1 | 🔎 Phân loại mã HS | `phan-loai` | `phan_loai_hs`, `bo_sung_du_kien` | tên hàng, chất liệu, công dụng, thông số | Chạy nền, bot không chờ (`packs/hs/packages.js:179`). Thiếu dữ kiện thì bot hỏi lại khách (`packs/hs/packages.js:215`) |
+| 1 | 🔎 Phân loại mã HS | `phan-loai` | `phan_loai_hs`, `bo_sung_du_kien`, `so_tay_questions` (gọi thêm, miễn phí) | tên hàng, chất liệu, công dụng, thông số | Chạy nền, bot không chờ (`packs/hs/packages.js:179`). Thiếu dữ kiện thì bot hỏi lại khách (`packs/hs/packages.js:215`) |
 | 2 | 💰 Thuế & thủ tục nhập khẩu | `thue-thu-tuc` | `tra_thue`, `tra_thu_tuc_nhap_khau`, `tim_ma_hs` | mã HS, thêm nước xuất xứ | Gõ tên hàng thì dùng `tim_ma_hs` để tìm mã trước (`packs/hs/packages.js:262`) |
 | 3 | 📝 Viết mô tả khai báo | `mo-ta` | `sinh_mo_ta_khai_bao` | mã HS, tên hàng, thương hiệu, model | Dùng lại mã vừa phân loại |
 | 4 | ✅ Kiểm tra mô tả / tờ khai | `kiem-tra` | `soat_to_khai`, `kiem_ma_to_khai` | mã HS, mô tả, xuất xứ | "Kiểm sâu" thì chuyển sang `kiem_ma_to_khai` và chạy nền (`packs/hs/packages.js:319`) |
@@ -30,6 +30,16 @@ Hai cột khác nhau, đừng lẫn:
 
 - **Công cụ bắt buộc** — trường `congCu` trong từng gói (`packs/hs/packages.js:146`). Thiếu công cụ này thì gói không hiện với khách.
 - **Công cụ gọi thêm khi chạy** — code gọi có điều kiện qua hàm `has(ctx, ...)`. Cổng không có thì bỏ mục đó, bot vẫn trả lời được.
+
+### Câu hỏi lại lấy từ nguồn chung, không tự dựng (issue #177 mục 1 và 6)
+
+Khi gói 1 thiếu dữ kiện, câu hỏi cho khách đi theo **thứ tự ưu tiên** ở `packs/hs/so-tay-hoi.js` (`hoiLaiUuTien`):
+
+1. `hoSo.ketLuan.cauHoi` — hồ sơ mạch đã có câu hỏi của hs-code-api thì đọc đúng câu đó (cờ `HS_HO_SO`, mặc định bật, tắt bằng `0`/`false`/`off`).
+2. `so_tay_questions` của Cổng — công cụ **MIEN_PHI** (0 điểm), chỉ gọi khi đã có mã ứng viên **≥6 chữ số** (mã 4 số chỉ cho câu chung), hạn giờ riêng 6 giây.
+3. Regex cũ ở `packs/hs/dien-cho-thieu.js` — **dự phòng**: Cổng lỗi / hết giờ / trả rỗng thì rơi về đây, bot vẫn hỏi, không im lặng và không bịa câu (Điều II, III).
+
+Cả ba nguồn đều qua `gomCau` của `packs/hs/ky-luat-hoi.js` → tối đa 3 câu trong MỘT tin, và bỏ câu hỏi về điều khách đã nêu (khoá đã trả lời được đẩy vào `facts` để Cổng không hỏi lại).
 
 ### Gói nào đang hiện với khách
 

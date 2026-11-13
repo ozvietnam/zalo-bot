@@ -9,6 +9,7 @@ import { plain } from './style.js';
 import { fmtHs } from './format.js';
 import { chayCho } from './jobs.js';
 import { kiemTraThongTinPhanLoai, xuLyTraLoiHoiLai } from './dien-cho-thieu.js';
+import { hoiLaiUuTien } from './so-tay-hoi.js';
 import { renderPhanLoaiGiongQuyen } from './giong-quyen.js';
 import { goiCanCu, dongCanCuNgan } from './can-cu.js';
 import { laTenHangCam, laLenhTroHoSo, laCauXemLai, cungMonVoi, boYeuCauDau } from './ho-so.js';
@@ -210,9 +211,17 @@ export const PACKAGES = [
         // thông số ("350W 220V") là đã trả lời câu hỏi đó — hỏi lại là treo khách giữa hai vòng,
         // không bao giờ tới được mã (Điều II; đỏ `[soát #203-5]` của vòng soát 3 PR #213).
         const tenDaHoi = hoiLai.hoiXacNhanTen ? hoiLai.tenGoiY : null;
+        // Câu hỏi lấy từ NGUỒN CHUNG trước (hồ sơ → `so_tay_questions` của Cổng), regex chỉ là
+        // DỰ PHÒNG (mục 1 và 6 của #177). Hai nguồn trên im thì `duPhong` chạy → vẫn hỏi được,
+        // không im lặng và không bịa câu (Điều II, III).
         const ktTiep = xl.sanSangTra && !xl.giaDinh && vongDaHoi < 2
-          ? kiemTraThongTinPhanLoai(xl.moTaTraCuu,
-            { vongHoi: vongDaHoi, hoSo: hoSoCuaMach(ctx), tenKhachTuGo: true, tenBiBacBo, tenDaHoi })
+          ? await hoiLaiUuTien(ctx, {
+            s: xl.moTaTraCuu,
+            moTa: xl.moTaTraCuu,
+            hoSo: hoSoCuaMach(ctx),
+            duPhong: () => kiemTraThongTinPhanLoai(xl.moTaTraCuu,
+              { vongHoi: vongDaHoi, hoSo: hoSoCuaMach(ctx), tenKhachTuGo: true, tenBiBacBo, tenDaHoi }),
+          })
           : { canHoi: false };
         if (ktTiep.canHoi) {
           // `...ktTiep` ghi đè `tenGoc`/`tenGoiY` bằng mô tả MỚI — tên khách vừa phủ định không
@@ -238,7 +247,13 @@ export const PACKAGES = [
         // `hoSo`: KỶ LUẬT HỎI (yêu cầu 2 của issue #177) — khách đã nêu thông số ở tin TRƯỚC
         // (hồ sơ mạch #170) thì không hỏi lại điều đó. Thiếu tham số này, mạch "Thông số: 350W
         // 220V" rồi "máy sấy sinh tố" vẫn bị bot xin lại đúng công suất và điện áp khách vừa gõ.
-        const kt = kiemTraThongTinPhanLoai(text, { vongHoi: 0, goi: ctx.session.goi, hoSo: hoSoCuaMach(ctx) });
+        const kt = await hoiLaiUuTien(ctx, {
+          s: text,
+          moTa: text,
+          hoSo: hoSoCuaMach(ctx),
+          duPhong: () => kiemTraThongTinPhanLoai(text,
+            { vongHoi: 0, goi: ctx.session.goi, hoSo: hoSoCuaMach(ctx) }),
+        });
         if (kt.canHoi) {
           ctx.session.hoiLai = { ...kt, vongHoi: 1 };
           // Bot vừa HỎI LẠI một câu → báo Lõi là đang chờ khách đáp. Thiếu cờ này thì cửa
