@@ -62,17 +62,19 @@ test('T808: mã HS KHÔNG bị che (không che quá tay)', () => {
   assert.ok(anonymizedText.includes('84137090'), 'mã HS 8 số phải giữ');
 });
 
-test('T808: mã số thuế 10 số bị che theo luật "che rộng hơn lõi" của core/sdt.js', () => {
-  // Mã số thuế `0101234567` là 10 số bắt đầu bằng `0` — TRÙNG KHÍT dạng SĐT nội
-  // địa. `core/sdt.js` là ngữ pháp SĐT DUY NHẤT của repo và nó chọn "che nhầm
-  // còn hơn lộ số điện thoại". Tách được hai thứ này thì phải viết bộ lọc SĐT
-  // thứ hai — điều Hiến pháp cấm. Nên ghi lại hành vi thật, không giả vờ đúng.
+test('T808: MST 10 số checksum SAI (bắt đầu bằng 0) vẫn bị che — tránh lộ STK/SĐT giả', () => {
+  // `0101234567`: chữ số kiểm ≠ checksum mod 11 → không phải MST hợp lệ.
+  // Vẫn che (nhầm còn hơn lộ). MST checksum đúng bắt đầu bằng 0: xem OZV-693.
   const { anonymizedText } = anonymizePrompt({
     text: 'Mã số thuế công ty 0101234567',
     customerName: TEN_A,
     convId: 'conv-305'
   });
-  assert.equal(anonymizedText, 'Mã số thuế công ty [SĐT]');
+  assert.equal(anonymizedText.includes('0101234567'), false);
+  assert.ok(
+    anonymizedText.includes('[SĐT]') || anonymizedText.includes('[STK]'),
+    'MST checksum sai phải bị che'
+  );
 });
 
 test('T808: trong nhóm, tên khách KHÁC cũng bị che (không lọt lên AI Studio)', () => {
@@ -256,14 +258,15 @@ test('OZV-685: mã HS 8 số vẫn giữ; MST hợp lệ 10 số không bị che
   });
   assert.ok(hs.anonymizedText.includes('84137090'), 'mã HS 8 số phải giữ');
 
-  // MST mẫu không bắt đầu bằng 0 (tránh trùng dạng SĐT) — checksum mod 11.
+  // MST mẫu không bắt đầu bằng 0 (tránh trùng dạng SĐT) — checksum TT105: 10-(sum%11).
   const w = [31, 29, 23, 19, 17, 13, 7, 5, 3];
   const base = '310012345';
   const sum = base.split('').reduce((s, c, i) => s + Number(c) * w[i], 0);
-  const check = sum % 11;
-  assert.notEqual(check, 10, 'mẫu MST phải có checksum hợp lệ');
+  const rem = sum % 11;
+  assert.notEqual(rem, 0, 'sum%11=0 → không có chữ số kiểm 0..9 theo TT105');
+  const check = 10 - rem;
   const mst = base + String(check);
-  assert.equal(mst, '3100123451');
+  assert.equal(mst, '3100123459');
   const raw = `MST công ty ${mst}`;
   assert.ok(raw.includes(mst));
   const { anonymizedText } = anonymizePrompt({
@@ -288,4 +291,132 @@ test('OZV-685: nhóm — che tên thành viên khác qua memberNames', () => {
   assert.equal(anonymizedText.includes('An'), false, 'tên thành viên khác không được lộ');
   assert.equal(anonymizedText.includes('Bình'), false, 'tên khách gửi cũng phải che');
   assert.ok(anonymizedText.includes('[KHACH_'), 'phải dùng nhãn nhóm');
+});
+
+test('OZV-693: MST DN công khai checksum TT105 GIỮ; SĐT đầu số di động vẫn CHE kể cả trùng checksum', () => {
+  // MST doanh nghiệp công khai (tỉnh 01 — không khớp đầu số di động 03/05/07/08/09).
+  // Chuẩn TT105: hợp lệ khi 10-(sum%11) === chữ số cuối; sum%11===0 → không hợp lệ.
+  const mstGiu = ['0100109106', '0101243150'];
+  for (const mst of mstGiu) {
+    const giu = anonymizePrompt({
+      text: `MST công ty ${mst}`,
+      customerName: TEN_A,
+      convId: `mst-giu-${mst}`
+    });
+    assert.ok(
+      giu.anonymizedText.includes(mst),
+      `MST TT105 hợp lệ ${mst} phải giữ nguyên, không thành [SĐT]/[STK]`
+    );
+    assert.equal(giu.anonymizedText.includes('[SĐT]'), false);
+    assert.equal(giu.anonymizedText.includes('[STK]'), false);
+  }
+
+  // Checksum sai (tỉnh 01): vẫn che.
+  const sai = '0101234567';
+  const cheSai = anonymizePrompt({
+    text: `MST công ty ${sai}`,
+    customerName: TEN_A,
+    convId: 'mst-0-sai'
+  });
+  assert.equal(cheSai.anonymizedText.includes(sai), false, 'MST checksum sai vẫn phải bị che');
+  assert.ok(
+    cheSai.anonymizedText.includes('[SĐT]') || cheSai.anonymizedText.includes('[STK]'),
+    'MST checksum sai → [SĐT] hoặc [STK]'
+  );
+
+  // SĐT di động thỏa checksum (rem=0 với công thức cũ / trùng TT105 nếu map 10→0):
+  // luôn che — an toàn hơn tiện lợi (không lộ số khách sang AI Studio).
+  const sdtTrungChecksum = '0320045000';
+  const cheSdt = anonymizePrompt({
+    text: `So dien thoai cua toi la ${sdtTrungChecksum} nhe`,
+    customerName: TEN_A,
+    convId: 'sdt-trung-mst'
+  });
+  assert.equal(
+    cheSdt.anonymizedText.includes(sdtTrungChecksum),
+    false,
+    'SĐT đầu số di động phải bị che kể cả khi trùng dạng checksum MST'
+  );
+  assert.ok(cheSdt.anonymizedText.includes('[SĐT]'), 'SĐT → [SĐT]');
+
+  // MST HCM (đầu 03 trùng di động) + đuôi chi nhánh -XXX, checksum TT105 đúng → giữ.
+  // (0316871235 sai chữ số kiểm theo TT105 — đúng phải là 0316871236.)
+  const mstHcm = '0316871236-001';
+  const giuHcm = anonymizePrompt({
+    text: `MST don vi ${mstHcm}`,
+    customerName: TEN_A,
+    convId: 'mst-hcm-chinhanh'
+  });
+  assert.ok(
+    giuHcm.anonymizedText.includes(mstHcm),
+    'MST 03…-XXX checksum TT105 đúng phải giữ (không che nửa thành [SĐT]-001)'
+  );
+
+  // MST tỉnh 03 dạng 10 số TRẦN + từ khoá MST → giữ (Vinamilk, TGDD công khai).
+  // Trước đây isDomestic nuốt hết vì chỉ tha khi có đuôi -XXX.
+  const mstHcmTran = ['0300588569', '0303217354', '0302682687'];
+  for (const mst of mstHcmTran) {
+    const giu = anonymizePrompt({
+      text: `MST don vi ${mst}`,
+      customerName: TEN_A,
+      convId: `mst-hcm-tran-${mst}`
+    });
+    assert.ok(
+      giu.anonymizedText.includes(mst),
+      `MST 03… trần ${mst} + từ khoá MST phải giữ, không thành [SĐT]`
+    );
+    assert.equal(giu.anonymizedText.includes('[SĐT]'), false);
+  }
+
+  // Không từ khoá MST: số 03… trần vẫn che (có thể là SĐT khách).
+  const tranKhongTuKhoa = anonymizePrompt({
+    text: `Lien he toi qua ${mstHcmTran[0]} nhe`,
+    customerName: TEN_A,
+    convId: 'mst-03-khong-tukhoa'
+  });
+  assert.equal(
+    tranKhongTuKhoa.anonymizedText.includes(mstHcmTran[0]),
+    false,
+    '03… trần không từ khoá MST vẫn phải che'
+  );
+  assert.ok(tranKhongTuKhoa.anonymizedText.includes('[SĐT]'));
+
+  // Vòng 4: từ khoá MST sớm trong câu KHÔNG tha SĐT đứng sau (cửa sổ 40 ký tự cũ lộ).
+  // Số giả dựng hình dạng — không dùng SĐT khách thật.
+  const caLoSdtSauMst = [
+    {
+      text: 'Ben em MST 0100109106, so dt cua em la 0320000009',
+      mst: '0100109106',
+      sdt: '0320000009',
+      id: 'mst-roi-sdt-1'
+    },
+    {
+      text: 'ma so thue cty em, goi lai so 0330000008 nhe',
+      mst: null,
+      sdt: '0330000008',
+      id: 'mst-roi-sdt-2'
+    },
+    {
+      text: 'MST 0100109106 va so 0340000007',
+      mst: '0100109106',
+      sdt: '0340000007',
+      id: 'mst-roi-sdt-3'
+    }
+  ];
+  for (const ca of caLoSdtSauMst) {
+    const out = anonymizePrompt({
+      text: ca.text,
+      customerName: TEN_A,
+      convId: ca.id
+    }).anonymizedText;
+    if (ca.mst) {
+      assert.ok(out.includes(ca.mst), `MST liền từ khoá ${ca.mst} vẫn giữ (${ca.id})`);
+    }
+    assert.equal(
+      out.includes(ca.sdt),
+      false,
+      `SĐT sau MST trong cùng câu phải che (${ca.id}): ${out}`
+    );
+    assert.ok(out.includes('[SĐT]'), `SĐT → [SĐT] (${ca.id})`);
+  }
 });

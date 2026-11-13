@@ -9,13 +9,16 @@
  * (timKhoangStk), `core/redact.js`, `packs/hs/input.js` (`norm` — so tên).
  *
  * Giới hạn số trần: che dãy 8–20 chữ số (kể cả không từ khoá), trừ SĐT, mã HS
- * có dấu/ngữ cảnh "mã HS", MST checksum hợp lệ, ngày-giờ 14 số YYYYMMDDHHmmss.
+ * có dấu/ngữ cảnh "mã HS", MST checksum TT105 hợp lệ (kể cả bắt đầu bằng 0 /
+ * mã tỉnh 03 trùng đầu số di động — khi có từ khoá MST/mã số thuế hoặc đuôi
+ * chi nhánh -XXX), ngày-giờ 14 số YYYYMMDDHHmmss. Không từ khoá MST thì đầu
+ * số di động vẫn che. MST checksum sai vẫn che.
  * Nhóm: truyền `memberNames` để che tên thành viên khác; thiếu danh sách thì
  * chỉ che được tên đã biết trong phiên — không tuyên bố ẩn danh hai chiều đủ
  * cho nhóm khi chưa có memberNames.
  */
 
-import { findPhoneSpans, looksLikeHsCode } from '../core/sdt.js';
+import { findPhoneSpans, isDomestic, looksLikeHsCode } from '../core/sdt.js';
 import { timKhoangStk } from '../core/sanitizer.js';
 import { redact } from '../core/redact.js';
 import { norm } from '../packs/hs/input.js';
@@ -34,6 +37,13 @@ const RE_TOKEN = /\bsk-[A-Za-z0-9][A-Za-z0-9_-]{5,}\b/g;
  */
 const RE_SO_TRAN = /\b\d(?:[\d.\-]{6,38}\d)\b/g;
 const RE_CANH_HS = /m[aãaáàảạ]\s*hs\b|hs\s*code\b|\bhs\b/i;
+/**
+ * Từ khoá MST / mã số thuế DÍNH LIỀN trước số (qua norm — bỏ dấu).
+ * Cho chen: cong ty / cty / don vi / cua / ben / em / minh / la / : / -
+ * Neo `$` — không tha SĐT đứng sau trong cùng câu chỉ vì MST xuất hiện sớm hơn.
+ */
+const RE_CANH_MST_LIEN =
+  /(?:\bmst\b|ma\s*so\s*thue)(?:\s*(?:cua|ben|cong\s*ty|cty|don\s*vi|em|minh|la|:|-)?)*\s*$/;
 const MST_W = [31, 29, 23, 19, 17, 13, 7, 5, 3];
 
 const MAX_PHIEN = 500;
@@ -86,14 +96,18 @@ function gopKhoang(spans) {
 
 const chongLan = (s, e, spans) => spans.some(([as, ae]) => s < ae && as < e);
 
-/** MST DN 10 số — checksum mod 11 (trọng số chuẩn); 10 → không hợp lệ. */
+/**
+ * MST DN 10/13 số — checksum TT105/2020: hợp lệ khi `10 - (sum % 11) === d[9]`.
+ * `sum % 11 === 0` → `10 - 0 = 10` không phải chữ số kiểm 0..9 → không hợp lệ.
+ */
 function laMstHopLe(digits) {
   const d = digitsOf(digits);
   if (d.length !== 10 && d.length !== 13) return false;
   const base = d.slice(0, 10);
   const sum = MST_W.reduce((s, w, i) => s + w * Number(base[i]), 0);
-  const du = sum % 11;
-  return du !== 10 && du === Number(base[9]);
+  const rem = sum % 11;
+  if (rem === 0) return false;
+  return (10 - rem) === Number(base[9]);
 }
 
 /** Ngày-giờ dài dạng YYYYMMDDHHmmss (vd mã đơn) — không coi là STK. */
@@ -116,9 +130,28 @@ function giuMaHs(src, raw, s) {
   return RE_CANH_HS.test(src.slice(Math.max(0, s - 24), s));
 }
 
+/** Có từ khoá MST / mã số thuế dính liền trước vị trí số (qua norm — bỏ dấu). */
+function coCanhMst(src, s) {
+  return RE_CANH_MST_LIEN.test(norm(src.slice(Math.max(0, s - 40), s)));
+}
+
 function cheSdtVaStk(src) {
   const stkUuTien = gopKhoang(timKhoangStk(src));
-  const sdt = findPhoneSpans(src).filter(([s, e]) => !chongLan(s, e, stkUuTien));
+  // MST DN thường bắt đầu bằng 0 (tỉnh) → trùng dạng SĐT (đặc biệt mã 03 HCM).
+  // Checksum TT105 đúng + (từ khoá MST/mã số thuế HOẶC đuôi chi nhánh -XXX) → giữ.
+  // Không từ khoá: đầu số di động vẫn che (an toàn trước SĐT khách trần).
+  const sdt = findPhoneSpans(src).filter(([s, e]) => {
+    if (chongLan(s, e, stkUuTien)) return false;
+    const raw = src.slice(s, e);
+    const d = digitsOf(raw);
+    if (laMstHopLe(d)) {
+      const coChiNhanh = /^-\d{3}(?!\d)/.test(src.slice(e));
+      if (coCanhMst(src, s) || coChiNhanh) return false;
+      if (isDomestic(d)) return true;
+      return false;
+    }
+    return true;
+  });
   const stkTran = [];
   for (const m of src.matchAll(RE_SO_TRAN)) {
     const raw = m[0];
