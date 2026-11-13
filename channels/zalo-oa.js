@@ -4,6 +4,9 @@ import { createHash } from 'node:crypto';
 import { plain, balanceTags } from '../packs/hs/style.js';
 
 export const ZALO_OA_MAX_TEXT = 2000;
+// Hạn giờ gửi tin mặc định (OZV-763). Xem ghi chú ở `channels/messenger.js`:
+// `sendText` nằm trong khoá hàng đợi theo hội thoại, treo vô hạn = bot im hẳn với khách đó.
+export const ZALO_OA_SEND_TIMEOUT_MS = 15_000;
 const DEFAULT_BASE = 'https://openapi.zalo.me/v3.0/oa';
 
 /** So sánh bí mật theo thời gian hằng, tránh tấn công timing. */
@@ -110,6 +113,9 @@ export function parse(raw, defaultAppId = null) {
 /**
  * Adapter kênh Zalo Official Account (Zalo OA).
  * Hỗ trợ xác thực webhook (MAC SHA256 & secret token) và detectsHumanReplies: true.
+ * `sendTimeoutMs`: hạn giờ cho lời gọi gửi tin (OZV-763). Khi nào nơi dựng kênh (hiện
+ * `server.js` chỉ dựng `zalo-bot`) bật kênh này thì truyền `config.sendTimeoutMs`
+ * (biến `SEND_TIMEOUT_MS`) vào — đừng nhúng số vào mã gọi.
  */
 export function createChannel({
   oaToken,
@@ -117,6 +123,7 @@ export function createChannel({
   appId = null,
   baseUrl = DEFAULT_BASE,
   fetchImpl = fetch,
+  sendTimeoutMs = ZALO_OA_SEND_TIMEOUT_MS,
 } = {}) {
   const base = String(baseUrl ?? DEFAULT_BASE).replace(/\/$/, '');
 
@@ -143,10 +150,16 @@ export function createChannel({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(body),
+          signal: AbortSignal.timeout(sendTimeoutMs),
         });
       } catch (err) {
-        const error = new Error(`Zalo OA gửi tin lỗi mạng: ${cheToken(err.message, oaToken)}`);
-        error.status = err.status || 500;
+        // Quá hạn giờ hoặc lỗi mạng đều là lỗi TẠM: đánh dấu `tamThoi` để gate xử theo
+        // lối đã có (cùng kiểu `packs/hs/vision.js`), không ném lỗi thô ra ngoài hàng đợi.
+        const laQuaHan = err?.name === 'TimeoutError' || err?.name === 'AbortError';
+        const desc = laQuaHan ? `quá ${sendTimeoutMs} ms không phản hồi` : String(err?.message ?? err);
+        const error = new Error(`Zalo OA gửi tin lỗi mạng: ${cheToken(desc, oaToken)}`);
+        error.status = Number(err?.status) || (laQuaHan ? 504 : 500);
+        error.tamThoi = true;
         throw error;
       }
 

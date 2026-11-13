@@ -425,3 +425,70 @@ test('T501: Hợp đồng kênh Messenger (name, maxText, capabilities)', () => 
   assert.equal(typeof channel.verifyWebhook, 'function');
   assert.equal(typeof channel.verifyChallenge, 'function');
 });
+
+// ──────────────────────────────────────────────────────────────────────────────
+// OZV-763: hạn giờ cho chỗ gửi tin.
+// `sendText` nằm TRONG khoá hàng đợi theo hội thoại
+// (core/webhook.js -> core/store/queue.js -> core/engine.js -> core/gate.js:88).
+// Một fetch treo không hạn giờ ở đây giữ khoá vĩnh viễn => bot im hẳn với đúng
+// khách đó, không có gì tự gỡ. Luật repo: mọi fetch mới phải có AbortSignal.timeout.
+
+/**
+ * Giữ vòng lặp sự kiện sống trong lúc chờ hạn giờ.
+ * `AbortSignal.timeout` dùng hẹn giờ ĐÃ unref: nó không tự giữ tiến trình sống.
+ * Chạy thật thì máy chủ webhook luôn giữ vòng lặp nên không sao; test chạy riêng
+ * có thể cạn việc và thoát trước khi hạn giờ bắn ("Promise resolution is still
+ * pending but the event loop has already resolved") — đã gặp ở commit 11d53c6.
+ */
+async function giuVongLap(fn) {
+  const neo = setInterval(() => {}, 20);
+  try { return await fn(); } finally { clearInterval(neo); }
+}
+
+/** fetch giả treo tới khi signal huỷ. Đúng như kết nối TCP không bao giờ đóng. */
+function fetchTreo() {
+  const calls = [];
+  const fetchImpl = (url, options = {}) => {
+    calls.push({ url, options });
+    return new Promise((_resolve, reject) => {
+      const signal = options.signal;
+      if (!signal) return;             // không hạn giờ: treo vĩnh viễn
+      if (signal.aborted) return reject(signal.reason ?? new Error('aborted'));
+      signal.addEventListener('abort', () => reject(signal.reason ?? new Error('aborted')), { once: true });
+    });
+  };
+  return { calls, fetchImpl };
+}
+
+test('OZV-763: Messenger sendText có hạn giờ — fetch treo thì bật ra, không chờ mãi', async () => {
+  const { calls, fetchImpl } = fetchTreo();
+  const channel = createChannel({
+    pageToken: 'mock_page_token',
+    appSecret: 'mock_app_secret_123',
+    fetchImpl,
+    sendTimeoutMs: 120,
+  });
+
+  const t0 = Date.now();
+  const err = await giuVongLap(async () => {
+    try {
+      await channel.sendText('fb_user_1001', 'alo');
+      return null;
+    } catch (e) {
+      return e;
+    }
+  });
+  const dt = Date.now() - t0;
+
+  assert.ok(err, 'fetch treo thì sendText phải ném lỗi, không treo vĩnh viễn');
+  assert.ok(dt < 3000, `phải bỏ cuộc sớm, thực tế ${dt} ms`);
+  assert.equal(err.tamThoi, true, 'lỗi quá hạn giờ là lỗi TẠM (gate xử theo lối đã có)');
+  assert.equal(calls[0].options.signal instanceof AbortSignal, true, 'phải truyền signal cho fetch');
+});
+
+test('OZV-763: Messenger hạn giờ gửi tin mặc định 15 giây, chỉnh được qua tham số', async () => {
+  const { calls, fetchImpl } = fetchTreo();
+  createChannel({ pageToken: 'tok', fetchImpl }).sendText('1', 'x').catch(() => {});
+  await new Promise((r) => setImmediate(r));
+  assert.ok(calls[0]?.options?.signal, 'mặc định cũng phải có signal');
+});
