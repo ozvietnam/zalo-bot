@@ -9,9 +9,10 @@
  * (timKhoangStk), `core/redact.js`, `packs/hs/input.js` (`norm` — so tên).
  *
  * Giới hạn số trần: che dãy 8–20 chữ số (kể cả không từ khoá), trừ SĐT, mã HS
- * có dấu/ngữ cảnh "mã HS", MST checksum TT105 hợp lệ (kể cả bắt đầu bằng 0 —
- * không nhầm [SĐT]; đầu số di động 03/05/07/08/09 vẫn luôn che), ngày-giờ 14 số
- * YYYYMMDDHHmmss. MST checksum sai vẫn che.
+ * có dấu/ngữ cảnh "mã HS", MST checksum TT105 hợp lệ (kể cả bắt đầu bằng 0 /
+ * mã tỉnh 03 trùng đầu số di động — khi có từ khoá MST/mã số thuế hoặc đuôi
+ * chi nhánh -XXX), ngày-giờ 14 số YYYYMMDDHHmmss. Không từ khoá MST thì đầu
+ * số di động vẫn che. MST checksum sai vẫn che.
  * Nhóm: truyền `memberNames` để che tên thành viên khác; thiếu danh sách thì
  * chỉ che được tên đã biết trong phiên — không tuyên bố ẩn danh hai chiều đủ
  * cho nhóm khi chưa có memberNames.
@@ -36,6 +37,8 @@ const RE_TOKEN = /\bsk-[A-Za-z0-9][A-Za-z0-9_-]{5,}\b/g;
  */
 const RE_SO_TRAN = /\b\d(?:[\d.\-]{6,38}\d)\b/g;
 const RE_CANH_HS = /m[aãaáàảạ]\s*hs\b|hs\s*code\b|\bhs\b/i;
+/** Ngữ cảnh "MST" / "mã số thuế" (đã norm) ngay trước số. */
+const RE_CANH_MST = /\bmst\b|ma\s*so\s*thue/;
 const MST_W = [31, 29, 23, 19, 17, 13, 7, 5, 3];
 
 const MAX_PHIEN = 500;
@@ -122,19 +125,24 @@ function giuMaHs(src, raw, s) {
   return RE_CANH_HS.test(src.slice(Math.max(0, s - 24), s));
 }
 
+/** Có từ khoá MST / mã số thuế ngay trước vị trí số (qua norm — bỏ dấu). */
+function coCanhMst(src, s) {
+  return RE_CANH_MST.test(norm(src.slice(Math.max(0, s - 40), s)));
+}
+
 function cheSdtVaStk(src) {
   const stkUuTien = gopKhoang(timKhoangStk(src));
-  // MST DN thường bắt đầu bằng 0 (tỉnh) → trùng dạng SĐT.
-  // Checksum TT105 đúng thì bỏ qua che — TRỪ đầu số di động VN (03/05/07/08/09):
-  // luôn che, an toàn hơn tiện lợi (tránh lộ SĐT khách sang AI Studio).
+  // MST DN thường bắt đầu bằng 0 (tỉnh) → trùng dạng SĐT (đặc biệt mã 03 HCM).
+  // Checksum TT105 đúng + (từ khoá MST/mã số thuế HOẶC đuôi chi nhánh -XXX) → giữ.
+  // Không từ khoá: đầu số di động vẫn che (an toàn trước SĐT khách trần).
   const sdt = findPhoneSpans(src).filter(([s, e]) => {
     if (chongLan(s, e, stkUuTien)) return false;
     const raw = src.slice(s, e);
     const d = digitsOf(raw);
     if (laMstHopLe(d)) {
-      // Đầu số di động: luôn che, trừ MST chi nhánh dạng 10 số + "-XXX".
       const coChiNhanh = /^-\d{3}(?!\d)/.test(src.slice(e));
-      if (isDomestic(d) && !coChiNhanh) return true;
+      if (coCanhMst(src, s) || coChiNhanh) return false;
+      if (isDomestic(d)) return true;
       return false;
     }
     return true;

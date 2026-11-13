@@ -351,4 +351,33 @@ test('OZV-693: MST DN công khai checksum TT105 GIỮ; SĐT đầu số di độ
     giuHcm.anonymizedText.includes(mstHcm),
     'MST 03…-XXX checksum TT105 đúng phải giữ (không che nửa thành [SĐT]-001)'
   );
+
+  // MST tỉnh 03 dạng 10 số TRẦN + từ khoá MST → giữ (Vinamilk, TGDD công khai).
+  // Trước đây isDomestic nuốt hết vì chỉ tha khi có đuôi -XXX.
+  const mstHcmTran = ['0300588569', '0303217354', '0302682687'];
+  for (const mst of mstHcmTran) {
+    const giu = anonymizePrompt({
+      text: `MST don vi ${mst}`,
+      customerName: TEN_A,
+      convId: `mst-hcm-tran-${mst}`
+    });
+    assert.ok(
+      giu.anonymizedText.includes(mst),
+      `MST 03… trần ${mst} + từ khoá MST phải giữ, không thành [SĐT]`
+    );
+    assert.equal(giu.anonymizedText.includes('[SĐT]'), false);
+  }
+
+  // Không từ khoá MST: số 03… trần vẫn che (có thể là SĐT khách).
+  const tranKhongTuKhoa = anonymizePrompt({
+    text: `Lien he toi qua ${mstHcmTran[0]} nhe`,
+    customerName: TEN_A,
+    convId: 'mst-03-khong-tukhoa'
+  });
+  assert.equal(
+    tranKhongTuKhoa.anonymizedText.includes(mstHcmTran[0]),
+    false,
+    '03… trần không từ khoá MST vẫn phải che'
+  );
+  assert.ok(tranKhongTuKhoa.anonymizedText.includes('[SĐT]'));
 });
