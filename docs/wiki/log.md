@@ -14,6 +14,15 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-13 — OZV-763: hạn giờ cho hai chỗ gửi tin còn trần (messenger + zalo-oa)
+
+- **Vì sao:** `sendText` của `channels/messenger.js` và `channels/zalo-oa.js` gọi `fetch` không `signal`. Hai chỗ này chạy trong khoá hàng đợi theo hội thoại (`core/webhook.js` → `core/store/queue.js` → `core/engine.js` → `core/gate.js`), nên một kết nối TCP không bao giờ đóng sẽ giữ khoá vĩnh viễn: bot im hẳn với đúng khách đó, khách khác vẫn bình thường nên rất khó phát hiện. `channels/zalo-bot.js` đã có `AbortSignal.timeout` từ đầu, hai chỗ này viết sau mà không bê theo.
+- **Vá (TDD, đỏ trước):** thêm `signal: AbortSignal.timeout(sendTimeoutMs)` cho cả hai; bắt `TimeoutError`/`AbortError` và đổi thành lỗi có `tamThoi: true` + `status: 504` (cùng kiểu `packs/hs/vision.js:73`) để cửa gửi xử theo lối đã có, không ném lỗi thô ra ngoài hàng đợi. Số hạn giờ nằm ở `core/config.js` (`sendTimeoutMs`, biến `SEND_TIMEOUT_MS`, mặc định 15 giây), mã gọi không nhúng số. Thêm hàm che `pageToken` trong `channels/messenger.js` để câu lỗi quá hạn mới không mang token ra ngoài (Điều IX).
+- **Test:** test đỏ trước cho cả hai kênh — `fetch` giả treo tới khi `signal` huỷ, khẳng định `sendText` bật ra dưới 3 giây và lỗi có `tamThoi === true`; ca Zalo OA khẳng định thêm token không lọt vào `err.message`. Dùng `giuVongLap` (commit `11d53c6`) để đồng hồ `AbortSignal.timeout` không làm CI báo "Promise resolution is still pending".
+- **Cổng máy:** `npm test` **1411/1411** (nền main 1407 + 4 ca mới), `npm run eval` **32/32**, `node scripts/kiem-wiki.mjs --nghiem` đạt.
+- **Chưa làm (cố ý, để PR nhỏ):** bốn chỗ `fetch` mức thấp — `channels/messenger.js` typing, `scripts/giam-sat/issue.js`, `scripts/giam-sat/telegram.js`, `scripts/kiem-webhook.mjs`. Hai kênh này hiện chưa nối vào `server.js` (chỉ dựng `zalo-bot`), nên đây là việc rào trước, không phải sự cố đang xảy ra.
+- **Trang đổi:** [Sự cố và bài học](su-co-bai-hoc.md) — thêm một dòng sự cố kỹ thuật và một bài học "mọi lời gọi mạng phải có hạn giờ".
+
 ## 2026-11-13 — OZV-693: MST checksum TT105 + không lộ SĐT (vòng soát PR #223)
 
 - **Vì sao:** vòng 1 chỉ gọi `laMstHopLe` ở nhánh SĐT nhưng hàm dùng công thức sai (`du === d[9]`); MST công khai tỉnh 01 vẫn bị `[SĐT]`. Đồng thời bỏ qua che khi checksum “đúng” theo công thức sai → lộ SĐT đầu số di động trùng dạng.

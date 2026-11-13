@@ -4,6 +4,9 @@ import { createHash, createHmac } from 'node:crypto';
 import { plain, balanceTags } from '../packs/hs/style.js';
 
 export const MESSENGER_MAX_TEXT = 2000;
+// Hạn giờ gửi tin mặc định (OZV-763). Gửi tin phải nhanh hơn tra cứu; `channels/zalo-bot.js`
+// để 40 giây vì nó còn tải tệp. Vận hành chỉnh qua `SEND_TIMEOUT_MS` (core/config.js).
+export const MESSENGER_SEND_TIMEOUT_MS = 15_000;
 const DEFAULT_BASE = 'https://graph.facebook.com/v21.0';
 
 /** So sánh hai chuỗi theo thời gian hằng để chống tấn công timing. */
@@ -127,15 +130,27 @@ export function parse(raw) {
   return list.length > 0 ? list[0] : null;
 }
 
-/** Khởi tạo adapter kênh Messenger theo hợp đồng channel.md. */
+/**
+ * Khởi tạo adapter kênh Messenger theo hợp đồng channel.md.
+ * `sendTimeoutMs`: hạn giờ cho lời gọi gửi tin (OZV-763). BẮT BUỘC có hạn giờ —
+ * `sendText` chạy trong khoá hàng đợi theo hội thoại (core/webhook.js →
+ * core/store/queue.js → core/engine.js → core/gate.js), fetch treo vô hạn ở đây
+ * giữ khoá vĩnh viễn nên bot im hẳn với đúng khách đó. Khi nào nơi dựng kênh (hiện
+ * `server.js` chỉ dựng `zalo-bot`) bật kênh này thì truyền `config.sendTimeoutMs`
+ * (biến `SEND_TIMEOUT_MS`) vào — đừng nhúng số vào mã gọi.
+ */
 export function createChannel({
   pageToken,
   appSecret,
   verifyToken,
   baseUrl = DEFAULT_BASE,
   fetchImpl = fetch,
+  sendTimeoutMs = MESSENGER_SEND_TIMEOUT_MS,
 } = {}) {
   const cleanBase = baseUrl.replace(/\/$/, '');
+
+  /** Che pageToken trong mọi mẩu chữ đi ra lỗi/log (Điều IX). */
+  const che = (s) => (pageToken && typeof s === 'string' ? s.replaceAll(pageToken, '[REDACTED]') : s);
 
   function verifyChallenge(req) {
     if (!req?.url) return { ok: false };
@@ -192,18 +207,31 @@ export function createChannel({
     parseAll,
     async sendText(chatId, text) {
       const clean = plain(balanceTags(String(text ?? '')));
-      const res = await fetchImpl(`${cleanBase}/me/messages`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${pageToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          recipient: { id: String(chatId) },
-          message: { text: clean },
-          messaging_type: 'RESPONSE',
-        }),
-      });
+      let res;
+      try {
+        res = await fetchImpl(`${cleanBase}/me/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${pageToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            recipient: { id: String(chatId) },
+            message: { text: clean },
+            messaging_type: 'RESPONSE',
+          }),
+          signal: AbortSignal.timeout(sendTimeoutMs),
+        });
+      } catch (e) {
+        // Quá hạn giờ hoặc lỗi mạng là lỗi TẠM: gate xử theo lối đã có (như packs/hs/vision.js),
+        // không ném lỗi thô ra ngoài hàng đợi.
+        const laQuaHan = e?.name === 'TimeoutError' || e?.name === 'AbortError';
+        const desc = laQuaHan ? `quá ${sendTimeoutMs} ms không phản hồi` : String(e?.message ?? e);
+        const err = new Error(`Messenger gửi tin lỗi: ${che(desc)}`);
+        err.status = Number(e?.status) || 504;
+        err.tamThoi = true;
+        throw err;
+      }
 
       if (!res.ok) {
         let desc = `HTTP ${res.status}`;

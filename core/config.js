@@ -80,5 +80,9 @@ export function loadConfig(env = process.env) {
     // Đã báo "đang tra" mà lượt vẫn chưa xong sau ngần này (tính từ đầu lượt) → một câu tạm
     // "Cổng đang bận" đúng giọng, không để khách im (OZV-496 lỗi 2; QA thật 12/11 im 120 giây). 0 = tắt.
     cauTamSauMs: int(env, 'CAU_TAM_SAU_MS', 120_000, 0),
+    // Hạn giờ cho lời gọi gửi tin của adapter kênh (OZV-763). Gửi tin nằm trong khoá hàng đợi
+    // theo hội thoại, fetch treo vô hạn giữ khoá vĩnh viễn → bot im hẳn với đúng khách đó.
+    // 15 giây: gửi tin phải nhanh hơn tra cứu (`channels/zalo-bot.js` để 40 giây vì còn tải tệp).
+    sendTimeoutMs: int(env, 'SEND_TIMEOUT_MS', 15_000, 1),
   });
 }
