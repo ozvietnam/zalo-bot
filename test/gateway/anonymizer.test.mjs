@@ -142,3 +142,150 @@ test('T808: khách tên có chữ "Khách" vẫn ẩn danh và khôi phục đú
   assert.equal(anonymizedText.includes(ten), false, 'tên có chữ "Khách" cũng phải bị che');
   assert.equal(deanonymizeDraft('Dạ [TEN_KHACH] ơi', anonymizeMap), `Dạ ${ten} ơi`);
 });
+
+// —— OZV-685 / T808 vòng 3: STK không từ khoá · tên NFD/không dấu · mã đơn · nhóm ——
+
+const stk8 = ['1234', '5678'].join('');
+const stk9 = ['123', '456', '789'].join('');
+const stk10Tran = ['1234', '567890'].join('');
+const stkCham = ['1234', '5678', '9012', '3456'].join('.');
+const stkGach = ['1234', '5678', '9012', '3456'].join('-');
+const maDon14 = ['2026', '1113', '120000'].join(''); // YYYYMMDDHHmmss — không phải STK
+const so20 = Array.from({ length: 20 }, (_, i) => String((i + 1) % 10)).join('');
+
+test('OZV-685: STK 8/9/10 số KHÔNG từ khoá vẫn bị che', () => {
+  for (const [so, nhan] of [
+    [stk8, '8 số'],
+    [stk9, '9 số'],
+    [stk10Tran, '10 số']
+  ]) {
+    const raw = `số của tôi là ${so}`;
+    assert.ok(raw.includes(so), `nguồn phải chứa ${nhan}`);
+    const { anonymizedText } = anonymizePrompt({
+      text: raw,
+      customerName: TEN_A,
+      convId: `stk-tran-${so.length}`
+    });
+    assert.equal(anonymizedText.includes(so), false, `STK ${nhan} không từ khoá không được lộ`);
+    assert.ok(anonymizedText.includes('[STK]'), `STK ${nhan} phải thành [STK]`);
+  }
+});
+
+test('OZV-685: STK có dấu chấm / gạch (không từ khoá) che trọn', () => {
+  for (const so of [stkCham, stkGach]) {
+    const raw = `chuyển vào ${so}`;
+    assert.ok(raw.includes(so));
+    const { anonymizedText } = anonymizePrompt({
+      text: raw,
+      customerName: TEN_A,
+      convId: `stk-sep-${so.length}`
+    });
+    assert.equal(anonymizedText.includes(so), false, 'STK có dấu tách không được lộ');
+    assert.equal(anonymizedText, 'chuyển vào [STK]');
+  }
+});
+
+test('OZV-685: tên khách NFD vẫn bị che (so khớp qua norm)', () => {
+  const tenNfd = 'Nguyễn Văn Ao'.normalize('NFD');
+  const raw = `tôi là ${tenNfd}`;
+  assert.ok(raw.includes(tenNfd) || raw.normalize('NFKC').includes('Nguyễn'), 'nguồn có tên NFD');
+  const { anonymizedText } = anonymizePrompt({
+    text: raw,
+    customerName: tenNfd,
+    convId: 'ten-nfd'
+  });
+  assert.equal(anonymizedText.includes('Nguyễn'), false, 'tên NFD không được lộ sau NFKC');
+  assert.ok(anonymizedText.includes('[KHACH]'));
+});
+
+test('OZV-685: tên không dấu khớp tên có dấu (và ngược lại)', () => {
+  const coDau = TEN_A; // Nguyễn Văn Ao
+  const khongDau = 'Nguyen Van Ao';
+  const a = anonymizePrompt({
+    text: `xin chào ${khongDau}`,
+    customerName: coDau,
+    convId: 'ten-ascii-1'
+  });
+  assert.equal(a.anonymizedText.includes(khongDau), false, 'bản không dấu phải bị che khi customerName có dấu');
+  assert.ok(a.anonymizedText.includes('[KHACH]'));
+
+  const b = anonymizePrompt({
+    text: `xin chào ${coDau}`,
+    customerName: khongDau,
+    convId: 'ten-ascii-2'
+  });
+  assert.equal(b.anonymizedText.includes(coDau), false, 'bản có dấu phải bị che khi customerName không dấu');
+});
+
+test('OZV-685: khác hoa/thường vẫn che tên', () => {
+  const raw = `gặp ${TEN_A.toUpperCase()} hôm nay`;
+  assert.ok(raw.includes(TEN_A.toUpperCase()));
+  const { anonymizedText } = anonymizePrompt({
+    text: raw,
+    customerName: TEN_A,
+    convId: 'ten-hoa'
+  });
+  assert.equal(anonymizedText.includes(TEN_A.toUpperCase()), false);
+  assert.ok(anonymizedText.includes('[KHACH]'));
+});
+
+test('OZV-685: mã đơn dạng ngày giờ 14 số KHÔNG bị che; dãy 20 số PHẢI bị che', () => {
+  const don = anonymizePrompt({
+    text: `mã đơn ${maDon14}`,
+    customerName: TEN_A,
+    convId: 'ma-don'
+  });
+  assert.ok(don.anonymizedText.includes(maDon14), 'mã đơn YYYYMMDDHHmmss không phải STK');
+  assert.equal(don.anonymizedText.includes('[STK]'), false, 'không được che quá tay mã đơn');
+
+  assert.ok(so20.length === 20 && /^\d+$/.test(so20), 'mẫu 20 số phải dựng đủ');
+  const dai = anonymizePrompt({
+    text: `số ${so20}`,
+    customerName: TEN_A,
+    convId: 'so-20'
+  });
+  assert.equal(dai.anonymizedText.includes(so20), false, 'dãy 20 số không được lộ');
+  assert.ok(dai.anonymizedText.includes('[STK]'));
+});
+
+test('OZV-685: mã HS 8 số vẫn giữ; MST hợp lệ 10 số không bị che thành STK', () => {
+  const hs = anonymizePrompt({
+    text: 'Mã HS 84137090 cho máy bơm',
+    customerName: TEN_A,
+    convId: 'hs-8'
+  });
+  assert.ok(hs.anonymizedText.includes('84137090'), 'mã HS 8 số phải giữ');
+
+  // MST mẫu không bắt đầu bằng 0 (tránh trùng dạng SĐT) — checksum mod 11.
+  const w = [31, 29, 23, 19, 17, 13, 7, 5, 3];
+  const base = '310012345';
+  const sum = base.split('').reduce((s, c, i) => s + Number(c) * w[i], 0);
+  const check = sum % 11;
+  assert.notEqual(check, 10, 'mẫu MST phải có checksum hợp lệ');
+  const mst = base + String(check);
+  assert.equal(mst, '3100123451');
+  const raw = `MST công ty ${mst}`;
+  assert.ok(raw.includes(mst));
+  const { anonymizedText } = anonymizePrompt({
+    text: raw,
+    customerName: TEN_A,
+    convId: 'mst-10'
+  });
+  assert.ok(anonymizedText.includes(mst), 'MST hợp lệ 10 số không bị che thành [STK]');
+  assert.equal(anonymizedText.includes('[STK]'), false);
+});
+
+test('OZV-685: nhóm — che tên thành viên khác qua memberNames', () => {
+  const raw = 'nhóm có An và Bình';
+  assert.ok(raw.includes('An') && raw.includes('Bình'));
+  const { anonymizedText } = anonymizePrompt({
+    text: raw,
+    customerName: 'Bình',
+    convId: 'nhom-tv',
+    isGroup: true,
+    memberNames: ['An', 'Bình']
+  });
+  assert.equal(anonymizedText.includes('An'), false, 'tên thành viên khác không được lộ');
+  assert.equal(anonymizedText.includes('Bình'), false, 'tên khách gửi cũng phải che');
+  assert.ok(anonymizedText.includes('[KHACH_'), 'phải dùng nhãn nhóm');
+});

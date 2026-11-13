@@ -5,49 +5,44 @@
  * danh (số điện thoại, tên, token, số tài khoản) phải bị che; sau khi có bản
  * nháp, `deanonymizeDraft` trả lại tên gọi tự nhiên của khách trước khi gửi.
  *
- * DÙNG LẠI (không viết bộ lọc thứ hai cho số điện thoại hay số tài khoản):
- *  - `core/sdt.js` — ngữ pháp số điện thoại DUY NHẤT của repo (`findPhoneSpans`)
- *    và bộ nhận mã HS (`looksLikeHsCode`), dùng để không che nhầm mã HS.
- *  - `core/sanitizer.js` — ngữ pháp số tài khoản dùng chung (`timKhoangStk`).
- *  - `core/redact.js` — bộ che khoá/bí mật chuẩn của repo (`redact`).
+ * DÙNG LẠI: `core/sdt.js` (SĐT + looksLikeHsCode), `core/sanitizer.js`
+ * (timKhoangStk), `core/redact.js`, `packs/hs/input.js` (`norm` — so tên).
  *
- * NHÃN là dấu đóng khung `[KHACH]`, `[KHACH_A]`… chứ không phải chữ thô
- * "Khách": khôi phục phải không bao giờ đụng vào chữ "Khách hàng" trong câu.
+ * Giới hạn số trần: che dãy 8–20 chữ số (kể cả không từ khoá), trừ SĐT, mã HS
+ * có dấu/ngữ cảnh "mã HS", MST checksum hợp lệ, ngày-giờ 14 số YYYYMMDDHHmmss.
+ * Nhóm: truyền `memberNames` để che tên thành viên khác; thiếu danh sách thì
+ * chỉ che được tên đã biết trong phiên — không tuyên bố ẩn danh hai chiều đủ
+ * cho nhóm khi chưa có memberNames.
  */
 
 import { findPhoneSpans, looksLikeHsCode } from '../core/sdt.js';
 import { timKhoangStk } from '../core/sanitizer.js';
 import { redact } from '../core/redact.js';
+import { norm } from '../packs/hs/input.js';
 
 const PHONE_TAG = '[SĐT]';
 const STK_TAG = '[STK]';
 const TOKEN_TAG = '[TOKEN]';
-/** Thẻ trung tính mà AI Studio hay dùng để gọi khách ("Dạ em chào [TEN_KHACH]"). */
 const NAME_TAG = '[TEN_KHACH]';
 
 /** Khoá dạng `sk-...` — `redact` chưa che (chuỗi quá ngắn, < 32 ký tự). */
 const RE_TOKEN = /\bsk-[A-Za-z0-9][A-Za-z0-9_-]{5,}\b/g;
 /**
- * Dãy số trần dài 11..19 chữ số, không từ khoá đi kèm: vẫn coi là ứng viên số
- * tài khoản. Giữ tầng này để CHE rộng hơn LÕI (nguyên tắc của `core/sdt.js`).
+ * Ứng viên số trần 8..20 chữ số, cho phép dấu `.` / `-` giữa các nhóm.
+ * (Trước đây 11..19 khiến STK 8–10 số lọt và dãy 20 số lọt; guard HS trên
+ * dải 11..19 là guard chết vì looksLikeHsCode chỉ nhận 8/10 số.)
  */
-const RE_SO_TRAN = /\b\d{11,19}\b/g;
+const RE_SO_TRAN = /\b\d(?:[\d.\-]{6,38}\d)\b/g;
+const RE_CANH_HS = /m[aãaáàảạ]\s*hs\b|hs\s*code\b|\bhs\b/i;
+const MST_W = [31, 29, 23, 19, 17, 13, 7, 5, 3];
 
-/** Số phiên hội thoại giữ trong bộ nhớ (chống phình vô hạn). */
 const MAX_PHIEN = 500;
-/** Tên ngắn hơn ngần này không đủ định danh, che thì vỡ văn bản → bỏ qua. */
 const TEN_TOI_THIEU = 2;
 
-/** Chữ cái theo thứ tự: 0 -> A, 1 -> B, ... */
 const chuCai = (i) => String.fromCharCode(65 + (i % 26));
-
-/**
- * Bộ nhớ phiên hội thoại: convId -> { ten: [tên theo thứ tự gặp], nhan: Map<tên, nhãn> }.
- * Nhãn gán nhất quán theo phiên để AI Studio luôn thấy `[KHACH_A]`, `[KHACH_B]`…
- */
 const phien = new Map();
+const digitsOf = (s) => String(s ?? '').replace(/\D/g, '');
 
-/** Nhãn chưa dùng trong phiên (để hai khách không trùng nhãn). */
 function nhanTrong(p) {
   const dung = new Set(p.nhan.values());
   for (let i = 0; i < 26; i += 1) {
@@ -57,13 +52,6 @@ function nhanTrong(p) {
   return `[KHACH_${p.ten.length + 1}]`;
 }
 
-/**
- * Lấy phiên hội thoại và gán nhãn cho khách.
- * - KHÔNG có `convId`: phiên RIÊNG, không lưu vào bộ nhớ chung — hai khách
- *   thiếu `convId` không được dùng chung bản đồ (lỗi vòng soát 1, điểm 2).
- * - Hội thoại 1-1: nhãn `[KHACH]`.
- * - Nhóm: `[KHACH_A]`, `[KHACH_B]`… theo thứ tự khách xuất hiện.
- */
 function phienCho(convId, ten, isGroup) {
   const khoa = convId == null || String(convId) === '' ? null : String(convId);
   let p;
@@ -85,7 +73,6 @@ function phienCho(convId, ten, isGroup) {
   return p;
 }
 
-/** Gộp các khoảng chồng lấn thành khoảng không chồng, tăng dần. */
 function gopKhoang(spans) {
   const xep = [...spans].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   const ra = [];
@@ -99,30 +86,52 @@ function gopKhoang(spans) {
 
 const chongLan = (s, e, spans) => spans.some(([as, ae]) => s < ae && as < e);
 
-/**
- * Che số điện thoại + số tài khoản ngân hàng.
- * Ưu tiên: số tài khoản CÓ TỪ KHOÁ (`core/sanitizer.js`) > ngữ pháp số điện
- * thoại (`core/sdt.js`) > dãy số trần 11..19 chữ số không phải mã HS.
- */
+/** MST DN 10 số — checksum mod 11 (trọng số chuẩn); 10 → không hợp lệ. */
+function laMstHopLe(digits) {
+  const d = digitsOf(digits);
+  if (d.length !== 10 && d.length !== 13) return false;
+  const base = d.slice(0, 10);
+  const sum = MST_W.reduce((s, w, i) => s + w * Number(base[i]), 0);
+  const du = sum % 11;
+  return du !== 10 && du === Number(base[9]);
+}
+
+/** Ngày-giờ dài dạng YYYYMMDDHHmmss (vd mã đơn) — không coi là STK. */
+function laNgayGioDai(digits) {
+  if (digits.length !== 14) return false;
+  const y = +digits.slice(0, 4);
+  const mo = +digits.slice(4, 6);
+  const d = +digits.slice(6, 8);
+  const h = +digits.slice(8, 10);
+  const mi = +digits.slice(10, 12);
+  const s = +digits.slice(12, 14);
+  return y >= 1990 && y <= 2100 && mo >= 1 && mo <= 12 && d >= 1 && d <= 31
+    && h <= 23 && mi <= 59 && s <= 59;
+}
+
+/** Giữ mã HS: dạng có dấu 4.2.2, hoặc số trần đứng sau ngữ cảnh "mã HS"/"HS". */
+function giuMaHs(src, raw, s) {
+  if (!looksLikeHsCode(raw)) return false;
+  if (/[.\-]/.test(raw)) return true;
+  return RE_CANH_HS.test(src.slice(Math.max(0, s - 24), s));
+}
+
 function cheSdtVaStk(src) {
-  // (1) Số tài khoản có từ khoá đi trước — thắng cả ngữ pháp số điện thoại.
   const stkUuTien = gopKhoang(timKhoangStk(src));
-
-  // (2) Số điện thoại, trừ phần đã nằm trong khoảng số tài khoản.
   const sdt = findPhoneSpans(src).filter(([s, e]) => !chongLan(s, e, stkUuTien));
-
-  // (3) Dãy số trần dài, không phải mã HS, không chồng hai nhóm trên.
   const stkTran = [];
   for (const m of src.matchAll(RE_SO_TRAN)) {
+    const raw = m[0];
     const s = m.index;
-    const e = s + m[0].length;
-    if (looksLikeHsCode(m[0])) continue;
+    const e = s + raw.length;
+    const d = digitsOf(raw);
+    if (d.length < 8 || d.length > 20) continue;
+    if (giuMaHs(src, raw, s)) continue;
+    if (laMstHopLe(d) || laNgayGioDai(d)) continue;
     if (chongLan(s, e, stkUuTien) || chongLan(s, e, sdt)) continue;
     stkTran.push([s, e]);
   }
-
   const stk = gopKhoang([...stkUuTien, ...stkTran]);
-  // Thay từ cuối về trước để chỉ số không bị lệch.
   const spans = [
     ...stk.map(([s, e]) => [s, e, STK_TAG]),
     ...gopKhoang(sdt).map(([s, e]) => [s, e, PHONE_TAG])
@@ -132,23 +141,31 @@ function cheSdtVaStk(src) {
   return out;
 }
 
-/** Escape để dùng trong RegExp. */
-const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 /**
- * Che tên khách bằng nhãn.
- * Có RANH GIỚI TỪ hai đầu (không phải `\b` vì tên tiếng Việt có dấu): tên "An"
- * không được cắt vào giữa "Anh chị" hay "Ancol" (lỗi vòng soát 1, điểm 5).
+ * Che tên theo dạng chuẩn hoá (`norm`: bỏ dấu + thường). Cửa sổ đúng số từ
+ * của tên — tránh khớp "Khách Nguyễn Văn" khi tên là "Nguyễn Văn Ao"; ranh giới
+ * token nên "An" không cắt "Anh chị"/"Ancol".
  */
 function cheTen(text, ten, nhan) {
-  const parts = ten.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return text;
-  const goc = parts.join(' ');
-  // Tên 1 ký tự không đủ định danh mà che thì vỡ văn bản → giữ nguyên.
-  if (goc.replace(/\s+/g, '').length < TEN_TOI_THIEU) return text;
-  const than = parts.map(escapeRe).join('\\s+');
-  const re = new RegExp(`(?<![\\p{L}\\p{N}])${than}(?![\\p{L}\\p{N}])`, 'giu');
-  return text.replace(re, () => nhan);
+  const muc = norm(ten);
+  if (muc.replace(/\s+/g, '').length < TEN_TOI_THIEU) return text;
+  const nTu = muc.split(/\s+/).filter(Boolean).length;
+  if (!nTu) return text;
+  const tokens = [...text.matchAll(/[\p{L}\p{N}]+/gu)].map((m) => ({
+    s: m.index, e: m.index + m[0].length, t: m[0]
+  }));
+  const spans = [];
+  for (let i = 0; i <= tokens.length - nTu; i += 1) {
+    const slice = tokens.slice(i, i + nTu);
+    if (norm(slice.map((x) => x.t).join(' ')) === muc) {
+      spans.push([slice[0].s, slice[nTu - 1].e]);
+    }
+  }
+  let out = text;
+  for (const [s, e] of spans.sort((a, b) => b[0] - a[0])) {
+    out = out.slice(0, s) + nhan + out.slice(e);
+  }
+  return out;
 }
 
 /**
@@ -156,38 +173,42 @@ function cheTen(text, ten, nhan) {
  * @param {object} o
  * @param {string} o.text lời khách gõ (chưa che)
  * @param {string} o.customerName tên khách cần ẩn danh
- * @param {string} [o.convId] mã hội thoại — dùng để gán nhãn nhất quán trong nhóm
- * @param {boolean} [o.isGroup] hội thoại nhóm → nhãn `[KHACH_A]`, `[KHACH_B]`…
+ * @param {string} [o.convId] mã hội thoại — gán nhãn nhất quán trong nhóm
+ * @param {boolean} [o.isGroup] hội thoại nhóm → nhãn `[KHACH_A]`…
+ * @param {string[]} [o.memberNames] tên thành viên nhóm cần che thêm (thiếu thì
+ *   chỉ che được tên đã gặp trong phiên)
  * @returns {{anonymizedText: string, anonymizeMap: Map<string, string>}}
  */
-export function anonymizePrompt({ text, customerName, convId, isGroup = false } = {}) {
+export function anonymizePrompt({
+  text, customerName, convId, isGroup = false, memberNames = []
+} = {}) {
   const src = String(text ?? '').normalize('NFKC');
-  const ten = String(customerName ?? '').trim();
+  const ten = String(customerName ?? '').normalize('NFKC').trim();
 
-  // 1) Bí mật chuẩn của repo (Bearer, token bot, chuỗi dài) rồi tới khoá `sk-...`.
   let out = redact(src).replace(RE_TOKEN, TOKEN_TAG);
-  // 2) Số điện thoại + số tài khoản ngân hàng.
   out = cheSdtVaStk(out);
 
   const anonymizeMap = new Map();
-  if (!ten) return { anonymizedText: out, anonymizeMap };
+  const thanhVien = (Array.isArray(memberNames) ? memberNames : [])
+    .map((t) => String(t ?? '').normalize('NFKC').trim())
+    .filter(Boolean);
+  if (!ten && !thanhVien.length) return { anonymizedText: out, anonymizeMap };
 
-  // 3) Tên khách của lượt này → nhãn riêng.
-  const p = phienCho(convId, ten, Boolean(isGroup));
-  const nhan = p.nhan.get(ten);
+  // Đăng ký tên khách + thành viên nhóm vào cùng phiên (memberNames → isGroup).
+  const p = ten
+    ? phienCho(convId, ten, Boolean(isGroup) || thanhVien.length > 0)
+    : phienCho(convId, thanhVien[0], true);
+  for (const n of thanhVien) phienCho(convId, n, true);
 
-  // 4) Tên MỌI khách đã biết trong phiên cũng phải che: tin của khách B nhắc
-  //    tên khách A thì tên A không được lọt lên AI Studio (lỗi vòng soát 1,
-  //    điểm 1). Che tên dài trước để tên ngắn không cắt vỡ tên dài.
+  const nhan = ten ? p.nhan.get(ten) : null;
   const dsTen = [...p.nhan.keys()].sort((a, b) => b.length - a.length);
   for (const t of dsTen) out = cheTen(out, t, p.nhan.get(t));
 
-  // 5) Bảng ánh xạ NHÃN → tên thật (để khôi phục câu trả lời cho khách).
-  //    Chỉ chứa nhãn đóng khung, không chứa chữ thô "Khách".
-  anonymizeMap.set(nhan, ten);
-  anonymizeMap.set(NAME_TAG, ten);
-  // Phiên riêng (thiếu `convId`) KHÔNG khôi phục tên khách khác.
-  if (!p.rieng) {
+  if (nhan && ten) {
+    anonymizeMap.set(nhan, ten);
+    anonymizeMap.set(NAME_TAG, ten);
+  }
+  if (!p.rieng && ten) {
     for (const t of dsTen) {
       if (t === ten) continue;
       anonymizeMap.set(p.nhan.get(t), t);
@@ -199,8 +220,7 @@ export function anonymizePrompt({ text, customerName, convId, isGroup = false } 
 /**
  * Khôi phục tên gọi tự nhiên của khách trong bản nháp AI Studio trả về.
  * Chỉ khôi phục PHẦN ĐÃ ẨN DANH (tên) — số điện thoại / STK / token vẫn giữ che.
- * CHỈ thay nhãn đóng khung `[...]`: chữ "Khách hàng" trong câu phải giữ nguyên
- * (lỗi vòng soát 1, điểm 6).
+ * CHỈ thay nhãn đóng khung `[...]`: chữ "Khách hàng" trong câu phải giữ nguyên.
  * @param {string} draftText bản nháp từ AI Studio
  * @param {Map<string, string>} anonymizeMap bảng nhãn → tên thật
  * @returns {string}
@@ -208,7 +228,6 @@ export function anonymizePrompt({ text, customerName, convId, isGroup = false } 
 export function deanonymizeDraft(draftText, anonymizeMap) {
   let out = String(draftText ?? '');
   if (!anonymizeMap || typeof anonymizeMap.entries !== 'function') return out;
-  // Thay nhãn dài trước (`[KHACH_A]` trước `[KHACH]`) để không cắt nhầm.
   const cap = [...anonymizeMap.entries()]
     .filter(([k]) => typeof k === 'string' && /^\[.+\]$/.test(k))
     .sort((a, b) => b[0].length - a[0].length);

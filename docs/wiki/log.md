@@ -1,5 +1,6 @@
 # Nhật ký wiki
 
+> Cập nhật: 2026-11-13 · commit: (OZV-685 / T808 vòng 3)
 > Cập nhật: 2026-11-13 · commit: f0ecd11
 
 Nhật ký thay đổi của bộ wiki trong docs/wiki. Mỗi dòng ghi: ngày, commit của mã nguồn
@@ -12,6 +13,15 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-13 — OZV-685 / T808 vòng 3: STK không từ khoá · tên NFD/không dấu · mã đơn · memberNames
+
+- **Commit mã nguồn đã đọc:** `f0ecd11` (`origin/main` sau PR #217) + vá trên nhánh `ozv-685-sua-anonymizer-stk-ten`.
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (thêm dòng trạng thái T808 — trước đó thiếu), `docs/wiki/log.md`.
+- **Vì sao:** vòng rà soát độc lập BLOCK sau khi gộp PR #217 — module `gateway/anonymizer.js` chưa nối vào bot nhưng phải sửa xong trước T809. Tái hiện trên main: STK 8/9/10 số không từ khoá lộ; tên NFD / không dấu lộ; mã đơn 14 số bị che quá; dãy 20 số lọt; nhóm thiếu `memberNames` thì tên thành viên khác lộ.
+- **Vá (TDD):** (1) dãy số trần 8–20 chữ số (kể cả `.`/`-`) che thành `[STK]`, trừ SĐT, mã HS có dấu/ngữ cảnh "mã HS", MST checksum hợp lệ, ngày-giờ 14 số; (2) che tên qua `norm` (`packs/hs/input.js`) — cửa sổ đúng số từ; (3) `memberNames` đăng ký thành viên nhóm; (4) JSDoc ghi giới hạn khi thiếu `memberNames`. Chữ ký `specs/008-cong-ai-studio/tasks.md:534` bổ sung `isGroup`, `memberNames`.
+- **Bảng so main vs nhánh (cùng bộ ca):** main lộ L1-8/9/10/chấm, L2-NFD/ascii, L3-20, L4-An; main che quá L3-madon. Nhánh che đúng các ca lộ; giữ mã đơn; không có ca nào main che mà nhánh lộ.
+- **Test:** `test/gateway/anonymizer.test.mjs` 9 → **17** (thêm 8 ca OZV-685). Ghi chú: tiêu chí thẻ ghi "≥ 67" lệch với thực tế main (9 test sau PR #217).
+- **Chưa làm:** nối module vào luồng AI (T809).
 ## 2026-11-13 — OZV-686: nối `test/gateway/**/*.test.mjs` (59 test của Spec 008 / PR #217) vào cổng `npm test`
 
 - **Commit mã nguồn đã đọc:** `f0ecd11` (`origin/main`), làm trên nhánh `ozv-686-gom-test-gateway`.
