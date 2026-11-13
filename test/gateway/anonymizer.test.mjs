@@ -380,4 +380,43 @@ test('OZV-693: MST DN công khai checksum TT105 GIỮ; SĐT đầu số di độ
     '03… trần không từ khoá MST vẫn phải che'
   );
   assert.ok(tranKhongTuKhoa.anonymizedText.includes('[SĐT]'));
+
+  // Vòng 4: từ khoá MST sớm trong câu KHÔNG tha SĐT đứng sau (cửa sổ 40 ký tự cũ lộ).
+  // Số giả dựng hình dạng — không dùng SĐT khách thật.
+  const caLoSdtSauMst = [
+    {
+      text: 'Ben em MST 0100109106, so dt cua em la 0320000009',
+      mst: '0100109106',
+      sdt: '0320000009',
+      id: 'mst-roi-sdt-1'
+    },
+    {
+      text: 'ma so thue cty em, goi lai so 0330000008 nhe',
+      mst: null,
+      sdt: '0330000008',
+      id: 'mst-roi-sdt-2'
+    },
+    {
+      text: 'MST 0100109106 va so 0340000007',
+      mst: '0100109106',
+      sdt: '0340000007',
+      id: 'mst-roi-sdt-3'
+    }
+  ];
+  for (const ca of caLoSdtSauMst) {
+    const out = anonymizePrompt({
+      text: ca.text,
+      customerName: TEN_A,
+      convId: ca.id
+    }).anonymizedText;
+    if (ca.mst) {
+      assert.ok(out.includes(ca.mst), `MST liền từ khoá ${ca.mst} vẫn giữ (${ca.id})`);
+    }
+    assert.equal(
+      out.includes(ca.sdt),
+      false,
+      `SĐT sau MST trong cùng câu phải che (${ca.id}): ${out}`
+    );
+    assert.ok(out.includes('[SĐT]'), `SĐT → [SĐT] (${ca.id})`);
+  }
 });

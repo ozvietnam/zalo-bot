@@ -37,8 +37,13 @@ const RE_TOKEN = /\bsk-[A-Za-z0-9][A-Za-z0-9_-]{5,}\b/g;
  */
 const RE_SO_TRAN = /\b\d(?:[\d.\-]{6,38}\d)\b/g;
 const RE_CANH_HS = /m[aãaáàảạ]\s*hs\b|hs\s*code\b|\bhs\b/i;
-/** Ngữ cảnh "MST" / "mã số thuế" (đã norm) ngay trước số. */
-const RE_CANH_MST = /\bmst\b|ma\s*so\s*thue/;
+/**
+ * Từ khoá MST / mã số thuế DÍNH LIỀN trước số (qua norm — bỏ dấu).
+ * Cho chen: cong ty / cty / don vi / cua / ben / em / minh / la / : / -
+ * Neo `$` — không tha SĐT đứng sau trong cùng câu chỉ vì MST xuất hiện sớm hơn.
+ */
+const RE_CANH_MST_LIEN =
+  /(?:\bmst\b|ma\s*so\s*thue)(?:\s*(?:cua|ben|cong\s*ty|cty|don\s*vi|em|minh|la|:|-)?)*\s*$/;
 const MST_W = [31, 29, 23, 19, 17, 13, 7, 5, 3];
 
 const MAX_PHIEN = 500;
@@ -125,9 +130,9 @@ function giuMaHs(src, raw, s) {
   return RE_CANH_HS.test(src.slice(Math.max(0, s - 24), s));
 }
 
-/** Có từ khoá MST / mã số thuế ngay trước vị trí số (qua norm — bỏ dấu). */
+/** Có từ khoá MST / mã số thuế dính liền trước vị trí số (qua norm — bỏ dấu). */
 function coCanhMst(src, s) {
-  return RE_CANH_MST.test(norm(src.slice(Math.max(0, s - 40), s)));
+  return RE_CANH_MST_LIEN.test(norm(src.slice(Math.max(0, s - 40), s)));
 }
 
 function cheSdtVaStk(src) {
