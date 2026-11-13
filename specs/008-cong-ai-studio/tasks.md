@@ -531,7 +531,7 @@ Hiện thực hóa bộ xử lý ẩn danh dữ liệu khách hàng trước khi
 
 **Interfaces — Produces:**
 ```js
-export function anonymizePrompt({ text, customerName, convId }) -> {
+export function anonymizePrompt({ text, customerName, convId, isGroup, memberNames }) -> {
   anonymizedText: string,
   anonymizeMap: Map<string, string>
 }
