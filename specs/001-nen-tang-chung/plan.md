@@ -104,6 +104,7 @@ packs/
     ├── router.js  render.js  input.js  format.js  vision.js   # chuyển nguyên
     ├── jobs.js           # toJob/waitJob tách từ packages.js để packages.js < 300 dòng (T014)
     ├── flow-turn.js  flow-photo.js   # phiên/bằng chứng/PackResult và lượt ảnh, tách từ index.js cho < 300 dòng (T014)
+    ├── so-tay-hoi.js     # lớp hỏi lại lấy câu từ NGUỒN CHUNG: `hoSo.ketLuan.cauHoi` → `so_tay_questions` của Cổng → regex cũ làm dự phòng (issue #177 mục 1 và 6, OZV-770). Lý do tệp mới: (1) `packs/hs/dien-cho-thieu.js` đã 275/300 dòng, cắm thêm vào là vượt hạn 300 của Điều VI; (2) hai trách nhiệm khác nhau — `dien-cho-thieu.js` tự DỰNG câu bằng regex, tệp này chỉ ĐỌC câu của nguồn chung (hồ sơ / Cổng) và không bịa câu. Không thêm dependency; tệp không gửi tin, chỉ trả dữ liệu cho `packages.js`.
     └── test/hs.test.mjs
 eval/
 ├── run.mjs               # phát lại fixture qua engine với kênh + MCP giả
