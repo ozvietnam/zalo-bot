@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { anonymizePrompt, deanonymizeDraft } from '../../gateway/anonymizer.js';
+import {
+  anonymizePrompt,
+  deanonymizeDraft,
+  RE_CANH_MST_LIEN
+} from '../../gateway/anonymizer.js';
 
 // Số dùng để thử — DỰNG LÚC CHẠY, không gõ cứng trong mã nguồn (Hiến pháp Điều IX).
 const sdtMau = ['0912', '345', '678'].join('');
@@ -419,4 +423,19 @@ test('OZV-693: MST DN công khai checksum TT105 GIỮ; SĐT đầu số di độ
     );
     assert.ok(out.includes('[SĐT]'), `SĐT → [SĐT] (${ca.id})`);
   }
+});
+
+// OZV-743: RE_CANH_MST_LIEN dạng `(?:\s*(?:…)?)*` backtracking mũ.
+// Đo thẳng hằng regex (không qua cửa sổ 40 ký tự / norm) bằng chuỗi độc ~200 ký tự.
+test('OZV-743: RE_CANH_MST_LIEN khớp chuỗi độc dưới 50 ms (không backtracking mũ)', () => {
+  const poison = `mst${' '.repeat(28)}x${'y'.repeat(160)}`;
+  assert.ok(poison.length >= 180, `chuỗi độc phải dài (~200), thực tế ${poison.length}`);
+  const t0 = performance.now();
+  const khop = RE_CANH_MST_LIEN.test(poison);
+  const ms = performance.now() - t0;
+  assert.equal(khop, false, 'chuỗi độc không được khớp từ khoá MST');
+  assert.ok(
+    ms < 50,
+    `ReDoS: mất ${ms.toFixed(1)} ms với chuỗi độc ${poison.length} ký tự (ngưỡng 50 ms)`
+  );
 });
