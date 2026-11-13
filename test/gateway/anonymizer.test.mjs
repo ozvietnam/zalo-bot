@@ -439,3 +439,65 @@ test('OZV-743: RE_CANH_MST_LIEN khớp chuỗi độc dưới 50 ms (không back
     `ReDoS: mất ${ms.toFixed(1)} ms với chuỗi độc ${poison.length} ký tự (ngưỡng 50 ms)`
   );
 });
+
+/** Sinh MST 10 số đầu 03, checksum TT105 — dựng lúc chạy (Hiến pháp Điều IX). */
+function sinhMst03Tt105() {
+  const w = [31, 29, 23, 19, 17, 13, 7, 5, 3];
+  for (let n = 0; n < 2000; n += 1) {
+    const base = `03${String(10000000 + n).slice(1)}`.slice(0, 9);
+    const sum = [...base].reduce((s, c, i) => s + Number(c) * w[i], 0);
+    const rem = sum % 11;
+    if (rem === 0) continue;
+    return base + String(10 - rem);
+  }
+  throw new Error('không sinh được MST 03 TT105');
+}
+
+// OZV-743 vòng soát 1: từ khoá dính ngay sau `:` (không khoảng trắng) vẫn phải giữ MST.
+test('OZV-743 A1: mst:cong ty + MST 03… vẫn giữ (không thành [SĐT])', () => {
+  const mst = sinhMst03Tt105();
+  assert.match(mst, /^03\d{8}$/);
+  const raw = `gui em mst:cong ty ${mst}`;
+  const { anonymizedText } = anonymizePrompt({
+    text: raw,
+    customerName: TEN_A,
+    convId: 'ozv743-a1'
+  });
+  assert.ok(
+    anonymizedText.includes(mst),
+    `A1 phải giữ MST sau mst:cong ty, được: ${anonymizedText}`
+  );
+  assert.equal(anonymizedText.includes('[SĐT]'), false, 'A1 không được che MST thành [SĐT]');
+});
+
+test('OZV-743 A9: mst:congty + MST 03… vẫn giữ (không thành [SĐT])', () => {
+  const mst = sinhMst03Tt105();
+  assert.match(mst, /^03\d{8}$/);
+  const raw = `mst:congty ${mst}`;
+  const { anonymizedText } = anonymizePrompt({
+    text: raw,
+    customerName: TEN_A,
+    convId: 'ozv743-a9'
+  });
+  assert.ok(
+    anonymizedText.includes(mst),
+    `A9 phải giữ MST sau mst:congty, được: ${anonymizedText}`
+  );
+  assert.equal(anonymizedText.includes('[SĐT]'), false, 'A9 không được che MST thành [SĐT]');
+});
+
+test('OZV-743: xemst + số không được tha (không khớp từ khoá MST)', () => {
+  const mst = sinhMst03Tt105();
+  const raw = `xemst ${mst}`;
+  const { anonymizedText } = anonymizePrompt({
+    text: raw,
+    customerName: TEN_A,
+    convId: 'ozv743-xemst'
+  });
+  assert.equal(
+    anonymizedText.includes(mst),
+    false,
+    `xemst không phải từ khoá MST — số phải che: ${anonymizedText}`
+  );
+  assert.ok(anonymizedText.includes('[SĐT]'), 'xemst + 03… → [SĐT]');
+});
