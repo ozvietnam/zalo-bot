@@ -179,6 +179,18 @@ test('nhận diện lệnh bật/tắt giọng của khách', () => {
 // (core/webhook.js -> core/queue.js -> core/engine.js -> core/engine-voice.js).
 // Không hạn giờ thì một kết nối treo giữ khoá vĩnh viễn => bot im hẳn với khách đó.
 
+/**
+ * Giữ vòng lặp sự kiện sống trong lúc chờ.
+ * `AbortSignal.timeout` dùng hẹn giờ ĐÃ unref: nó không tự giữ tiến trình sống.
+ * Chạy thật thì máy chủ webhook luôn giữ vòng lặp nên không sao; trong test chạy
+ * riêng thì vòng lặp có thể cạn việc và thoát trước khi hạn giờ bắn
+ * ("Promise resolution is still pending but the event loop has already resolved").
+ */
+async function giuVongLap(fn) {
+  const neo = setInterval(() => {}, 20);
+  try { return await fn(); } finally { clearInterval(neo); }
+}
+
 test('OZV-709: TTS treo thì taoAmThanh bỏ cuộc theo hạn giờ, không treo vĩnh viễn', async () => {
   const testDir = join(tmpdir(), `giong-noi-treo-${Date.now()}`);
   // fetch giả: treo cho tới khi signal huỷ. Đúng như kết nối TCP không đóng.
@@ -197,7 +209,7 @@ test('OZV-709: TTS treo thì taoAmThanh bỏ cuộc theo hạn giờ, không tre
 
   try {
     const t0 = Date.now();
-    await assert.rejects(async () => gn.taoAmThanh('Câu này sẽ không bao giờ đọc được'));
+    await giuVongLap(() => assert.rejects(async () => gn.taoAmThanh('Câu này sẽ không bao giờ đọc được')));
     const dt = Date.now() - t0;
     assert.ok(dt < 3000, `phải bỏ cuộc sớm, thực tế ${dt} ms`);
   } finally {
@@ -262,7 +274,7 @@ test('OZV-709 (bài chốt): TTS treo thì lượt tin SAU của cùng khách v�
     const luot2 = q.run(convId, async () => { daTraLoi.push('luot-2-tra-loi'); });
 
     const t0 = Date.now();
-    await Promise.all([luot1, luot2]);
+    await giuVongLap(() => Promise.all([luot1, luot2]));
     const dt = Date.now() - t0;
 
     assert.deepEqual(daTraLoi, ['luot-1-tra-bang-chu', 'luot-2-tra-loi'],
