@@ -78,12 +78,13 @@ tránh xoá nhầm webhook production (`channels/zalo-bot.js:54`, `channels/zalo
 | Cổng OZ lỗi | Câu báo **chung**, không kèm lỗi gốc | `packs/hs/index.js:91` (chi tiết chỉ vào log ở `packs/hs/index.js:90`) |
 | Cổng OZ lỗi ở tầng lõi | Câu báo chung của lõi (có thẻ màu `{orange}`), có kèm menu gói | `core/engine.js:13` (gửi ở `core/engine.js:139`) |
 | Gọi Cổng OZ lỗi khi xử lý ảnh | Câu báo chung cho khách, không lộ lỗi Gemini | `packs/hs/vision.js:26-33` |
-| Cổng xong lượt nhưng máy phân loại bận (`nextAction.type = RETRY` hoặc `reasonCode = ENGINE_TIMEOUT`) | Hỏi Cổng lại, tối đa 2 lần, giãn cách 20s rồi 60s, vẫn trong ngưỡng 10 phút; hết lượt gọi lại thì trả đúng câu "AI bận…" của Cổng, không bịa mã | `packs/hs/jobs.js:32` (nhận verdict), `packs/hs/jobs.js:73` (gọi lại), giãn cách ở `packs/hs/jobs.js:29` |
+| Cổng xong lượt nhưng máy phân loại bận (`nextAction.type = RETRY` hoặc `reasonCode = ENGINE_TIMEOUT`) — đường **chờ trong lượt** | Hỏi Cổng lại, tối đa 2 lần, giãn cách 20s rồi 60s, vẫn trong ngưỡng 10 phút; hết lượt gọi lại thì trả đúng câu "AI bận…" của Cổng, không bịa mã | `packs/hs/jobs.js:32` (nhận verdict), `packs/hs/jobs.js:73` (gọi lại), giãn cách ở `packs/hs/jobs.js:29` |
+| Cùng verdict RETRY nhưng ở đường **việc nền bền** (gói 1 và gói 4 đi đường này) | Lõi hẹn gọi lại Cổng, tối đa `RETRY_TOI_DA` = 2 lần, giãn cách lấy của gói (20s rồi 60s); đếm riêng `context.retryLan`, KHÔNG ăn vào nhịp 6→60s của `attempts`; gọi lại mà vượt hạn 30 phút thì trả verdict luôn. Hết lượt gọi lại → verdict thật về `onJobResult`, gói soạn câu trung thực, lõi không soạn chữ | `core/jobs.js:140` (hẹn gọi lại), `core/jobs.js:187` (nhánh trong `tick()`), trần ở `core/jobs.js:28`; bộ đọc verdict vẫn là **của gói** — gói đưa cho lõi ở `packs/hs/index.js:36` |
 
 ## Ba đường chạy nền
 
-- **Việc nền**: `core/engine.js:164` gọi `core/jobs.js:55`, hỏi kết quả ở `core/jobs.js:74`,
-  dựng câu ở `core/jobs.js:81`, gửi qua cửa ở `core/jobs.js:89`.
+- **Việc nền**: `core/engine.js:245` gọi `core/jobs.js:94`, hỏi kết quả ở `core/jobs.js:180`,
+  dựng câu ở `core/jobs.js:193` (gói soạn), gửi qua cửa ở `core/jobs.js:205`.
 - **Quét tin hoãn / tin lỗi**: `core/gate.js:176` lấy tin đến hạn rồi chạy lại quyết định (`core/gate.js:156`).
 - **Khởi động lại**: `core/gate.js:198` chuyển tin dở dang sang trạng thái để quét gửi tiếp; `server.js:77` gọi hàm này
   lúc khởi động.
