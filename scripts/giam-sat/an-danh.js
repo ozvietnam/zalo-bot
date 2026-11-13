@@ -15,10 +15,10 @@ const NGAN_HANG = '(?:vietcombank|vcb|techcombank|tcb|mbbank|mb\\s+bank|mb|acb|b
 const TU_KHOA_NGAN_HANG = `(?:${TU_KHOA_TK}|${NGAN_HANG})`;
 
 // Regex nhận diện dãy số đứng sau từ khoá ngân hàng / STK
-const STK_SAU_TU_KHOA = new RegExp(`(\\b${TU_KHOA_NGAN_HANG}\\b\\s*[:#-]?\\s*)(\\d[\\d\\s.-]{7,22}\\d)\\b`, 'gi');
+const STK_SAU_TU_KHOA = new RegExp(`(\\b${TU_KHOA_NGAN_HANG}\\b\\s*[:#-]?\\s*)(\\d[\\d\\s.-]{6,22}\\d)\\b`, 'gi');
 
 // Regex nhận diện dãy số đứng trước từ khoá ngân hàng / STK
-const STK_TRUOC_TU_KHOA = new RegExp(`\\b(\\d[\\d\\s.-]{7,22}\\d)(\\s*[:#-]?\\s*\\b${TU_KHOA_NGAN_HANG}\\b)`, 'gi');
+const STK_TRUOC_TU_KHOA = new RegExp(`\\b(\\d[\\d\\s.-]{6,22}\\d)(\\s*[:#-]?\\s*\\b${TU_KHOA_NGAN_HANG}\\b)`, 'gi');
 
 // Regex nhận diện tên khách qua xưng hô tiếng Việt (bắt buộc viết hoa từng âm tiết tên)
 const TEN_XUNG_HO = /(?:(?:[Kk]hách(?:\s+hàng)?|[Aa]nh|[Cc]hị|[Ee]m|[Bb]ác|[Cc]hú|[Cc]ô)\s+|[Tt]ôi là\s+|[Mm]ình là\s+|[Ee]m là\s+)(\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+){1,3})/gu;
@@ -96,26 +96,38 @@ export function taoBangKhach(messages = []) {
   return mapKhach;
 }
 
+const MA_HS_CHAM_RE = /^\d{4}\.\d{2}\.\d{2}(?:\.\d{2})?$/;
+const NGU_CANH_NGHIEP_VU_RE = /(?:tờ\s*khai|to\s*khai|mã\s*hs|ma\s*hs|hs\s*code|nhóm\s*hs|nhom\s*hs|mã\s*hàng|ma\s*hang)\s*[:#-]?\s*$/i;
+const CHI_TU_KHOA_TK_RE = /^\s*[:#-]?\s*tk\s*[:#-]?\s*$/i;
+
 /**
- * Che số tài khoản ngân hàng (9-16 chữ số đứng cạnh tên ngân hàng hoặc chữ STK)
+ * Che số tài khoản ngân hàng (8-16 chữ số đứng cạnh tên ngân hàng hoặc chữ STK; riêng từ khoá yếu 'tk' đòi >= 9 chữ số)
  * @param {string} text
  * @returns {string}
  */
 function cheStk(text) {
   let s = text;
   // 1. Trường hợp từ khoá đứng trước dãy số
-  s = s.replace(STK_SAU_TU_KHOA, (match, prefix, numStr) => {
+  s = s.replace(STK_SAU_TU_KHOA, (match, prefix, numStr, offset, fullStr) => {
+    if (MA_HS_CHAM_RE.test(numStr)) return match;
+    const truoc = fullStr.slice(Math.max(0, offset - 30), offset);
+    if (NGU_CANH_NGHIEP_VU_RE.test(truoc)) return match;
     const digits = numStr.replace(/\D/g, '');
-    if (digits.length >= 9 && digits.length <= 16) {
+    const minLen = CHI_TU_KHOA_TK_RE.test(prefix) ? 9 : 8;
+    if (digits.length >= minLen && digits.length <= 16) {
       return `${prefix}***`;
     }
     return match;
   });
 
   // 2. Trường hợp từ khoá đứng sau dãy số
-  s = s.replace(STK_TRUOC_TU_KHOA, (match, numStr, suffix) => {
+  s = s.replace(STK_TRUOC_TU_KHOA, (match, numStr, suffix, offset, fullStr) => {
+    if (MA_HS_CHAM_RE.test(numStr)) return match;
+    const truoc = fullStr.slice(Math.max(0, offset - 30), offset);
+    if (NGU_CANH_NGHIEP_VU_RE.test(truoc)) return match;
     const digits = numStr.replace(/\D/g, '');
-    if (digits.length >= 9 && digits.length <= 16) {
+    const minLen = CHI_TU_KHOA_TK_RE.test(suffix) ? 9 : 8;
+    if (digits.length >= minLen && digits.length <= 16) {
       return `***${suffix}`;
     }
     return match;
