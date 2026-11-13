@@ -1,6 +1,7 @@
 # Nhật ký wiki
 
 > Cập nhật: 2026-11-13 · commit: (OZV-685 / T808 vòng 3)
+> Cập nhật: 2026-11-13 · commit: f0ecd11
 
 Nhật ký thay đổi của bộ wiki trong docs/wiki. Mỗi dòng ghi: ngày, commit của mã nguồn
 đã đọc khi viết, và những trang bị thay đổi hoặc thêm mới.
@@ -21,6 +22,12 @@ Quy ước:
 - **Bảng so main vs nhánh (cùng bộ ca):** main lộ L1-8/9/10/chấm, L2-NFD/ascii, L3-20, L4-An; main che quá L3-madon. Nhánh che đúng các ca lộ; giữ mã đơn; không có ca nào main che mà nhánh lộ.
 - **Test:** `test/gateway/anonymizer.test.mjs` 9 → **17** (thêm 8 ca OZV-685). Ghi chú: tiêu chí thẻ ghi "≥ 67" lệch với thực tế main (9 test sau PR #217).
 - **Chưa làm:** nối module vào luồng AI (T809).
+## 2026-11-13 — OZV-686: nối `test/gateway/**/*.test.mjs` (59 test của Spec 008 / PR #217) vào cổng `npm test`
+
+- **Commit mã nguồn đã đọc:** `f0ecd11` (`origin/main`), làm trên nhánh `ozv-686-gom-test-gateway`.
+- **Trang wiki đã sửa:** `docs/wiki/tien-do.md` (cập nhật hàng Spec 008 tại `docs/wiki/tien-do.md:82`), `docs/wiki/log.md`.
+- **Vì sao:** `package.json:13` (`scripts.test`) trước đó chỉ gom `test/core/**/*.test.mjs`, `test/giam-sat/**/*.test.mjs`, `packs/**/*.test.mjs` và `test/test.mjs` (1.332 + 34 test), bỏ sót hoàn toàn `test/gateway/**/*.test.mjs` nên 59 test của Spec 008 (gồm cả `test/gateway/anonymizer.test.mjs` của PR #217) không được CI gọi.
+- **Vá thế nào:** thêm `"test/gateway/**/*.test.mjs"` vào `package.json:13` và thêm test khoá tại `test/core/readme-t032.test.mjs:76` (đỏ trước khi sửa `package.json`, xanh sau khi sửa); số test của `node --test` trong `npm test` tăng từ **1.332 → 1.392** (+59 test `test/gateway/**` + 1 test khoá `package.json`), cộng **34 test đạt** ở `test/test.mjs` (tổng 93 test đạt cho nhóm `test/test.mjs` + `test/gateway/**`, toàn repo 1.426 test đạt, 0 fail).
 
 ## 2026-11-13 — OZV-535 vòng soát 2: sửa 4 lỗi giám đốc chặn (mã sau MÃ HS, từ dẫn HOA/THƯỜNG, Gói 6 nhóm 2, test giả)
 
