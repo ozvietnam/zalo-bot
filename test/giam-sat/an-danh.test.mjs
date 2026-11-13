@@ -229,3 +229,43 @@ test('T706/T710: sinhNhanKhach sinh nhãn tuần tự Khách A -> Khách Z -> Kh
   assert.equal(sinhNhanKhach(25), 'Khách Z');
   assert.equal(sinhNhanKhach(26), 'Khách AA');
 });
+
+test('OZV-668: Che STK 8 chữ số (cả liền, tách nhóm, trước/sau ngân hàng) và giữ nguyên các ca 9-16 chữ số', () => {
+  const stk8 = '1234' + '5678';
+  const stk8Cach = '1234 ' + '5678';
+  const stk8Gach = '1234-' + '5678';
+  const stk9 = '12345' + '6789';
+  const stkVcb = '0071 ' + '000 123456';
+  const stk55 = '12345 ' + '67890';
+  const stk64 = '123456-' + '7890';
+  const stkGach = '12-3456' + '-7890';
+
+  assert.equal(anDanhVanBan(`STK: ${stk8}`), 'STK: ***');
+  assert.equal(anDanhVanBan(`so tai khoan ${stk8} ACB`), 'so tai khoan *** ACB');
+  assert.equal(anDanhVanBan(`tai khoan: ${stk8Cach}`), 'tai khoan: ***');
+  assert.equal(anDanhVanBan(`Sacombank: ${stk8Gach}`), 'Sacombank: ***');
+  assert.equal(anDanhVanBan(`Chuyển vào ${stk8} ACB nhé`), 'Chuyển vào *** ACB nhé');
+  assert.equal(anDanhVanBan(`STK: ${stk9}`), 'STK: ***');
+  assert.equal(anDanhVanBan(`STK: ${stkVcb}`), 'STK: ***');
+  assert.equal(anDanhVanBan(`STK: ${stk55}`), 'STK: ***');
+  assert.equal(anDanhVanBan(`STK: ${stk64}`), 'STK: ***');
+  assert.equal(anDanhVanBan(`STK ${stkGach}`), 'STK ***');
+});
+
+test('OZV-668: Không che nhầm mã HS 8 số hoặc tờ khai khi đi kèm chữ tk / to khai / ma hs', () => {
+  const hsCham = '8537.' + '10.99';
+  const hsCham0 = '0901.' + '11.00';
+  const hsLien = '8537' + '1099';
+  const soTk = '1234' + '5678';
+  const soTk12 = '105234' + '567890';
+
+  assert.equal(anDanhVanBan(`tk: ${hsCham}`), `tk: ${hsCham}`);
+  assert.equal(anDanhVanBan(`tk ${hsLien}`), `tk ${hsLien}`);
+  assert.equal(anDanhVanBan(`to khai tk ${soTk}`), `to khai tk ${soTk}`);
+  assert.equal(anDanhVanBan(`tờ khai tk ${soTk12}`), `tờ khai tk ${soTk12}`);
+  assert.equal(anDanhVanBan(`ma hs ${hsLien}`), `ma hs ${hsLien}`);
+  assert.equal(anDanhVanBan(`mã HS ${hsLien} ACB`), `mã HS ${hsLien} ACB`);
+  assert.equal(anDanhVanBan(`ACB: ${hsCham0}`), `ACB: ${hsCham0}`);
+});
+
+
