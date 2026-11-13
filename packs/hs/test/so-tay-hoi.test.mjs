@@ -1,14 +1,17 @@
-// packs/hs/test/so-tay-hoi.test.mjs — Lớp hỏi lại lấy câu từ NGUỒN CHUNG (mục 1 và 6 của issue #177).
+// packs/hs/test/so-tay-hoi.test.mjs — Lớp hỏi lại lấy câu từ NGUỒN CHUNG (mục 1 của issue #177).
 //
-// Bốn ca "xong là khi" của thẻ OZV-770:
+// Các ca "xong là khi" của thẻ OZV-770:
 //   1. có mã ứng viên ≥6 số ⇒ câu hỏi lấy từ `so_tay_questions` của Cổng;
 //   2. khách đã nêu công suất ⇒ không hỏi lại công suất, khoá đó đi vào `facts`;
-//   3. Cổng lỗi / hết giờ / trả rỗng ⇒ rơi về regex cũ, vẫn hỏi, không bịa, không im;
-//   4. hồ sơ có `ketLuan.cauHoi` ⇒ dùng câu của hồ sơ, KHÔNG gọi `so_tay_questions`.
+//   3. Cổng lỗi / hết giờ / trả rỗng ⇒ rơi về regex cũ, vẫn hỏi, không bịa, không im.
+//
+// Ca 4 cũ (`cauHoiTuHoSo` đọc `hoSo.ketLuan.cauHoi`, mục 6 của #177) ĐÃ BỎ cùng với hàm ở
+// OZV-782: không chỗ nào ghi `ketLuan`/`maHs` vào hồ sơ nên nhánh đó là mã chết, và test cho mã
+// chết chỉ làm bốn cổng xanh nói dối. Lý do đầy đủ ghi ở đầu `so-tay-hoi.js`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  maUngVien, thamSoSoTay, factsDaNeu, cauHoiTuHoSo, hoiTheoSoTay, batHoSo,
+  maUngVien, thamSoSoTay, factsDaNeu, hoiTheoSoTay,
 } from '../so-tay-hoi.js';
 import { TRAN_CAU } from '../ky-luat-hoi.js';
 
@@ -26,12 +29,15 @@ function ctxGia(tra) {
   };
 }
 
+// `loai` phải là giá trị THẬT của Cổng: `DONG_BIEU` | `CONG` | `TT39` (hs-code-api
+// `api/so-tay-questions.js`), không có `thuoc_tinh`/`thong_so`. Fixture bịa giá trị `loai` là
+// cách hồi quy OZV-782 lọt qua bốn cổng xanh của PR #228: test đo một thế giới không tồn tại.
 const BA_CAU = {
   ok: true,
   questions: [
-    { key: 'cong_suat', questionVi: 'Công suất bao nhiêu W ạ?', type: 'number', required: true, loai: 'thong_so', unit: 'W' },
-    { key: 'chat_lieu', questionVi: 'Vỏ máy chất liệu gì ạ?', type: 'text', required: true, loai: 'thuoc_tinh' },
-    { key: 'cong_dung', questionVi: 'Hàng dùng cho gia đình hay công nghiệp ạ?', type: 'enum', required: false, loai: 'thuoc_tinh', options: ['gia dụng', 'công nghiệp'] },
+    { key: 'cong_suat', questionVi: 'Công suất bao nhiêu W ạ?', type: 'number', required: true, loai: 'DONG_BIEU', unit: 'W' },
+    { key: 'chat_lieu', questionVi: 'Vỏ máy chất liệu gì ạ?', type: 'text', required: true, loai: 'DONG_BIEU' },
+    { key: 'cong_dung', questionVi: 'Hàng dùng cho gia đình hay công nghiệp ạ?', type: 'enum', required: false, loai: 'TT39', options: ['gia dụng', 'công nghiệp'] },
   ],
 };
 
@@ -81,7 +87,22 @@ test('ca 1: có mã ứng viên ⇒ câu hỏi lấy từ so_tay_questions của
   // Tối đa TRAN_CAU câu trong MỘT tin
   const soCau = r.cauHoi.split('?').filter((x) => x.trim()).length;
   assert.ok(soCau <= TRAN_CAU, `tối đa ${TRAN_CAU} câu, hiện ${soCau}`);
-  assert.equal(r.hoiThuocTinh, true);
+  // Cờ suy từ ĐẠI LƯỢNG câu hỏi (`chat_lieu`, `cong_dung`), không từ `loai` của Cổng: `loai` chỉ
+  // nói câu này để chọn dòng biểu / công / TT39, không nói nó hỏi thuộc tính hay hỏi tên.
+  assert.equal(r.hoiThuocTinh, true, 'câu chất liệu/công dụng ⇒ câu đáp của khách là THUỘC TÍNH');
+});
+
+test('ca 1b: Cổng chỉ hỏi THÔNG SỐ ⇒ hoiThuocTinh false, dù loai vẫn là DONG_BIEU', async () => {
+  const ctx = ctxGia({
+    ok: true,
+    questions: [
+      { key: 'cong_suat', questionVi: 'Công suất bao nhiêu W ạ?', type: 'number', required: true, loai: 'DONG_BIEU' },
+      { key: 'dien_ap', questionVi: 'Điện áp bao nhiêu V ạ?', type: 'number', required: true, loai: 'DONG_BIEU' },
+    ],
+  });
+  const r = await hoiTheoSoTay(ctx, { s: 'máy sấy', moTa: 'máy sấy', hoSo: { maHs: '85094000' } });
+  assert.equal(r.canHoi, true);
+  assert.equal(r.hoiThuocTinh, false, 'nhánh chỉ thiếu thông số thì câu đáp CÓ THỂ là tên món mới');
 });
 
 test('ca 2: khách đã nêu công suất ⇒ không hỏi lại, khoá đó vào facts', async () => {
@@ -119,34 +140,30 @@ test('ca 3b: chưa có mã ứng viên ≥6 số ⇒ KHÔNG gọi mạng', async
   assert.equal(ctx.goiDa.length, 0, 'tránh ăn 400 oan và tránh gọi vô ích');
 });
 
-test('ca 4: hồ sơ có ketLuan.cauHoi ⇒ dùng câu của hồ sơ', () => {
-  const r = cauHoiTuHoSo({ ketLuan: { cauHoi: ['Đường kính ống bao nhiêu mm ạ?'] } }, { s: 'ống thép' });
+test('OZV-782: hồ sơ không còn là nguồn câu hỏi — chỉ còn Cổng rồi regex', async () => {
+  const mod = await import('../so-tay-hoi.js');
+  assert.equal(mod.cauHoiTuHoSo, undefined, 'mã chết đã xoá, đừng để ai nối lại');
+  assert.equal(mod.batHoSo, undefined, 'cờ HS_HO_SO không còn chỗ đọc (pctx không mang env)');
+
+  // `hoSo` vẫn dùng — nhưng để lấy MÃ ứng viên và dữ kiện khách đã nêu, không lấy câu hỏi.
+  const ctx = ctxGia(BA_CAU);
+  const r = await mod.hoiLaiUuTien(ctx, {
+    s: 'máy xay', moTa: 'máy xay',
+    hoSo: { maHs: '85094000', ketLuan: { cauHoi: ['Câu của hồ sơ, KHÔNG ai gửi câu này'] } },
+  });
   assert.equal(r.canHoi, true);
-  assert.match(r.cauHoi, /Đường kính ống bao nhiêu mm/);
-
-  // một câu dạng chuỗi, và dạng { key, questionVi } đều đọc được
-  assert.equal(cauHoiTuHoSo({ ketLuan: { cauHoi: 'Hàng mới hay đã qua sử dụng ạ?' } }).canHoi, true);
-  assert.equal(cauHoiTuHoSo({ ketLuan: { cauHoi: [{ key: 'chat_lieu', questionVi: 'Chất liệu gì ạ?' }] } }).canHoi, true);
-
-  // hồ sơ không có câu hỏi ⇒ nhường cho so_tay_questions / regex
-  assert.equal(cauHoiTuHoSo({ ketLuan: {} }).canHoi, false);
-  assert.equal(cauHoiTuHoSo(null).canHoi, false);
-
-  // câu hồ sơ hỏi điều khách đã nêu thì bỏ (kỷ luật hỏi)
-  const bo = cauHoiTuHoSo(
-    { thongSo: '350W', ketLuan: { cauHoi: [{ key: 'cong_suat', questionVi: 'Công suất bao nhiêu W ạ?' }] } },
-    { s: 'máy xay' },
-  );
-  assert.equal(bo.canHoi, false);
+  assert.match(r.cauHoi, /Công suất bao nhiêu W/, 'câu phải là câu của Cổng');
+  assert.ok(!/KHÔNG ai gửi câu này/.test(r.cauHoi));
+  assert.equal(ctx.goiDa.length, 1, 'phải gọi so_tay_questions, không bị hồ sơ chặn trước');
 });
 
-test('batHoSo: cờ HS_HO_SO tắt được bằng 0/false/off', () => {
-  assert.equal(batHoSo({}), true);
-  assert.equal(batHoSo({ HS_HO_SO: '1' }), true);
-  assert.equal(batHoSo({ HS_HO_SO: '0' }), false);
-  assert.equal(batHoSo({ HS_HO_SO: 'off' }), false);
-  assert.equal(
-    cauHoiTuHoSo({ ketLuan: { cauHoi: 'Chất liệu gì ạ?' } }, { env: { HS_HO_SO: '0' } }).canHoi,
-    false,
-  );
+test('hoiLaiUuTien: Cổng im ⇒ rơi về duPhong, không im với khách', async () => {
+  const { hoiLaiUuTien } = await import('../so-tay-hoi.js');
+  const ctx = ctxGia({ ok: true, questions: [] });
+  const r = await hoiLaiUuTien(ctx, {
+    s: 'van bi', moTa: 'van bi', hoSo: { maHs: '84818087' },
+    duPhong: () => ({ canHoi: true, cauHoi: 'Van bi bằng chất liệu gì ạ?', thieu: ['chatLieu'] }),
+  });
+  assert.equal(r.canHoi, true);
+  assert.match(r.cauHoi, /chất liệu gì/i);
 });
