@@ -14,6 +14,23 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-14 — OZV-830: bài đo nền chết `ENOENT mkdtemp` khi TMPDIR của lượt chạy bị dọn
+
+- **Đau:** lượt đo Cổng thật 13/11 (OZV-608) chạy nền `node scripts/do-dung-hs.mjs`; Paperclip đặt
+  `TMPDIR=/tmp/paperclip-run-<id>` rồi xoá thư mục đó khi lượt chạy kết thúc. Từ ca thứ 13, mỗi ca
+  chết `ENOENT: mkdtemp '/tmp/paperclip-run-…/oz-qa-scenario-XXXXXX'` sau 0,0s — **38/50 ca mất
+  trắng**, cả ngày đo không ra số nào.
+- **Gốc:** `mkdtempSync` KHÔNG tự tạo thư mục cha. `scripts/qa-that.mjs` gọi thẳng
+  `mkdtempSync(join(tmpdir(), 'oz-qa-scenario-'))`, nên `tmpdir()` trỏ vào thư mục đã bị xoá là chết.
+- **Sửa:** thêm `taoThuMucTamQa` (`scripts/qa-that.mjs:391`) — tự `mkdirSync(..., recursive)` thư mục
+  cha, cha vẫn không dựng được thì rơi về `/tmp` bền vững; `runSingleScenario` (`scripts/qa-that.mjs:406`)
+  dùng hàm này. Thà chỗ tạm khác chỗ khai còn hơn mất cả lượt đo.
+- **Khoá:** `test/core/qa-that.test.mjs` thêm ca trỏ `TMPDIR` vào đường dẫn con không tồn tại (khôi
+  phục trong `finally`) rồi chạy `runSingleScenario` chế độ mock — đỏ trước khi sửa, xanh sau.
+- **Trang đổi:** `docs/wiki/kiem-thu.md` (trích dẫn `runSingleScenario` dịch từ dòng 384 → 406), `docs/wiki/log.md`.
+- **Cổng:** `npm test` 1567/1567, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6,
+  `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
+
 ## 2026-11-14 — OZV-828: mô tả hàng bị cắt sạch sau dấu `;` trước khi lên Cổng
 
 - **Đau:** chạy cả 50 ca của `eval/bo-de/phan-loai-tu-luat.json` qua `chayBoDo` thì **14/50 ca (28%)** mất toàn bộ mô tả sau dấu `;` đầu tiên trước khi gửi `args.tenHang` lên `phan_loai_hs`. Mất đúng cái dữ kiện quyết định mã: ca `39073030` mất `; kết quả phân tích: nhựa epoxy biến tính, dạng lỏng` nên Cổng chốt nhầm `3208.20.90`; ca `42029190` mất `; bảo vệ và cố định điện thoại…` → nhầm `4202.32.00`; ca `85098090` mất `; hút nước từ bình và phun tia nước…` → nhầm `8424.89.50`.
