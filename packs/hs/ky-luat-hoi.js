@@ -21,22 +21,20 @@ import { laCauHoiKhach, bocCumHoi, laHoiThuocTinh } from './cau-hoi-khach.js';
 
 export { laCauHoiKhach, bocCumHoi, laHoiThuocTinh };
 
+// Biên ĐẦU/CUỐI một từ tiếng Việt. KHÔNG dùng `\b`: `\b` của JS chỉ tính `[A-Za-z0-9_]`, nên mọi
+// mẫu kết (hoặc mở) bằng chữ CÓ DẤU hay ký hiệu `ø` đều trượt — `CHAT_LIEU_RE.test('van bi đồng')`,
+// `'tủ gỗ'`, `'chén sứ'`, `QUY_CACH_RE.test('ống thép đúc')`, `CONG_DUNG_RE.test('dùng để sấy')`,
+// `KICH_THUOC_RE.test('ống thép ø60')` đều trả `false` nếu dùng `\b` (vòng soát 3 PR #213, OZV-885).
+const DAU_TU = '(?<![\\p{L}\\p{N}])';
+const CUOI_TU = '(?![\\p{L}\\p{N}])';
+/** Mẫu ĐO một cụm từ tiếng Việt: biên từ tính cả chữ có dấu. */
+const tu = (than) => new RegExp(`${DAU_TU}(?:${than})${CUOI_TU}`, 'iu');
 // Các ĐẠI LƯỢNG lớp hỏi lại có thể hỏi. Mỗi khoá dưới đây là một đại lượng; câu hỏi khai báo nó
 // hỏi những đại lượng nào, nhờ đó `gomCau` biết câu nào đã thành vô ích.
 export const CONG_SUAT_RE = /\b(\d+(?:[.,]\d+)?)\s*(w|kw|hp|wats?|watt|m[aã]\s*l[uự]c)\b/i;
 export const DIEN_AP_RE = /\b(\d+)\s*(v|volt|volts?|vdc|vac)\b/i;
 export const DUNG_TICH_RE = /\b(\d+(?:[.,]\d+)?)\s*(l|l[ií]t|liters?|ml)\b/i;
-export const KICH_THUOC_RE = /\b(dn\d+|\d+(?:[.,]\d+)?\s*(mm|cm|m|inch|in|phi|ø|bar|mpa|psi|kg|g|tan|tấn))\b/i;
-// Biên ĐẦU/CUỐI một từ tiếng Việt. KHÔNG dùng `\b`: `\b` của JS chỉ tính `[A-Za-z0-9_]`, nên mọi
-// mẫu kết (hoặc mở) bằng chữ CÓ DẤU đều trượt — `CHAT_LIEU_RE.test('van bi đồng')`, `'tủ gỗ'`,
-// `'chén sứ'`, `QUY_CACH_RE.test('ống thép đúc')`, `CONG_DUNG_RE.test('dùng để sấy')` đều trả
-// `false` trong khi bản KHÔNG dấu trả `true` (vòng soát 3 của PR #213). Ba mẫu này là mẫu ĐO của
-// `daNeu`: đo ra `false` thì bot hỏi lại đúng điều khách vừa nêu, và `coTenTrong` không bóc được
-// cụm công dụng nên đếm nó thành tên mới ⇒ TÊN HÀNG RỤNG HẲN khỏi tin gửi Cổng.
-const DAU_TU = '(?<![\\p{L}\\p{N}])';
-const CUOI_TU = '(?![\\p{L}\\p{N}])';
-/** Mẫu ĐO một cụm từ tiếng Việt: biên từ tính cả chữ có dấu. */
-const tu = (than) => new RegExp(`${DAU_TU}(?:${than})${CUOI_TU}`, 'iu');
+export const KICH_THUOC_RE = tu('dn\\s*\\d+|(?:phi|ø)\\s*\\d+(?:[.,]\\d+)?(?:\\s*(?:mm|cm|m|inch|in))?|\\d+(?:[.,]\\d+)?\\s*(?:mm|cm|m|inch|in|phi|ø|bar|mpa|psi|kg|g|tan|t[aấ]n)');
 
 // Mỗi nhánh viết ĐỦ dấu của mọi chữ ("thuỷ" lẫn "thủy", "cầm" lẫn "cam"): lớp ĐO chạy trên chữ
 // NGUYÊN VĂN của khách, không chạy trên chuỗi đã `norm()`, vì `coTenTrong` còn dùng chính mẫu này
@@ -46,7 +44,7 @@ export const CHAT_LIEU_RE = tu('inox(\\s*\\d+)?|th[eé]p(\\s*kh[oô]ng\\s*g[iỉ
   // gõ cả hai — mẫu phải ăn cả hai, không thì "bình thuỷ tinh" đo ra `false`.
   + '|[đd][oồ]ng|g[oỗ]|cao\\s*su|da|s[uứ]|th[uủ][yỷ]\\s*tinh|cotton|poly|polyester');
 export const CONG_DUNG_RE = tu('d[uù]ng\\s*cho|d[uù]ng\\s*trong|d[uù]ng\\s*[đd][eể]|chuy[eê]n\\s*d[uù]ng'
-  + '|gia\\s*d[uụ]ng|c[oô]ng\\s*nghi[eệ]p|t[uự]\\s*[đd][oộ]ng|c[aâầ]m\\s*tay|g[ií]a\\s*[đd][iì]nh|ly\\s*t[aâ]m');
+  + '|gia\\s*d[uụ]ng|c[oô]ng\\s*nghi[eệ]p|t[uự]\\s*[đd][oộ]ng|c[aâầ]m\\s*tay|gia\\s*[đd][iì]nh|d[aâ]n\\s*d[uụ]ng|di\\s*[đd][oộ]ng|mini|ly\\s*t[aâ]m');
 export const QUY_CACH_RE = tu('tay\\s*g[aạ]t|m[aạ]\\s*k[eẽ]m|[đd][uúự]c|h[aà]n|kh[oô]ng\\s*d[aầ]u');
 
 /** Trần số câu trong MỘT tin hỏi lại. */
@@ -142,7 +140,7 @@ export function thongSoTrong(s) {
   const t = String(s || '');
   const out = [];
   for (const re of RE_THONG_SO) {
-    const m = t.match(new RegExp(re.source, 'gi'));
+    const m = t.match(new RegExp(re.source, 'giu'));
     if (m) out.push(...m.map((x) => x.trim()).filter(Boolean));
   }
   return [...new Set(out)];
@@ -225,9 +223,11 @@ export function chuTrong(s) {
 // công nghiệp" — khách đáp "không, loại gia dụng 350W" là trả lời CÔNG DỤNG, mà `coTenTrong` cũ
 // đếm nó thành tên mới nên tên hàng thật rụng hẳn (điểm 3 vòng soát 2 của PR #213). Công dụng là
 // một ĐẠI LƯỢNG riêng trong `daNeu`, không phải tên món, nên bóc nó ra trước khi ĐO phần chữ.
-// Chỉ bóc khi ĐO, không bóc khi dựng mô tả gửi Cổng: "máy sấy thực phẩm công nghiệp" vẫn phải đi
-// nguyên văn tới Cổng vì công dụng có thể đổi dòng thuế.
-const LOAI_HANG_RE = new RegExp(`${DAU_TU}(?:lo[aạ]i|ki[eể]u|d[aạ]ng|h[aà]ng|m[oó]n|c[aá]i|b[aằ]ng|ch[aấ]t\\s*li[eệ]u)${CUOI_TU}`, 'giu');
+const LOAI_HANG_RE = new RegExp(
+  `${DAU_TU}(?:lo[aạ]i|ki[eể]u|d[aạ]ng|h[aà]ng|m[oó]n|c[aá]i|b[aằ]ng|ch[aấ]t\\s*li[eệ]u`
+  + '|c[oô]ng\\s*su[aấ]t|[đd]i[eệ]n\\s*[aá]p|dung\\s*t[ií]ch|k[ií]ch\\s*th[uư][oớ]c'
+  + '|quy\\s*c[aá]ch|[đd][uư][oờ]ng\\s*k[ií]nh|[đd][oộ]\\s*d[aà]y|chi[eề]u\\s*cao|c[oô]ng\\s*d[uụ]ng'
+  + `)${CUOI_TU}`, 'giu');
 
 /**
  * Chuỗi này có TÊN HÀNG không? Tên hàng nằm ở phần CHỮ, nên phải bóc thông số, xuất xứ và các đại
@@ -254,7 +254,7 @@ export function giuThongSo(moTa, nguon) {
   const them = [];
   for (const re of RE_THONG_SO) {
     if (re.test(t)) continue;                      // câu mới đã nêu loại này → số MỚI thắng
-    const m = String(nguon || '').match(new RegExp(re.source, 'gi'));
+    const m = String(nguon || '').match(new RegExp(re.source, 'giu'));
     if (m) them.push(...m.map((x) => x.trim()).filter(Boolean));
   }
   const co = t.toLowerCase();
