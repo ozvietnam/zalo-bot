@@ -1,5 +1,8 @@
 FROM node:22-alpine
 WORKDIR /app
+# ffmpeg: khâu giọng nói (core/giong-noi.js:82 spawn('ffmpeg')) đổi PCM của Gemini TTS sang AAC.
+# Thiếu nó thì mỗi tin thoại ném "spawn ffmpeg ENOENT" → audit error stage=voice (OZV-804).
+RUN apk add --no-cache ffmpeg
 COPY --chown=node:node . .
 # APP_VERSION: commit đang build (Coolify truyền SOURCE_COMMIT) — hiện ở /health để đối chiếu deploy.
 ARG SOURCE_COMMIT=""
