@@ -3,7 +3,7 @@
 // Tách khỏi `ho-so.test.mjs` (Điều VI: mỗi tệp một trách nhiệm, dưới 300 dòng).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hoSoRong, themChu, themAnh, themTinTiep, moTaGop, dungTuLichSu } from '../ho-so.js';
+import { hoSoRong, themChu, themAnh, themTinTiep, moTaGop, dungTuLichSu, locTapAmAnh } from '../ho-so.js';
 import { laMonKhac, cungMonVoi } from '../nhan-dang.js';
 
 const MO_TA = 'Chốt kẹp xoay 1/4 vòng loại núm thấp, mã QCTHL0525-10S, cố định vỏ máy và cửa bảo vệ';
@@ -166,4 +166,20 @@ test('[S5] cungMonVoi: trùng MỘT từ chung không phải cùng món (món m�
   assert.equal(cungMonVoi('mã QCTHL0525-10S thì sao', 'chốt kẹp xoay 1/4 vòng QCTHL0525-10S'), true, 'trùng mã/model riêng là cùng món');
   assert.equal(cungMonVoi('', 'máy bơm nước'), false);
   assert.equal(cungMonVoi('máy bơm nước', ''), false);
+});
+
+test('locTapAmAnh: không cắt đứt số thập phân (0.75kW, 1.5HP, dày 1.2mm, dung tích 1,5 lít)', () => {
+  assert.deepEqual(locTapAmAnh('0.75kW'), { sach: '0.75kW', bo: [] });
+  assert.deepEqual(locTapAmAnh('1.5HP 220V'), { sach: '1.5HP 220V', bo: [] });
+  assert.deepEqual(locTapAmAnh('dày 1.2mm'), { sach: 'dày 1.2mm', bo: [] });
+  assert.deepEqual(locTapAmAnh('dung tích 1,5 lít'), { sach: 'dung tích 1,5 lít', bo: [] });
+  assert.deepEqual(locTapAmAnh('dày 1.2mm, rộng 2.5m'), { sach: 'dày 1.2mm, rộng 2.5m', bo: [] });
+  assert.deepEqual(
+    locTapAmAnh('ảnh hơi mờ nhé anh, dung tích 1,5 lít, công suất 0.75kW'),
+    { sach: 'dung tích 1,5 lít, công suất 0.75kW', bo: ['ảnh hơi mờ nhé anh'] },
+  );
+  const h = themTinTiep(themChu(hoSoRong(), 'máy bơm nước ly tâm'), '0.75kW');
+  const m = moTaGop(h);
+  assert.match(m, /0\.75kW/, `số thập phân 0.75kW phải giữ nguyên trong hồ sơ: "${m}"`);
+  assert.doesNotMatch(m, /(^|[^\d.])75kW/, `0.75kW không được biến thành 75kW: "${m}"`);
 });
