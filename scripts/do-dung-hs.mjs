@@ -145,7 +145,9 @@ export function tongHop(ketQua = []) {
     top3,
     top1Pct: pct(top1),
     top3Pct: pct(top3),
-    khongRaMa: ketQua.filter((r) => !r.maBot).length,
+    // OZV-852: ca Cổng treo là lỗi Cổng/đường đo, không phải bot kém — đếm riêng khỏi khongRaMa.
+    hetHanCho: ketQua.filter((r) => Boolean(r.hetHanCho)).length,
+    khongRaMa: ketQua.filter((r) => !r.maBot && !r.hetHanCho).length,
     dung6So: ketQua.filter((r) => r.dung6So).length,
     roiVaoMaLan: ketQua.filter((r) => r.roiVaoMaLan).length,
     msTrungBinh: tong ? Math.round(tongMs / tong) : 0,
@@ -239,6 +241,7 @@ export function dungBaoCao({ ketQua, tomTat, isMock, startedAt = new Date() }) {
   l.push(`| Đúng tám số ở vị trí 1 (top-1) | ${tomTat.top1}/${tomTat.tong} | **${tomTat.top1Pct}%** |`);
   l.push(`| Đúng tám số trong 3 mã đầu (top-3) | ${tomTat.top3}/${tomTat.tong} | **${tomTat.top3Pct}%** |`);
   l.push(`| Bot không ra mã nào | ${tomTat.khongRaMa}/${tomTat.tong} | ${((tomTat.khongRaMa / (tomTat.tong || 1)) * 100).toFixed(1)}% |`);
+  l.push(`| Hết hạn chờ Cổng (chưa có kết quả) | ${tomTat.hetHanCho || 0}/${tomTat.tong} | ${(((tomTat.hetHanCho || 0) / (tomTat.tong || 1)) * 100).toFixed(1)}% |`);
   l.push(`| Đúng 6 số, lệch 2 số cuối | ${tomTat.dung6So}/${tomTat.tong} | ${((tomTat.dung6So / (tomTat.tong || 1)) * 100).toFixed(1)}% |`);
   l.push(`| Rơi vào mã dễ lẫn văn bản đã loại trừ | ${tomTat.roiVaoMaLan}/${tomTat.tong} | ${((tomTat.roiVaoMaLan / (tomTat.tong || 1)) * 100).toFixed(1)}% |`);
   l.push('');
