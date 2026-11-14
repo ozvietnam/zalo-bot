@@ -10,7 +10,10 @@
 // Trách nhiệm của tệp này: ĐO xem khách đã nêu gì, và lọc/gom câu hỏi theo đó.
 // Các nhánh hỏi lại theo mặt hàng (nghi gõ nhầm, điện gia dụng, cơ khí) nằm ở `dien-cho-thieu.js`
 // (Điều VI: mỗi tệp một trách nhiệm, dưới 300 dòng).
-import { norm } from './input.js';
+// `xuatXuCua` + `chuHoSoChoXuatXu` là PHÉP DÒ NƯỚC DUY NHẤT của gói (`input.js:559`), cũng là phép
+// mà `packages.js:31` dùng để chốt nước đem đi tra. Nhập về đây để lớp ĐO hỏi đúng một câu hỏi:
+// "khách đã nêu nước chưa?" — viết phép dò thứ hai là tự tạo chỗ cho hai nơi lệch nhau (OZV-802).
+import { norm, xuatXuCua, chuHoSoChoXuatXu } from './input.js';
 // Nhận diện câu khách HỎI LẠI nằm ở `cau-hoi-khach.js` (Điều VI: mỗi tệp một trách nhiệm, dưới
 // 300 dòng — bản vá vòng soát 5 đẩy tệp này lên 367 dòng). Xuất lại ở đây để `doc-tra-loi.js` và
 // các test nhập từ một cửa như trước.
@@ -88,6 +91,11 @@ export function daNeu(sSach, hoSo) {
     chatLieu: CHAT_LIEU_RE.test(t) || Boolean(String(h.chatLieu || '').trim()),
     congDung: CONG_DUNG_RE.test(t) || Boolean(String(h.congDung || '').trim()),
     quyCach: QUY_CACH_RE.test(t),
+    // Nước nhập: KHÔNG regex riêng. `xuatXuCua` trả `giaDinh: true` đúng khi không tìm thấy nước
+    // nào trong chữ của khách, tức "chưa nêu" — đảo cờ đó ra là xong (OZV-802, mục 3 của #177).
+    // Hồ sơ mạch đọc qua `chuHoSoChoXuatXu` (gồm cả `chuAnh`) nên nước khách nói ở LƯỢT TRƯỚC vẫn
+    // tính là đã nêu, bot không hỏi lại (#170).
+    xuatXu: !xuatXuCua(sSach, chuHoSoChoXuatXu(h)).giaDinh,
   };
 }
 
