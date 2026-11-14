@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { docBoDe, chamMotCa, tongHop, docMaTuTin, chayBoDo, DUONG_BO_DE } from '../../scripts/do-dung-hs.mjs';
+import { docBoDe, chamMotCa, tongHop, docMaTuTin, chayBoDo, DUONG_BO_DE, CHO_MOT_CA_MS } from '../../scripts/do-dung-hs.mjs';
 import { renderPhanLoaiDayDu, renderClassify } from '../../packs/hs/render.js';
 import { renderPhanLoaiGiongQuyen } from '../../packs/hs/giong-quyen.js';
 
@@ -318,4 +318,36 @@ test('tự kiểm cái thước: Cổng kịch bản trả SAI mã → bộ đo 
   assert.equal(res.ok, true);
   assert.equal(res.tomTat.top1, 0);
   assert.equal(res.tomTat.top1Pct, '0.0');
+});
+
+// OZV-842: trần chờ mỗi ca phải phủ hết nhịp hỏi việc nền của lõi (6→18→42→90→150s, core/jobs.js:18-33)
+// và vòng goiLai RETRY (20s + 60s). Trần cũ 120s cắt ngang giữa poll 4 và poll 5 → bài đo Cổng thật
+// 13/11 mất 13/27 ca đúng mốc 120.0–121.0s, bị ghi oan là "bot không ra mã nào cho khách".
+test('trần chờ mỗi ca phủ được nhịp poll 150s và vòng RETRY (≥ 180s)', () => {
+  assert.ok(CHO_MOT_CA_MS >= 180_000, `trần chờ mỗi ca là ${CHO_MOT_CA_MS}ms, phải ≥ 180000ms`);
+});
+
+test('ca hết hạn chờ khi Cổng còn DANG_XU_LY → ghi hetHanCho, không tính là bot ra sai mã', async () => {
+  const boDe = docBoDe().slice(0, 1);
+  // Cổng nhận việc rồi treo mãi ở DANG_XU_LY: trần chờ ngắn (60ms) nên ca chắc chắn hết hạn.
+  const congTreo = {
+    calls: [],
+    async listTools() {
+      return ['phan_loai_hs', 'ket_qua_phan_loai', 'tra_thue', 'tra_thu_tuc_nhap_khau', 'tim_ma_hs', 'kiem_tra_shtt']
+        .map((name) => ({ name, description: name }));
+    },
+    async callTool(name, args = {}) {
+      this.calls.push({ name, args });
+      if (name === 'phan_loai_hs') return { ok: true, data: { maLuot: 'ML-TREO', trangThai: 'DANG_XU_LY' } };
+      if (name === 'ket_qua_phan_loai') return { ok: true, data: { maLuot: 'ML-TREO', trangThai: 'DANG_XU_LY' } };
+      return { ok: true, data: { results: [] } };
+    },
+  };
+  const res = await chayBoDo({ boDe, env: {}, im: true, customMcp: congTreo, timeoutMs: 60 });
+  assert.equal(res.ok, true);
+  const r = res.ketQua[0];
+  assert.equal(r.maBot, null, 'ca treo thì không có mã nào của bot');
+  assert.equal(r.hetHanCho, true, `phải đánh dấu hết hạn chờ, lyDo đang là: ${r.lyDo}`);
+  assert.match(r.lyDo, /CHƯA có kết quả|hết hạn chờ/i, 'lý do phải nói rõ chưa có kết quả trong thời gian chờ');
+  assert.doesNotMatch(r.lyDo, /không ra mã nào cho khách/, 'đừng ghi oan là bot không ra mã');
 });
