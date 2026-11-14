@@ -105,6 +105,8 @@ packs/
     ├── jobs.js           # toJob/waitJob tách từ packages.js để packages.js < 300 dòng (T014)
     ├── flow-turn.js  flow-photo.js   # phiên/bằng chứng/PackResult và lượt ảnh, tách từ index.js cho < 300 dòng (T014)
     ├── so-tay-hoi.js     # lớp hỏi lại lấy câu từ NGUỒN CHUNG: `hoSo.ketLuan.cauHoi` → `so_tay_questions` của Cổng → regex cũ làm dự phòng (issue #177 mục 1 và 6, OZV-770). Lý do tệp mới: (1) `packs/hs/dien-cho-thieu.js` đã 275/300 dòng, cắm thêm vào là vượt hạn 300 của Điều VI; (2) hai trách nhiệm khác nhau — `dien-cho-thieu.js` tự DỰNG câu bằng regex, tệp này chỉ ĐỌC câu của nguồn chung (hồ sơ / Cổng) và không bịa câu. Không thêm dependency; tệp không gửi tin, chỉ trả dữ liệu cho `packages.js`.
+    ├── test/giup-duong-that-hs.mjs  # bộ đồ nghề dựng mạch giả chạy gói HS trên ĐƯỜNG THẬT (`hs.handle` → `packages.js` → `so-tay-hoi.js` → `doc-tra-loi.js` → `phan_loai_hs`) — OZV-795. Lý do tệp mới: tách từ `soat-791-khoa-cong-la.test.mjs` để test OZV-795 dùng CÙNG một kiểu dựng mạch; lớp lỗi rụng tên hàng đã tái xuất ba lần (#213 → #228/OZV-782 → OZV-791) một phần vì mỗi chỗ đo một kiểu. Không kết thúc bằng `.test.mjs` nên `npm test` không thu thập làm tệp test.
+    ├── test/khoa-cong-that.mjs      # fixture KHOÁ CÂU HỎI THẬT của Cổng cho `so_tay_questions`, chép 14/11/2026 từ repo công khai `github.com/ozvietnam/hs-code-api` — OZV-795. Lý do tệp mới: khoá phải lấy từ nguồn thật, không gõ tay vào test; đặt phẳng trong `test/` theo tiền lệ `test/cong-that-85094000.mjs`, không mở thư mục `fixtures/` mới. Dữ liệu công khai, không có thông tin khách.
     └── test/hs.test.mjs
 eval/
 ├── run.mjs               # phát lại fixture qua engine với kênh + MCP giả
