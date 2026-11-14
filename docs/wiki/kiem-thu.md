@@ -122,7 +122,7 @@ Ca nào văn bản đã nêu rõ mã dễ lẫn thì ghi vào `maLan` (50/50 ca 
 
 ### Cách chấm
 
-Bộ đo chạy từng ca qua **đúng đường bot thật** (dùng lại `runSingleScenario` của `scripts/qa-that.mjs:384`, không dựng đường riêng), rồi chấm trên **tin gửi khách** — đúng thứ khách nhìn thấy, không phải dữ liệu thô của Cổng:
+Bộ đo chạy từng ca qua **đúng đường bot thật** (dùng lại `runSingleScenario` của `scripts/qa-that.mjs:406`, không dựng đường riêng), rồi chấm trên **tin gửi khách** — đúng thứ khách nhìn thấy, không phải dữ liệu thô của Cổng:
 
 - `top1`: mã ở dòng `✅ Mã HS đề xuất` (`packs/hs/render.js:293`) đúng mã của văn bản;
 - `top3`: mã đúng nằm trong mã chốt + mục `🔁 Mã khác cần cân nhắc` (`packs/hs/render.js:329`);
