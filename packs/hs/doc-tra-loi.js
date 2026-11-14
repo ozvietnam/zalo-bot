@@ -159,8 +159,8 @@ const DEM_SAU_DAU_RE = new RegExp(`^(?:${DEM}${HET_TU}\\s*)+[,.!:;-]+\\s*`, 'iu'
 // không thì "mica" bị cắt đuôi thành "mic". KHÔNG có "da" không dấu: "túi da", "ví bằng da" là
 // CHẤT LIỆU, mà chất liệu đổi chương thuế (túi da 4202 ≠ túi nhựa) — điểm 3 của người soát PR #213.
 const XA_GIAO_CUOI_RE = /(?:^|[\s,.!:;-])(?:ạ|a|nh[eé]|nha|nh[aá]|[oơ]i|th[eế]|v[aậ]y|dạ)\s*$/iu;
-// Từ xã giao mở đầu câu XÁC NHẬN ("đúng, 350W" → "350W"). Cũng không nhận "da" không dấu.
-const XAC_NHAN_DAU_RE = /^(?:[đd][uú]ng|oke|ok|chu[aẩ]n|v[aâ]ng|[uừ]|dạ)[,.\s]*/iu;
+// Từ xã giao mở đầu câu XÁC NHẬN ("đúng, 350W" → "350W"). Gắn `HET_TU` và không nhận "dung"/"vang"/"u"/"da"/"dạ dày" (OZV-885).
+const XAC_NHAN_DAU_RE = new RegExp(`^(?:[đd]úng|đung|oke|ok|chu[aẩ]n|vâng|ừ|dạ(?!\\s*d[aà]y))${HET_TU}[,.\\s]*`, 'iu');
 
 /** Bỏ từ xã giao đầu và cuối câu, giữ lại phần DỮ KIỆN khách nói. */
 export function bocXaGiao(s) {
