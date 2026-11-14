@@ -1,6 +1,6 @@
 # Kiểm thử
 
-> Cập nhật: 2026-11-14 · commit: 8f5a38a
+> Cập nhật: 2026-11-14 · commit: 85f8815
 
 Trang này nói: repo có những cổng kiểm nào, chạy lệnh gì, bộ test nằm ở đâu, số liệu kiểm thử thực tế và các công cụ đo lường chất lượng.
 
@@ -147,7 +147,7 @@ Hàm đọc mã (`docMaTuTin`) phải biết **cả hai khuôn tin** bot thật 
 
 Trần 120s cũ cắt đúng giữa poll 4 (90s) và poll 5 (150s): bài đo Cổng thật 13/11 (OZV-608) mất **13/27 ca** đúng mốc 120–121s và ghi oan `"bot không ra mã nào cho khách"` — tức là số độ đúng thấp giả vì cái thước, không phải vì con bot.
 
-Bước đo còn đặt `kyVong: { phaiCoPhanHoi: true }`, nên hết hạn mà chỉ có câu "đang tra" thì `evaluateStep` trả lý do `"Đã báo đang tra nhưng CHƯA có kết quả…"`. Bộ đo bắt chuỗi đó (chỉ khi ca **không ra mã nào**) và ghi `hetHanCho: true` + `lyDo` của Cổng vào kết quả ca, thay vì để `chamMotCa` chấm như một ca bot phân loại sai.
+Bước đo còn đặt `kyVong: { phaiCoPhanHoi: true }`, nên hết hạn mà chỉ có câu "đang tra" thì `evaluateStep` trả lý do `"Đã báo đang tra nhưng CHƯA có kết quả…"`. Bộ đo bắt chuỗi đó (chỉ khi ca **không ra mã nào**) và ghi `hetHanCho: true` + `lyDo` của Cổng vào kết quả ca, thay vì để `chamMotCa` chấm như một ca bot phân loại sai. Khi tổng hợp, `tongHop()` (`scripts/do-dung-hs.mjs:149-150`) đếm riêng `hetHanCho` khỏi `khongRaMa` (`!r.maBot && !r.hetHanCho`), và `dungBaoCao()` (`scripts/do-dung-hs.mjs:244`) in dòng riêng `| Hết hạn chờ Cổng (chưa có kết quả) |` trong bảng `## Kết quả` (khoá bởi `test/core/do-dung-hs.test.mjs:357-379`) để ca Cổng treo không làm đội tỷ lệ `"Bot không ra mã nào"`.
 
 ### Tự kiểm cái thước
 

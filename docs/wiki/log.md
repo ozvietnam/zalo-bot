@@ -14,6 +14,15 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-14 — OZV-852 / OZV-867: tách số ca hết hạn chờ Cổng khỏi `"Bot không ra mã nào"` trong bộ đo HS (PR #243, commit `85f8815`)
+
+- **Đau:** sau khi OZV-842 (PR #240) gắn `r.hetHanCho = true` cho ca Cổng treo vượt trần chờ, `tongHop()` (`scripts/do-dung-hs.mjs`) vẫn đếm mọi ca `maBot === null` vào `khongRaMa` và `dungBaoCao()` in gộp vào dòng `"Bot không ra mã nào"` — làm tỷ lệ bot kém bị đọc cao giả vì lỗi Cổng/đường đo.
+- **Vá (`scripts/do-dung-hs.mjs:149-150`, `scripts/do-dung-hs.mjs:244`):**
+  - `tongHop()` (`scripts/do-dung-hs.mjs:149-150`): đếm riêng `hetHanCho: ketQua.filter((r) => Boolean(r.hetHanCho)).length` và chỉ đếm `khongRaMa: ketQua.filter((r) => !r.maBot && !r.hetHanCho).length`.
+  - `dungBaoCao()` (`scripts/do-dung-hs.mjs:244`): thêm dòng riêng `| Hết hạn chờ Cổng (chưa có kết quả) |` trong bảng `## Kết quả`.
+- **Test đỏ trước (`test/core/do-dung-hs.test.mjs:357-379`):** thêm 2 bài kiểm cho `tongHop()` và `dungBaoCao()` (đỏ trước, xanh 29/29 sau khi sửa).
+- **Trang đổi:** `docs/wiki/kiem-thu.md` (cập nhật mốc commit `85f8815`, bổ sung mô tả `tongHop()` và `dungBaoCao()` ở mục "Trần chờ mỗi ca và ca hết hạn chờ"), `docs/wiki/log.md`.
+
 ## 2026-11-14 — OZV-851: giữ tên hàng khi khách đáp xuất xứ/thuộc tính ở nhánh hỏi xác nhận tên (sửa rụng tên sau OZV-802)
 
 - **Đau:** sau khi OZV-802 gắn `kemXuatXu` vào nhánh hỏi xác nhận tên (`packs/hs/dien-cho-thieu.js:122`), khách đáp kèm nước nhập hoặc chất liệu (`"đúng, 350W 220V hàng Nhật"`, `"350W 220V từ Trung Quốc"`, `"350W 220V xuất xứ Hàn Quốc"`, `"350W 220V bằng inox"`) bị `coTenTrong` đếm nhầm phần xuất xứ/chất liệu thành tên món mới (`khachDuaTenMoi = true` ⇒ `phanTen = ''`), làm rụng sạch tên hàng khỏi `moTaTraCuu` gửi Cổng. Đồng thời khi khách sửa tên kèm nước nhập (`"máy sấy thực phẩm 500W 220V hàng Nhật"`), `chuTrong(sSach)` ở `packs/hs/dien-cho-thieu.js:134` còn giữ `"hàng Nhật"` nên khác `item.chuan` (`"máy sấy thực phẩm"`) và hỏi xác nhận lại đúng tên khách vừa tự gõ.
