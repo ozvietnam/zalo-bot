@@ -75,11 +75,16 @@ export function bocCumHoi(s) {
 // Thiếu hai khoá này mà chúng lại CÓ trong bảng `KHOA` (`so-tay-hoi.js:32-41`) nên `m.dai` không
 // rỗng ⇒ mặc định an toàn của OZV-791 không che tới ⇒ cờ `false` tường minh ⇒ `doc-tra-loi.js` đọc
 // "bằng inox" thành TÊN MÓN MỚI, "van bi" rụng hẳn. Đó là lần thứ TƯ của cùng lớp lỗi
-// (#213 → OZV-782 → OZV-791 → OZV-799). Rà cả 28 mục của `KHOA`: chúng quy về đúng bảy đại lượng
-// (chatLieu, quyCach, congDung, kichThuoc, dungTich, congSuat, dienAp) — danh sách này phủ cả bảy,
-// không còn mục nào ngoài.
+// (#213 → OZV-782 → OZV-791 → OZV-799). Rà cả `KHOA`: mọi mục quy về đúng tám đại lượng dưới đây
+// (chatLieu, quyCach, congDung, kichThuoc, dungTich, congSuat, dienAp, xuatXu) — danh sách này phủ
+// cả tám, không còn mục nào ngoài.
+//
+// `xuatXu` vào danh sách ở OZV-802 (mục 3 của #177): khi bot hỏi nước nhập, câu đáp "hàng Nhật" /
+// "Trung Quốc" là THUỘC TÍNH của đúng món khách đang tra, KHÔNG BAO GIỜ là tên món mới — không ai
+// đi tra mã HS cho mặt hàng tên "Nhật Bản". Thiếu dòng này thì khách đáp nước là tên hàng rụng
+// khỏi tin gửi Cổng, lần thứ NĂM của cùng lớp lỗi.
 export const DAI_THUOC_TINH = [
-  'chatLieu', 'quyCach', 'congDung', 'kichThuoc', 'dungTich', 'congSuat', 'dienAp',
+  'chatLieu', 'quyCach', 'congDung', 'kichThuoc', 'dungTich', 'congSuat', 'dienAp', 'xuatXu',
 ];
 
 // THÔNG SỐ: vừa là thuộc tính (khi Cổng hỏi thẳng chúng), vừa là thứ nhánh HỎI TÊN xin kèm.

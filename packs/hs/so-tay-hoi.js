@@ -38,6 +38,8 @@ const KHOA = {
   chat_lieu: 'chatLieu', chatlieu: 'chatLieu', vat_lieu: 'chatLieu', material: 'chatLieu',
   cong_dung: 'congDung', congdung: 'congDung', muc_dich: 'congDung', ung_dung: 'congDung',
   quy_cach: 'quyCach', quycach: 'quyCach',
+  xuat_xu: 'xuatXu', xuatxu: 'xuatXu', nuoc: 'xuatXu', nuoc_san_xuat: 'xuatXu',
+  nuoc_nhap: 'xuatXu', origin: 'xuatXu', country: 'xuatXu', country_of_origin: 'xuatXu',
 };
 
 /** Khoá của `ky-luat-hoi.js` → khoá Cổng + regex đọc giá trị, để đẩy điều khách đã nêu vào `facts`. */
