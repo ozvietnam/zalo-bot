@@ -76,7 +76,10 @@ export function lamGonCauHoi(s) {
   // (điểm [S25] của người soát) — bỏ trước khi cắt phần hỏi.
   let t = ` ${boYeuCauDau(String(s || '')).replace(/[?!]+/g, ' ').replace(/\.+(\s|$)/g, ' ')} `;
   const bo = ['cho (?:mình|tôi|em|anh|chị) hỏi', 'xin hỏi', 'mã số hs', 'mã hs code', 'mã hs', 'hs code', 'hscode', 'mã số', 'mã gì', 'là bao nhiêu',
-    'bao nhiêu', 'là gì', 'là mã nào', 'mã nào', 'có thể áp vào', 'có thể áp', 'áp vào', 'có bao nhiêu', 'thế nào', 'vậy', 'nhé', 'nhỉ', 'ạ', 'ơi', 'em', 'anh', 'chị', 'bạn', 'ad', 'shop', 'của', 'thì'];
+    'bao nhiêu', 'là gì', 'là mã nào', 'mã nào', 'có thể áp vào', 'có thể áp', 'áp vào', 'có bao nhiêu', 'thế nào', 'vậy', 'nhé', 'nhỉ', 'ạ', 'ơi',
+    // "em" ở "trẻ em" / "bé em" là CHỮ CỦA MÓN HÀNG (xe đạp trẻ em khác xe đạp người lớn),
+    // không phải cách khách xưng hô — giữ lại, chỉ bỏ khi đứng một mình.
+    '(?<!\\btrẻ\\s)(?<!\\bbé\\s)em', 'anh', 'chị', 'bạn', 'ad', 'shop', 'của', 'thì'];
   for (const w of bo) t = t.replace(new RegExp(`(^|\\s)${w}(?=\\s)`, 'gi'), ' ');
   const out = t.replace(/\s+/g, ' ').replace(/^[\s,:-]+|[\s,:-]+$/g, '');
   return out.length >= 2 ? out : String(s || '').trim();
@@ -283,7 +286,11 @@ export const PACKAGES = [
       ctx.session.choBoSung = null;
       const bo = text.replace(/^\s*(h[aà]ng m[oớ]i|h[aà]ng kh[aá]c|b[oỏ] qua)\s*[:,.\-]?\s*/i, '');
       const { values: v, conLai } = parseLabeled(bo, [F.tenHang, F.chatLieu, F.congDung, F.thongSo, F.thuongHieu, F.model]);
-      const tenHang = lamGonCauHoi(v.tenHang || conLai || bo).slice(0, 500);
+      // Mô tả hàng hay có dấu ";" ở giữa ("...; kết quả phân tích: nhựa epoxy biến tính").
+      // parseLabeled cắt ở đó: vế đầu vào v.tenHang, các vế sau (không mang nhãn) rơi vào conLai.
+      // Phải GHÉP lại — bỏ conLai là vứt đúng cái dữ kiện quyết định mã (OZV-828).
+      // Vế CÓ nhãn (Chất liệu, Công dụng…) đã được parseLabeled lấy ra khỏi conLai nên không nhân đôi.
+      const tenHang = lamGonCauHoi([v.tenHang, conLai].filter(Boolean).join('; ') || bo).slice(0, 500);
       if (tenHang.trim().length < 2) return ask('Bạn muốn phân loại hàng gì?', this.mau);
       // Chốt chặn cuối: KHÔNG BAO GIỜ tra cứu một lệnh ngắn như món hàng ("tra", "ok", "hs code").
       // Lỗi 10:00 của issue #170: lamGonCauHoi('tra hscode') → "tra" → Cổng phân loại hàng tên "tra".
