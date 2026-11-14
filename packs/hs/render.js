@@ -70,7 +70,7 @@ const scalar = (k, v) => {
 function itemLine(o) {
   if (o == null || typeof o !== 'object') return clip(o, 300);
   const code = o.hsCode || o.maHs || o.ma || o.soHieu || o.code;
-  const name = o.nameVi || o.tenVi || o.titleVi || o.ten || o.tenHang || o.title || o.tieuDe || o.moTa || o.messageVi || o.warningVi || o.noiDung || o.text;
+  const name = o.nameVi || o.tenVi || o.titleVi || o.ten || o.tenHang || o.title || o.tieuDe || o.moTa || o.messageVi || o.warningVi || o.noiDung || o.text || o.vi;
   const extra = [];
   if (o.confidence != null || o.doTinCay != null) extra.push(scalar('confidence', o.confidence ?? o.doTinCay));
   if (o.trangThai) extra.push(String(o.trangThai));
@@ -321,12 +321,12 @@ export function renderPhanLoaiDayDu({ tenHang, maHs, phanLoai, thue, thuTuc, moT
   if (ly) l.push(`Lý do: ${clip(ly, 300)}`);
 
   const mt = duLieu(moTa);
-  const cau = mt && String(mt.customsDescription || mt.moTaEcus || mt.moTa || mt.banNhapText || mt.banNhap || '').trim();
+  const cau = mt && String(mt.customsDescription || mt.moTaEcus || mt.moTa || mt.moTaBanNhap || mt.banNhapText || mt.banNhap || '').trim();
   if (cau && cau !== 'true') {
     l.push('', '{b}📝 Mô tả khai báo gợi ý{/b}', clip(cau, 400));
     if (mt.banNhap === true) l.push('{orange}(Bản nháp — hồ sơ chưa đủ căn cứ, chưa dùng để khai){/orange}');
     const thieu = [...(mt.descriptionMeta?.thieuTruong || []).map((x) => x?.labelVi).filter(Boolean),
-      ...(Array.isArray(mt.cauHoi) ? mt.cauHoi.map((q) => (typeof q === 'string' ? q : q?.cauHoi || q?.questionVi)).filter(Boolean) : [])];
+      ...(Array.isArray(mt.cauHoi) ? mt.cauHoi.map((q) => (typeof q === 'string' ? q : q?.vi || q?.cauHoi || q?.questionVi || q?.nhanVi)).filter(Boolean) : [])];
     if (thieu.length) l.push(`Cần bổ sung: ${clip([...new Set(thieu)].join('; '), 300)}`);
   }
 
@@ -408,8 +408,8 @@ export function renderClassify(r, { title } = {}) {
   if (st === 'DANG_XU_LY') return `${title ? `${title}\n` : ''}⏳ Đang xử lý, bot sẽ gửi kết quả khi xong.`;
   if (st === 'LOI') return `${title ? `${title}\n` : ''}⚠️ ${clip(businessText(top.thongBao) || 'Phân loại thất bại.', 200)}${top.daHoanDiem ? ' Điểm đã được hoàn.' : ''}`;
 
-  const status = String(kq.status || '');
-  const canHoi = st === 'CAN_DU_KIEN' || status === 'NEED_FACTS';
+  const status = String(kq.status || ''), kl = kq.hoSo?.ketLuan || top.hoSo?.ketLuan;
+  const canHoi = st === 'CAN_DU_KIEN' || status === 'NEED_FACTS' || kl?.trangThai === 'THIEU_DU_KIEN';
   const canChuyenGia = status === 'NEEDS_EXPERT' || kq.nextAction?.type === 'HUMAN_REVIEW';
   const list = (Array.isArray(kq.results) && kq.results) || (Array.isArray(kq.suggestions) && kq.suggestions) || [];
   const l = [];
@@ -429,10 +429,10 @@ export function renderClassify(r, { title } = {}) {
     l.push(`✅ Mã đề xuất: {b}${fmtHs(pickCode(kq))}{/b}`);
   }
 
-  const qs = (Array.isArray(top.hoi) && top.hoi) || kq.nextAction?.questions || [];
+  const qs = (Array.isArray(top.hoi) && top.hoi) || kq.nextAction?.questions || (Array.isArray(kl?.cauHoi) && kl.cauHoi) || [];
   if (canHoi && qs.length) {
     l.push('', '{b}❓ Cần bạn cho biết thêm:{/b}');
-    qs.slice(0, 5).forEach((q, i) => l.push(`${i + 1}. ${clip(typeof q === 'string' ? q : q.questionVi || q.question || q.cauHoi || '', 160)}`));
+    qs.slice(0, 5).forEach((q, i) => l.push(`${i + 1}. ${clip(typeof q === 'string' ? q : q.questionVi || q.question || q.cauHoi || q.vi || q.nhanVi || '', 160)}`));
   } else if (canChuyenGia && kq.nextAction?.reasonVi) {
     l.push('', `{orange}⚠️ ${clip(kq.nextAction.reasonVi, 220)}{/orange}`);
   }
