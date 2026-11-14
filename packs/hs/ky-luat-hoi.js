@@ -13,7 +13,7 @@
 // `xuatXuCua` + `chuHoSoChoXuatXu` là PHÉP DÒ NƯỚC DUY NHẤT của gói (`input.js:559`), cũng là phép
 // mà `packages.js:31` dùng để chốt nước đem đi tra. Nhập về đây để lớp ĐO hỏi đúng một câu hỏi:
 // "khách đã nêu nước chưa?" — viết phép dò thứ hai là tự tạo chỗ cho hai nơi lệch nhau (OZV-802).
-import { norm, xuatXuCua, chuHoSoChoXuatXu } from './input.js';
+import { norm, NUOC, xuatXuCua, chuHoSoChoXuatXu } from './input.js';
 // Nhận diện câu khách HỎI LẠI nằm ở `cau-hoi-khach.js` (Điều VI: mỗi tệp một trách nhiệm, dưới
 // 300 dòng — bản vá vòng soát 5 đẩy tệp này lên 367 dòng). Xuất lại ở đây để `doc-tra-loi.js` và
 // các test nhập từ một cửa như trước.
@@ -144,11 +144,64 @@ export function thongSoTrong(s) {
   return [...new Set(out)];
 }
 
-/** Phần CHỮ của một chuỗi: bỏ hết các đoạn thông số đo được ("máy bơm 1.5HP" → "máy bơm"). */
-export function chuTrong(s) {
+/** Bỏ các đoạn thông số đo được khỏi một chuỗi, giữ nguyên phần chữ còn lại. */
+export function boThongSo(s) {
   let t = String(s || '');
   for (const x of thongSoTrong(t)) t = t.split(x).join(' ');
   return t.replace(/\s+/g, ' ').trim();
+}
+
+const TU_DAN_XX_RE = /^(?:xu[aấ]t|x[uứ]|xx|nh[aậ]p|kh[aẩ]u|s[aả]n|sx|h[aà]ng|t[uừ]|c[uủ]a|[oở]|t[aạ]i|made|in|from|origin)$/iu;
+const TU_DAN_XX_DAU_RE = /^(?:n[uư][oớ]c|nuoc|tu|tai|o|cua)$/iu;
+const sachTu = (w) => String(w || '').replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+const laCumNuoc = (phan, sau = '', coTuDan = false) => {
+  if (!phan.length || xuatXuCua(phan.join(' ')).giaDinh) return false;
+  if (phan.length > 1) {
+    if (NUOC[norm(phan.join(' '))]) return true;
+    return xuatXuCua(phan.slice(1).join(' ')).giaDinh && xuatXuCua(phan.slice(0, -1).join(' ')).giaDinh;
+  }
+  const w = sachTu(phan[0]);
+  if (/^(?:nh[aấ]t|[đd][uúụ]c)$/iu.test(w)) return false;
+  if (/^m[yỹ]$/iu.test(w) && /^ph[aẩ]m$/iu.test(sachTu(sau))) return false;
+  if (/^h[aà]n$/iu.test(w)) return /^H[aà]n$/u.test(w) || coTuDan;
+  return true;
+};
+
+/**
+ * Bóc CỤM XUẤT XỨ ("hàng Nhật", "từ Trung Quốc", "xuất xứ Hàn Quốc", "made in China") khỏi chuỗi.
+ * Dùng chính `xuatXuCua` (phép dò nước duy nhất của gói, OZV-802) trên đoạn tối tiểu 3 → 2 → 1 từ
+ * rồi lùi bóc các từ dẫn xuất xứ đứng ngay trước nó. Chỉ dùng khi ĐO tên hàng, không dùng để cắt
+ * chữ gửi Cổng (nước đổi mức thuế nên phải đi nguyên văn tới Cổng).
+ */
+export function bocCumXuatXu(s) {
+  const cacTu = String(s || '').split(/\s+/).filter(Boolean);
+  const giu = [];
+  const laTuDanCuoi = () => {
+    if (!giu.length) return false;
+    const w = sachTu(giu[giu.length - 1]);
+    if (TU_DAN_XX_RE.test(w)) return true;
+    return TU_DAN_XX_DAU_RE.test(w) && giu.slice(0, -1).every((x) => TU_DAN_XX_RE.test(sachTu(x)));
+  };
+  for (let i = 0; i < cacTu.length;) {
+    let dai = 0;
+    const coTuDan = laTuDanCuoi();
+    for (const k of [3, 2, 1]) {
+      if (i + k <= cacTu.length && laCumNuoc(cacTu.slice(i, i + k), cacTu[i + k], coTuDan)) { dai = k; break; }
+    }
+    if (dai) {
+      while (laTuDanCuoi()) giu.pop();
+      i += dai;
+      continue;
+    }
+    giu.push(cacTu[i]);
+    i += 1;
+  }
+  return giu.join(' ');
+}
+
+/** Phần CHỮ tên hàng của một chuỗi: bỏ hết thông số đo được và cụm xuất xứ ("máy bơm 1.5HP hàng Nhật" → "máy bơm"). */
+export function chuTrong(s) {
+  return bocCumXuatXu(boThongSo(s)).replace(/\s+/g, ' ').trim();
 }
 
 // Cụm chữ là CÂU TRẢ LỜI cho câu bot vừa hỏi, KHÔNG phải tên hàng. Nhánh nghi gõ nhầm hỏi kèm
@@ -158,17 +211,19 @@ export function chuTrong(s) {
 // một ĐẠI LƯỢNG riêng trong `daNeu`, không phải tên món, nên bóc nó ra trước khi ĐO phần chữ.
 // Chỉ bóc khi ĐO, không bóc khi dựng mô tả gửi Cổng: "máy sấy thực phẩm công nghiệp" vẫn phải đi
 // nguyên văn tới Cổng vì công dụng có thể đổi dòng thuế.
-const LOAI_HANG_RE = /\b(lo[aạ]i|ki[eể]u|d[aạ]ng|h[aà]ng|m[oó]n|c[aá]i)\b/giu;
+const LOAI_HANG_RE = new RegExp(`${DAU_TU}(?:lo[aạ]i|ki[eể]u|d[aạ]ng|h[aà]ng|m[oó]n|c[aá]i|b[aằ]ng|ch[aấ]t\\s*li[eệ]u)${CUOI_TU}`, 'giu');
 
 /**
- * Chuỗi này có TÊN HÀNG không? Tên hàng nằm ở phần CHỮ, nên phải bóc thông số ra trước khi đo.
- * Đo thẳng "có ≥ 2 chữ cái" trên cả chuỗi là nhận lầm ĐƠN VỊ (kW, VAC, mm, kg, ml) thành tên —
- * "không, 0.5kW 220V" bị coi là đã có tên mới nên tên thật của khách rụng hẳn (điểm 1 của người
- * soát PR #213: Cổng nhận "0.5kW 220V 350W" rồi trả về một mã bịa).
+ * Chuỗi này có TÊN HÀNG không? Tên hàng nằm ở phần CHỮ, nên phải bóc thông số, xuất xứ và các đại
+ * lượng thuộc tính (`CONG_DUNG_RE`, `CHAT_LIEU_RE`, `QUY_CACH_RE`) ra trước khi đo (OZV-851).
+ * Đo thẳng "có ≥ 2 chữ cái" trên cả chuỗi là nhận lầm ĐƠN VỊ (kW, VAC, mm, kg, ml), NƯỚC NHẬP
+ * ("hàng Nhật", "từ Trung Quốc") hay CHẤT LIỆU ("bằng inox") thành tên mới ⇒ tên thật rụng hẳn.
  */
 export function coTenTrong(s) {
   const chu = chuTrong(bocCumHoi(s))
     .replace(new RegExp(CONG_DUNG_RE.source, 'giu'), ' ')
+    .replace(new RegExp(CHAT_LIEU_RE.source, 'giu'), ' ')
+    .replace(new RegExp(QUY_CACH_RE.source, 'giu'), ' ')
     .replace(LOAI_HANG_RE, ' ');
   return /\p{L}{2}/u.test(chu.replace(/[^\p{L}\s]/gu, ' '));
 }

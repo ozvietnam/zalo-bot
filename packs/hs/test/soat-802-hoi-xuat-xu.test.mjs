@@ -72,6 +72,53 @@ test('[OZV-814] hồ sơ đủ thông số + khách chưa nói nước → tra l
   }
 });
 
+// OZV-851: cùng lớp lỗi với ca "van bi" dưới đây, nhưng ở NHÁNH XÁC NHẬN TÊN (nghi gõ nhầm).
+// Khách đáp câu hỏi nước mà OZV-802 vừa thêm ("hàng Nhật", "từ Trung Quốc") thì `coTenTrong` đếm
+// chữ tên NƯỚC thành TÊN HÀNG MỚI ⇒ `phanTen` rỗng ⇒ tên hàng rụng hẳn khỏi mô tả gửi Cổng: bot
+// in mã HS và số thuế của một mặt hàng khác, mà khách không có cách nào biết (Điều III, VIII).
+// Đi ĐƯỜNG THẬT: đo chính `tenHang` tới Cổng qua `phan_loai_hs` (`packages.js:320`).
+const dapOHoiXacNhanTen = async (dap) => {
+  const { ctx, calls } = fakeCtx(hoiMotLuot([]));
+  const r1 = await hs.handle(turn('Tra hs máy sấy sinh tố'), ctx);
+  const tin1 = (r1?.replies || []).map((x) => x.text).join('\n');
+  assert.match(tin1, /m[aá]y xay sinh t[oố]/i, `ca này phải rơi vào nhánh xác nhận tên: ${tin1}`);
+  await hs.handle(turn(dap), ctx);
+  const tenHang = tenHangDaGui(calls);
+  assert.ok(tenHang.length >= 1, `phải gọi Cổng sau khi khách đáp "${dap}"`);
+  return tenHang[0];
+};
+
+test('[OZV-851] khách XÁC NHẬN tên kèm thông số + nước → tên bot gợi ý vẫn tới Cổng', async () => {
+  const ten = await dapOHoiXacNhanTen('đúng, 350W 220V hàng Nhật');
+  assert.match(ten, /m[aá]y xay sinh t[oố]/i, `TÊN HÀNG rụng khỏi tin gửi Cổng: "${ten}"`);
+  assert.match(ten, /350\s*W/i, `rụng công suất khách vừa gõ: "${ten}"`);
+  assert.match(ten, /220\s*V/i, `rụng điện áp khách vừa gõ: "${ten}"`);
+  assert.equal(xuatXuCua(ten).ma, 'JP', `nước khách nêu không tới Cổng: "${ten}"`);
+});
+
+test('[OZV-851] khách chỉ đáp thông số + nước/chất liệu → giữ TÊN KHÁCH GÕ, không rụng', async () => {
+  for (const [dap, maNuoc] of [
+    ['350W 220V từ Trung Quốc', 'CN'],
+    ['350W 220V xuất xứ Hàn Quốc', 'KR'],
+    ['350W 220V bằng inox', 'CN'],
+  ]) {
+    const ten = await dapOHoiXacNhanTen(dap);
+    assert.match(ten, /m[aá]y s[aấ]y sinh t[oố]/i,
+      `khách chưa xác nhận tên bot đoán thì phải giữ tên khách gõ ("${dap}"), đang là: "${ten}"`);
+    assert.match(ten, /350\s*W/i, `rụng công suất khách vừa gõ ("${dap}"): "${ten}"`);
+    assert.match(ten, /220\s*V/i, `rụng điện áp khách vừa gõ ("${dap}"): "${ten}"`);
+    assert.equal(xuatXuCua(ten).ma, maNuoc, `sai mã nước cho "${dap}": "${ten}"`);
+  }
+});
+
+test('[OZV-851] khách SỬA TÊN kèm nước → tên mới THAY tên cũ, không nối hai tên', async () => {
+  const ten = await dapOHoiXacNhanTen('máy sấy thực phẩm 500W 220V hàng Nhật');
+  assert.match(ten, /m[aá]y s[aấ]y th[uự]c ph[aẩ]m/i, `rụng tên mới khách vừa sửa: "${ten}"`);
+  assert.doesNotMatch(ten, /sinh t[oố]/i, `nối hai tên thành mặt hàng lai: "${ten}"`);
+  assert.match(ten, /500\s*W/i, `rụng công suất khách vừa gõ: "${ten}"`);
+  assert.equal(xuatXuCua(ten).ma, 'JP', `nước khách nêu không tới Cổng: "${ten}"`);
+});
+
 test('[OZV-802] khách đáp về NƯỚC/chất liệu → tên hàng "van bi" vẫn tới Cổng', async () => {
   const { ctx, calls } = fakeCtx(hoiMotLuot([]));
   const r1 = await hs.handle(turn('Tra hs van bi'), ctx);

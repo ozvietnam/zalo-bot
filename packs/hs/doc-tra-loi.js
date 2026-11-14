@@ -10,9 +10,9 @@
 // cách đã làm ở vòng soát 2 khi `coThongSo`/`nhanDienCuTraDi` chuyển sang `ky-luat-hoi.js`:
 // chuyển theo đúng ranh trách nhiệm, và `dien-cho-thieu.js` XUẤT LẠI để mọi chỗ nhập cũ
 // (`packages.js`, bốn tệp test) không phải đổi đường dẫn.
-import { norm } from './input.js';
+import { norm, xuatXuCua } from './input.js';
 import {
-  LENH_DAU_RE, nhanDienCuTraDi, giuThongSo, chuTrong, coTenTrong,
+  LENH_DAU_RE, nhanDienCuTraDi, giuThongSo, boThongSo, chuTrong, coTenTrong,
 } from './ky-luat-hoi.js';
 import { laCauHoiKhach, bocCumHoi, laHoiThuocTinh } from './cau-hoi-khach.js';
 
@@ -87,7 +87,8 @@ export function xuLyTraLoiHoiLai(text, sessionHoiLai = {}) {
   // nên bot thôi hỏi xác nhận (`false`), và lần sửa tên thứ HAI rơi lại đúng nhánh nối hai tên:
   // Cổng nhận "máy sấy thực phẩm máy sấy công nghiệp", một mặt hàng lai mang CẢ HAI món (vòng soát
   // 5 PR #213; Điều III, Điều VIII). Khách HỎI LẠI thì cũng không phải tên mới.
-  const khachDuaTenMoi = !laHoiThuocTinh(sessionHoiLai) && !khachHoiLai && coTenTrong(thongSoMoi);
+  const daXacNhanTen = Boolean(sessionHoiLai.hoiXacNhanTen) && laXacNhan(s) && !DEM_DAU_RE.test(bocXaGiao(s));
+  const khachDuaTenMoi = !laHoiThuocTinh(sessionHoiLai) && !khachHoiLai && !daXacNhanTen && coTenTrong(thongSoMoi);
 
   // Câu khách vừa gõ ĐÃ CHỨA tên món rồi ("máy sấy" → khách gõ "máy sấy sinh tố") thì không dán
   // tên cũ lên đầu nữa: Cổng nhận "máy sấy máy sấy sinh tố" — mô tả rác, mà mô tả khai báo này in
@@ -98,7 +99,8 @@ export function xuLyTraLoiHoiLai(text, sessionHoiLai = {}) {
   // chỗ DUY NHẤT quyết số nào sống (số MỚI cùng loại thắng số CŨ). Nối `tenChuan` thô là lọt số cũ
   // vào qua cửa TÊN, nên `giuThongSo` không bao giờ thấy xung đột: khách sửa "350W" thành "500W"
   // mà Cổng nhận cả hai, không biết số nào thật — và cùng một số thì lặp "350W 350W" (vòng soát 4).
-  const phanTen = trung || khachDuaTenMoi ? '' : chuTrong(tenChuan);
+  const tenKhongThongSo = xuatXuCua(thongSoMoi).giaDinh ? boThongSo(tenChuan) : chuTrong(tenChuan);
+  const phanTen = trung || khachDuaTenMoi ? '' : tenKhongThongSo;
 
   // Giữ THÔNG SỐ khách đã gõ ở tin trước: mô tả tra cứu dựng lại từ `tenGoiY` nên thông số nằm
   // trong `tenGoc` sẽ rụng, Cổng mất dữ kiện khách đã cung cấp (nợ ghi ở PR #203).
@@ -219,6 +221,6 @@ export function docTraLoiTen(text, { tenGoiY = '', tenGoc = '', hoiXacNhanTen = 
   // "có ≥ 2 chữ cái" — đơn vị đo cũng có 2 chữ cái nên phép cũ làm tên hàng rụng hẳn (điểm 1
   // người soát PR #213 nêu). Thông số MỚI của khách vẫn được giữ, và thắng số cũ cùng loại.
   const goc = String(tenGoc || '').replace(LENH_DAU_RE, '').trim();
-  const ten = coTenTrong(con) ? con : `${chuTrong(goc)} ${con}`.trim();
+  const ten = coTenTrong(con) ? con : `${xuatXuCua(con).giaDinh ? boThongSo(goc) : chuTrong(goc)} ${con}`.trim();
   return { phuDinh: true, ten: giuThongSo(ten, goc) || String(tenGoiY || '').trim() };
 }
