@@ -87,7 +87,7 @@ function coNghiaHangHoa(s) {
 export function locTapAmAnh(caption) {
   const raw = dai(caption);
   if (!raw) return { sach: '', bo: [] };
-  const menh = raw.split(/[,;.]+|\s+(?:nhưng|nhung|mà|ma)\s+/i).map((x) => dai(x)).filter(Boolean);
+  const menh = raw.split(/;+|(?<!\d)[,.]+|[,.]+(?!\d)|\s+(?:nhưng|nhung|mà|ma)\s+/i).map((x) => dai(x)).filter(Boolean);
   const sach = [];
   const bo = [];
   for (const m of menh) {
