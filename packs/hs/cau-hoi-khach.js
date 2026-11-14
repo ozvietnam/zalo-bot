@@ -63,7 +63,11 @@ export function bocCumHoi(s) {
 
 // Các đại lượng là THUỘC TÍNH của mặt hàng (không phải tên món). Nhánh nào đang hỏi một trong
 // những thứ này thì câu đáp của khách là thuộc tính của ĐÚNG món đó.
-const DAI_THUOC_TINH = ['chatLieu', 'quyCach', 'congDung', 'kichThuoc', 'dungTich'];
+//
+// XUẤT RA để nhánh hỏi lại tự khai cờ `hoiThuocTinh` theo ĐÚNG danh sách này (`so-tay-hoi.js`).
+// Chép lại danh sách ở tệp khác là mở đường cho đúng loại lệch đã sinh hồi quy OZV-782: nơi dựng
+// cờ dùng một bộ chữ, nơi đọc cờ dùng một bộ chữ khác, không ai thấy cho tới khi tên hàng rụng.
+export const DAI_THUOC_TINH = ['chatLieu', 'quyCach', 'congDung', 'kichThuoc', 'dungTich'];
 
 /**
  * Câu bot đang treo là câu hỏi THUỘC TÍNH (chất liệu/quy cách/công dụng/kích thước) chứ không

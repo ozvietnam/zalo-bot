@@ -31,15 +31,18 @@ Hai cột khác nhau, đừng lẫn:
 - **Công cụ bắt buộc** — trường `congCu` trong từng gói (`packs/hs/packages.js:146`). Thiếu công cụ này thì gói không hiện với khách.
 - **Công cụ gọi thêm khi chạy** — code gọi có điều kiện qua hàm `has(ctx, ...)`. Cổng không có thì bỏ mục đó, bot vẫn trả lời được.
 
-### Câu hỏi lại lấy từ nguồn chung, không tự dựng (issue #177 mục 1 và 6)
+### Câu hỏi lại lấy từ nguồn chung, không tự dựng (issue #177 mục 1)
 
 Khi gói 1 thiếu dữ kiện, câu hỏi cho khách đi theo **thứ tự ưu tiên** ở `packs/hs/so-tay-hoi.js` (`hoiLaiUuTien`):
 
-1. `hoSo.ketLuan.cauHoi` — hồ sơ mạch đã có câu hỏi của hs-code-api thì đọc đúng câu đó (cờ `HS_HO_SO`, mặc định bật, tắt bằng `0`/`false`/`off`).
-2. `so_tay_questions` của Cổng — công cụ **MIEN_PHI** (0 điểm), chỉ gọi khi đã có mã ứng viên **≥6 chữ số** (mã 4 số chỉ cho câu chung), hạn giờ riêng 6 giây.
-3. Regex cũ ở `packs/hs/dien-cho-thieu.js` — **dự phòng**: Cổng lỗi / hết giờ / trả rỗng thì rơi về đây, bot vẫn hỏi, không im lặng và không bịa câu (Điều II, III).
+1. `so_tay_questions` của Cổng — công cụ **MIEN_PHI** (0 điểm), chỉ gọi khi đã có mã ứng viên **≥6 chữ số** (mã 4 số chỉ cho câu chung), hạn giờ riêng 6 giây.
+2. Regex cũ ở `packs/hs/dien-cho-thieu.js` — **dự phòng**: Cổng lỗi / hết giờ / trả rỗng thì rơi về đây, bot vẫn hỏi, không im lặng và không bịa câu (Điều II, III).
 
-Cả ba nguồn đều qua `gomCau` của `packs/hs/ky-luat-hoi.js` → tối đa 3 câu trong MỘT tin, và bỏ câu hỏi về điều khách đã nêu (khoá đã trả lời được đẩy vào `facts` để Cổng không hỏi lại).
+Cả hai nguồn đều qua `gomCau` của `packs/hs/ky-luat-hoi.js` → tối đa 3 câu trong MỘT tin, và bỏ câu hỏi về điều khách đã nêu (khoá đã trả lời được đẩy vào `facts` để Cổng không hỏi lại).
+
+Nhánh thứ ba cũ (`cauHoiTuHoSo` đọc `hoSo.ketLuan.cauHoi`, mục 6 của #177) **đã xoá ở OZV-782**: `hoSoRong()` (`packs/hs/ho-so.js:32`) không có khoá `ketLuan` cũng không có `maHs` và không chỗ nào trong repo ghi hai khoá đó vào hồ sơ, nên nhánh này chưa từng chạy. Câu hỏi thật của Cổng tới khách bằng đường khác và đang chạy đúng: `packs/hs/render.js:412` + `:432` đọc `top.hoi` / `kq.nextAction.questions` khi trạng thái là `CAN_DU_KIEN`/`NEED_FACTS`.
+
+**Cờ `hoiThuocTinh`** do chính nhánh hỏi khai, suy từ **đại lượng** câu đang hỏi (`m.dai` ∩ `DAI_THUOC_TINH` của `packs/hs/cau-hoi-khach.js`), **không** suy từ `loai` của Cổng: `loai` chỉ nhận `DONG_BIEU` | `CONG` | `TT39` — nó nói câu này để chọn dòng biểu / công / Thông tư 39, không nói câu hỏi thuộc tính hay hỏi tên. So `loai === 'thuoc_tinh'` (PR #228) là so với một chữ chỉ có trong fixture test ⇒ trên đường thật cờ luôn `false` ⇒ `packs/hs/doc-tra-loi.js` đọc câu đáp chất liệu thành TÊN MÓN MỚI và tên hàng khách đã gõ rụng khỏi tin gửi Cổng (hồi quy OZV-782, cùng lớp với PR #213).
 
 ### Gói nào đang hiện với khách
 

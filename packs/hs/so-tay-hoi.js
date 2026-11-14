@@ -1,8 +1,15 @@
-// packs/hs/so-tay-hoi.js — Hỏi lại bằng NGUỒN CÂU HỎI CHUNG, không tự dựng câu (issue #177, mục 1 và 6).
+// packs/hs/so-tay-hoi.js — Hỏi lại bằng NGUỒN CÂU HỎI CHUNG, không tự dựng câu (issue #177, mục 1).
 //
-// Thứ tự ưu tiên của lớp hỏi lại: `hoSo.ketLuan.cauHoi` → `so_tay_questions` của Cổng → regex cũ
-// (`dien-cho-thieu.js`, GIỮ LÀM DỰ PHÒNG). Cổng lỗi / hết giờ / trả rỗng thì tệp này trả
-// `{ canHoi: false }` để chỗ gọi rơi về regex — KHÔNG im lặng và KHÔNG bịa câu hỏi (Điều II, III).
+// Thứ tự ưu tiên của lớp hỏi lại: `so_tay_questions` của Cổng → regex cũ (`dien-cho-thieu.js`,
+// GIỮ LÀM DỰ PHÒNG). Cổng lỗi / hết giờ / trả rỗng thì tệp này trả `{ canHoi: false }` để chỗ gọi
+// rơi về regex — KHÔNG im lặng và KHÔNG bịa câu hỏi (Điều II, III).
+//
+// MỤC 6 CỦA #177 (`cauHoiTuHoSo`: đọc `hoSo.ketLuan.cauHoi`) ĐÃ XOÁ ở OZV-782 vì là mã chết:
+// `hoSoRong()` (`ho-so.js:32`) không có khoá `ketLuan` cũng không có `maHs`, và không chỗ nào
+// trong repo ghi hai khoá đó vào hồ sơ (`chay-goi.js:79`, `index.js:93` là hai nơi duy nhất đặt
+// `session.hoSo`); cờ `batHoSo(ctx?.env)` cũng luôn đọc `{}` vì pctx không mang `env`
+// (`flow-turn.js:35`). Câu hỏi THẬT của Cổng đã tới khách bằng đường khác và đang chạy đúng:
+// `render.js:412` + `:432` đọc `top.hoi` / `kq.nextAction.questions` khi `CAN_DU_KIEN`/`NEED_FACTS`.
 //
 // Dùng lại y nguyên (đã tra sẵn, đừng viết lại):
 //   - công cụ MCP `so_tay_questions`: `ozplugin/apps/gateway/src/tools/so-tay-questions.ts` (MIEN_PHI,
@@ -14,12 +21,12 @@ import {
   CONG_SUAT_RE, DIEN_AP_RE, DUNG_TICH_RE, KICH_THUOC_RE, CHAT_LIEU_RE, CONG_DUNG_RE, QUY_CACH_RE,
   daNeu, gomCau, ketQuaHoi,
 } from './ky-luat-hoi.js';
+import { DAI_THUOC_TINH } from './cau-hoi-khach.js';
 
 /** Hạn giờ riêng cho lời gọi `so_tay_questions`: quá giờ thì dự phòng, không để nghẽn cả lượt. */
 export const HAN_GIO_MS = 6000;
 
 const TOOL = 'so_tay_questions';
-const TAT = new Set(['0', 'false', 'off', 'no', 'tat', 'khong']);
 
 /** Khoá đại lượng của Cổng → khoá của `ky-luat-hoi.js` (để biết khách đã nêu điều đó chưa). */
 const KHOA = {
@@ -45,14 +52,6 @@ const DOC = [
 ];
 
 const gonTrang = (s) => String(s || '').replace(/\s+/g, ' ').trim();
-
-/** Cờ `HS_HO_SO` của hs-code-api. Mặc định BẬT; chỉ tắt khi khai rõ 0/false/off. */
-export function batHoSo(env = {}) {
-  const v = env && typeof env === 'object' ? env.HS_HO_SO : undefined;
-  if (v === undefined || v === null || v === '') return true;
-  if (v === false || v === 0) return false;
-  return !TAT.has(String(v).trim().toLowerCase());
-}
 
 /**
  * Mã HS ỨNG VIÊN (≥6 chữ số) tìm trong các nguồn truyền vào theo thứ tự.
@@ -114,7 +113,7 @@ export function factsDaNeu(sSach, hoSo) {
   return f;
 }
 
-/** Một câu của Cổng (hoặc của hồ sơ) → mục cho `gomCau`: `dai` là đại lượng câu đó hỏi. */
+/** Một câu của Cổng → mục cho `gomCau`: `dai` là đại lượng câu đó hỏi. */
 function mucCau(q) {
   if (typeof q === 'string') return { cau: gonTrang(q), dai: [] };
   if (!q || typeof q !== 'object') return null;
@@ -130,7 +129,21 @@ function docDanhSach(tho) {
   return arr.map(mucCau).filter(Boolean);
 }
 
-/** Các mục câu hỏi → khuôn `ketQuaHoi(...)`; không còn câu nào thì `{ canHoi: false }`. */
+/**
+ * Các mục câu hỏi → khuôn `ketQuaHoi(...)`; không còn câu nào thì `{ canHoi: false }`.
+ *
+ * Cờ `hoiThuocTinh` suy từ ĐẠI LƯỢNG câu hỏi đang hỏi (`m.dai` ∩ `DAI_THUOC_TINH`), KHÔNG từ
+ * `m.loai`: `loai` của Cổng chỉ nhận `DONG_BIEU` | `CONG` | `TT39` (hs-code-api
+ * `api/so-tay-questions.js`) — đó là "câu này để chọn dòng biểu / công / Thông tư 39", không nói
+ * câu hỏi về thuộc tính hay về tên. So `m.loai === 'thuoc_tinh'` (PR #228) là so với một chữ chỉ
+ * tồn tại trong fixture test, nên trên đường thật cờ LUÔN `false`; `laHoiThuocTinh` thấy kiểu
+ * boolean thì tin ngay, thôi suy từ `thieu`, và `doc-tra-loi.js` đọc câu đáp chất liệu của khách
+ * thành TÊN MÓN MỚI → tên hàng khách đã gõ rụng khỏi tin gửi Cổng (OZV-782, hồi quy của #213).
+ *
+ * `KHOA` đã quy mọi khoá đại lượng của Cổng về đúng bộ chữ của `ky-luat-hoi.js`
+ * (`chat_lieu`→`chatLieu`, `cong_suat`→`congSuat`…), nên `dai` là nguồn thật và đúng cùng một
+ * danh sách mà `laHoiThuocTinh` đọc — một nguồn, không chép lại, không lệch được nữa.
+ */
 function dungKetQua(muc, co, s) {
   const cauHoi = gomCau(muc, co);
   if (!cauHoi) return { canHoi: false, giaDinh: null, thieu: [] };
@@ -141,24 +154,8 @@ function dungKetQua(muc, co, s) {
     thieu: con.map((m) => (m.dai && m.dai[0]) || m.key).filter(Boolean),
     cauHoi,
     giaDinh: null,
-    hoiThuocTinh: con.some((m) => m.loai === 'thuoc_tinh'),
+    hoiThuocTinh: con.some((m) => (m.dai || []).some((k) => DAI_THUOC_TINH.includes(k))),
   });
-}
-
-/**
- * Mục 6 — hồ sơ đã có câu hỏi thì ĐỌC CÂU ĐÓ, không tự dựng.
- * `hoSo.ketLuan.cauHoi` do hs-code-api trả về khi cờ `HS_HO_SO` bật.
- * @param {object|null} hoSo
- * @param {{s?: string, env?: object}} [tuyChon] `env`: nơi đọc cờ (gói không tự đọc `process.env`).
- */
-export function cauHoiTuHoSo(hoSo, { s = '', env = {} } = {}) {
-  const trong = { canHoi: false, giaDinh: null, thieu: [] };
-  if (!hoSo || typeof hoSo !== 'object' || !batHoSo(env)) return trong;
-  const tho = hoSo.ketLuan && typeof hoSo.ketLuan === 'object' ? hoSo.ketLuan.cauHoi : null;
-  if (!tho) return trong;
-  const muc = docDanhSach(tho);
-  if (!muc.length) return trong;
-  return dungKetQua(muc, daNeu(String(s || ''), hoSo), s);
 }
 
 /** `ctx.tools` có liệt kê thì phải có công cụ; không liệt kê thì coi như có (giống `packages.js`). */
@@ -211,16 +208,13 @@ export async function hoiTheoSoTay(ctx, { s = '', moTa = '', hoSo = null, hs = n
 }
 
 /**
- * Thứ tự ưu tiên của lớp hỏi lại (mục 1 + 6): câu của HỒ SƠ → câu của `so_tay_questions`
- * → `duPhong` (regex cũ ở `dien-cho-thieu.js`). Hai nguồn trên im thì PHẢI còn regex đỡ:
- * không được im lặng với khách (Điều II).
+ * Thứ tự ưu tiên của lớp hỏi lại (mục 1): câu của `so_tay_questions` → `duPhong` (regex cũ ở
+ * `dien-cho-thieu.js`). Cổng im thì PHẢI còn regex đỡ: không được im lặng với khách (Điều II).
  * @param {object} ctx
  * @param {{s: string, moTa?: string, hoSo?: object|null, hs?: string|null,
- *          duPhong?: () => object}} tuyChon `duPhong` gọi muộn, chỉ khi hai nguồn trên không có câu.
+ *          duPhong?: () => object}} tuyChon `duPhong` gọi muộn, chỉ khi Cổng không có câu.
  */
 export async function hoiLaiUuTien(ctx, { s = '', moTa = '', hoSo = null, hs = null, duPhong } = {}) {
-  const tuHoSo = cauHoiTuHoSo(hoSo, { s, env: ctx?.env || {} });
-  if (tuHoSo.canHoi) return tuHoSo;
   const tuSoTay = await hoiTheoSoTay(ctx, { s, moTa, hoSo, hs });
   if (tuSoTay.canHoi) return tuSoTay;
   return typeof duPhong === 'function' ? duPhong() : { canHoi: false, giaDinh: null, thieu: [] };
