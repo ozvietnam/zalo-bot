@@ -335,7 +335,7 @@ export const PACKAGES = [
       ctx.session.cauPhanLoai = boSung
         ? { ...(ctx.session.cauPhanLoai || { cau: tenHang }), maHs, at: Date.now() }
         : { cau: cauMoi ?? tenHang, maHs, at: Date.now() };
-      const st = r?.trangThai || r?.data?.trangThai;
+      const kqPl = r?.data?.ketQua || r?.ketQua || r?.data || r, klPl = kqPl?.hoSo?.ketLuan || r?.data?.hoSo?.ketLuan || r?.hoSo?.ketLuan, st = (r?.trangThai || r?.data?.trangThai) === 'CAN_DU_KIEN' || kqPl?.status === 'NEED_FACTS' || (klPl?.trangThai === 'THIEU_DU_KIEN' && klPl?.cauHoi?.length > 0) ? 'CAN_DU_KIEN' : (r?.trangThai || r?.data?.trangThai);
       if (st === 'CAN_DU_KIEN') ghiTruot(ctx, 'CAN_DU_KIEN', { goi: 1, cau: String(cauMoi ?? tenHang).slice(0, 1000), tenHang, maLuot: maLuot || null });
       // Cắt tên hàng ở ranh giới từ (không cắt cụt giữa chữ) và có dấu "…" khi bị rút gọn.
       const tenNgan = String(tenHang || '');
