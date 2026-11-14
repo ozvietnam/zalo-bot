@@ -143,6 +143,19 @@ function docDanhSach(tho) {
  * `KHOA` đã quy mọi khoá đại lượng của Cổng về đúng bộ chữ của `ky-luat-hoi.js`
  * (`chat_lieu`→`chatLieu`, `cong_suat`→`congSuat`…), nên `dai` là nguồn thật và đúng cùng một
  * danh sách mà `laHoiThuocTinh` đọc — một nguồn, không chép lại, không lệch được nữa.
+ *
+ * KHOÁ CỔNG LẠ (OZV-791): `KHOA` là danh sách gõ tay ~25 khoá; Cổng thêm một khoá câu hỏi mới là
+ * việc bình thường và không ai báo repo này. Khoá lạ ⇒ `m.dai` RỖNG, tức ta KHÔNG BIẾT câu đó hỏi
+ * gì — và "không biết" không được kết luận thành "đây là câu hỏi TÊN món". Cờ `false` tường minh
+ * làm `laHoiThuocTinh` tin ngay (thôi suy từ `thieu`), `doc-tra-loi.js` đọc câu đáp của khách
+ * thành tên món mới, tên hàng khách đã gõ rụng khỏi lời gọi Cổng — y lớp hồi quy OZV-782 / #213.
+ *
+ * Nên khoá lạ tính là THUỘC TÍNH: Cổng chỉ được hỏi khi đã có mã ứng viên ≥6 số, nghĩa là nó đang
+ * xin thêm DỮ KIỆN của đúng món đó để chốt dòng biểu, không hỏi "hàng của anh tên gì" (nhánh hỏi
+ * và xác nhận TÊN nằm ở `dien-cho-thieu.js` + `kiemTraThongTinPhanLoai`, không qua tệp này). Sai
+ * về phía giữ tên thì tệ nhất là tên hàng mang thêm chữ khách vừa đáp ("van bi xanh lam") — Cổng
+ * vẫn thấy món thật; sai về phía kia thì mất hẳn tên, mà mã + thuế in ra vẫn trông như thật nên
+ * khách không có cách nào biết (Điều III, Điều VIII).
  */
 function dungKetQua(muc, co, s) {
   const cauHoi = gomCau(muc, co);
@@ -154,7 +167,7 @@ function dungKetQua(muc, co, s) {
     thieu: con.map((m) => (m.dai && m.dai[0]) || m.key).filter(Boolean),
     cauHoi,
     giaDinh: null,
-    hoiThuocTinh: con.some((m) => (m.dai || []).some((k) => DAI_THUOC_TINH.includes(k))),
+    hoiThuocTinh: con.some((m) => !(m.dai || []).length || m.dai.some((k) => DAI_THUOC_TINH.includes(k))),
   });
 }
 
