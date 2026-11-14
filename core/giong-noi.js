@@ -76,22 +76,41 @@ export function bamNoiDung(text, voice = '') {
   return createHash('sha256').update(String(text).trim() + ':' + String(voice).trim()).digest('hex');
 }
 
-/** Chuyển Buffer PCM sang AAC 64 kbps qua ffmpeg */
-export async function defaultFfmpeg(pcmBuffer) {
+/**
+ * Chuyển Buffer PCM sang AAC 64 kbps qua ffmpeg.
+ * BẮT BUỘC có hạn giờ: lời gọi này nằm trong khoá hàng đợi theo người
+ * (core/webhook.js -> core/queue.js -> core/engine.js -> core/engine-voice.js).
+ * ffmpeg treo mà không hạn giờ thì `close` không bao giờ bắn => khoá làn tin
+ * của chính khách đó vĩnh viễn, bot im hẳn.
+ */
+export async function defaultFfmpeg(pcmBuffer, timeoutMs = 20_000, spawnImpl = spawn) {
   return new Promise((resolve, reject) => {
-    const ff = spawn('ffmpeg', [
+    const ff = spawnImpl('ffmpeg', [
       '-f', 's16le', '-ar', '24000', '-ac', '1', '-i', 'pipe:0',
       '-c:a', 'aac', '-b:a', '64k', '-f', 'adts', 'pipe:1',
     ]);
     const out = [];
     let err = '';
+    let xong = false;
+    const ketThuc = (fn, arg) => {
+      if (xong) return;
+      xong = true;
+      clearTimeout(hen);
+      fn(arg);
+    };
+    const hen = setTimeout(() => {
+      try { ff.kill('SIGKILL'); } catch { /* tiến trình đã chết */ }
+      ketThuc(reject, new Error(`ffmpeg quá ${timeoutMs} ms, đã giết tiến trình`));
+    }, timeoutMs);
+    if (typeof hen.unref === 'function') hen.unref();
     ff.stdout.on('data', (c) => out.push(c));
     ff.stderr.on('data', (c) => { err += c.toString(); });
-    ff.on('error', (e) => reject(new Error(`ffmpeg lỗi spawn: ${e.message}`)));
+    ff.on('error', (e) => ketThuc(reject, new Error(`ffmpeg lỗi spawn: ${e.message}`)));
     ff.on('close', (code) => {
-      if (code === 0) resolve(Buffer.concat(out));
-      else reject(new Error(`ffmpeg kết thúc với mã ${code}: ${err.slice(0, 300)}`));
+      if (code === 0) ketThuc(resolve, Buffer.concat(out));
+      else ketThuc(reject, new Error(`ffmpeg kết thúc với mã ${code}: ${err.slice(0, 300)}`));
     });
+    ff.stdin.on('error', (e) => ketThuc(reject, new Error(`ffmpeg lỗi ghi stdin: ${e.message}`)));
     ff.stdin.write(pcmBuffer);
     ff.stdin.end();
   });
@@ -107,6 +126,8 @@ export function createGiongNoi({
   publicBaseUrl = 'https://zalo-bot.uythacnhapkhau.com',
   fetchImpl = fetch,
   ffmpegImpl = defaultFfmpeg,
+  ttsTimeoutMs = 30_000,
+  ffmpegTimeoutMs = 20_000,
   log = console,
 } = {}) {
   const amThanhDir = join(dataDir, 'am-thanh');
@@ -139,6 +160,8 @@ export function createGiongNoi({
       systemInstruction: p ? { parts: [{ text: p }] } : undefined,
     };
 
+    // Hạn giờ BẮT BUỘC: lời gọi này chạy trong khoá hàng đợi theo người.
+    // Không có `signal` thì kết nối treo giữ khoá vĩnh viễn và bot im hẳn (OZV-709).
     const res = await fetchImpl(url, {
       method: 'POST',
       headers: {
@@ -146,6 +169,7 @@ export function createGiongNoi({
         'x-goog-api-key': apiKey,
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(ttsTimeoutMs),
     });
 
     if (!res.ok) {
@@ -160,7 +184,7 @@ export function createGiongNoi({
 
     const rawBuffer = Buffer.from(inline.data, 'base64');
     // Đổi sang AAC bằng ffmpeg
-    const aacBuffer = await ffmpegImpl(rawBuffer);
+    const aacBuffer = await ffmpegImpl(rawBuffer, ffmpegTimeoutMs);
     writeFileSync(filePath, aacBuffer);
     return { băm, fileName, filePath, voiceUrl, cauDoc, cached: false };
   }

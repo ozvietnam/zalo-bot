@@ -8,6 +8,7 @@ import {
   chuanHoaCauDoc,
   bamNoiDung,
   createGiongNoi,
+  defaultFfmpeg,
   isTatGiong,
   isBatGiong,
   REPLY_TAT_GIONG,
@@ -171,4 +172,116 @@ test('nhận diện lệnh bật/tắt giọng của khách', () => {
 
   assert.match(REPLY_TAT_GIONG, /tắt.*giọng/i);
   assert.match(REPLY_BAT_GIONG, /bật.*giọng/i);
+});
+
+// === OZV-709: hạn giờ khâu voice ===
+// Hai lời gọi dưới đây chạy TRONG khoá hàng đợi theo người
+// (core/webhook.js -> core/queue.js -> core/engine.js -> core/engine-voice.js).
+// Không hạn giờ thì một kết nối treo giữ khoá vĩnh viễn => bot im hẳn với khách đó.
+
+/**
+ * Giữ vòng lặp sự kiện sống trong lúc chờ.
+ * `AbortSignal.timeout` dùng hẹn giờ ĐÃ unref: nó không tự giữ tiến trình sống.
+ * Chạy thật thì máy chủ webhook luôn giữ vòng lặp nên không sao; trong test chạy
+ * riêng thì vòng lặp có thể cạn việc và thoát trước khi hạn giờ bắn
+ * ("Promise resolution is still pending but the event loop has already resolved").
+ */
+async function giuVongLap(fn) {
+  const neo = setInterval(() => {}, 20);
+  try { return await fn(); } finally { clearInterval(neo); }
+}
+
+test('OZV-709: TTS treo thì taoAmThanh bỏ cuộc theo hạn giờ, không treo vĩnh viễn', async () => {
+  const testDir = join(tmpdir(), `giong-noi-treo-${Date.now()}`);
+  // fetch giả: treo cho tới khi signal huỷ. Đúng như kết nối TCP không đóng.
+  const fetchTreo = (_url, opts = {}) => new Promise((_resolve, reject) => {
+    const sig = opts.signal;
+    if (!sig) return; // không có signal => treo vĩnh viễn, bài kiểm sẽ hết giờ
+    sig.addEventListener('abort', () => reject(sig.reason ?? new Error('aborted')));
+  });
+
+  const gn = createGiongNoi({
+    apiKey: 'test-key',
+    dataDir: testDir,
+    fetchImpl: fetchTreo,
+    ttsTimeoutMs: 150,
+  });
+
+  try {
+    const t0 = Date.now();
+    await giuVongLap(() => assert.rejects(async () => gn.taoAmThanh('Câu này sẽ không bao giờ đọc được')));
+    const dt = Date.now() - t0;
+    assert.ok(dt < 3000, `phải bỏ cuộc sớm, thực tế ${dt} ms`);
+  } finally {
+    rmSync(testDir, { recursive: true, force: true });
+  }
+});
+
+test('OZV-709: ffmpeg treo thì defaultFfmpeg giết tiến trình và ném lỗi', async () => {
+  const { spawn: spawnThat } = await import('node:child_process');
+  const conDaGiet = [];
+  // spawn giả: tiến trình node ngủ lâu, không bao giờ tự đóng stdout.
+  const spawnTreo = () => {
+    const p = spawnThat(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    const killThat = p.kill.bind(p);
+    p.kill = (sig) => { conDaGiet.push(sig); return killThat(sig); };
+    return p;
+  };
+
+  const t0 = Date.now();
+  await assert.rejects(
+    async () => defaultFfmpeg(Buffer.from([0, 0]), 200, spawnTreo),
+    /quá 200 ms|đã giết tiến trình/i,
+  );
+  const dt = Date.now() - t0;
+  assert.ok(dt < 3000, `phải bỏ cuộc sớm, thực tế ${dt} ms`);
+  assert.deepEqual(conDaGiet, ['SIGKILL'], 'phải giết tiến trình ffmpeg treo');
+});
+
+test('OZV-709 (bài chốt): TTS treo thì lượt tin SAU của cùng khách vẫn trả lời xong', async () => {
+  const { createQueue } = await import('../../core/queue.js');
+  const testDir = join(tmpdir(), `giong-noi-lan-${Date.now()}`);
+  const fetchTreo = (_url, opts = {}) => new Promise((_resolve, reject) => {
+    const sig = opts.signal;
+    if (!sig) return;
+    sig.addEventListener('abort', () => reject(sig.reason ?? new Error('aborted')));
+  });
+
+  const gn = createGiongNoi({
+    apiKey: 'test-key',
+    dataDir: testDir,
+    fetchImpl: fetchTreo,
+    ttsTimeoutMs: 150,
+  });
+
+  const q = createQueue();
+  const convId = 'khach-1';
+  const daTraLoi = [];
+
+  try {
+    // Lượt 1: khách hỏi, bot định trả lời bằng giọng nói -> TTS treo.
+    const luot1 = q.run(convId, async () => {
+      try {
+        await gn.taoAmThanh('Lượt một, TTS treo');
+      } catch {
+        daTraLoi.push('luot-1-tra-bang-chu'); // engine-voice bắt lỗi rồi trả lời bằng chữ
+      }
+    });
+
+    // Lượt 2: khách nhắn tiếp, chỉ cần trả lời bằng chữ.
+    const luot2 = q.run(convId, async () => { daTraLoi.push('luot-2-tra-loi'); });
+
+    const t0 = Date.now();
+    await giuVongLap(() => Promise.all([luot1, luot2]));
+    const dt = Date.now() - t0;
+
+    assert.deepEqual(daTraLoi, ['luot-1-tra-bang-chu', 'luot-2-tra-loi'],
+      'khách phải nhận được câu trả lời cho CẢ HAI lượt — bot không được im');
+    assert.ok(dt < 3000, `làn tin phải được nhả sớm, thực tế ${dt} ms`);
+    assert.equal(q.size(), 0, 'khoá hàng đợi phải được dọn sạch');
+  } finally {
+    rmSync(testDir, { recursive: true, force: true });
+  }
 });

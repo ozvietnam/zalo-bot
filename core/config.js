@@ -75,6 +75,10 @@ export function loadConfig(env = process.env) {
     geminiTtsPrompt: str(env, 'GEMINI_TTS_PROMPT', 'giọng nữ trẻ, miền Bắc, dịu dàng, ấm áp, lễ phép'),
     geminiTtsModel: str(env, 'GEMINI_TTS_MODEL', 'gemini-2.5-flash-preview-tts'),
     capVoiceDay: int(env, 'CAP_VOICE_DAY', 50, 0),
+    // Hạn giờ khâu voice (OZV-709). Hai lời gọi này nằm TRONG khoá hàng đợi theo người:
+    // treo không hạn giờ = khoá làn tin của khách đó vĩnh viễn, bot im hẳn.
+    geminiTtsTimeoutMs: int(env, 'GEMINI_TTS_TIMEOUT_MS', 30_000, 1),
+    ffmpegTimeoutMs: int(env, 'FFMPEG_TIMEOUT_MS', 20_000, 1),
     // Lượt phải đợi Cổng quá ngần này mili giây thì gửi câu "đang tra" (issue #168, mục ≤ 3 giây).
     dangTraSauMs: int(env, 'DANG_TRA_SAU_MS', 1500, 0),
     // Đã báo "đang tra" mà lượt vẫn chưa xong sau ngần này (tính từ đầu lượt) → một câu tạm
