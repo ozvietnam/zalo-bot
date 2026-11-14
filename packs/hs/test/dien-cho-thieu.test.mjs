@@ -6,6 +6,8 @@ import {
   xuLyTraLoiHoiLai,
   nhanDienCuTraDi,
 } from '../dien-cho-thieu.js';
+import { fakeCtx, turn, hoiMotLuot, tenHangDaGui } from './giup-duong-that-hs.mjs';
+import hs from '../index.js';
 
 test('nhanDienCuTraDi: nhận diện chính xác các câu muốn tra luôn / không rõ', () => {
   assert.equal(nhanDienCuTraDi('không rõ, cứ tra đi'), true);
@@ -165,3 +167,85 @@ test('xuLyTraLoiHoiLai: khách nói "không rõ, cứ tra" → áp dụng giả 
   assert.match(res.giaDinh, /máy xay sinh tố gia dụng/i);
   assert.match(res.moTaTraCuu, /máy xay sinh tố gia dụng/i);
 });
+
+const CA_85072094 = 'Bộ pin khô (ắc quy axit chì kín, sealed lead-acid battery) model 6-DZF-12 dùng cho xe đạp điện';
+
+test('[OZV-837] (a) "ắc quy axit chì 12V" → hỏi cả công dụng và chiều cao bình (kèm nước nhập), hoiThuocTinh=true', () => {
+  for (const mau of ['ắc quy axit chì 12V', 'ac quy axit chi 12V', 'bình lead-acid 12V', 'pin khô axit chì 12V']) {
+    const r = kiemTraThongTinPhanLoai(mau, { vongHoi: 0 });
+    assert.equal(r.canHoi, true, `phải hỏi lại với "${mau}"`);
+    assert.equal(r.hoiThuocTinh, true, 'nhánh ắc quy phải đặt hoiThuocTinh=true');
+    assert.ok(r.thieu.includes('congDung'), `thiếu congDung với "${mau}": ${JSON.stringify(r.thieu)}`);
+    assert.ok(r.thieu.includes('kichThuoc'), `thiếu kichThuoc với "${mau}": ${JSON.stringify(r.thieu)}`);
+    assert.match(r.cauHoi, /khởi động động cơ/i);
+    assert.match(r.cauHoi, /xe đạp điện|lưu điện|ups/i);
+    assert.match(r.cauHoi, /chiều cao bình.*13\s*cm/i);
+    assert.match(r.cauHoi, /nước nhập|xuất xứ/i);
+  }
+});
+
+test('[OZV-837] (b) câu ca 85072094 đã có "dùng cho xe đạp điện" → không hỏi lại công dụng, chỉ xin chiều cao bình + nước nhập', () => {
+  const r = kiemTraThongTinPhanLoai(CA_85072094, { vongHoi: 0 });
+  assert.equal(r.canHoi, true, 'ca 85072094 gõ tự do thiếu chiều cao bình phải hỏi lại');
+  assert.equal(r.hoiThuocTinh, true);
+  assert.ok(!r.thieu.includes('congDung'), `đã có công dụng, không được liệt kê congDung vào thieu: ${JSON.stringify(r.thieu)}`);
+  assert.deepEqual(r.thieu, ['kichThuoc', 'xuatXu']);
+  assert.doesNotMatch(r.cauHoi, /khởi động động cơ/i, `không được hỏi lại công dụng: "${r.cauHoi}"`);
+  assert.match(r.cauHoi, /chiều cao bình.*13\s*cm/i);
+  assert.match(r.cauHoi, /nước nhập|xuất xứ/i);
+
+  for (const cd of ['khởi động', 'đề nổ', 'xe đạp điện', 'xe điện', 'lưu điện', 'ups', 'khoi dong', 'de no']) {
+    const rCd = kiemTraThongTinPhanLoai(`ắc quy axit chì 12V ${cd}`, { vongHoi: 0 });
+    assert.equal(rCd.canHoi, true);
+    assert.ok(!rCd.thieu.includes('congDung'), `từ khoá "${cd}" phải được nhận là đã nêu công dụng`);
+    assert.doesNotMatch(rCd.cauHoi, /khởi động động cơ/i, `không hỏi lại công dụng khi đã có "${cd}"`);
+  }
+});
+
+test('[OZV-837] (c) khách đáp "cao 12cm" qua xuLyTraLoiHoiLai → giữ tên hàng + nối cao 12cm, canHoi=false; "cứ tra đi" / vongHoi>=2 giả định ≤ 13 cm', () => {
+  const kt1 = kiemTraThongTinPhanLoai(CA_85072094, { vongHoi: 0 });
+  assert.equal(kt1.canHoi, true);
+
+  const xl = xuLyTraLoiHoiLai('cao 12cm', kt1);
+  assert.equal(xl.sanSangTra, true);
+  assert.equal(xl.giaDinh, null);
+  assert.match(xl.moTaTraCuu, /Bộ pin khô \(ắc quy axit chì kín, sealed lead-acid battery\) model 6-DZF-12 dùng cho xe đạp điện/i);
+  assert.match(xl.moTaTraCuu, /cao 12cm/i);
+
+  const kt2 = kiemTraThongTinPhanLoai(xl.moTaTraCuu, { vongHoi: 1, tenKhachTuGo: true });
+  assert.equal(kt2.canHoi, false, `đã đủ công dụng + chiều cao thì không hỏi nữa: "${kt2.cauHoi}"`);
+
+  const buong = xuLyTraLoiHoiLai('cứ tra đi', kt1);
+  assert.equal(buong.sanSangTra, true);
+  assert.match(buong.giaDinh, /13\s*cm/i);
+  assert.match(buong.giaDinh, /đầu cực/i);
+
+  const hetVong = kiemTraThongTinPhanLoai('ắc quy axit chì 12V', { vongHoi: 2 });
+  assert.equal(hetVong.canHoi, false);
+  assert.match(hetVong.giaDinh, /13\s*cm/i);
+  assert.match(hetVong.giaDinh, /đầu cực/i);
+});
+
+test('[OZV-837] (d) form có nhãn "Tên hàng: Bộ pin khô..." → canHoi=false', () => {
+  const rForm = kiemTraThongTinPhanLoai(`Tên hàng: ${CA_85072094}`, { vongHoi: 0 });
+  assert.equal(rForm.canHoi, false);
+  const rGoi1 = kiemTraThongTinPhanLoai(CA_85072094, { vongHoi: 0, goi: 1 });
+  assert.equal(rGoi1.canHoi, false);
+});
+
+test('[OZV-837] đường thật hs.handle: ca 85072094 hỏi chiều cao bình → khách đáp "cao 12cm" → gọi phan_loai_hs đủ tên hàng + cao 12cm', async () => {
+  const { ctx, calls } = fakeCtx(hoiMotLuot([]));
+  const r1 = await hs.handle(turn(`Tra hs ${CA_85072094}`), ctx);
+  const tin1 = (r1?.replies || []).map((x) => x.text).join('\n');
+  assert.match(tin1, /chiều cao bình.*13\s*cm/i);
+  assert.doesNotMatch(tin1, /khởi động động cơ/i);
+  assert.equal(tenHangDaGui(calls).length, 0, 'lượt 1 chưa biết chiều cao bình thì chưa gọi phan_loai_hs');
+
+  await hs.handle(turn('cao 12cm'), ctx);
+  const daGui = tenHangDaGui(calls);
+  assert.equal(daGui.length, 1, 'lượt 2 khách đáp chiều cao thì gọi phan_loai_hs đúng 1 lần');
+  assert.match(daGui[0], /Bộ pin khô.*6-DZF-12.*xe đạp điện/i);
+  assert.match(daGui[0], /cao 12cm/i);
+});
+
+

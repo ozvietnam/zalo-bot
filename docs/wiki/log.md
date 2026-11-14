@@ -14,6 +14,18 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-14 — OZV-837: hỏi chiều cao bình ắc quy (mốc 13cm/23cm nhóm 85.07) & tách `packs/hs/nhanh-hoi-hang.js` dưới trần 300 dòng
+
+- **Đau:** trong bộ đề luật `eval/bo-de/phan-loai-tu-luat.json`, ca `85072094` (`918/TB-TCHQ` — `"Bộ pin khô (ắc quy axit chì kín, sealed lead-acid battery) model 6-DZF-12 dùng cho xe đạp điện"`) có đáp án `8507.20.94` (`Chiều cao không bao gồm đầu cực và tay cầm không quá 13 cm`), mã dễ lẫn `85071092` (loại khởi động động cơ piston) và `85072099` (> 23 cm). Khi khách hỏi tự nhiên không qua form có nhãn, cổng thoát sớm `soChiTiet >= 2 || (soTu >= 10 && soChiTiet >= 1)` ở `packs/hs/dien-cho-thieu.js` làm câu hỏi thoát thẳng (`canHoi: false`) dù thiếu chiều cao bình (`co.kichThuoc === false`). Đồng thời `packs/hs/dien-cho-thieu.js` đã chạm 299/300 dòng (Điều VI).
+- **Vá 1 — nhánh hỏi lại ắc quy (`hoiAcQuy` ở `packs/hs/nhanh-hoi-hang.js:68`, gọi tại `packs/hs/dien-cho-thieu.js:154`):** nhận diện `ắc quy`, `ac quy`, `lead-acid`, `pin khô…axit chì` trước cổng thoát sớm `soChiTiet >= 2` (nhưng sau cổng `goi === 1 || FORM_NHAN_RE.test(s)` và `vongHoi >= 2`):
+  - Đại lượng 1 (`congDung`): dùng để khởi động động cơ (ô tô, xe máy — `8507.10`) hay dùng cho xe đạp điện / lưu điện UPS / mục đích khác (`8507.20`)? Nhận diện cả `"khởi động"`, `"đề nổ"`, `"xe đạp điện"`, `"xe điện"`, `"lưu điện"`, `"ups"` (có dấu và không dấu) để không hỏi lại điều khách đã nêu.
+  - Đại lượng 2 (`kichThuoc`): chiều cao bình (cm, không tính đầu cực và tay cầm — mốc ≤ 13 cm hay trên 13 cm), kèm `kemXuatXu` cho nước nhập.
+  - Giả định khi `vongHoi >= 2` hoặc khách nói `"cứ tra đi"`: nêu rõ chiều cao thông dụng không quá 13 cm (không tính đầu cực và tay cầm).
+  - Đặt `hoiThuocTinh: true` để khi khách đáp `"cao 12cm"` thì `xuLyTraLoiHoiLai` giữ nguyên tên hàng và nối chiều cao.
+- **Vá 2 — cắt theo ranh trách nhiệm (Điều VI):** tách các nhánh hỏi thuộc tính theo nhóm mặt hàng (`hoiAcQuy`, `hoiDienGiaDung`, `hoiCoKhiVatLieu`, `giaDinhNhomHang`, `kemXuatXu`) sang `packs/hs/nhanh-hoi-hang.js` (178 dòng); `packs/hs/dien-cho-thieu.js` còn 187 dòng (điều phối `kiemTraThongTinPhanLoai` và nhánh xác nhận tên `GOI_Y_GO_NHAM`). Lý do tệp mới ghi tại `specs/001-nen-tang-chung/plan.md`.
+- **Test đỏ trước (`packs/hs/test/dien-cho-thieu.test.mjs`):** thêm 5 bài kiểm `[OZV-837]` (4 ca unit a/b/c/d + 1 ca đường thật `hs.handle`), đỏ trước khi sửa và xanh 13/13 sau khi sửa.
+- **Trang đổi:** `docs/wiki/an-toan.md` (cập nhật số dòng 5 tệp lớp hỏi lại), `docs/wiki/log.md`.
+
 ## 2026-11-14 — OZV-828: mô tả hàng bị cắt sạch sau dấu `;` trước khi lên Cổng
 
 - **Đau:** chạy cả 50 ca của `eval/bo-de/phan-loai-tu-luat.json` qua `chayBoDo` thì **14/50 ca (28%)** mất toàn bộ mô tả sau dấu `;` đầu tiên trước khi gửi `args.tenHang` lên `phan_loai_hs`. Mất đúng cái dữ kiện quyết định mã: ca `39073030` mất `; kết quả phân tích: nhựa epoxy biến tính, dạng lỏng` nên Cổng chốt nhầm `3208.20.90`; ca `42029190` mất `; bảo vệ và cố định điện thoại…` → nhầm `4202.32.00`; ca `85098090` mất `; hút nước từ bình và phun tia nước…` → nhầm `8424.89.50`.
