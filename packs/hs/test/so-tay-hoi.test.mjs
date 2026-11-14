@@ -92,7 +92,14 @@ test('ca 1: có mã ứng viên ⇒ câu hỏi lấy từ so_tay_questions của
   assert.equal(r.hoiThuocTinh, true, 'câu chất liệu/công dụng ⇒ câu đáp của khách là THUỘC TÍNH');
 });
 
-test('ca 1b: Cổng chỉ hỏi THÔNG SỐ ⇒ hoiThuocTinh false, dù loai vẫn là DONG_BIEU', async () => {
+// SỬA Ở OZV-799 (ca này trước chốt `false` — chính nó mã hoá cái lỗi).
+// Câu "công suất bao nhiêu W" là xin THÔNG SỐ của đúng món khách đang tra, không phải hỏi "hàng
+// tên gì": Cổng chỉ được hỏi khi đã có mã ứng viên ≥6 số, còn nhánh hỏi/xác nhận TÊN nằm ở
+// `dien-cho-thieu.js`, không qua tệp này. Chốt `false` ở đây là bắt `doc-tra-loi.js` đọc câu đáp
+// thành TÊN MÓN MỚI: khách gõ "van bi", đáp "bằng inox" thì tên hàng gửi Cổng chỉ còn "bằng inox"
+// — đo được trên ĐƯỜNG THẬT ở `soat-795-moi-khoa-cong.test.mjs` (4 khoá `cong_suat`, `dien_ap`,
+// `power`, `voltage`), lần thứ TƯ của lớp lỗi #213 → OZV-782 → OZV-791 → OZV-799.
+test('ca 1b [OZV-799]: Cổng hỏi THÔNG SỐ cũng là hỏi THUỘC TÍNH ⇒ hoiThuocTinh true', async () => {
   const ctx = ctxGia({
     ok: true,
     questions: [
@@ -102,7 +109,8 @@ test('ca 1b: Cổng chỉ hỏi THÔNG SỐ ⇒ hoiThuocTinh false, dù loai v�
   });
   const r = await hoiTheoSoTay(ctx, { s: 'máy sấy', moTa: 'máy sấy', hoSo: { maHs: '85094000' } });
   assert.equal(r.canHoi, true);
-  assert.equal(r.hoiThuocTinh, false, 'nhánh chỉ thiếu thông số thì câu đáp CÓ THỂ là tên món mới');
+  assert.equal(r.hoiThuocTinh, true,
+    'Cổng hỏi công suất/điện áp ⇒ câu đáp là THÔNG SỐ của đúng món đó, tên hàng khách đã gõ phải giữ');
 });
 
 test('ca 2: khách đã nêu công suất ⇒ không hỏi lại, khoá đó vào facts', async () => {

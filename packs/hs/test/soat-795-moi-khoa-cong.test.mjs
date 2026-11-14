@@ -19,26 +19,17 @@ import hs from '../index.js';
 const TIN_1 = 'Tra hs 8481.80.87 van bi';
 const DAP = 'bằng inox';
 
-/**
- * KHOÁ VẪN RỤNG TÊN HÀNG — đo được ngày 14/11/2026, lỗi THẬT còn sống trên main `fa081c9`.
- *
- * Bốn khoá này CÓ trong bảng `KHOA` (`so-tay-hoi.js:32-41`) nên `m.dai` KHÔNG rỗng → mặc định an
- * toàn của OZV-791 (`dai` rỗng ⇒ tính là thuộc tính) không che tới. Chúng quy về `congSuat` /
- * `dienAp`, mà hai đại lượng đó không có trong `DAI_THUOC_TINH` (`cau-hoi-khach.js:70` —
- * `chatLieu, quyCach, congDung, kichThuoc, dungTich`), nên `hoiThuocTinh: false` TƯỜNG MINH,
- * `laHoiThuocTinh` tin ngay, `doc-tra-loi.js` đọc câu đáp của khách thành TÊN MÓN MỚI: tên hàng
- * "van bi" rụng, Cổng nhận "bằng inox".
- *
- * Để `todo` chứ KHÔNG xoá: OZV-795 là việc test + fixture, thẻ ghi rõ "phát hiện khoá nào vẫn rụng
- * thì ghi lên thẻ trước, đừng tự sửa logic trong cùng PR" (logic vừa gộp hôm nay). Ca vẫn chạy và
- * in ra, chỉ không làm đỏ cổng; khi sửa logic xong thì BỎ danh sách này, không nới nó ra.
- */
-const DANG_DO = new Map([
-  ['cong_suat', 'congSuat không có trong DAI_THUOC_TINH'],
-  ['dien_ap', 'dienAp không có trong DAI_THUOC_TINH'],
-  ['power', 'KHOA quy về congSuat, không có trong DAI_THUOC_TINH'],
-  ['voltage', 'KHOA quy về dienAp, không có trong DAI_THUOC_TINH'],
-]);
+// DANH SÁCH `DANG_DO` ĐÃ BỎ HẲN Ở OZV-799 — đừng dựng lại.
+//
+// Bản đầu của tệp này (PR #232) treo `todo` cho bốn khoá `cong_suat` / `dien_ap` / `power` /
+// `voltage`: chúng CÓ trong bảng `KHOA` nên `m.dai` không rỗng, mặc định an toàn của OZV-791
+// (`dai` rỗng ⇒ tính là thuộc tính) không che tới, mà `congSuat` / `dienAp` lại thiếu trong
+// `DAI_THUOC_TINH` ⇒ `hoiThuocTinh: false` tường minh ⇒ `doc-tra-loi.js` đọc "bằng inox" thành
+// TÊN MÓN MỚI, tên "van bi" rụng khỏi tin gửi Cổng. OZV-799 sửa đúng chỗ đó (thêm `congSuat`,
+// `dienAp` vào `DAI_THUOC_TINH`), nên cả 125 ca phải XANH THẬT.
+//
+// Khoá nào rụng tên hàng về sau thì phải làm ĐỎ cổng, không được treo `todo` cho im: lớp lỗi này
+// đã tái xuất bốn lần và lần nào cũng im lặng (mã + thuế in ra vẫn trông như thật).
 
 test('[OZV-795] fixture khoá Cổng: đủ ba `loai` thật, không có chữ bịa `thuoc_tinh`', () => {
   assert.equal(CAU_HOI_CONG.length, KHOA_DONG_BIEU.length + KHOA_CONG.length + KHOA_TT39.length + KHOA_LA.length);
@@ -50,10 +41,7 @@ test('[OZV-795] fixture khoá Cổng: đủ ba `loai` thật, không có chữ b
 
 // MỘT ca cho MỖI khoá: khoá nào rụng tên hàng thì tên khoá đó hiện thẳng trong tên ca test đỏ.
 for (const cau of CAU_HOI_CONG) {
-  const vi = DANG_DO.get(cau.key);
-  test(`[OZV-795] Cổng hỏi "${cau.key}" (${cau.loai}) → tên hàng khách gõ vẫn tới Cổng`, {
-    todo: vi ? `LỖI THẬT còn sống, đã báo OZV-795: ${vi}. Sửa ở việc riêng, không sửa trong PR test.` : false,
-  }, async () => {
+  test(`[OZV-795] Cổng hỏi "${cau.key}" (${cau.loai}) → tên hàng khách gõ vẫn tới Cổng`, async () => {
     const { ctx, calls } = fakeCtx(hoiMotLuot([cau]));
     const r1 = await hs.handle(turn(TIN_1), ctx);
     const tin1 = (r1?.replies || []).map((x) => x.text).join('\n');

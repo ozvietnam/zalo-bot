@@ -149,10 +149,10 @@ Hiện tại có bốn tệp vượt quá 300 dòng: `packs/hs/packages.js` (696
 
 Vòng soát 5 của PR 213 cắt tiếp theo cùng ranh đó, vì bản vá hai điểm người soát chặn (khách sửa tên lần thứ hai; khách HỎI LẠI thì câu hỏi bị gửi đi làm tên hàng) đẩy `packs/hs/ky-luat-hoi.js` lên 367 dòng:
 
-- nhận diện câu khách HỎI LẠI (`laCauHoiKhach`, `bocCumHoi`, `laHoiThuocTinh`) sang tệp mới `packs/hs/cau-hoi-khach.js` (89 dòng);
+- nhận diện câu khách HỎI LẠI (`laCauHoiKhach`, `bocCumHoi`, `laHoiThuocTinh`) sang tệp mới `packs/hs/cau-hoi-khach.js` (115 dòng);
 - các hàm ĐỌC câu trả lời (`docTraLoiTen`, `bocXaGiao`, `laXacNhan`, `bocDemDau`) và các mẫu chữ của chúng về `packs/hs/doc-tra-loi.js` — chúng là phần ĐỌC, không phải phần ĐO.
 
-Nay cả bốn tệp của lớp hỏi lại đều dưới trần: `packs/hs/dien-cho-thieu.js` (275 dòng), `packs/hs/doc-tra-loi.js` (224 dòng), `packs/hs/ky-luat-hoi.js` (208 dòng), `packs/hs/cau-hoi-khach.js` (89 dòng) — đo bằng `wc -l` ngày 2026-11-12 trên nhánh PR 213 (vòng soát 5). Các hàm đã chuyển vẫn được tệp cũ XUẤT LẠI để `packs/hs/packages.js`, `packs/hs/loc-tap-am.js` và các test cũ không phải đổi đường dẫn nhập.
+Nay cả bốn tệp của lớp hỏi lại đều dưới trần: `packs/hs/dien-cho-thieu.js` (275 dòng), `packs/hs/doc-tra-loi.js` (224 dòng), `packs/hs/ky-luat-hoi.js` (208 dòng), `packs/hs/cau-hoi-khach.js` (115 dòng) — đo bằng `wc -l` ngày 2026-11-12 trên nhánh PR 213 (vòng soát 5), riêng `packs/hs/cau-hoi-khach.js` đo lại 2026-11-14 sau OZV-799 (thêm `congSuat`/`dienAp` vào `DAI_THUOC_TINH` kèm phần chú thích lý do). Các hàm đã chuyển vẫn được tệp cũ XUẤT LẠI để `packs/hs/packages.js`, `packs/hs/loc-tap-am.js` và các test cũ không phải đổi đường dẫn nhập.
 
 ---
 
