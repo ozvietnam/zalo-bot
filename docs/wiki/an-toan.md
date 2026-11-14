@@ -152,7 +152,7 @@ Vòng soát 5 của PR 213 cắt tiếp theo cùng ranh đó, vì bản vá hai 
 - nhận diện câu khách HỎI LẠI (`laCauHoiKhach`, `bocCumHoi`, `laHoiThuocTinh`) sang tệp mới `packs/hs/cau-hoi-khach.js` (120 dòng);
 - các hàm ĐỌC câu trả lời (`docTraLoiTen`, `bocXaGiao`, `laXacNhan`, `bocDemDau`) và các mẫu chữ của chúng về `packs/hs/doc-tra-loi.js` — chúng là phần ĐỌC, không phải phần ĐO.
 
-Nay cả năm tệp của lớp hỏi lại đều dưới trần: `packs/hs/dien-cho-thieu.js` (187 dòng), `packs/hs/nhanh-hoi-hang.js` (178 dòng), `packs/hs/doc-tra-loi.js` (224 dòng), `packs/hs/ky-luat-hoi.js` (216 dòng), `packs/hs/cau-hoi-khach.js` (120 dòng) — đo bằng `wc -l` ngày 2026-11-14 sau OZV-837 (tách các nhánh hỏi thuộc tính theo mặt hàng — ắc quy 85.07, điện gia dụng, cơ khí/vật liệu — sang `packs/hs/nhanh-hoi-hang.js` khi `packs/hs/dien-cho-thieu.js` chạm 299/300 dòng ở OZV-802/814). Các hàm đã chuyển vẫn được tệp cũ XUẤT LẠI để `packs/hs/packages.js`, `packs/hs/loc-tap-am.js` và các test cũ không phải đổi đường dẫn nhập.
+Nay cả năm tệp của lớp hỏi lại đều dưới trần: `packs/hs/dien-cho-thieu.js` (187 dòng), `packs/hs/nhanh-hoi-hang.js` (178 dòng), `packs/hs/doc-tra-loi.js` (226 dòng), `packs/hs/ky-luat-hoi.js` (271 dòng), `packs/hs/cau-hoi-khach.js` (120 dòng) — đo bằng `wc -l` ngày 2026-11-14 sau OZV-851 (tách các nhánh hỏi thuộc tính theo mặt hàng — ắc quy 85.07, điện gia dụng, cơ khí/vật liệu — sang `packs/hs/nhanh-hoi-hang.js` khi `packs/hs/dien-cho-thieu.js` chạm 299/300 dòng ở OZV-802/814). Các hàm đã chuyển vẫn được tệp cũ XUẤT LẠI để `packs/hs/packages.js`, `packs/hs/loc-tap-am.js` và các test cũ không phải đổi đường dẫn nhập.
 
 ---
 

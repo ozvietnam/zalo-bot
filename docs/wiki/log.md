@@ -14,6 +14,16 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-14 — OZV-851: giữ tên hàng khi khách đáp xuất xứ/thuộc tính ở nhánh hỏi xác nhận tên (sửa rụng tên sau OZV-802)
+
+- **Đau:** sau khi OZV-802 gắn `kemXuatXu` vào nhánh hỏi xác nhận tên (`packs/hs/dien-cho-thieu.js:122`), khách đáp kèm nước nhập hoặc chất liệu (`"đúng, 350W 220V hàng Nhật"`, `"350W 220V từ Trung Quốc"`, `"350W 220V xuất xứ Hàn Quốc"`, `"350W 220V bằng inox"`) bị `coTenTrong` đếm nhầm phần xuất xứ/chất liệu thành tên món mới (`khachDuaTenMoi = true` ⇒ `phanTen = ''`), làm rụng sạch tên hàng khỏi `moTaTraCuu` gửi Cổng. Đồng thời khi khách sửa tên kèm nước nhập (`"máy sấy thực phẩm 500W 220V hàng Nhật"`), `chuTrong(sSach)` ở `packs/hs/dien-cho-thieu.js:134` còn giữ `"hàng Nhật"` nên khác `item.chuan` (`"máy sấy thực phẩm"`) và hỏi xác nhận lại đúng tên khách vừa tự gõ.
+- **Vá (`packs/hs/ky-luat-hoi.js:148-210`, `packs/hs/doc-tra-loi.js:90-104`, `packs/hs/doc-tra-loi.js:223`):**
+  - Thêm `bocCumXuatXu` (`packs/hs/ky-luat-hoi.js:175`) dùng chính `xuatXuCua` và `NUOC` của `packs/hs/input.js` trên đoạn nước tối tiểu 3 → 2 → 1 từ rồi bóc các từ dẫn xuất xứ đứng trước nó; `chuTrong` (`packs/hs/ky-luat-hoi.js:201`) bỏ cả thông số (`boThongSo` ở `packs/hs/ky-luat-hoi.js:148`) lẫn cụm xuất xứ để cả `coTenTrong` và phép so `norm(chuTrong(sSach)) !== norm(item.chuan)` ở `packs/hs/dien-cho-thieu.js:90,134` đo đúng phần tên hàng.
+  - `coTenTrong` (`packs/hs/ky-luat-hoi.js:219`) bóc đủ `CONG_DUNG_RE`, `CHAT_LIEU_RE`, `QUY_CACH_RE`, `LOAI_HANG_RE` (thêm `"bằng"`, `"chất liệu"`).
+  - Trong `xuLyTraLoiHoiLai` (`packs/hs/doc-tra-loi.js:90`), khi khách đã mở đầu bằng lời xác nhận (`daXacNhanTen`) thì không coi phần sau là tên mới; khi ghép `phanTen` (`packs/hs/doc-tra-loi.js:103`) và `docTraLoiTen` (`packs/hs/doc-tra-loi.js:224`), nếu câu mới chưa nêu nước mới thì dùng `boThongSo` để không làm rụng nước khách đã nêu ở tin trước.
+- **Test đỏ trước (`packs/hs/test/soat-802-hoi-xuat-xu.test.mjs:80-121`):** thêm 3 bài kiểm `[OZV-851]` trên đường thật `hs.handle`, đỏ trước khi sửa và xanh 9/9 sau khi sửa.
+- **Trang đổi:** `docs/wiki/an-toan.md` (cập nhật số dòng `packs/hs/doc-tra-loi.js` 226 dòng, `packs/hs/ky-luat-hoi.js` 271 dòng), `docs/wiki/log.md`.
+
 ## 2026-11-14 — OZV-837: hỏi chiều cao bình ắc quy (mốc 13cm/23cm nhóm 85.07) & tách `packs/hs/nhanh-hoi-hang.js` dưới trần 300 dòng
 
 - **Đau:** trong bộ đề luật `eval/bo-de/phan-loai-tu-luat.json`, ca `85072094` (`918/TB-TCHQ` — `"Bộ pin khô (ắc quy axit chì kín, sealed lead-acid battery) model 6-DZF-12 dùng cho xe đạp điện"`) có đáp án `8507.20.94` (`Chiều cao không bao gồm đầu cực và tay cầm không quá 13 cm`), mã dễ lẫn `85071092` (loại khởi động động cơ piston) và `85072099` (> 23 cm). Khi khách hỏi tự nhiên không qua form có nhãn, cổng thoát sớm `soChiTiet >= 2 || (soTu >= 10 && soChiTiet >= 1)` ở `packs/hs/dien-cho-thieu.js` làm câu hỏi thoát thẳng (`canHoi: false`) dù thiếu chiều cao bình (`co.kichThuoc === false`). Đồng thời `packs/hs/dien-cho-thieu.js` đã chạm 299/300 dòng (Điều VI).
