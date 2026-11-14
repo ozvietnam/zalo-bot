@@ -13,6 +13,7 @@ import { textFlow } from './luong-chu.js';
 import { dongHoSoCuaTin } from './chay-goi.js';
 import { layHoSo, duDeTra } from './ho-so.js';
 import { cauDangTra } from './dang-tra.js';
+import { laRetry, RETRY_CHO_MS } from './jobs.js';
 
 const JOB_TTL_MS = 30 * 60_000;   // lõi bỏ chờ việc nền sau 30 phút (core/jobs.js); câu hết hạn ghi đúng số phút
 
@@ -28,6 +29,12 @@ export default {
 
   /** Gói dự phòng: nhận mọi tin mà gói ưu tiên cao hơn bỏ qua. */
   match() { return true; },
+
+  // OZV-779: đường việc nền bền (gói 1 và gói 4 — hai gói khách dùng nhiều nhất) đi qua core/jobs.js,
+  // nên lõi cần đúng bộ đọc verdict RETRY của gói này để GỌI LẠI thay vì đẩy khách câu "AI bận".
+  // Đường chờ-trong-lượt đã vá ở OZV-769 (#227) dùng chung hai hằng/hàm này — một bộ đọc, hai đường.
+  laRetry,
+  RETRY_CHO_MS,
 
   async handle(turn, ctx) {
     const st = openTurn(ctx);

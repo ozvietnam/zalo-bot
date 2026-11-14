@@ -20,6 +20,14 @@ export const MAX_POLL_MS = 60_000;
 export const JOB_TTL_MS = 30 * 60_000;
 /** Việc nền chạy quá ngần này mà chưa xong → báo tiến độ cho khách MỘT lần (issue #168, mục 3). */
 export const TIEN_DO_SAU_MS = 60_000;
+/**
+ * Số lần GỌI LẠI tối đa khi gói báo kết quả là "máy bận, gọi lại thì có thể có" (OZV-779, issue #177).
+ * Verdict RETRY là KẾT QUẢ ĐÃ XONG của Cổng, không phải DANG_XU_LY, nên nó không đi theo nhịp
+ * 6→60 s ở `attempts`; đếm riêng để một việc hỏng kiểu này không ăn hết 30 phút TTL của khách.
+ */
+export const RETRY_TOI_DA = 2;
+/** Giãn cách gọi lại khi gói không cho bảng riêng (gói hs cho RETRY_CHO_MS — packs/hs/jobs.js:29). */
+export const RETRY_CHO_MAC_DINH = [20_000, 60_000];
 
 const stateOf = (r) => r?.trangThai || r?.data?.trangThai;
 const backoff = (attempts) => Math.min(FIRST_POLL_MS * 2 ** attempts, MAX_POLL_MS);
@@ -120,6 +128,26 @@ export function createJobs({ store, mcp, registry, gate, now, log = console, too
     store.jobs.update(row.id, { status: 'waiting', attempts, next_poll_at: iso(nowMs + backoff(attempts)) });
   };
 
+  /**
+   * Cổng xong lượt nhưng máy phân loại bận/quá giờ (gói đọc verdict giúp: `pack.laRetry`) → GỌI LẠI thay vì
+   * đưa khách câu "AI bận" ngay lượt hỏi đầu (OZV-779). Lõi KHÔNG tự đọc `nextAction`: bộ đọc duy nhất là
+   * của gói (packs/hs/jobs.js:32), nên đổi hợp đồng với Cổng chỉ phải sửa một chỗ.
+   *
+   * Đếm lần gọi lại trong `context` (JSON), KHÔNG thêm cột: `core/store/schema.js:85` chặn mọi db đã triển
+   * khai mà thiếu cột mới ("xoá db cũ"), và `attempts` phải để yên cho nhịp DANG_XU_LY.
+   * @returns {boolean} true = đã hẹn gọi lại (đừng trả kết quả cho khách lượt này).
+   */
+  const goiLai = (row, pack, result, nowMs) => {
+    if (!pack?.laRetry?.(result)) return false;
+    const c = row.context ?? {};
+    const lan = c.retryLan ?? 0;
+    if (lan >= RETRY_TOI_DA) return false;            // hết lượt gọi lại → trả đúng verdict của Cổng cho gói
+    const cho = (pack.RETRY_CHO_MS ?? RETRY_CHO_MAC_DINH)[lan] ?? RETRY_CHO_MAC_DINH.at(-1);
+    if (nowMs + cho >= Date.parse(row.expires_at)) return false;   // gọi lại sẽ vượt TTL → trả verdict luôn
+    store.jobs.update(row.id, { status: 'waiting', context: { ...c, retryLan: lan + 1 }, next_poll_at: iso(nowMs + cho) });
+    return true;
+  };
+
   /** Hỏi mọi việc đến hạn một lượt. Trả số việc đã nhận xử lý (0 = không có việc). */
   async function tick() {
     const nowDate = now();
@@ -153,6 +181,11 @@ export function createJobs({ store, mcp, registry, gate, now, log = console, too
           if (stateOf(result) === 'DANG_XU_LY') {
             await baoTienDo(row, pack, c, nowDate.getTime(), turnId);
             hoanLai(row, nowDate.getTime());
+            continue;
+          }
+          // Verdict "máy bận, gọi lại đi" (OZV-779): hẹn gọi lại, chưa trả gì cho khách.
+          if (goiLai(row, pack, result, nowDate.getTime())) {
+            audit(turnId, row.chat_id, row.conv_id, 'job-retry', { job: row.id, maLuot: row.ma_luot, lan: (c.retryLan ?? 0) + 1 });
             continue;
           }
         }

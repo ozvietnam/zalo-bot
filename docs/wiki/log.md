@@ -937,3 +937,13 @@ Quy ước:
 - **Test đỏ trước** `packs/hs/test/so-tay-hoi.test.mjs` (9 test): 4 ca "xong là khi" của thẻ + ca "chưa có mã ≥6 số ⇒ 0 lời gọi mạng" + 3 ca đơn vị (`maUngVien`, `thamSoSoTay`, `factsDaNeu`).
 - **Chưa làm (có chủ ý):** mục 5 của thẻ — đo ≥30 mẫu thật qua Cổng — MIỄN theo lệnh QT 13/11 17:50 (OZV-608), không chạy đo thật trong nhịp này.
 - **Cổng:** `npm test` 1421/1421 (fail 0) · `npm run eval` 32/32 kịch bản đạt · `node scripts/qa-that.mjs --mock` 6/6 kịch bản ĐẠT · `node scripts/kiem-wiki.mjs --nghiem` wiki ĐẠT (16 trang).
+
+## 2026-11-13 — OZV-779 (zalo-bot #177): verdict RETRY ở **đường việc nền bền** — lõi gọi lại, không đẩy khách câu "AI bận"
+- **Vấn đề:** OZV-769 (#227) chỉ vá đường **chờ trong lượt** (`packs/hs/jobs.js:73`). Nhưng gói 1 (phân loại) và gói 4 (soát) — hai gói khách dùng nhiều nhất — chạy đường **việc nền bền** `batDau → toJob → core/jobs.js tick() → pack.onJobResult`, nên khách thật vẫn nhận câu "AI bận hoặc quá thời gian" ngay lần hỏi Cổng ĐẦU TIÊN.
+- **Một bộ đọc verdict, hai đường:** lõi KHÔNG tự đọc `nextAction`. Gói đưa `laRetry` + `RETRY_CHO_MS` ra ngoài ở `packs/hs/index.js:36`, lõi gọi `pack.laRetry?.(result)` ở `core/jobs.js:141` trên đúng object gói mà `registry.available()` đã trả — lõi không import gói nào. Đổi hợp đồng với Cổng vẫn chỉ phải sửa `packs/hs/jobs.js:32`.
+- **Đếm riêng, không đụng `attempts`:** RETRY là kết quả ĐÃ XONG của Cổng, không phải `DANG_XU_LY`, nên nó không đi theo nhịp 6→60s. Số lần gọi lại nằm ở `context.retryLan`, trần `RETRY_TOI_DA` = 2 (`core/jobs.js:28`), giãn cách lấy của gói (20s rồi 60s) — một việc hỏng kiểu này không ăn hết 30 phút TTL của khách.
+- **KHÔNG thêm cột db:** `core/store/schema.js` chặn mọi db đã triển khai mà thiếu cột mới ("xoá db cũ"), nên bộ đếm đi trong cột JSON `context` đã có. Thêm chốt: gọi lại mà `now + cho ≥ expires_at` thì trả verdict luôn (`core/jobs.js:146`).
+- **Lõi vẫn không soạn chữ:** hết lượt gọi lại thì verdict thật của Cổng về `pack.onJobResult`, gói soạn câu trung thực — không bịa mã HS (Điều II).
+- **Test đỏ trước** `test/core/jobs.test.mjs` (+3 test): RETRY 2 lần rồi kết quả thật ⇒ khách nhận mã HS và **đếm được 3 lần gọi Cổng**; RETRY mãi ⇒ đúng `RETRY_TOI_DA + 1` lần gọi, một tin khách, tin KHÔNG chứa dạng mã `\d{4}.\d{2}.\d{2}`; gói không có `laRetry` (gói khác hs) ⇒ nếp cũ y nguyên.
+- **Đo đường khách thật** (`gói1.batDau` + fake mcp trả RETRY, kịch bản dùng một lần, không commit): số lần gọi Cổng `ket_qua_phan_loai` = **3** (> 1), khách nhận `Mã HS đề xuất: 8413.70.90` thay vì câu "AI bận".
+- **Cổng:** `npm test` 1427/1427 (fail 0) + 34 test đạt · `npm run eval` 32/32 kịch bản đạt · `node scripts/qa-that.mjs --mock` 6/6 kịch bản ĐẠT · `node scripts/kiem-wiki.mjs --nghiem` wiki ĐẠT (16 trang).
