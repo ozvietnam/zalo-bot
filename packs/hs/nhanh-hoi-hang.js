@@ -34,7 +34,7 @@ const AC_QUY_CONG_DUNG_NORM_RE = /\b(khoi\s*dong|de\s*no|xe\s*dap\s*dien|xe\s*di
 
 // Danh sách từ khoá thiết bị điện gia dụng/cơ điện cần công suất / điện áp
 const DIEN_GIA_DUNG_RE = /m[aáàảãạ]y\s*(xay|s[aấầẩẫậâ]y|ep|[eéèẻẽẹ]p|b[oơớờởỡợ]m|h[uúùủũụ]t|qu[aạàảã]t|n[eéèẻẽẹ]n|l[oọ]c|gi[aặ]t|r[uử]a)|n[oồổỗộ]i\s*(c[oơớờởỡợ]m|chi[eêếềểễệ]n|[aá]p\s*su[aấ]t)|l[oò]\s*(vi\s*s[oó]ng|n[uướ]ng)|b[eế]p\s*(t[uừ]|h[oồ]ng\s*ngo[aạ]i)|qu[aạ]t\s*[đd]i[eệ]n/i;
-const CO_KHI_VAT_LIEU_RE = /\b(van(\s*bi|\s*b[uướớ]m|\s*m[oộ]t\s*chi[eề]u|\s*gi[aả]m\s*[aá]p|\s*c[aầ]u)?|[oố]ng(\s*th[eé]p|\s*nh[uự]a|\s*[đd][oồ]ng|\s*inox)?|bu\s*l[oô]ng|[oố]c\s*v[ií]t|th[eé]p(\s*cu[oộ]n|\s*t[aấ]m|\s*h[iì]nh)?|nh[oô]m(\s*th[oỏi]|\s*t[aấ]m|\s*[đd][iị]nh\s*h[iì]nh)?|v[aả]i(\s*cu[oộ]n|\s*d[eệ]t)?|t[aấ]m\s*nh[uự]a|m[aà]ng\s*nh[uự]a|v[oò]ng\s*bi|kh[oó]a(\s*c[ử]a)?|m[aặ]t\s*b[ií]ch)\b/i;
+const CO_KHI_VAT_LIEU_RE = /(?<![\p{L}\p{N}])(van(\s*bi|\s*b[uướớ]m|\s*m[oộ]t\s*chi[eề]u|\s*gi[aả]m\s*[aá]p|\s*c[aầ]u)?|[oố]ng(\s*th[eé]p|\s*nh[uự]a|\s*[đd][oồ]ng|\s*inox)?|bu\s*l[oô]ng|[oố]c\s*v[ií]t|th[eé]p(\s*cu[oộ]n|\s*t[aấ]m|\s*h[iì]nh)?|nh[oô]m(\s*th[oỏi]|\s*t[aấ]m|\s*[đd][iị]nh\s*h[iì]nh)?|v[aả]i(\s*cu[oộ]n|\s*d[eệ]t)?|t[aấ]m\s*nh[uự]a|m[aà]ng\s*nh[uự]a|v[oò]ng\s*bi|(?:kh[oó]a|kho[aá])(\s*c[uử]a)?|m[aặ]t\s*b[ií]ch)(?![\p{L}\p{N}])/iu;
 
 /** Giả định mặc định theo nhóm mặt hàng khi đã hỏi đủ 2 vòng. */
 export function giaDinhNhomHang(sSach) {
@@ -93,7 +93,7 @@ export function hoiAcQuy({ s, sSach, co, hoSo }) {
 /** Nhánh hỏi lại cho nhóm máy móc / thiết bị điện / gia dụng thiếu thông số. */
 export function hoiDienGiaDung({ s, sSach, soTu, co }) {
   const laDienGiaDung = DIEN_GIA_DUNG_RE.test(sSach);
-  const laMayMocNgan = /^(m[aáàảãạ]y|thi[eế]t\s*b[iị]|n[oồổỗộ]i|qu[aạ]t)\b/i.test(sSach) && soTu < 8;
+  const laMayMocNgan = /^(?<![\p{L}\p{N}])(m[aáàảãạ]y|thi[eế]t\s*b[iị]|n[oồổỗộ]i|qu[aạ]t)(?![\p{L}\p{N}])/iu.test(sSach) && soTu < 8;
   if (!laDienGiaDung && !laMayMocNgan) return null;
 
   const coLoaiCongDung = co.congDung
@@ -152,7 +152,7 @@ export function hoiCoKhiVatLieu({ s, sSach, soTu, co, vongHoi = 0 }) {
     muc = [{ khoa: 'kichThuoc', chu: 'kích thước đường kính (DN)' }, { khoa: 'congDung', chu: 'mục đích dùng' }];
     noi = ' hoặc ';
     giaDinh = 'van bi đồng hoặc inox dùng cho đường ống nước thông thường';
-  } else if (/[oố]ng(\s*th[eé]p)?/i.test(sSach)) {
+  } else if (/[oố]ng\s*th[eé]p/i.test(sSach)) {
     cau1 = 'Dạ ống thép này là loại đúc hay hàn, có mạ kẽm không ạ?';
     daiCau1 = ['quyCach'];
     muc = [{ khoa: 'kichThuoc', chu: 'đường kính và độ dày' }];
