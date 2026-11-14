@@ -1,7 +1,8 @@
 // test/core/qa-that.test.mjs — Kiểm thử tự động bộ chạy QA (scripts/qa-that.mjs)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -429,4 +430,31 @@ test('qa-that #168: evaluateStep chấm RIÊNG "báo đang tra ≤ 3 giây" và 
   // số hiệu văn bản không có trong dữ liệu Cổng → trượt
   const bia = evaluateStep(step, [{ text: 'Dạ mã 8509.40.00 (38/2015/TT-BTC)', at: luc(1) }], {}, { batDau: t0, nguon: [[{ ok: true }], []] });
   assert.match(bia.lyDo, /38\/2015\/TT-BTC/);
+});
+
+// OZV-830: lượt chạy nền của Paperclip đặt TMPDIR=/tmp/paperclip-run-<id> rồi XOÁ thư mục đó
+// khi lượt kết thúc. Bài đo 13/11 (OZV-608) chết `ENOENT: mkdtemp` ở 38/50 ca vì mkdtempSync
+// không tự tạo thư mục cha. Bộ chạy QA phải tự lo chỗ tạm, đừng để cả lượt đo mất trắng.
+test('runSingleScenario: TMPDIR bị dọn giữa bài đo vẫn chạy được, không chết ENOENT mkdtemp', async () => {
+  const g4Path = join(ROOT_DIR, 'eval', 'qa-that', 'g4-mot-mot.json');
+  const scenario = JSON.parse(readFileSync(g4Path, 'utf8'));
+
+  const tmpdirCu = process.env.TMPDIR;
+  // Đường dẫn con KHÔNG tồn tại, mô phỏng thư mục lượt chạy đã bị harness xoá.
+  const daBiXoa = join(tmpdir(), `paperclip-run-da-bi-xoa-${process.pid}-${Date.now()}`, 'tmp');
+  assert.equal(existsSync(daBiXoa), false, 'Đường dẫn mô phỏng phải chưa tồn tại');
+
+  let res;
+  try {
+    process.env.TMPDIR = daBiXoa;
+    res = await runSingleScenario(scenario, { isMock: true });
+  } finally {
+    if (tmpdirCu === undefined) delete process.env.TMPDIR;
+    else process.env.TMPDIR = tmpdirCu;
+    rmSync(dirname(daBiXoa), { recursive: true, force: true });
+  }
+
+  assert.equal(res.ok, true, `Kịch bản phải vẫn đạt khi TMPDIR bị dọn, nhưng trượt vì: ${res.lyDo}`);
+  assert.doesNotMatch(res.lyDo || '', /ENOENT|mkdtemp/, 'Không được chết vì thiếu thư mục tạm');
+  assert.equal(res.stepResults.length, 2);
 });

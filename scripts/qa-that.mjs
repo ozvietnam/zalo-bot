@@ -380,6 +380,28 @@ export function laBuocPhanLoai(step, scenario = {}) {
   return false;
 }
 
+/**
+ * Tạo thư mục tạm cho một kịch bản QA, chịu được chuyện TMPDIR bị dọn giữa bài đo.
+ *
+ * Bài đo Cổng thật 13/11 (OZV-608) chạy nền với `TMPDIR=/tmp/paperclip-run-<id>`; khi lượt chạy
+ * kết thúc, harness xoá thư mục đó, nên từ ca thứ 13 `mkdtempSync` chết `ENOENT` (mkdtemp KHÔNG
+ * tự tạo thư mục cha) và mất 38/50 ca. Nên: tự tạo thư mục cha; cha vẫn không dựng được thì rơi
+ * về `/tmp` bền vững — thà chỗ tạm khác chỗ khai còn hơn mất cả lượt đo.
+ */
+export function taoThuMucTamQa(prefix = 'oz-qa-scenario-') {
+  const ungVien = [tmpdir(), '/tmp'];
+  let loiCuoi = null;
+  for (const goc of ungVien) {
+    try {
+      mkdirSync(goc, { recursive: true });
+      return mkdtempSync(join(goc, prefix));
+    } catch (err) {
+      loiCuoi = err;
+    }
+  }
+  throw loiCuoi || new Error('Không tạo được thư mục tạm cho kịch bản QA');
+}
+
 /** Chạy một kịch bản QA đơn lẻ. */
 export async function runSingleScenario(scenario, {
   env = {},
@@ -389,7 +411,7 @@ export async function runSingleScenario(scenario, {
   maxJobWaitMs = 120_000,
   pollIntervalMs = isMock ? 100 : 1_000,
 } = {}) {
-  const tmpDir = mkdtempSync(join(tmpdir(), 'oz-qa-scenario-'));
+  const tmpDir = taoThuMucTamQa();
   const dbPath = join(tmpDir, 'qa.db');
   const store = openStore(dbPath);
   const channel = createQaChannel();

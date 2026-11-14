@@ -18,6 +18,7 @@ với khách thật — chi tiết ở [An toàn](an-toan.md).
 |---|---|---|
 | Node.js | Từ 22.13 trở lên | `package.json:8` |
 | Thư viện ngoài | Không cần, repo không khai `dependencies` | `package.json:1-21` |
+| `ffmpeg` | Cần nếu bật trả lời bằng giọng nói (`VOICE_REPLIES` khác `off`) | `core/giong-noi.js:82`, `Dockerfile:5` |
 | Cấu hình | File `.env` theo mẫu `.env.example` | `.env.example:1` |
 
 Hai bên đang lệch nhau về phiên bản Node, ghi rõ cả hai:
@@ -150,12 +151,18 @@ khởi động (`server.js:30`). Từ T016, chúng có tác dụng với khách 
 `Dockerfile` đóng gói sẵn:
 
 - Nền `node:22-alpine`, thư mục làm việc `/app` (`Dockerfile:1-2`).
+- **`ffmpeg` cài trong ảnh** (`Dockerfile:5`): khâu giọng nói gọi `spawn('ffmpeg')` để đổi
+  PCM của Gemini TTS sang AAC (`core/giong-noi.js:82`). Thiếu nó thì mỗi tin thoại ném
+  `spawn ffmpeg ENOENT`, vào `audit` thành `error stage=voice` còn khách chỉ nhận tin chữ.
 - Biến mặc định khi build: `NODE_ENV=production`, `PORT=3000`, `DATA_DIR=/app/data`,
-  `APP_VERSION` lấy từ build argument `SOURCE_COMMIT` (`Dockerfile:5-6`).
+  `APP_VERSION` lấy từ build argument `SOURCE_COMMIT` (`Dockerfile:8-9`).
 - Thư mục dữ liệu được tạo và chuyển quyền cho user `node` trước khi chạy
-  (`Dockerfile:7`), và khai báo là volume (`Dockerfile:8`).
-- Cổng 3000 (`Dockerfile:9`), kiểm tra sức khoẻ mỗi 30 giây gọi `/health`
-  (`Dockerfile:10`), chạy bằng user không phải root (`Dockerfile:11`).
+  (`Dockerfile:10`), và khai báo là volume (`Dockerfile:11`).
+- Cổng 3000 (`Dockerfile:12`), kiểm tra sức khoẻ mỗi 30 giây gọi `/health`
+  (`Dockerfile:13`), chạy bằng user không phải root (`Dockerfile:14`).
+
+Chạy ngoài Docker (máy lập trình, `npm run dev`) thì **phải tự cài `ffmpeg`**
+(`apt install ffmpeg` / `brew install ffmpeg`), nếu không khâu giọng nói sẽ lỗi y hệt.
 
 Hai điểm vận hành phải biết:
 

@@ -17,7 +17,7 @@ Quy ước:
 ## 2026-11-14 — OZV-837: hỏi chiều cao bình ắc quy (mốc 13cm/23cm nhóm 85.07) & tách `packs/hs/nhanh-hoi-hang.js` dưới trần 300 dòng
 
 - **Đau:** trong bộ đề luật `eval/bo-de/phan-loai-tu-luat.json`, ca `85072094` (`918/TB-TCHQ` — `"Bộ pin khô (ắc quy axit chì kín, sealed lead-acid battery) model 6-DZF-12 dùng cho xe đạp điện"`) có đáp án `8507.20.94` (`Chiều cao không bao gồm đầu cực và tay cầm không quá 13 cm`), mã dễ lẫn `85071092` (loại khởi động động cơ piston) và `85072099` (> 23 cm). Khi khách hỏi tự nhiên không qua form có nhãn, cổng thoát sớm `soChiTiet >= 2 || (soTu >= 10 && soChiTiet >= 1)` ở `packs/hs/dien-cho-thieu.js` làm câu hỏi thoát thẳng (`canHoi: false`) dù thiếu chiều cao bình (`co.kichThuoc === false`). Đồng thời `packs/hs/dien-cho-thieu.js` đã chạm 299/300 dòng (Điều VI).
-- **Vá 1 — nhánh hỏi lại ắc quy (`hoiAcQuy` ở `packs/hs/nhanh-hoi-hang.js:68`, gọi tại `packs/hs/dien-cho-thieu.js:154`):** nhận diện `ắc quy`, `ac quy`, `lead-acid`, `pin khô…axit chì` trước cổng thoát sớm `soChiTiet >= 2` (nhưng sau cổng `goi === 1 || FORM_NHAN_RE.test(s)` và `vongHoi >= 2`):
+- **Vá 1 — nhánh hỏi lại ắc quy (`hoiAcQuy` ở `packs/hs/nhanh-hoi-hang.js:71`, gọi tại `packs/hs/dien-cho-thieu.js:164`):** nhận diện `ắc quy`, `ac quy`, `lead-acid`, `pin khô…axit chì` trước cổng thoát sớm `soChiTiet >= 2` (nhưng sau cổng `goi === 1 || FORM_NHAN_RE.test(s)` và `vongHoi >= 2`):
   - Đại lượng 1 (`congDung`): dùng để khởi động động cơ (ô tô, xe máy — `8507.10`) hay dùng cho xe đạp điện / lưu điện UPS / mục đích khác (`8507.20`)? Nhận diện cả `"khởi động"`, `"đề nổ"`, `"xe đạp điện"`, `"xe điện"`, `"lưu điện"`, `"ups"` (có dấu và không dấu) để không hỏi lại điều khách đã nêu.
   - Đại lượng 2 (`kichThuoc`): chiều cao bình (cm, không tính đầu cực và tay cầm — mốc ≤ 13 cm hay trên 13 cm), kèm `kemXuatXu` cho nước nhập.
   - Giả định khi `vongHoi >= 2` hoặc khách nói `"cứ tra đi"`: nêu rõ chiều cao thông dụng không quá 13 cm (không tính đầu cực và tay cầm).
@@ -25,6 +25,35 @@ Quy ước:
 - **Vá 2 — cắt theo ranh trách nhiệm (Điều VI):** tách các nhánh hỏi thuộc tính theo nhóm mặt hàng (`hoiAcQuy`, `hoiDienGiaDung`, `hoiCoKhiVatLieu`, `giaDinhNhomHang`, `kemXuatXu`) sang `packs/hs/nhanh-hoi-hang.js` (178 dòng); `packs/hs/dien-cho-thieu.js` còn 187 dòng (điều phối `kiemTraThongTinPhanLoai` và nhánh xác nhận tên `GOI_Y_GO_NHAM`). Lý do tệp mới ghi tại `specs/001-nen-tang-chung/plan.md`.
 - **Test đỏ trước (`packs/hs/test/dien-cho-thieu.test.mjs`):** thêm 5 bài kiểm `[OZV-837]` (4 ca unit a/b/c/d + 1 ca đường thật `hs.handle`), đỏ trước khi sửa và xanh 13/13 sau khi sửa.
 - **Trang đổi:** `docs/wiki/an-toan.md` (cập nhật số dòng 5 tệp lớp hỏi lại), `docs/wiki/log.md`.
+
+## 2026-11-14 — OZV-830: bài đo nền chết `ENOENT mkdtemp` khi TMPDIR của lượt chạy bị dọn
+
+- **Đau:** lượt đo Cổng thật 13/11 (OZV-608) chạy nền `node scripts/do-dung-hs.mjs`; Paperclip đặt
+  `TMPDIR=/tmp/paperclip-run-<id>` rồi xoá thư mục đó khi lượt chạy kết thúc. Từ ca thứ 13, mỗi ca
+  chết `ENOENT: mkdtemp '/tmp/paperclip-run-…/oz-qa-scenario-XXXXXX'` sau 0,0s — **38/50 ca mất
+  trắng**, cả ngày đo không ra số nào.
+- **Gốc:** `mkdtempSync` KHÔNG tự tạo thư mục cha. `scripts/qa-that.mjs` gọi thẳng
+  `mkdtempSync(join(tmpdir(), 'oz-qa-scenario-'))`, nên `tmpdir()` trỏ vào thư mục đã bị xoá là chết.
+- **Sửa:** thêm `taoThuMucTamQa` (`scripts/qa-that.mjs:391`) — tự `mkdirSync(..., recursive)` thư mục
+  cha, cha vẫn không dựng được thì rơi về `/tmp` bền vững; `runSingleScenario` (`scripts/qa-that.mjs:406`)
+  dùng hàm này. Thà chỗ tạm khác chỗ khai còn hơn mất cả lượt đo.
+- **Khoá:** `test/core/qa-that.test.mjs` thêm ca trỏ `TMPDIR` vào đường dẫn con không tồn tại (khôi
+  phục trong `finally`) rồi chạy `runSingleScenario` chế độ mock — đỏ trước khi sửa, xanh sau.
+- **Trang đổi:** `docs/wiki/kiem-thu.md` (trích dẫn `runSingleScenario` dịch từ dòng 384 → 406), `docs/wiki/log.md`.
+- **Cổng:** `npm test` 1567/1567, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6,
+  `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
+
+## 2026-11-14 — OZV-804: ảnh Docker chưa bao giờ cài `ffmpeg` — bot nói được chữ, không đọc được thành tiếng
+
+- **Câu hỏi của thẻ:** chỉ số thực địa ghi "lỗi theo khâu: **voice 1**" mỗi 24 giờ. Hỏi dứt điểm: lỗi thật, hay **hạn mức bị đếm nhầm thành lỗi**?
+- **Không phải hạn mức.** Chỉ số đó đếm từ bảng `audit` nơi `type='error'` và `data.stage='voice'`; chỗ ghi `stage:'voice'` **duy nhất** là `core/engine-voice.js:49` (trong `catch`). Hạn mức `cap:voice` không đi qua đó: `core/gate-decide.js:114` trả `defer` và `gate.send` trả về bình thường — **không ném**, nên không bao giờ rơi vào `catch` ấy (`core/gate.js:69` chỉ mở phiếu `onTicket`). Vậy **không sửa chỗ đếm, không nới hạn mức**.
+- **Lỗi thật, một câu đời thường:** `core/giong-noi.js:82` gọi `spawn('ffmpeg')` để đổi PCM của Gemini TTS sang AAC, mà ảnh chạy thật (`Dockerfile`, nền `node:22-alpine`) **chưa bao giờ cài `ffmpeg`** → `ENOENT` → mỗi tin thoại ném `ffmpeg lỗi spawn: spawn ffmpeg ENOENT` → audit `error stage=voice`, còn khách chỉ nhận tin chữ. Khớp "1 lỗi/24h" vì 24 giờ đó đúng 1 lượt trả lời cần giọng.
+- **Vì sao sống sót tới thực địa:** mọi test khâu giọng đều tiêm `ffmpegImpl` mock (`test/core/engine-voice.test.mjs:275` ném `'ffmpeg execution failed'`), nên **không ca nào** kiểm môi trường thật. `git log --all -S "ffmpeg" -- Dockerfile` rỗng — chưa lần nào cài.
+- **Sửa:** `Dockerfile:3-5` thêm `RUN apk add --no-cache ffmpeg`, đặt **trước** `COPY` để giữ layer cache. Không sửa `core/giong-noi.js` (tránh chồng dòng với PR #225).
+- **Test đỏ trước** `test/core/ozv-804-voice-ffmpeg.test.mjs` (3 ca): code còn `spawn('ffmpeg')` thì `Dockerfile` **phải** cài ffmpeg; chạy `defaultFfmpeg` với `PATH` rỗng thì lời lỗi phải nhắc `ffmpeg` (để audit đọc ra nguyên nhân); wiki vận hành phải ghi yêu cầu ffmpeg.
+- **Trang đổi:** [Triển khai và vận hành](trien-khai-van-hanh.md) — thêm dòng `ffmpeg` ở bảng "Yêu cầu và cài đặt", mô tả layer ffmpeg ở mục Docker (số dòng `Dockerfile` dịch theo), và cảnh báo chạy ngoài Docker phải tự cài.
+- **Hạn chế còn tồn:** chưa đọc được `bot.db` của máy thật nên **chưa có nguyên văn lỗi** — kết luận suy từ code + `Dockerfile` + `which ffmpeg` rỗng trong ảnh cùng nền. Sửa này chỉ có hiệu lực khi **triển khai lại** (bản đang chạy `a84e8bb` tụt sau `main`).
+- **Cổng:** `npm test` 34 test đạt (fail 0) · `npm run eval` 32/32 kịch bản đạt · `node scripts/kiem-wiki.mjs` wiki ĐẠT (16 trang).
 
 ## 2026-11-14 — OZV-828: mô tả hàng bị cắt sạch sau dấu `;` trước khi lên Cổng
 
