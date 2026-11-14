@@ -21,7 +21,10 @@ const giongNoi = readFileSync(resolve(GOC, 'core/giong-noi.js'), 'utf8');
 
 test('OZV-804: code gọi spawn(ffmpeg) thì ảnh Docker PHẢI cài ffmpeg', () => {
   // Tiền đề: đường sinh giọng vẫn chạy ffmpeg ngoài tiến trình.
-  assert.match(giongNoi, /spawn\(\s*'ffmpeg'/, 'core/giong-noi.js không còn spawn ffmpeg — sửa lại ca này');
+  // OZV-709 (PR #225) tiêm `spawnImpl = spawn` để test hạn giờ thay được spawn, nên
+  // chỗ gọi thật giờ là `spawnImpl('ffmpeg', ...)`. Khớp cả hai tên: ý nghĩa canh cổng
+  // không đổi — còn gọi ffmpeg ngoài tiến trình thì ảnh Docker vẫn phải cài ffmpeg.
+  assert.match(giongNoi, /\bspawn(?:Impl)?\(\s*'ffmpeg'/, 'core/giong-noi.js không còn spawn ffmpeg — sửa lại ca này');
   // Ảnh phải cài: alpine → apk add ffmpeg (không có thì khâu voice lỗi mỗi lần thật).
   const coCai = /apk\s+add[^\n]*\bffmpeg\b/.test(dockerfile) || /apt-get\s+install[^\n]*\bffmpeg\b/.test(dockerfile);
   assert.ok(coCai, 'Dockerfile chưa cài ffmpeg: bot sẽ ném "spawn ffmpeg ENOENT" mỗi lần cần đọc tin thoại');
