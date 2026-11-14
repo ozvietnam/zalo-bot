@@ -14,6 +14,19 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-14 — OZV-803: khách nhận câu "AI bận" — bản ĐANG CHẠY đẻ ra, `main` hôm nay thì không
+
+- **Câu hỏi của thẻ:** 13/11 cả ngày đúng **1 lượt** tra HS và nó hỏng — khách nhận "AI bận hoặc quá thời gian — gọi lại sau ít phút." Hỏi dứt điểm: câu đó sinh ra ở nhánh nào, và `main` hôm nay **còn đẻ ra nó nữa không**.
+- **Câu đó là chữ của CỔNG**, không phải bot bịa: `ketQua.nextAction.reasonVi`, bot in lại ở `packs/hs/render.js:436-437` (và `:253` cho nhánh câu ngắn). Nên không có chỗ nào để "sửa chữ" — phải sửa **hành vi**: thấy verdict RETRY thì gọi lại Cổng.
+- **Nhánh sinh ra nó:** bản đang chạy trên bot thật là `a84e8bb` (#168, PR #200), **tụt 27 commit** sau `origin/main` = `07a00ed`. `git merge-base --is-ancestor` xác nhận **cả hai** bản vá đều KHÔNG có trong `a84e8bb`: `0cf30b1` (OZV-769, #227 — đường chờ-trong-lượt) và `68a1657` (OZV-779, #229 — đường việc nền bền). Gói 1 "Phân loại" đi **đường việc nền bền**, nên đúng mảnh `68a1657` mới là mảnh cứu được lượt 13/11.
+- **`main` hôm nay: HẾT.** Dựng lại bằng engine thật + gói hs thật + Cổng mock (không gọi Cổng thật, chưa có `OZ_MCP_TOKEN`), số đo:
+  - **Ca A** — Cổng RETRY mãi: `6s: hỏi=1, tin=1` → `20s: hỏi=2, tin=1` → `60s: hỏi=3, tin=2`. Lượt hỏi đầu **không** đẩy khách câu "AI bận"; lõi gọi lại 2 lần đúng bảng 20s/60s; cạn lượt mới nói thật và **không bịa mã** (Điều II).
+  - **Ca B** — Cổng hồi phục ở lần gọi lại thứ 2: khách nhận `8413.70.90`, **không tin nào** chứa "AI bận".
+  - **Ca C (đối chứng bản cũ)** — gỡ `laRetry` khỏi gói để dựng lại đúng lớp lỗi của `a84e8bb`: `6s: hỏi=1, tin=2` rồi dừng hẳn; tin cuối là `⚠️ AI bận hoặc quá thời gian…`, **không bao giờ** lấy được mã HS mà Cổng sẵn sàng trả ở lần hỏi sau. Đây đúng là cái khách nhận 13/11.
+- **Lỗ test đã bịt:** test cũ của cả hai mảnh (`test/core/jobs.test.mjs` của OZV-779, `packs/hs/test/hs.test.mjs:296-340` của OZV-769) đều dùng **gói giả** cắm tay `laRetry` — chưa ca nào chạy **gói hs thật** đầu-cuối qua `engine.process()` + `engine.drain()`. Tệp mới `test/core/ozv-803-ai-ban.test.mjs` (3 ca A/B/C) khoá đúng chỗ đó; ca C là đối chứng nên hai ca kia không xanh nhờ may.
+- **Việc còn lại KHÔNG phải sửa mã, mà là TRIỂN KHAI** `07a00ed` lên bot thật. Chừng nào bot còn chạy `a84e8bb` thì khách vẫn nhận câu đó — mọi bản vá nằm trên `main` đều vô hiệu.
+- **Trang đổi:** chỉ `docs/wiki/log.md`. Bảng lỗi ở `docs/wiki/luong-tin-nhan.md` đã có đủ **cả hai** đường RETRY (chờ-trong-lượt ở dòng `packs/hs/jobs.js:32`, việc nền bền ở `core/jobs.js:140`) từ OZV-779 — không có hành vi mới để ghi thêm.
+
 ## 2026-11-14 — OZV-802 + OZV-814: hỏi nước nhập ngay trong lượt hỏi lại, nhưng KHÔNG được tự dựng lượt hỏi mới
 
 - **Vì sao (OZV-802, mục 3 còn lại của #177):** `xuatXuCua()` (`packs/hs/input.js:559`) không tìm thấy nước nào trong chữ khách thì trả `{ ma: 'CN', giaDinh: true }`, `packs/hs/giong-quyen.js:100` có chú thích "giả định" — nhưng khách **chưa bao giờ được hỏi**, nên mức thuế in ra là thuế của một nước khách không nói (Điều III, Điều VIII). Nay thêm đúng **một mục** xin nước nhập vào câu `cauXinThem` **sẵn có** của từng nhánh hỏi lại: vẫn tối đa 3 câu (`TRAN_CAU`), vẫn **một** tin.
