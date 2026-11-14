@@ -8,7 +8,10 @@ import { join } from 'node:path';
 import { openStore } from '../../core/store.js';
 import { createGate } from '../../core/gate.js';
 import { createRegistry } from '../../core/registry.js';
-import { createJobs, FIRST_POLL_MS, MAX_POLL_MS, JOB_TTL_MS } from '../../core/jobs.js';
+import { createJobs, FIRST_POLL_MS, MAX_POLL_MS, JOB_TTL_MS, RETRY_TOI_DA } from '../../core/jobs.js';
+// laRetry + RETRY_CHO_MS là CỦA GÓI (packs/hs/jobs.js:29-35, OZV-769). Test dùng đúng chúng để chốt:
+// lõi không được có bộ đọc verdict thứ hai, nó chỉ gọi `pack.laRetry` (OZV-779).
+import { laRetry, RETRY_CHO_MS } from '../../packs/hs/jobs.js';
 import { fakeChannel, fakeClock, fakeMcp } from '../helpers/fakes.mjs';
 
 const START = '2026-11-04T03:00:00.000Z';   // 10:00 giờ VN
@@ -94,6 +97,90 @@ test('hỏi lại theo nhịp 6 s, 12 s, 24 s, 48 s rồi chặn ở 60 s', asyn
   }
   assert.equal(Date.parse(DONG(store).next_poll_at) - clock.now().getTime(), MAX_POLL_MS);
   assert.equal(MAX_POLL_MS, 60_000);
+});
+
+// OZV-779 (issue #177): PR #227 chỉ vá đường CHỜ TRONG LƯỢT (packs/hs/jobs.js waitJob). Gói 1 và gói 4 —
+// hai gói khách dùng nhiều nhất — đi đường việc nền bền: batDau → toJob → core/jobs.js tick() → onJobResult.
+// Trên đường đó verdict RETRY của Cổng trước đây rơi thẳng vào onJobResult ngay lượt hỏi đầu, nên khách
+// nhận "AI bận hoặc quá thời gian" mà bot KHÔNG hề gọi lại. Hai ca dưới chốt đường thật đó.
+const retryVerdict = { trangThai: 'XONG', ketQua: { nextAction: { type: 'RETRY', reasonCode: 'ENGINE_TIMEOUT' } } };
+
+test('OZV-779: Cổng trả RETRY 2 lần rồi kết quả thật → lõi gọi lại, khách nhận mã HS (đếm được 3 lần gọi Cổng)', async () => {
+  const ML = 'L-retry';
+  const goi = [];
+  const { store, clock, channel, jobs } = setup({
+    pack: jobPack({ laRetry }),   // gói đưa bộ đọc verdict của mình cho lõi (không để lõi tự đọc)
+    script: { kq: () => { goi.push(clock.now().getTime()); return goi.length <= 2 ? retryVerdict : { trangThai: 'XONG', hs: '84137090' }; } },
+  });
+  const t0 = clock.now().getTime();
+  jobs.add(turnOf(), 'c1', 'jp', { maLuot: ML, resultTool: 'kq' });
+
+  clock.advance('6s');
+  assert.equal(await jobs.tick(), 1);
+  assert.deepEqual([goi.length, channel.sent.length], [1, 0], 'RETRY lần 1: chưa trả lời khách, hẹn gọi lại');
+  assert.equal(DONG(store).status, 'waiting', 'việc còn nợ, không đóng');
+
+  // Giãn cách gọi lại lấy từ GÓI (RETRY_CHO_MS = 20 s, 60 s), không phải nhịp DANG_XU_LY 6/12/24 s.
+  assert.equal(Date.parse(DONG(store).next_poll_at) - clock.now().getTime(), RETRY_CHO_MS[0]);
+  clock.set(DONG(store).next_poll_at);
+  assert.equal(await jobs.tick(), 1);
+  assert.deepEqual([goi.length, channel.sent.length], [2, 0], 'RETRY lần 2: vẫn gọi lại');
+  assert.equal(Date.parse(DONG(store).next_poll_at) - clock.now().getTime(), RETRY_CHO_MS[1]);
+
+  clock.set(DONG(store).next_poll_at);
+  assert.equal(await jobs.tick(), 1);
+  assert.equal(goi.length, 3, 'đếm được đúng 3 lần callTool(result_tool)');
+  assert.deepEqual(sentTo(channel), [`Xong ${ML} 84137090`], 'khách nhận mã HS, không phải câu "AI bận"');
+  assert.ok(store.outbox.hasIdem(`j:c1:${ML}`));
+  assert.equal(store.jobs.nextDue(), null);
+  // Nhịp DANG_XU_LY không bị RETRY làm hỏng: attempts vẫn đếm riêng (xem ca "hỏi lại theo nhịp").
+  assert.ok(goi[2] - t0 <= 2 * 60_000, 'cả chuỗi gọi lại nằm gọn trong vài phút, không chạm TTL 30 phút');
+});
+
+test('OZV-779: Cổng RETRY mãi → chỉ gọi lại tối đa RETRY_TOI_DA lần rồi trả đúng verdict, không bịa mã HS', async () => {
+  const ML = 'L-retry-mai';
+  let goi = 0;
+  const ghi = [];
+  const { store, clock, channel, jobs } = setup({
+    pack: jobPack({
+      laRetry,
+      // Gói tự soạn câu trung thực cho verdict RETRY (Điều II: lõi không soạn chữ, gói không bịa mã).
+      async onJobResult(job, res) {
+        const t = laRetry(res)
+          ? `AI bận hoặc quá thời gian. Mã lượt: ${job.maLuot} — hỏi lại sau bằng cách gõ: kết quả ${job.maLuot}`
+          : `Xong ${job.maLuot} ${res?.hs}`;
+        ghi.push(t);
+        return { replies: [{ text: t }], evidence: res ? [res] : [] };
+      },
+    }),
+    script: { kq: () => { goi++; return retryVerdict; } },
+  });
+  jobs.add(turnOf(), 'c1', 'jp', { maLuot: ML, resultTool: 'kq' });
+
+  clock.advance('6s');
+  await jobs.tick();
+  for (let i = 0; i < RETRY_TOI_DA + 2 && DONG(store); i++) {
+    clock.set(DONG(store).next_poll_at);
+    await jobs.tick();
+  }
+
+  assert.equal(goi, RETRY_TOI_DA + 1, `1 lần hỏi đầu + đúng ${RETRY_TOI_DA} lần gọi lại, không gọi vô hạn`);
+  assert.equal(channel.sent.length, 1, 'khách nhận đúng MỘT tin');
+  const tin = sentTo(channel)[0];
+  assert.doesNotMatch(tin, /\d{4}\.\d{2}\.\d{2}/, 'không có mã HS bịa ra khi Cổng chưa trả mã');
+  assert.match(tin, new RegExp(`kết quả ${ML}`), 'vẫn còn mã lượt để khách tự hỏi lại');
+  assert.equal(store.jobs.nextDue(), null, 'việc đã đóng, không treo nợ');
+});
+
+test('OZV-779: gói KHÔNG có laRetry (gói khác hs) → lõi giữ nguyên nếp cũ, trả verdict ngay lượt đầu', async () => {
+  // Lõi chỉ gọi `pack.laRetry?.(...)`; gói nào không khai thì không có gọi lại — không lõi nào tự đọc nextAction.
+  let goi = 0;
+  const { clock, channel, jobs } = setup({ script: { kq: () => { goi++; return retryVerdict; } } });
+  jobs.add(turnOf(), 'c1', 'jp', { maLuot: 'L-khong-khai', resultTool: 'kq' });
+  clock.advance('6s');
+  await jobs.tick();
+  assert.equal(goi, 1);
+  assert.equal(channel.sent.length, 1, 'gói không khai laRetry thì kết quả đi thẳng tới khách như trước');
 });
 
 test('quá 30 phút → expired, khách nhận câu "gõ: kết quả <maLuot>", không hỏi Cổng nữa', async () => {

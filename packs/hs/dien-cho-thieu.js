@@ -16,6 +16,21 @@ import { xuLyTraLoiHoiLai } from './doc-tra-loi.js';
 // Xuất lại ở đây để `packages.js`, `loc-tap-am.js` và các test cũ không phải đổi đường dẫn nhập.
 export { coThongSo, nhanDienCuTraDi, xuLyTraLoiHoiLai };
 
+// Mục xin NƯỚC NHẬP, gộp vào chính câu `cauXinThem` sẵn có của nhánh (OZV-802, mục 3 của #177).
+// Khách đã nêu nước thì `co.xuatXu` bật và `cauXinThem` tự rút mục này ra (luật 2 của kỷ luật hỏi).
+const XUAT_XU = { khoa: 'xuatXu', chu: 'nước nhập (xuất xứ)' };
+
+// Nước nhập chỉ ĐI KÈM câu xin-thêm đã có — tức còn ít nhất một mục khác khách chưa nêu. Mọi mục
+// khác đã đủ thì BỎ nước, đi tra luôn: nó KHÔNG BAO GIỜ tự dựng ra câu hỏi hay lượt hỏi mới.
+// Vì sao (OZV-814, hai ca đỏ của OZV-802): `canHoi` không suy từ `thieu`, nó bật ngay khi `cauHoi`
+// không rỗng (`ky-luat-hoi.js:212`). Nước tự dựng được một câu thì hồ sơ ĐÃ đủ dữ kiện ("máy bơm
+// 1.5HP 220V gia đình") vẫn còn câu treo ⇒ `canHoi: true` ⇒ `packages.js:217` không gọi Cổng ⇒
+// KHÁCH TREO giữa hai vòng hỏi, không tới được mã (Điều II — nặng hơn chính mục 3 của #177 mà
+// việc này phục vụ). Khách vẫn được mời cho biết nước, ở tin KẾT QUẢ (`giong-quyen.js:100`).
+function kemXuatXu(muc, co) {
+  return muc.some((m) => !co[m.khoa]) ? [...muc, XUAT_XU] : muc;
+}
+
 // Nhận diện lỗi gõ nhầm thường gặp
 const GOI_Y_GO_NHAM = [
   {
@@ -126,6 +141,13 @@ export function kiemTraThongTinPhanLoai(text, {
       const thieu = [];
       if (!co.congSuat) thieu.push('congSuat');
       if (!co.dienAp) thieu.push('dienAp');
+      // `xuatXu` CỐ Ý không vào `thieu` ở nhánh này: `thieu` của nhánh XÁC NHẬN TÊN là danh sách
+      // "còn thiếu thì mới hỏi tiếp", chỗ gọi đọc nó để biết đã đủ dữ kiện đi tra chưa. Nhét nước
+      // vào đây thì mạch không bao giờ "đủ" (khách có thể không bao giờ nói nước) nên lượt sau
+      // không gọi Cổng nữa — khách treo luôn, không tới được mã (`xac-nhan-ten.test.mjs`, Điều II).
+      // Câu hỏi nước vẫn ra khi câu xin-thêm còn sống: xem `kemXuatXu` ngay dưới (OZV-802/814).
+      const mucThem = kemXuatXu(
+        [{ khoa: 'congSuat', chu: 'công suất (W)' }, { khoa: 'dienAp', chu: 'điện áp' }], co);
 
       // Câu xác nhận tên món LUÔN hỏi (không phải đại lượng, máy không tự đoán thay khách được:
       // "sấy" ↔ "xay" đổi hẳn dòng thuế). Câu xin thông số chỉ nêu phần CÒN THIẾU.
@@ -152,8 +174,8 @@ export function kiemTraThongTinPhanLoai(text, {
           { cau: xacNhanTen
             ? `Dạ anh/chị ơi, em hiểu là {b}${item.chuan}{/b}${item.moRong ? ` (${item.moRong})` : ''} đúng không ạ?`
             : '', dai: [] },
-          { cau: cauXinThem([{ khoa: 'congSuat', chu: 'công suất (W)' }, { khoa: 'dienAp', chu: 'điện áp' }], co,
-            'có thì em chốt mã chuẩn hơn, mô tả khai báo cũng đủ ý luôn ạ.'), dai: ['congSuat', 'dienAp'] },
+          { cau: cauXinThem(mucThem, co, 'có thì em chốt mã chuẩn hơn, mô tả khai báo cũng đủ ý luôn ạ.'),
+            dai: mucThem.map((m) => m.khoa) },
         ], co),
         // `item.giaDinh` MANG tên bot đoán. Khách tự gõ tên KHÁC mà chưa xác nhận thì giả định phải
         // dựng từ TÊN KHÁCH: khách buông "cứ tra đi" là bot tra ngay theo giả định, nên để nguyên
@@ -210,6 +232,7 @@ export function kiemTraThongTinPhanLoai(text, {
       muc = [{ khoa: 'congSuat', chu: 'công suất (W)' }, { khoa: 'dienAp', chu: 'điện áp' }];
       giaDinh = `${sSach} loại thông dụng trong gia đình, điện áp 220V`;
     }
+    muc = kemXuatXu(muc, coNay);
 
     return ketQuaHoi({
       s,
@@ -256,6 +279,7 @@ export function kiemTraThongTinPhanLoai(text, {
       noi = ' hoặc ';
       giaDinh = `${sSach} chất liệu thông dụng trong công nghiệp`;
     }
+    muc = kemXuatXu(muc, co);
 
     return ketQuaHoi({
       s,

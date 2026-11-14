@@ -135,12 +135,12 @@ Repo hoàn toàn không lưu trữ tệp dữ liệu biểu thuế hay mã HS c�
 
 - Khai báo phiên bản Node: `package.json:8` (`>=22.13`).
 - Không có `dependencies` trong `package.json`: toàn bộ hệ thống sử dụng thư viện chuẩn của Node.js (bao gồm `node:sqlite` mở ở `core/store.js:9`).
-- Giới hạn độ dài tệp: các tệp trong `core/` phần lớn dưới 300 dòng (ví dụ `core/gate.js`: 232 dòng, `core/handoff.js`: 297 dòng, `core/sanitizer.js`: 218 dòng, `core/sdt.js`: 178 dòng); ngoại lệ đang mở được ghi ở mục "Điểm cần lưu ý" bên dưới.
+- Giới hạn độ dài tệp: các tệp trong `core/` phần lớn dưới 300 dòng (ví dụ `core/gate.js`: 232 dòng, `core/handoff.js`: 297 dòng, `core/sanitizer.js`: 234 dòng, `core/sdt.js`: 178 dòng); ngoại lệ đang mở được ghi ở mục "Điểm cần lưu ý" bên dưới.
 - CLI tra cứu audit cũng dưới 300 dòng: `scripts/audit.mjs` (249 dòng).
 - CI chạy test và eval trên Node 22: `.github/workflows/ci.yml:17` và `.github/workflows/ci.yml:18`.
 
 **Điểm cần lưu ý.**
-Hiện tại có bốn tệp vượt quá 300 dòng: `packs/hs/packages.js` (681 dòng), `packs/hs/render.js` (471 dòng), `core/engine.js` (341 dòng) và `packs/hs/input.js` (586 dòng) — đo bằng `wc -l` ngày 2026-11-13 (giờ VN) trên nhánh OZV-535 (vá ba nhóm lỗi đọc nhầm mã nước + vòng soát 3), sau khi gộp main `5b441c8` (PR #219).
+Hiện tại có bốn tệp vượt quá 300 dòng: `packs/hs/packages.js` (703 dòng), `packs/hs/render.js` (471 dòng), `core/engine.js` (341 dòng) và `packs/hs/input.js` (586 dòng) — đo bằng `wc -l` ngày 2026-11-13 (giờ VN) trên nhánh OZV-535 (vá ba nhóm lỗi đọc nhầm mã nước + vòng soát 3), sau khi gộp main `5b441c8` (PR #219).
 
 `packs/hs/dien-cho-thieu.js` hai lần chạm trần rồi được cắt theo đúng ranh trách nhiệm, nên không thành tệp vượt mốc thứ tư:
 
@@ -149,10 +149,10 @@ Hiện tại có bốn tệp vượt quá 300 dòng: `packs/hs/packages.js` (681
 
 Vòng soát 5 của PR 213 cắt tiếp theo cùng ranh đó, vì bản vá hai điểm người soát chặn (khách sửa tên lần thứ hai; khách HỎI LẠI thì câu hỏi bị gửi đi làm tên hàng) đẩy `packs/hs/ky-luat-hoi.js` lên 367 dòng:
 
-- nhận diện câu khách HỎI LẠI (`laCauHoiKhach`, `bocCumHoi`, `laHoiThuocTinh`) sang tệp mới `packs/hs/cau-hoi-khach.js` (85 dòng);
+- nhận diện câu khách HỎI LẠI (`laCauHoiKhach`, `bocCumHoi`, `laHoiThuocTinh`) sang tệp mới `packs/hs/cau-hoi-khach.js` (120 dòng);
 - các hàm ĐỌC câu trả lời (`docTraLoiTen`, `bocXaGiao`, `laXacNhan`, `bocDemDau`) và các mẫu chữ của chúng về `packs/hs/doc-tra-loi.js` — chúng là phần ĐỌC, không phải phần ĐO.
 
-Nay cả bốn tệp của lớp hỏi lại đều dưới trần: `packs/hs/dien-cho-thieu.js` (275 dòng), `packs/hs/doc-tra-loi.js` (224 dòng), `packs/hs/ky-luat-hoi.js` (208 dòng), `packs/hs/cau-hoi-khach.js` (85 dòng) — đo bằng `wc -l` ngày 2026-11-12 trên nhánh PR 213 (vòng soát 5). Các hàm đã chuyển vẫn được tệp cũ XUẤT LẠI để `packs/hs/packages.js`, `packs/hs/loc-tap-am.js` và các test cũ không phải đổi đường dẫn nhập.
+Nay cả bốn tệp của lớp hỏi lại đều dưới trần: `packs/hs/dien-cho-thieu.js` (299 dòng), `packs/hs/doc-tra-loi.js` (224 dòng), `packs/hs/ky-luat-hoi.js` (216 dòng), `packs/hs/cau-hoi-khach.js` (120 dòng) — đo bằng `wc -l` ngày 2026-11-12 trên nhánh PR 213 (vòng soát 5), ba tệp `packs/hs/dien-cho-thieu.js`, `packs/hs/ky-luat-hoi.js`, `packs/hs/cau-hoi-khach.js` đo lại 2026-11-14 sau OZV-799 và OZV-802/814 (thêm `congSuat`/`dienAp`/`xuatXu` vào `DAI_THUOC_TINH`, thêm mục hỏi nước nhập `kemXuatXu`, đều kèm phần chú thích lý do). `packs/hs/dien-cho-thieu.js` ở 299 dòng là SÁT TRẦN: việc sau chạm vào tệp này phải cắt theo ranh trách nhiệm, không được nhét thêm. Các hàm đã chuyển vẫn được tệp cũ XUẤT LẠI để `packs/hs/packages.js`, `packs/hs/loc-tap-am.js` và các test cũ không phải đổi đường dẫn nhập.
 
 ---
 
@@ -281,7 +281,7 @@ Cơ chế hộp thư riêng cho bản tin giám sát (`scripts/giam-sat/digest.j
 ## Điểm cần lưu ý / Rủi ro đang mở
 
 1. **Cờ kiểm số tiền chưa bật trong gói hải quan**: `moneyCheck: false` tại `packs/hs/index.js:24`. Luật ở lớp cửa `core/gate-decide.js:140` và não biên tập `packs/hs/editor.js:45` đã sẵn sàng, sẽ bật khi biểu thuế có schema chặt chẽ.
-2. **Bốn tệp vượt 300 dòng**: `packs/hs/packages.js` (681 dòng), `packs/hs/render.js` (471 dòng), `core/engine.js` (341 dòng) và `packs/hs/input.js` (586 dòng) cần được chia nhỏ theo Điều VI trong các spec nghiệp vụ kế tiếp.
+2. **Bốn tệp vượt 300 dòng**: `packs/hs/packages.js` (703 dòng), `packs/hs/render.js` (471 dòng), `core/engine.js` (341 dòng) và `packs/hs/input.js` (586 dòng) cần được chia nhỏ theo Điều VI trong các spec nghiệp vụ kế tiếp.
 3. **Nghiệm thu thực địa 7 ngày**: Tiêu chí SC-002 (bot im trong phòng human) và SC-007 (mọi tin ra có `turn_id` trong audit) đã đạt 100% trong lab và chờ đo 7 ngày thực tế bằng lệnh `npm run do-sc` khi bot mở lại cho khách thật.
 
 ---

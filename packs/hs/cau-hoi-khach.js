@@ -63,7 +63,38 @@ export function bocCumHoi(s) {
 
 // Các đại lượng là THUỘC TÍNH của mặt hàng (không phải tên món). Nhánh nào đang hỏi một trong
 // những thứ này thì câu đáp của khách là thuộc tính của ĐÚNG món đó.
-const DAI_THUOC_TINH = ['chatLieu', 'quyCach', 'congDung', 'kichThuoc', 'dungTich'];
+//
+// XUẤT RA để nhánh hỏi lại tự khai cờ `hoiThuocTinh` theo ĐÚNG danh sách này (`so-tay-hoi.js`).
+// CHÉP LẠI DANH SÁCH NÀY SANG TỆP KHÁC CHÍNH LÀ CÁCH SINH RA HỒI QUY OZV-782: nơi dựng cờ dùng một
+// bộ chữ, nơi đọc cờ dùng một bộ chữ khác, không ai thấy cho tới khi tên hàng rụng khỏi tin gửi
+// Cổng — mà mã HS + thuế in ra vẫn trông như thật nên khách không có cách nào biết (Điều III, VIII).
+// Cần thêm/bớt thì sửa ĐÚNG mảng này; nơi khác nhập nó về, không gõ lại.
+//
+// `congSuat` + `dienAp` vào danh sách ở OZV-799: Cổng hỏi `cong_suat` / `dien_ap` / `power` /
+// `voltage` thì đó là xin THÔNG SỐ của đúng món khách đang tra, không phải hỏi "hàng tên gì".
+// Thiếu hai khoá này mà chúng lại CÓ trong bảng `KHOA` (`so-tay-hoi.js:32-41`) nên `m.dai` không
+// rỗng ⇒ mặc định an toàn của OZV-791 không che tới ⇒ cờ `false` tường minh ⇒ `doc-tra-loi.js` đọc
+// "bằng inox" thành TÊN MÓN MỚI, "van bi" rụng hẳn. Đó là lần thứ TƯ của cùng lớp lỗi
+// (#213 → OZV-782 → OZV-791 → OZV-799). Rà cả `KHOA`: mọi mục quy về đúng tám đại lượng dưới đây
+// (chatLieu, quyCach, congDung, kichThuoc, dungTich, congSuat, dienAp, xuatXu) — danh sách này phủ
+// cả tám, không còn mục nào ngoài.
+//
+// `xuatXu` vào danh sách ở OZV-802 (mục 3 của #177): khi bot hỏi nước nhập, câu đáp "hàng Nhật" /
+// "Trung Quốc" là THUỘC TÍNH của đúng món khách đang tra, KHÔNG BAO GIỜ là tên món mới — không ai
+// đi tra mã HS cho mặt hàng tên "Nhật Bản". Thiếu dòng này thì khách đáp nước là tên hàng rụng
+// khỏi tin gửi Cổng, lần thứ NĂM của cùng lớp lỗi.
+export const DAI_THUOC_TINH = [
+  'chatLieu', 'quyCach', 'congDung', 'kichThuoc', 'dungTich', 'congSuat', 'dienAp', 'xuatXu',
+];
+
+// THÔNG SỐ: vừa là thuộc tính (khi Cổng hỏi thẳng chúng), vừa là thứ nhánh HỎI TÊN xin kèm.
+// `dien-cho-thieu.js` hỏi "hàng này tên gì" luôn kèm `thieu: ['congSuat','dienAp']`, nên chỉ riêng
+// `thieu` KHÔNG phân biệt được hai nhánh — nhánh thật đã khai cờ `hoiThuocTinh` tường minh rồi.
+const DAI_THONG_SO = ['congSuat', 'dienAp'];
+
+// Danh sách cho phép SUY từ `thieu` (phiên cũ, không có cờ): hẹp hơn, bỏ phần thông số.
+// Dẫn xuất từ `DAI_THUOC_TINH` chứ không gõ lại — thêm đại lượng mới vào trên là tự có ở đây.
+const DAI_SUY_TU_THIEU = DAI_THUOC_TINH.filter((k) => !DAI_THONG_SO.includes(k));
 
 /**
  * Câu bot đang treo là câu hỏi THUỘC TÍNH (chất liệu/quy cách/công dụng/kích thước) chứ không
@@ -75,11 +106,15 @@ const DAI_THUOC_TINH = ['chatLieu', 'quyCach', 'congDung', 'kichThuoc', 'dungTic
  * hỏi xác nhận) nên lần sửa tên thứ HAI rơi lại đúng nhánh nối hai tên (vòng soát 5 của PR #213).
  * Cờ `hoiThuocTinh` do chính NHÁNH khai lúc dựng câu hỏi, không suy từ trạng thái vòng hỏi.
  *
- * Phiên cũ (và các test gọi hàm trực tiếp) không có cờ này thì suy từ `thieu`: nhánh hỏi tên chỉ
- * thiếu THÔNG SỐ (công suất/điện áp), nhánh thuộc tính thiếu chất liệu/quy cách/công dụng.
+ * Phiên cũ (và các test gọi hàm trực tiếp) không có cờ này thì suy từ `thieu`, và phép suy đó đọc
+ * `DAI_SUY_TU_THIEU` chứ không đọc cả `DAI_THUOC_TINH`: nhánh hỏi TÊN cũng xin kèm công suất/điện
+ * áp (`dien-cho-thieu.js`), nên thấy `thieu: ['congSuat','dienAp']` trơ thì KHÔNG kết luận được là
+ * câu hỏi thuộc tính — đoán bừa về phía thuộc tính là nối hai tên hàng lại ("máy sấy thực phẩm máy
+ * sấy công nghiệp", ca `[#213-13]`). Nhánh nào hỏi THẲNG công suất/điện áp thì đã khai cờ tường
+ * minh qua `DAI_THUOC_TINH` ở `so-tay-hoi.js`, không phải nhờ tới phép suy này.
  */
 export function laHoiThuocTinh(phien = {}) {
   if (typeof phien.hoiThuocTinh === 'boolean') return phien.hoiThuocTinh;
   const thieu = Array.isArray(phien.thieu) ? phien.thieu : [];
-  return thieu.some((k) => DAI_THUOC_TINH.includes(k));
+  return thieu.some((k) => DAI_SUY_TU_THIEU.includes(k));
 }

@@ -242,3 +242,55 @@ test('T502: typing nuốt lỗi an toàn không ném ra ngoài', async () => {
   await assert.doesNotReject(() => ch.typing('123'));
   await assert.doesNotReject(() => ch.typing(null));
 });
+
+// ──────────────────────────────────────────────────────────────────────────────
+// OZV-763: hạn giờ cho chỗ gửi tin (xem ghi chú dài ở test/core/channel-messenger.test.mjs).
+// Riêng kênh này try/catch cũ chỉ bọc lại lỗi rồi throw — nó KHÔNG chặn treo.
+
+async function giuVongLap(fn) {
+  const neo = setInterval(() => {}, 20);
+  try { return await fn(); } finally { clearInterval(neo); }
+}
+
+function fetchTreo() {
+  const calls = [];
+  const fetchImpl = (url, init = {}) => {
+    calls.push({ url, init });
+    return new Promise((_resolve, reject) => {
+      const signal = init.signal;
+      if (!signal) return;
+      if (signal.aborted) return reject(signal.reason ?? new Error('aborted'));
+      signal.addEventListener('abort', () => reject(signal.reason ?? new Error('aborted')), { once: true });
+    });
+  };
+  return { calls, fetchImpl };
+}
+
+test('OZV-763: Zalo OA sendText có hạn giờ — fetch treo thì bật ra, không chờ mãi', async () => {
+  const { calls, fetchImpl } = fetchTreo();
+  const ch = createChannel({ oaToken: 'oa-tok', oaSecret: 'sec', fetchImpl, sendTimeoutMs: 120 });
+
+  const t0 = Date.now();
+  const err = await giuVongLap(async () => {
+    try {
+      await ch.sendText('123456', 'alo');
+      return null;
+    } catch (e) {
+      return e;
+    }
+  });
+  const dt = Date.now() - t0;
+
+  assert.ok(err, 'fetch treo thì sendText phải ném lỗi');
+  assert.ok(dt < 3000, `phải bỏ cuộc sớm, thực tế ${dt} ms`);
+  assert.equal(err.tamThoi, true, 'lỗi quá hạn giờ là lỗi TẠM');
+  assert.equal(err.message.includes('oa-tok'), false, 'không lộ token (Điều IX)');
+  assert.equal(calls[0].init.signal instanceof AbortSignal, true, 'phải truyền signal cho fetch');
+});
+
+test('OZV-763: Zalo OA mặc định vẫn có signal hạn giờ', async () => {
+  const { calls, fetchImpl } = fetchTreo();
+  createChannel({ oaToken: 'oa-tok', fetchImpl }).sendText('1', 'x').catch(() => {});
+  await new Promise((r) => setImmediate(r));
+  assert.ok(calls[0]?.init?.signal, 'mặc định cũng phải có signal');
+});

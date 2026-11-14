@@ -18,7 +18,7 @@ Lõi không biết gói làm gì. Lõi chỉ lọc gói theo đối tượng ng�
 
 | Số | Gói | Id | Công cụ Cổng OZ (tên hàm thật) | Khách gửi | Đặc biệt |
 |---|---|---|---|---|---|
-| 1 | 🔎 Phân loại mã HS | `phan-loai` | `phan_loai_hs`, `bo_sung_du_kien` | tên hàng, chất liệu, công dụng, thông số | Chạy nền, bot không chờ (`packs/hs/packages.js:179`). Thiếu dữ kiện thì bot hỏi lại khách (`packs/hs/packages.js:215`) |
+| 1 | 🔎 Phân loại mã HS | `phan-loai` | `phan_loai_hs`, `bo_sung_du_kien`, `so_tay_questions` (gọi thêm, miễn phí) | tên hàng, chất liệu, công dụng, thông số | Chạy nền, bot không chờ (`packs/hs/packages.js:179`). Thiếu dữ kiện thì bot hỏi lại khách (`packs/hs/packages.js:215`) |
 | 2 | 💰 Thuế & thủ tục nhập khẩu | `thue-thu-tuc` | `tra_thue`, `tra_thu_tuc_nhap_khau`, `tim_ma_hs` | mã HS, thêm nước xuất xứ | Gõ tên hàng thì dùng `tim_ma_hs` để tìm mã trước (`packs/hs/packages.js:262`) |
 | 3 | 📝 Viết mô tả khai báo | `mo-ta` | `sinh_mo_ta_khai_bao` | mã HS, tên hàng, thương hiệu, model | Dùng lại mã vừa phân loại |
 | 4 | ✅ Kiểm tra mô tả / tờ khai | `kiem-tra` | `soat_to_khai`, `kiem_ma_to_khai` | mã HS, mô tả, xuất xứ | "Kiểm sâu" thì chuyển sang `kiem_ma_to_khai` và chạy nền (`packs/hs/packages.js:319`) |
@@ -30,6 +30,29 @@ Hai cột khác nhau, đừng lẫn:
 
 - **Công cụ bắt buộc** — trường `congCu` trong từng gói (`packs/hs/packages.js:146`). Thiếu công cụ này thì gói không hiện với khách.
 - **Công cụ gọi thêm khi chạy** — code gọi có điều kiện qua hàm `has(ctx, ...)`. Cổng không có thì bỏ mục đó, bot vẫn trả lời được.
+
+### Câu hỏi lại lấy từ nguồn chung, không tự dựng (issue #177 mục 1)
+
+Khi gói 1 thiếu dữ kiện, câu hỏi cho khách đi theo **thứ tự ưu tiên** ở `packs/hs/so-tay-hoi.js` (`hoiLaiUuTien`):
+
+1. `so_tay_questions` của Cổng — công cụ **MIEN_PHI** (0 điểm), chỉ gọi khi đã có mã ứng viên **≥6 chữ số** (mã 4 số chỉ cho câu chung), hạn giờ riêng 6 giây.
+2. Regex cũ ở `packs/hs/dien-cho-thieu.js` — **dự phòng**: Cổng lỗi / hết giờ / trả rỗng thì rơi về đây, bot vẫn hỏi, không im lặng và không bịa câu (Điều II, III).
+
+Cả hai nguồn đều qua `gomCau` của `packs/hs/ky-luat-hoi.js` → tối đa 3 câu trong MỘT tin, và bỏ câu hỏi về điều khách đã nêu (khoá đã trả lời được đẩy vào `facts` để Cổng không hỏi lại).
+
+Nhánh thứ ba cũ (`cauHoiTuHoSo` đọc `hoSo.ketLuan.cauHoi`, mục 6 của #177) **đã xoá ở OZV-782**: `hoSoRong()` (`packs/hs/ho-so.js:32`) không có khoá `ketLuan` cũng không có `maHs` và không chỗ nào trong repo ghi hai khoá đó vào hồ sơ, nên nhánh này chưa từng chạy. Câu hỏi thật của Cổng tới khách bằng đường khác và đang chạy đúng: `packs/hs/render.js:412` + `:432` đọc `top.hoi` / `kq.nextAction.questions` khi trạng thái là `CAN_DU_KIEN`/`NEED_FACTS`.
+
+**Cờ `hoiThuocTinh`** do chính nhánh hỏi khai, suy từ **đại lượng** câu đang hỏi (`m.dai` ∩ `DAI_THUOC_TINH` của `packs/hs/cau-hoi-khach.js`), **không** suy từ `loai` của Cổng: `loai` chỉ nhận `DONG_BIEU` | `CONG` | `TT39` — nó nói câu này để chọn dòng biểu / công / Thông tư 39, không nói câu hỏi thuộc tính hay hỏi tên. So `loai === 'thuoc_tinh'` (PR #228) là so với một chữ chỉ có trong fixture test ⇒ trên đường thật cờ luôn `false` ⇒ `packs/hs/doc-tra-loi.js` đọc câu đáp chất liệu thành TÊN MÓN MỚI và tên hàng khách đã gõ rụng khỏi tin gửi Cổng (hồi quy OZV-782, cùng lớp với PR #213).
+
+Phiên cũ không có cờ thì `laHoiThuocTinh` suy từ `thieu`, và phép suy đó đọc **`DAI_SUY_TU_THIEU`** — hẹp hơn `DAI_THUOC_TINH` đúng phần thông số (`congSuat`, `dienAp`), dẫn xuất ngay trong `packs/hs/cau-hoi-khach.js` chứ không gõ lại. Lý do phải hẹp: nhánh **hỏi TÊN** ở `packs/hs/dien-cho-thieu.js` cũng xin kèm công suất/điện áp, nên `thieu: ['congSuat','dienAp']` trơ **không** phân biệt được hai nhánh; đoán bừa về phía thuộc tính là nối hai tên hàng lại ("máy sấy thực phẩm máy sấy công nghiệp", ca `[#213-13]`). Nhánh hỏi THẲNG công suất/điện áp đã khai cờ tường minh rồi, không nhờ tới phép suy này.
+
+**Khoá Cổng lạ ⇒ tính là thuộc tính (OZV-791).** Bảng `KHOA` trong `packs/hs/so-tay-hoi.js` là danh sách gõ tay ~25 khoá; Cổng thêm một khoá câu hỏi mới (ví dụ `mau_sac_vo`) là việc bình thường và không ai báo repo này. Khoá lạ ⇒ `m.dai` **rỗng**, tức ta **không biết** câu đó hỏi gì — và "không biết" không được kết luận thành "đây là câu hỏi TÊN món", vì cờ `false` tường minh làm `laHoiThuocTinh` tin ngay rồi tên hàng rụng y như OZV-782. Nên `m.dai` rỗng tính là **thuộc tính**: Cổng chỉ hỏi khi đã có mã ứng viên ≥6 số, nghĩa là nó đang xin thêm dữ kiện của **đúng món đó**; nhánh hỏi và xác nhận TÊN nằm ở `packs/hs/dien-cho-thieu.js`, không qua tệp này. Sai về phía giữ tên thì tệ nhất là tên hàng mang thêm chữ khách vừa đáp ("van bi xanh lam") — Cổng vẫn thấy món thật; sai về phía kia thì mất hẳn tên mà mã + thuế in ra vẫn trông như thật (Điều III, Điều VIII).
+
+**Đo bằng SỐ trên khoá THẬT của Cổng (OZV-795).** `packs/hs/test/soat-795-moi-khoa-cong.test.mjs` chạy **123 khoá** — 14 `DONG_BIEU` + 5 `CONG` + 102 `TT39` (fixture `packs/hs/test/khoa-cong-that.mjs`, chép từ repo công khai `hs-code-api`) + 2 khoá lạ — qua đường thật, mỗi khoá một ca. Cộng ca fixture và ca Cổng hỏi nhiều khoá một lượt là **125 ca, nay xanh cả, 0 `todo`**.
+
+Bản đầu (PR #232) có **4 khoá VẪN rụng** tên hàng: `cong_suat`, `dien_ap` (`DONG_BIEU`) và `power`, `voltage` (`TT39`). Chúng CÓ trong bảng `KHOA` nên `m.dai` không rỗng, mặc định an toàn của OZV-791 không che tới; chúng quy về `congSuat` / `dienAp` mà hai đại lượng này thiếu trong `DAI_THUOC_TINH` ⇒ `hoiThuocTinh: false` tường minh ⇒ tên hàng rụng y như OZV-782 (lần thứ TƯ của cùng lớp lỗi: #213 → OZV-782 → OZV-791 → OZV-799). **OZV-799 thêm `congSuat` + `dienAp` vào `DAI_THUOC_TINH`** và **bỏ hẳn** danh sách `DANG_DO` trong tệp test — đừng dựng lại nó: khoá nào rụng tên hàng về sau phải làm **đỏ** cổng, không treo `todo` cho im.
+
+Rà cả 28 mục của `KHOA`: chúng quy về đúng bảy đại lượng (`chatLieu`, `quyCach`, `congDung`, `kichThuoc`, `dungTich`, `congSuat`, `dienAp`) — `DAI_THUOC_TINH` nay phủ cả bảy, không còn mục nào ngoài.
 
 ### Gói nào đang hiện với khách
 

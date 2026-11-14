@@ -9,6 +9,7 @@ import { plain } from './style.js';
 import { fmtHs } from './format.js';
 import { chayCho } from './jobs.js';
 import { kiemTraThongTinPhanLoai, xuLyTraLoiHoiLai } from './dien-cho-thieu.js';
+import { hoiLaiUuTien } from './so-tay-hoi.js';
 import { renderPhanLoaiGiongQuyen } from './giong-quyen.js';
 import { goiCanCu, dongCanCuNgan } from './can-cu.js';
 import { laTenHangCam, laLenhTroHoSo, laCauXemLai, cungMonVoi, boYeuCauDau } from './ho-so.js';
@@ -75,7 +76,10 @@ export function lamGonCauHoi(s) {
   // (điểm [S25] của người soát) — bỏ trước khi cắt phần hỏi.
   let t = ` ${boYeuCauDau(String(s || '')).replace(/[?!]+/g, ' ').replace(/\.+(\s|$)/g, ' ')} `;
   const bo = ['cho (?:mình|tôi|em|anh|chị) hỏi', 'xin hỏi', 'mã số hs', 'mã hs code', 'mã hs', 'hs code', 'hscode', 'mã số', 'mã gì', 'là bao nhiêu',
-    'bao nhiêu', 'là gì', 'là mã nào', 'mã nào', 'có thể áp vào', 'có thể áp', 'áp vào', 'có bao nhiêu', 'thế nào', 'vậy', 'nhé', 'nhỉ', 'ạ', 'ơi', 'em', 'anh', 'chị', 'bạn', 'ad', 'shop', 'của', 'thì'];
+    'bao nhiêu', 'là gì', 'là mã nào', 'mã nào', 'có thể áp vào', 'có thể áp', 'áp vào', 'có bao nhiêu', 'thế nào', 'vậy', 'nhé', 'nhỉ', 'ạ', 'ơi',
+    // "em" ở "trẻ em" / "bé em" là CHỮ CỦA MÓN HÀNG (xe đạp trẻ em khác xe đạp người lớn),
+    // không phải cách khách xưng hô — giữ lại, chỉ bỏ khi đứng một mình.
+    '(?<!\\btrẻ\\s)(?<!\\bbé\\s)em', 'anh', 'chị', 'bạn', 'ad', 'shop', 'của', 'thì'];
   for (const w of bo) t = t.replace(new RegExp(`(^|\\s)${w}(?=\\s)`, 'gi'), ' ');
   const out = t.replace(/\s+/g, ' ').replace(/^[\s,:-]+|[\s,:-]+$/g, '');
   return out.length >= 2 ? out : String(s || '').trim();
@@ -210,9 +214,17 @@ export const PACKAGES = [
         // thông số ("350W 220V") là đã trả lời câu hỏi đó — hỏi lại là treo khách giữa hai vòng,
         // không bao giờ tới được mã (Điều II; đỏ `[soát #203-5]` của vòng soát 3 PR #213).
         const tenDaHoi = hoiLai.hoiXacNhanTen ? hoiLai.tenGoiY : null;
+        // Câu hỏi lấy từ NGUỒN CHUNG trước (hồ sơ → `so_tay_questions` của Cổng), regex chỉ là
+        // DỰ PHÒNG (mục 1 và 6 của #177). Hai nguồn trên im thì `duPhong` chạy → vẫn hỏi được,
+        // không im lặng và không bịa câu (Điều II, III).
         const ktTiep = xl.sanSangTra && !xl.giaDinh && vongDaHoi < 2
-          ? kiemTraThongTinPhanLoai(xl.moTaTraCuu,
-            { vongHoi: vongDaHoi, hoSo: hoSoCuaMach(ctx), tenKhachTuGo: true, tenBiBacBo, tenDaHoi })
+          ? await hoiLaiUuTien(ctx, {
+            s: xl.moTaTraCuu,
+            moTa: xl.moTaTraCuu,
+            hoSo: hoSoCuaMach(ctx),
+            duPhong: () => kiemTraThongTinPhanLoai(xl.moTaTraCuu,
+              { vongHoi: vongDaHoi, hoSo: hoSoCuaMach(ctx), tenKhachTuGo: true, tenBiBacBo, tenDaHoi }),
+          })
           : { canHoi: false };
         if (ktTiep.canHoi) {
           // `...ktTiep` ghi đè `tenGoc`/`tenGoiY` bằng mô tả MỚI — tên khách vừa phủ định không
@@ -238,7 +250,13 @@ export const PACKAGES = [
         // `hoSo`: KỶ LUẬT HỎI (yêu cầu 2 của issue #177) — khách đã nêu thông số ở tin TRƯỚC
         // (hồ sơ mạch #170) thì không hỏi lại điều đó. Thiếu tham số này, mạch "Thông số: 350W
         // 220V" rồi "máy sấy sinh tố" vẫn bị bot xin lại đúng công suất và điện áp khách vừa gõ.
-        const kt = kiemTraThongTinPhanLoai(text, { vongHoi: 0, goi: ctx.session.goi, hoSo: hoSoCuaMach(ctx) });
+        const kt = await hoiLaiUuTien(ctx, {
+          s: text,
+          moTa: text,
+          hoSo: hoSoCuaMach(ctx),
+          duPhong: () => kiemTraThongTinPhanLoai(text,
+            { vongHoi: 0, goi: ctx.session.goi, hoSo: hoSoCuaMach(ctx) }),
+        });
         if (kt.canHoi) {
           ctx.session.hoiLai = { ...kt, vongHoi: 1 };
           // Bot vừa HỎI LẠI một câu → báo Lõi là đang chờ khách đáp. Thiếu cờ này thì cửa
@@ -268,7 +286,11 @@ export const PACKAGES = [
       ctx.session.choBoSung = null;
       const bo = text.replace(/^\s*(h[aà]ng m[oớ]i|h[aà]ng kh[aá]c|b[oỏ] qua)\s*[:,.\-]?\s*/i, '');
       const { values: v, conLai } = parseLabeled(bo, [F.tenHang, F.chatLieu, F.congDung, F.thongSo, F.thuongHieu, F.model]);
-      const tenHang = lamGonCauHoi(v.tenHang || conLai || bo).slice(0, 500);
+      // Mô tả hàng hay có dấu ";" ở giữa ("...; kết quả phân tích: nhựa epoxy biến tính").
+      // parseLabeled cắt ở đó: vế đầu vào v.tenHang, các vế sau (không mang nhãn) rơi vào conLai.
+      // Phải GHÉP lại — bỏ conLai là vứt đúng cái dữ kiện quyết định mã (OZV-828).
+      // Vế CÓ nhãn (Chất liệu, Công dụng…) đã được parseLabeled lấy ra khỏi conLai nên không nhân đôi.
+      const tenHang = lamGonCauHoi([v.tenHang, conLai].filter(Boolean).join('; ') || bo).slice(0, 500);
       if (tenHang.trim().length < 2) return ask('Bạn muốn phân loại hàng gì?', this.mau);
       // Chốt chặn cuối: KHÔNG BAO GIỜ tra cứu một lệnh ngắn như món hàng ("tra", "ok", "hs code").
       // Lỗi 10:00 của issue #170: lamGonCauHoi('tra hscode') → "tra" → Cổng phân loại hàng tên "tra".
