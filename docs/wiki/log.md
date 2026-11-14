@@ -31,6 +31,18 @@ Quy ước:
 - **Cổng:** `npm test` 1567/1567, `npm run eval` 32/32, `node scripts/qa-that.mjs --mock` 6/6,
   `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
 
+## 2026-11-14 — OZV-804: ảnh Docker chưa bao giờ cài `ffmpeg` — bot nói được chữ, không đọc được thành tiếng
+
+- **Câu hỏi của thẻ:** chỉ số thực địa ghi "lỗi theo khâu: **voice 1**" mỗi 24 giờ. Hỏi dứt điểm: lỗi thật, hay **hạn mức bị đếm nhầm thành lỗi**?
+- **Không phải hạn mức.** Chỉ số đó đếm từ bảng `audit` nơi `type='error'` và `data.stage='voice'`; chỗ ghi `stage:'voice'` **duy nhất** là `core/engine-voice.js:49` (trong `catch`). Hạn mức `cap:voice` không đi qua đó: `core/gate-decide.js:114` trả `defer` và `gate.send` trả về bình thường — **không ném**, nên không bao giờ rơi vào `catch` ấy (`core/gate.js:69` chỉ mở phiếu `onTicket`). Vậy **không sửa chỗ đếm, không nới hạn mức**.
+- **Lỗi thật, một câu đời thường:** `core/giong-noi.js:82` gọi `spawn('ffmpeg')` để đổi PCM của Gemini TTS sang AAC, mà ảnh chạy thật (`Dockerfile`, nền `node:22-alpine`) **chưa bao giờ cài `ffmpeg`** → `ENOENT` → mỗi tin thoại ném `ffmpeg lỗi spawn: spawn ffmpeg ENOENT` → audit `error stage=voice`, còn khách chỉ nhận tin chữ. Khớp "1 lỗi/24h" vì 24 giờ đó đúng 1 lượt trả lời cần giọng.
+- **Vì sao sống sót tới thực địa:** mọi test khâu giọng đều tiêm `ffmpegImpl` mock (`test/core/engine-voice.test.mjs:275` ném `'ffmpeg execution failed'`), nên **không ca nào** kiểm môi trường thật. `git log --all -S "ffmpeg" -- Dockerfile` rỗng — chưa lần nào cài.
+- **Sửa:** `Dockerfile:3-5` thêm `RUN apk add --no-cache ffmpeg`, đặt **trước** `COPY` để giữ layer cache. Không sửa `core/giong-noi.js` (tránh chồng dòng với PR #225).
+- **Test đỏ trước** `test/core/ozv-804-voice-ffmpeg.test.mjs` (3 ca): code còn `spawn('ffmpeg')` thì `Dockerfile` **phải** cài ffmpeg; chạy `defaultFfmpeg` với `PATH` rỗng thì lời lỗi phải nhắc `ffmpeg` (để audit đọc ra nguyên nhân); wiki vận hành phải ghi yêu cầu ffmpeg.
+- **Trang đổi:** [Triển khai và vận hành](trien-khai-van-hanh.md) — thêm dòng `ffmpeg` ở bảng "Yêu cầu và cài đặt", mô tả layer ffmpeg ở mục Docker (số dòng `Dockerfile` dịch theo), và cảnh báo chạy ngoài Docker phải tự cài.
+- **Hạn chế còn tồn:** chưa đọc được `bot.db` của máy thật nên **chưa có nguyên văn lỗi** — kết luận suy từ code + `Dockerfile` + `which ffmpeg` rỗng trong ảnh cùng nền. Sửa này chỉ có hiệu lực khi **triển khai lại** (bản đang chạy `a84e8bb` tụt sau `main`).
+- **Cổng:** `npm test` 34 test đạt (fail 0) · `npm run eval` 32/32 kịch bản đạt · `node scripts/kiem-wiki.mjs` wiki ĐẠT (16 trang).
+
 ## 2026-11-14 — OZV-828: mô tả hàng bị cắt sạch sau dấu `;` trước khi lên Cổng
 
 - **Đau:** chạy cả 50 ca của `eval/bo-de/phan-loai-tu-luat.json` qua `chayBoDo` thì **14/50 ca (28%)** mất toàn bộ mô tả sau dấu `;` đầu tiên trước khi gửi `args.tenHang` lên `phan_loai_hs`. Mất đúng cái dữ kiện quyết định mã: ca `39073030` mất `; kết quả phân tích: nhựa epoxy biến tính, dạng lỏng` nên Cổng chốt nhầm `3208.20.90`; ca `42029190` mất `; bảo vệ và cố định điện thoại…` → nhầm `4202.32.00`; ca `85098090` mất `; hút nước từ bình và phun tia nước…` → nhầm `8424.89.50`.
