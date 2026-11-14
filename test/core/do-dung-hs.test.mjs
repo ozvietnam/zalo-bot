@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { docBoDe, chamMotCa, tongHop, docMaTuTin, chayBoDo, DUONG_BO_DE, CHO_MOT_CA_MS } from '../../scripts/do-dung-hs.mjs';
+import { docBoDe, chamMotCa, tongHop, docMaTuTin, chayBoDo, dungBaoCao, DUONG_BO_DE, CHO_MOT_CA_MS } from '../../scripts/do-dung-hs.mjs';
 import { renderPhanLoaiDayDu, renderClassify } from '../../packs/hs/render.js';
 import { renderPhanLoaiGiongQuyen } from '../../packs/hs/giong-quyen.js';
 
@@ -350,4 +350,30 @@ test('ca hết hạn chờ khi Cổng còn DANG_XU_LY → ghi hetHanCho, không 
   assert.equal(r.hetHanCho, true, `phải đánh dấu hết hạn chờ, lyDo đang là: ${r.lyDo}`);
   assert.match(r.lyDo, /CHƯA có kết quả|hết hạn chờ/i, 'lý do phải nói rõ chưa có kết quả trong thời gian chờ');
   assert.doesNotMatch(r.lyDo, /không ra mã nào cho khách/, 'đừng ghi oan là bot không ra mã');
+});
+
+// OZV-852: ca Cổng treo (hetHanCho) là lỗi CÁI THƯỚC/Cổng, không phải "bot không ra mã".
+// Gộp hai số vào một dòng thì bảng tổng hợp đọc ra tỷ lệ bot kém giả — phải đếm tách.
+test('tổng hợp: ca hết hạn chờ Cổng đếm riêng, không cộng vào khongRaMa', () => {
+  const ketQua = [
+    { ma: 'a', maBot: '85071000', top1: true, top3: true, msCho: 1000 },
+    { ma: 'b', maBot: null, hetHanCho: true, msCho: 240_000 },
+    { ma: 'c', maBot: null, hetHanCho: true, msCho: 240_000 },
+    { ma: 'd', maBot: null, msCho: 2000 },
+  ];
+  const t = tongHop(ketQua);
+  assert.equal(t.tong, 4);
+  assert.equal(t.hetHanCho, 2, 'phải đếm riêng 2 ca hết hạn chờ Cổng');
+  assert.equal(t.khongRaMa, 1, 'chỉ ca không ra mã mà KHÔNG phải treo Cổng mới tính khongRaMa');
+});
+
+test('báo cáo: bảng Kết quả có dòng riêng cho ca hết hạn chờ Cổng', () => {
+  const ketQua = [
+    { ma: '85071000', maBot: '85071000', top1: true, top3: true, msCho: 1000, cauKhach: 'x', nguon: { soHieu: 'TB-1' } },
+    { ma: '85072000', maBot: null, hetHanCho: true, msCho: 240_000, cauKhach: 'y', lyDo: 'CHƯA có kết quả', nguon: { soHieu: 'TB-2' } },
+  ];
+  const md = dungBaoCao({ ketQua, tomTat: tongHop(ketQua), isMock: false });
+  assert.match(md, /Hết hạn chờ Cổng/, 'bảng Kết quả phải có dòng hết hạn chờ Cổng');
+  assert.match(md, /\| Hết hạn chờ Cổng[^|]*\| 1\/2 \| 50\.0% \|/, `dòng hết hạn chờ phải ra 1/2 — 50.0%, bảng đang là:\n${md}`);
+  assert.match(md, /\| Bot không ra mã nào \| 0\/2 \| 0\.0% \|/, 'ca treo Cổng không được cộng vào dòng bot không ra mã');
 });
