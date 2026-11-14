@@ -7,7 +7,9 @@
 // `ky-luat-hoi.js`; tệp này chỉ dựng các nhánh hỏi theo mặt hàng và cho mọi câu đi qua `gomCau`.
 // Phần ĐỌC câu khách trả lời (`xuLyTraLoiHoiLai`) nằm ở `doc-tra-loi.js`.
 import { norm } from './input.js';
-import { coThongSo, nhanDienCuTraDi, daNeu, gomCau, cauXinThem, ketQuaHoi, chuTrong } from './ky-luat-hoi.js';
+import {
+  coThongSo, nhanDienCuTraDi, daNeu, gomCau, cauXinThem, ketQuaHoi, chuTrong, bocCumXuatXu,
+} from './ky-luat-hoi.js';
 import { xuLyTraLoiHoiLai } from './doc-tra-loi.js';
 import {
   kemXuatXu, giaDinhNhomHang, hoiAcQuy, hoiDienGiaDung, hoiCoKhiVatLieu,
@@ -75,7 +77,7 @@ export function kiemTraThongTinPhanLoai(text, {
   }
 
   const sSach = s.replace(/^(tra\s*hs|m[aã]\s*hs|t[iì]m\s*m[aã]|ph[aâ]n\s*lo[aạ]i)\s*/i, '').trim();
-  const cacTu = sSach.split(/\s+/).filter(Boolean);
+  const cacTu = bocCumXuatXu(sSach).split(/\s+/).filter(Boolean);
   const soTu = cacTu.length;
 
   // 1. Nếu đã hỏi đủ 2 vòng: không hỏi nữa, áp dụng giả định phổ biến nhất
@@ -180,7 +182,7 @@ export function kiemTraThongTinPhanLoai(text, {
   if (kqDien) return kqDien;
 
   // 5. Nhóm cơ khí / vật liệu / linh kiện chỉ nêu tên cụt (1–4 từ)
-  const kqCoKhi = hoiCoKhiVatLieu({ s, sSach, soTu, co });
+  const kqCoKhi = hoiCoKhiVatLieu({ s, sSach, soTu, co, vongHoi });
   if (kqCoKhi) return kqCoKhi;
 
   return { canHoi: false, giaDinh: null, thieu: [] };

@@ -11,7 +11,7 @@
 // Tách ra ở OZV-837 khi `dien-cho-thieu.js` chạm 299/300 dòng (Điều VI) và cần thêm nhánh hỏi chiều
 // cao bình ắc quy nhóm 85.07.
 import { norm } from './input.js';
-import { gomCau, cauXinThem, ketQuaHoi } from './ky-luat-hoi.js';
+import { gomCau, cauXinThem, ketQuaHoi, chuTrong } from './ky-luat-hoi.js';
 
 // Mục xin NƯỚC NHẬP, gộp vào chính câu `cauXinThem` sẵn có của nhánh (OZV-802, mục 3 của #177).
 // Khách đã nêu nước thì `co.xuatXu` bật và `cauXinThem` tự rút mục này ra (luật 2 của kỷ luật hỏi).
@@ -118,7 +118,8 @@ export function hoiDienGiaDung({ s, sSach, soTu, co }) {
     muc = [{ khoa: 'congSuat', chu: 'công suất (W)' }, { khoa: 'dienAp', chu: 'điện áp' }];
     giaDinh = 'quạt điện gia dụng công suất ~50W, điện áp 220V';
   } else {
-    cau1 = `Dạ anh cho em hỏi ${sSach} này dùng cho gia đình hay công nghiệp ạ?`;
+    const tenMon = chuTrong(sSach) || sSach;
+    cau1 = `Dạ anh cho em hỏi ${tenMon} này dùng cho gia đình hay công nghiệp ạ?`;
     muc = [{ khoa: 'congSuat', chu: 'công suất (W)' }, { khoa: 'dienAp', chu: 'điện áp' }];
     giaDinh = `${sSach} loại thông dụng trong gia đình, điện áp 220V`;
   }
@@ -138,7 +139,7 @@ export function hoiDienGiaDung({ s, sSach, soTu, co }) {
 }
 
 /** Nhánh hỏi lại cho nhóm cơ khí / vật liệu / linh kiện chỉ nêu tên cụt (1–4 từ). */
-export function hoiCoKhiVatLieu({ s, sSach, soTu, co }) {
+export function hoiCoKhiVatLieu({ s, sSach, soTu, co, vongHoi = 0 }) {
   if (soTu > 4 || !CO_KHI_VAT_LIEU_RE.test(sSach)) return null;
   let cau1 = '';
   let daiCau1 = ['chatLieu'];
@@ -157,11 +158,13 @@ export function hoiCoKhiVatLieu({ s, sSach, soTu, co }) {
     muc = [{ khoa: 'kichThuoc', chu: 'đường kính và độ dày' }];
     giaDinh = 'ống thép hàn, không mạ kẽm, quy cách thông dụng';
   } else {
-    cau1 = `Dạ anh cho em hỏi ${sSach} này làm bằng chất liệu gì ạ?`;
+    const tenMon = chuTrong(sSach) || sSach;
+    cau1 = `Dạ anh cho em hỏi ${tenMon} này làm bằng chất liệu gì ạ?`;
     muc = [{ khoa: 'kichThuoc', chu: 'quy cách kích thước' }, { khoa: 'congDung', chu: 'công dụng' }];
     noi = ' hoặc ';
     giaDinh = `${sSach} chất liệu thông dụng trong công nghiệp`;
   }
+  if (vongHoi >= 1 && daiCau1.every((k) => co[k])) return null;
   muc = kemXuatXu(muc, co);
 
   return ketQuaHoi({

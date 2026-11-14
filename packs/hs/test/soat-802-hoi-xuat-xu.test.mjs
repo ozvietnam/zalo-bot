@@ -131,3 +131,67 @@ test('[OZV-802] khách đáp về NƯỚC/chất liệu → tên hàng "van bi" 
   assert.match(tenHang[0], /van bi/i,
     `TÊN HÀNG rụng khỏi tin gửi Cổng khi khách đáp về nước/chất liệu: "${tenHang[0]}"`);
 });
+
+// OZV-866: cùng lớp lỗi "cụm xuất xứ bị ĐẾM như tên hàng", nhưng ở phép ĐO ĐỘ DÀI tên hàng. Hai
+// nhánh hỏi thuộc tính gác bằng SỐ TỪ — `hoiCoKhiVatLieu` chỉ nhận tên cụt `soTu <= 4`,
+// `hoiDienGiaDung` nhận máy móc `soTu < 8` — mà `dien-cho-thieu.js` đếm số từ trên `sSach` NGUYÊN
+// VĂN. Khách gõ tên cụt KÈM nước ("van bi từ Trung Quốc" = 5 từ) thì cụm xuất xứ đội số từ qua
+// trần, cả hai nhánh trả `null` ⇒ `canHoi: false` ⇒ bot bỏ hẳn câu hỏi chất liệu/kích thước và
+// đẩy mô tả cụt ngủn lên Cổng (Điều III: thiếu dữ kiện thì HỎI, không tự đoán).
+test('[OZV-866] tên hàng cụt KÈM nước → vẫn hỏi thuộc tính, KHÔNG hỏi lại nước', () => {
+  for (const s of ['Tra hs van bi từ Trung Quốc', 'Tra hs ống thép xuất xứ Hàn Quốc',
+    'Tra hs máy cắt cỏ nhập khẩu từ Trung Quốc']) {
+    const kt = kiemTraThongTinPhanLoai(s, { vongHoi: 0, hoSo: null });
+    assert.equal(kt.canHoi, true,
+      `cụm xuất xứ đội số từ làm rụng hẳn câu hỏi thuộc tính của "${s}" ⇒ mô tả cụt lên Cổng`);
+    assert.ok(!(kt.thieu || []).includes('xuatXu'),
+      `hỏi lại nước khách VỪA nêu trong "${s}" (luật 2 của kỷ luật hỏi): ${JSON.stringify(kt.thieu)}`);
+    assert.doesNotMatch(kt.cauHoi || '', HOI_NUOC_RE,
+      `câu hỏi vẫn xin nước khách đã nêu ở "${s}": ${kt.cauHoi}`);
+  }
+});
+
+// Câu hỏi phải gọi đúng PHẦN TÊN MÓN, không đọc lại cả cụm xuất xứ vào mặt khách: "bu lông hàng
+// Nhật này làm bằng chất liệu gì ạ?" nghe như bot không hiểu khách nói gì. `tenGoiY` và `giaDinh`
+// vẫn giữ `sSach` nguyên văn vì nước đổi mức thuế nên phải đi nguyên văn tới Cổng.
+test('[OZV-866] câu hỏi thuộc tính gọi phần TÊN MÓN, không đọc lại cụm xuất xứ', () => {
+  for (const [s, tenMon, cum] of [
+    ['Tra hs bu lông hàng Nhật', 'bu lông này', /h[aà]ng Nh[aậ]t/i],
+    ['Tra hs máy lọc nước 50W hàng Nhật', 'máy lọc nước này', /(?:50W|h[aà]ng Nh[aậ]t)/i],
+  ]) {
+    const kt = kiemTraThongTinPhanLoai(s, { vongHoi: 0, hoSo: null });
+    assert.equal(kt.canHoi, true, `ca này phải rơi vào nhánh hỏi thuộc tính: "${s}"`);
+    assert.ok((kt.cauHoi || '').includes(tenMon),
+      `câu hỏi phải gọi đúng tên món "${tenMon}" ("${s}"): ${kt.cauHoi}`);
+    assert.doesNotMatch(kt.cauHoi || '', cum,
+      `câu hỏi đọc lại cụm xuất xứ/thông số thay vì gọi tên món ("${s}"): ${kt.cauHoi}`);
+    assert.match(kt.tenGoiY || '', /h[aà]ng Nh[aậ]t/i,
+      `tenGoiY phải giữ nguyên sSach để nước đi tới Cổng: "${kt.tenGoiY}"`);
+    assert.match(kt.giaDinhMacDinh || '', /h[aà]ng Nh[aậ]t/i,
+      `giaDinh phải giữ nguyên sSach: "${kt.giaDinhMacDinh}"`);
+  }
+});
+
+// `bocCumXuatXu` chỉ được bóc cụm xuất xứ THẬT. Nó so bằng `norm()` nên "nhật" trong "hình chữ
+// nhật" và "hạn" trong "hạn chế" trùng hình với tên nước ⇒ cắt mất chữ kỹ thuật của mô tả, làm
+// phép ĐO tên hàng lệch trên đúng những ca mô tả dài theo văn phong biểu thuế.
+// KHÔNG lọc ca bằng `xuatXuCua().giaDinh`: chính hai ca hỏng là ca `xuatXuCua` TƯỞNG có nước
+// ("chữ nhật" → JP, "hạn chế" → KR). Lọc theo TỪ DẪN xuất xứ tường minh — bộ đề này là mô tả hàng
+// trích biểu thuế / thông báo TCHQ nên không ca nào khai xuất xứ; ca nào khai thì bóc mới là đúng.
+const KHAI_XUAT_XU_RE = /(xu[aấ]t\s*x[uứ]|made\s*in|nh[aậ]p\s*(?:kh[aẩ]u\s*)?t[uừ]|h[aà]ng\s+(?:Nh[aậ]t|H[aà]n|Trung|[ĐD][uứ]c|M[yỹ]))/i;
+
+test('[OZV-866] bocCumXuatXu giữ nguyên chữ 50 ca bộ đề luật khi ca KHÔNG khai xuất xứ', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { bocCumXuatXu } = await import('../ky-luat-hoi.js');
+  const bo = JSON.parse(readFileSync(new URL('../../../eval/bo-de/phan-loai-tu-luat.json', import.meta.url), 'utf8'));
+  assert.ok(bo.length >= 50, `bộ đề luật phải còn đủ ca, đang ${bo.length}`);
+  let soCaDo = 0;
+  for (const c of bo) {
+    if (KHAI_XUAT_XU_RE.test(c.cauKhach)) continue;    // ca có khai xuất xứ → bóc là ĐÚNG
+    soCaDo += 1;
+    const goc = c.cauKhach.split(/\s+/).filter(Boolean).join(' ');
+    assert.equal(bocCumXuatXu(c.cauKhach), goc,
+      `ca ${c.ma}: bóc mất chữ kỹ thuật của mô tả không khai xuất xứ`);
+  }
+  assert.ok(soCaDo >= 45, `lọc quá tay, chỉ còn ${soCaDo}/${bo.length} ca được đo`);
+});

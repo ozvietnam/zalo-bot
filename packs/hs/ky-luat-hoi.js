@@ -83,14 +83,18 @@ export function daNeu(sSach, hoSo) {
   const them = [h.moTa, h.chatLieu, h.congDung, h.thongSo, h.model, ...(Array.isArray(h.sua) ? h.sua : [])]
     .map((x) => String(x || '').trim()).filter(Boolean).join(' ');
   const t = `${sSach} ${them}`.trim();
+  // Bóc cụm xuất xứ trước khi đo thuộc tính: "xuất xứ Hàn Quốc" có chữ "Hàn" trùng `QUY_CACH_RE`
+  // ("ống thép hàn"), để nguyên thì "ống thép xuất xứ Hàn Quốc" bị đếm thành đủ 2 chi tiết
+  // (`chatLieu` + `quyCach`) và rụng mất câu hỏi quy cách (OZV-866).
+  const tHang = bocCumXuatXu(t);
   return {
-    congSuat: CONG_SUAT_RE.test(t),
-    dienAp: DIEN_AP_RE.test(t),
-    dungTich: DUNG_TICH_RE.test(t),
-    kichThuoc: KICH_THUOC_RE.test(t),
-    chatLieu: CHAT_LIEU_RE.test(t) || Boolean(String(h.chatLieu || '').trim()),
-    congDung: CONG_DUNG_RE.test(t) || Boolean(String(h.congDung || '').trim()),
-    quyCach: QUY_CACH_RE.test(t),
+    congSuat: CONG_SUAT_RE.test(tHang),
+    dienAp: DIEN_AP_RE.test(tHang),
+    dungTich: DUNG_TICH_RE.test(tHang),
+    kichThuoc: KICH_THUOC_RE.test(tHang),
+    chatLieu: CHAT_LIEU_RE.test(tHang) || Boolean(String(h.chatLieu || '').trim()),
+    congDung: CONG_DUNG_RE.test(tHang) || Boolean(String(h.congDung || '').trim()),
+    quyCach: QUY_CACH_RE.test(tHang),
     // Nước nhập: KHÔNG regex riêng. `xuatXuCua` trả `giaDinh: true` đúng khi không tìm thấy nước
     // nào trong chữ của khách, tức "chưa nêu" — đảo cờ đó ra là xong (OZV-802, mục 3 của #177).
     // Hồ sơ mạch đọc qua `chuHoSoChoXuatXu` (gồm cả `chuAnh`) nên nước khách nói ở LƯỢT TRƯỚC vẫn
@@ -154,7 +158,12 @@ export function boThongSo(s) {
 const TU_DAN_XX_RE = /^(?:xu[aấ]t|x[uứ]|xx|nh[aậ]p|kh[aẩ]u|s[aả]n|sx|h[aà]ng|t[uừ]|c[uủ]a|[oở]|t[aạ]i|made|in|from|origin)$/iu;
 const TU_DAN_XX_DAU_RE = /^(?:n[uư][oớ]c|nuoc|tu|tai|o|cua)$/iu;
 const sachTu = (w) => String(w || '').replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
-const laCumNuoc = (phan, sau = '', coTuDan = false) => {
+// Từ ĐỨNG TRƯỚC biến "nhật" thành chữ kỹ thuật, không phải tên nước: "hình chữ nhật", "chủ nhật",
+// "sinh nhật", "cập nhật", "thống nhất/nhật", "đồng nhật", "thứ nhật". `norm('nhật') === 'nhat'` nên
+// `NUOC` khớp JP, cắt mất chữ cuối của mô tả biểu thuế (ca 72082600 của bộ đề luật — OZV-866).
+const TRUOC_NHAT_RE = /^(?:ch[uữ]|ch[uủ]|sinh|c[aậ]p|th[oố]ng|[đd][oồ]ng|th[uứ])$/iu;
+
+const laCumNuoc = (phan, sau = '', coTuDan = false, truoc = '') => {
   if (!phan.length || xuatXuCua(phan.join(' ')).giaDinh) return false;
   if (phan.length > 1) {
     if (NUOC[norm(phan.join(' '))]) return true;
@@ -162,7 +171,13 @@ const laCumNuoc = (phan, sau = '', coTuDan = false) => {
   }
   const w = sachTu(phan[0]);
   if (/^(?:nh[aấ]t|[đd][uúụ]c)$/iu.test(w)) return false;
+  // "nhật" một mình VẪN là nước ("hàng Nhật") — chỉ chặn khi nó đi ngay sau từ dẫn chữ kỹ thuật.
+  if (/^nh[aậ]t$/iu.test(w) && TRUOC_NHAT_RE.test(sachTu(truoc))) return false;
   if (/^m[yỹ]$/iu.test(w) && /^ph[aẩ]m$/iu.test(sachTu(sau))) return false;
+  // "hạn" (hạn chế, thời hạn, giới hạn) trùng `norm` với "hàn" → KR. Chỉ chặn các DẤU khác dấu
+  // huyền: "hàn"/"han" vẫn theo luật cũ bên dưới (hoa đầu hoặc có từ dẫn thì mới là nước Hàn),
+  // nếu không "hàng Han" của khách gõ không dấu sẽ mất nước (ca 87031010 — OZV-866).
+  if (/^h[ạảãá]n$/iu.test(w)) return false;
   if (/^h[aà]n$/iu.test(w)) return /^H[aà]n$/u.test(w) || coTuDan;
   return true;
 };
@@ -186,7 +201,8 @@ export function bocCumXuatXu(s) {
     let dai = 0;
     const coTuDan = laTuDanCuoi();
     for (const k of [3, 2, 1]) {
-      if (i + k <= cacTu.length && laCumNuoc(cacTu.slice(i, i + k), cacTu[i + k], coTuDan)) { dai = k; break; }
+      if (i + k <= cacTu.length
+        && laCumNuoc(cacTu.slice(i, i + k), cacTu[i + k], coTuDan, cacTu[i - 1])) { dai = k; break; }
     }
     if (dai) {
       while (laTuDanCuoi()) giu.pop();
