@@ -113,7 +113,7 @@ export const LOI_CONG = 'Cổng tra cứu gặp lỗi ở mục này, bạn th�
 
 // Chữ của lỗi hệ thống/truyền tải lọt vào thongBao: mã HTTP, MCP/JSON-RPC, mạng, stack, đường dẫn tệp mã.
 const SYS_TEXT = /\bHTTP\s|\bMCP\s|JSON-RPC|\bE(?:CONN\w*|TIMEDOUT|NOTFOUND|AI_AGAIN|PIPE)\b|fetch failed|socket hang up|\bat\s+\S+\s+\(|[\w/.-]+\.(?:m?js|cjs|ts|py):\d+/i;
-
+const DA_HOAN_DIEM = /ho[aà]n\s*[đd]i[eể]m|[đd]i[eể]m\s*[đd][aã]\s*(?:[đd][uư][oợ]c\s*)?ho[aà]n/i;
 /** Câu nghiệp vụ Cổng trả (gọi công cụ thành công, kể cả ok:false) được hiện cho khách nếu sạch; ngược lại null. */
 export function businessText(s) {
   const t = String(s ?? '').split(' | EN:')[0].trim();
@@ -131,7 +131,7 @@ export function renderError(r) {
   const lines = [`⚠️ ${clip(shown, 300)}`];
   if (/DANG_NHAP|TAI_KHOAN|UNAUTH|401|403/i.test(`${r?.loi} ${msg}`)) lines.push('Công cụ này cần tài khoản OZ — liên hệ quản trị bot để cấu hình.');
   if (/HET_DIEM|KHONG_DU_DIEM|DIEM/i.test(r?.loi || '')) lines.push('Tài khoản OZ của bot đã hết điểm cho công cụ này.');
-  if (r?.diemDaHoan) lines.push('Điểm đã được hoàn.');
+  if (r?.diemDaHoan && !DA_HOAN_DIEM.test(shown)) lines.push('Điểm đã được hoàn.');
   return lines.join('\n');
 }
 
@@ -406,7 +406,7 @@ export function renderClassify(r, { title } = {}) {
   const kq = top.ketQua && typeof top.ketQua === 'object' ? top.ketQua : top;
   const st = top.trangThai || r.trangThai;
   if (st === 'DANG_XU_LY') return `${title ? `${title}\n` : ''}⏳ Đang xử lý, bot sẽ gửi kết quả khi xong.`;
-  if (st === 'LOI') return `${title ? `${title}\n` : ''}⚠️ ${clip(businessText(top.thongBao) || 'Phân loại thất bại.', 200)}${top.daHoanDiem ? ' Điểm đã được hoàn.' : ''}`;
+  if (st === 'LOI') { const tb = clip(businessText(top.thongBao) || 'Phân loại thất bại.', 200); return `${title ? `${title}\n` : ''}⚠️ ${tb}${top.daHoanDiem && !DA_HOAN_DIEM.test(tb) ? ' Điểm đã được hoàn.' : ''}`; }
 
   const status = String(kq.status || ''), kl = kq.hoSo?.ketLuan || top.hoSo?.ketLuan;
   const canHoi = st === 'CAN_DU_KIEN' || status === 'NEED_FACTS' || kl?.trangThai === 'THIEU_DU_KIEN';
