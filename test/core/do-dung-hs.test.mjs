@@ -262,22 +262,54 @@ function congKichBan(traMa) {
   };
 }
 
+// Chữ đệm mà lamGonCauHoi được phép bỏ ("của", "em", "shop"…). So khớp bỏ qua chúng để
+// bài kiểm đo đúng cái cần đo: dữ kiện hàng hoá có còn đủ không, chứ không bắt bẻ chữ đệm.
+const CHU_DEM = ['của', 'em', 'anh', 'chị', 'bạn', 'ad', 'shop', 'thì', 'vậy', 'nhé', 'nhỉ', 'ạ', 'ơi'];
+function vanTay(s) {
+  return String(s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .split(' ').filter((w) => w && !CHU_DEM.includes(w)).join(' ');
+}
+
 test('tự kiểm cái thước: Cổng kịch bản trả ĐÚNG mã của văn bản → bộ đo báo 100%', async () => {
-  const boDe = docBoDe().slice(0, 3);
+  const boDe = docBoDe();
   // Tra theo tên hàng khách gõ → mã đúng của ca đó, như một Cổng "biết hết".
-  const theoTen = new Map(boDe.map((ca) => [ca.cauKhach.slice(0, 40), ca.ma]));
+  const theoTen = boDe.map((ca) => [vanTay(ca.cauKhach), ca.ma]);
   const res = await chayBoDo({
     boDe,
     env: {},
     im: true,
     customMcp: congKichBan((t) => {
-      for (const [ten, ma] of theoTen) if (t.includes(ten)) return ma;
+      const vt = vanTay(t);
+      for (const [ten, ma] of theoTen) if (vt.includes(ten)) return ma;
       return '85371099';
     }),
   });
   assert.equal(res.ok, true);
-  assert.equal(res.tomTat.top1, 3, `bộ đo phải chấm đạt cả 3 ca, lý do trượt: ${res.ketQua.map((r) => r.lyDo).join(' | ')}`);
+  const truot = res.ketQua.filter((r) => !r.top1).map((r) => `${r.ma}: ${r.lyDo}`);
+  assert.equal(res.tomTat.top1, boDe.length, `bộ đo phải chấm đạt cả ${boDe.length} ca, lý do trượt: ${truot.join(' | ')}`);
   assert.equal(res.tomTat.top1Pct, '100.0');
+});
+
+test('giữ nguyên dữ kiện sau dấu ";": cả 50 ca của bộ đề đều tới phan_loai_hs đủ chữ', async () => {
+  const boDe = docBoDe();
+  const cong = congKichBan(() => '85371099');
+  const res = await chayBoDo({ boDe, env: {}, im: true, customMcp: cong });
+  assert.equal(res.ok, true);
+
+  const daGui = cong.calls.filter((c) => c.name === 'phan_loai_hs').map((c) => vanTay(c.args.tenHang));
+  assert.equal(daGui.length, boDe.length, 'mỗi ca phải gọi phan_loai_hs đúng một lần');
+
+  const thieu = [];
+  for (const ca of boDe) {
+    // Mọi mệnh đề của câu khách — kể cả phần sau dấu ";" — phải còn trong tenHang đã gửi.
+    const menhDe = ca.cauKhach.split(';').map((m) => vanTay(m)).filter((m) => m.length >= 3);
+    const hit = daGui.find((t) => menhDe.every((m) => t.includes(m)));
+    if (!hit) {
+      const mat = menhDe.filter((m) => !daGui.some((t) => t.includes(m)));
+      thieu.push(`${ca.ma} mất: ${mat.join(' / ').slice(0, 120)}`);
+    }
+  }
+  assert.deepEqual(thieu, [], `các ca bị cắt dữ kiện:\n${thieu.join('\n')}`);
 });
 
 test('tự kiểm cái thước: Cổng kịch bản trả SAI mã → bộ đo báo 0%, không báo đạt bừa', async () => {

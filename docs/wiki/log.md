@@ -26,6 +26,15 @@ Quy ước:
 - **Hạn chế còn tồn:** chưa đọc được `bot.db` của máy thật nên **chưa có nguyên văn lỗi** — kết luận suy từ code + `Dockerfile` + `which ffmpeg` rỗng trong ảnh cùng nền. Sửa này chỉ có hiệu lực khi **triển khai lại** (bản đang chạy `a84e8bb` tụt sau `main`).
 - **Cổng:** `npm test` 34 test đạt (fail 0) · `npm run eval` 32/32 kịch bản đạt · `node scripts/kiem-wiki.mjs` wiki ĐẠT (16 trang).
 
+## 2026-11-14 — OZV-828: mô tả hàng bị cắt sạch sau dấu `;` trước khi lên Cổng
+
+- **Đau:** chạy cả 50 ca của `eval/bo-de/phan-loai-tu-luat.json` qua `chayBoDo` thì **14/50 ca (28%)** mất toàn bộ mô tả sau dấu `;` đầu tiên trước khi gửi `args.tenHang` lên `phan_loai_hs`. Mất đúng cái dữ kiện quyết định mã: ca `39073030` mất `; kết quả phân tích: nhựa epoxy biến tính, dạng lỏng` nên Cổng chốt nhầm `3208.20.90`; ca `42029190` mất `; bảo vệ và cố định điện thoại…` → nhầm `4202.32.00`; ca `85098090` mất `; hút nước từ bình và phun tia nước…` → nhầm `8424.89.50`.
+- **Gốc:** `parseLabeled` (`packs/hs/input.js:77`) tách dòng theo `/\r?\n|;(?=\s*[^\d])/`, nên vế trước `;` khớp nhãn `Tên hàng:` vào `v.tenHang`, còn mọi vế sau `;` (không mang nhãn) rơi vào `conLai`. Đường phân loại ở `packs/hs/packages.js` viết `v.tenHang || conLai` — `v.tenHang` đã có giá trị nên **toàn bộ `conLai` bị vứt**, không vào `tenHang` cũng không vào trường nào khác của `args`.
+- **Vá 1 — ghép lại:** `lamGonCauHoi([v.tenHang, conLai].filter(Boolean).join('; '))`. Vế **có nhãn** (`Chất liệu`, `Công dụng`, `Thông số`, `Thương hiệu`, `Model`) đã được `parseLabeled` nhấc khỏi `conLai` nên không nhân đôi; chỉ phần mô tả không nhãn được trả về chỗ cũ.
+- **Vá 2 — `lamGonCauHoi` đừng xoá chữ của món hàng:** danh sách chữ đệm có chữ trần `'em'`, làm `"xe đẩy đồ chơi cho trẻ em"` thành `"cho trẻ"` (ca `95030010`) — mà xe trẻ em khác xe người lớn ở chính chữ đó. Thêm negative lookbehind `(?<!\btrẻ\s)(?<!\bbé\s)` nên `"em"` chỉ bị bỏ khi đứng một mình kiểu xưng hô.
+- **Test đỏ trước** (`test/core/do-dung-hs.test.mjs`): bài tự kiểm cái thước nay chạy **cả 50 ca** (`docBoDe()`, bỏ `.slice(0, 3)`) — trước vá Cổng kịch bản trả ĐÚNG mã vẫn chỉ đạt **36/50**, cái thước tự tố là chữ đã hỏng trên đường đi. Thêm bài mới khẳng định mọi mệnh đề sau `;` của cả 50 ca đều có mặt trong `args.tenHang` gửi tới `phan_loai_hs`. Cả hai so khớp bằng "vân tay" (bỏ chữ đệm `của`, `em`…) để đo dữ kiện hàng hoá chứ không bắt bẻ chữ đệm.
+- **Trang đổi:** `docs/wiki/log.md` và số dòng `packs/hs/packages.js` ở `docs/wiki/an-toan.md` (696 → 703 dòng, cổng `kiem-wiki` bắt).
+
 ## 2026-11-14 — OZV-803: khách nhận câu "AI bận" — bản ĐANG CHẠY đẻ ra, `main` hôm nay thì không
 
 - **Câu hỏi của thẻ:** 13/11 cả ngày đúng **1 lượt** tra HS và nó hỏng — khách nhận "AI bận hoặc quá thời gian — gọi lại sau ít phút." Hỏi dứt điểm: câu đó sinh ra ở nhánh nào, và `main` hôm nay **còn đẻ ra nó nữa không**.
