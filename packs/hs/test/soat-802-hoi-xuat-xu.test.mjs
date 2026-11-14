@@ -54,6 +54,24 @@ test('[OZV-802] khách KHÔNG trả lời nước → vẫn ra kết quả theo 
   assert.equal(kt.canHoi, false, 'hết vòng hỏi mà vẫn treo câu hỏi là khách không bao giờ tới được mã (Điều II)');
 });
 
+// OZV-814: cái đỏ số 2 của OZV-802. Câu hỏi nước CHỈ được đi KÈM một câu xin-thêm đã tồn tại; nó
+// không bao giờ TỰ DỰNG ra câu hỏi mới. Vì `canHoi` bật ngay khi `cauHoi` không rỗng
+// (`ky-luat-hoi.js:212`), một câu nước tự dựng làm hồ sơ ĐÃ ĐỦ dữ kiện vẫn `canHoi: true` ⇒
+// `packages.js:217` không bao giờ gọi Cổng ⇒ khách treo giữa hai vòng hỏi, không tới được mã
+// (Điều II). Khách vẫn được mời cho biết nước, nhưng ở tin KẾT QUẢ (`giong-quyen.js:100`).
+test('[OZV-814] hồ sơ đủ thông số + khách chưa nói nước → tra luôn, KHÔNG dựng thêm lượt hỏi', () => {
+  // Ba ca: nhánh điện gia dụng, nhánh cơ khí, nhánh quạt. KHÔNG lấy "máy sấy sinh tố" làm ca ở
+  // đây — chuỗi đó rơi vào nhánh NGHI GÕ NHẦM nên còn câu "em hiểu là máy xay sinh tố đúng không
+  // ạ?", mà câu xác nhận TÊN thì phải treo thật (tên sai là sai hẳn dòng thuế), không phải lỗi.
+  for (const s of ['máy bơm nước 1.5HP 220V gia đình', 'van bi inox DN25 dùng cho đường ống nước',
+    'quạt điện gia dụng 50W 220V']) {
+    assert.equal(xuatXuCua(s).giaDinh, true, `ca này phải là ca khách CHƯA nói nước: ${s}`);
+    const kt = kiemTraThongTinPhanLoai(s, { vongHoi: 0, hoSo: null });
+    assert.equal(kt.canHoi, false,
+      `đủ dữ kiện rồi mà còn treo câu hỏi nước ⇒ lượt sau không gọi Cổng, khách treo: "${kt.cauHoi}"`);
+  }
+});
+
 test('[OZV-802] khách đáp về NƯỚC/chất liệu → tên hàng "van bi" vẫn tới Cổng', async () => {
   const { ctx, calls } = fakeCtx(hoiMotLuot([]));
   const r1 = await hs.handle(turn('Tra hs van bi'), ctx);
