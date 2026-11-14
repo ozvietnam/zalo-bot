@@ -1,6 +1,6 @@
 # Kiểm thử
 
-> Cập nhật: 2026-11-11 · commit: a84e8bb
+> Cập nhật: 2026-11-14 · commit: 8f5a38a
 
 Trang này nói: repo có những cổng kiểm nào, chạy lệnh gì, bộ test nằm ở đâu, số liệu kiểm thử thực tế và các công cụ đo lường chất lượng.
 
@@ -136,6 +136,18 @@ Hàm đọc mã (`docMaTuTin`) phải biết **cả hai khuôn tin** bot thật 
 
 - **form đầy đủ** (`packs/hs/render.js:293,329`): chỉ nhặt mã trong **vùng liệt kê mã**, mỗi dòng một mã — render in `• 2106.10.00 — không phải 2106.90.00 vì…`, nhặt cả hai thì mã bị *loại trừ* trong lý do lại được tính là mã bot đề xuất và đẩy mã thật ra khỏi top-3;
 - **giọng Quyên** (`packs/hs/giong-quyen.js:67,70`), là khuôn dùng ở chat riêng: `Dạ … thì mã phù hợp nhất là {b}8509.40.00{/b} (…)`. Tin này không có tiêu đề mục nào nên vòng quét theo vùng liệt kê bỏ qua sạch; nhặt được mã ở câu chốt rồi là **đóng vùng** ngay, vì các dòng sau là thuế/chính sách/lưu ý và mã trong đó (số hiệu văn bản) không phải mã bot đề xuất.
+
+### Trần chờ mỗi ca và ca hết hạn chờ
+
+`CHO_MOT_CA_MS = 240_000` (`scripts/do-dung-hs.mjs:30`) là trần chờ của **một ca đo**, truyền xuống bước kịch bản bằng `step.timeoutMs` — **không** phải `CHO_TRA_CONG_MS = 120_000` của `scripts/qa-that.mjs:29` (trần đó là của bộ QA hành vi, vẫn giữ nguyên). Trần phải phủ hết đường chờ dài nhất của lõi, nếu không bộ đo cắt giữa lúc Cổng còn đang làm:
+
+- `core/jobs.js:18-33` hỏi việc nền ở mốc 6 → 18 → 42 → 90 → **150s**;
+- `goiLai` hẹn RETRY thêm 20s rồi 60s (OZV-779);
+- `core/mcp.js:106` cho một lời gọi Cổng tới 150s.
+
+Trần 120s cũ cắt đúng giữa poll 4 (90s) và poll 5 (150s): bài đo Cổng thật 13/11 (OZV-608) mất **13/27 ca** đúng mốc 120–121s và ghi oan `"bot không ra mã nào cho khách"` — tức là số độ đúng thấp giả vì cái thước, không phải vì con bot.
+
+Bước đo còn đặt `kyVong: { phaiCoPhanHoi: true }`, nên hết hạn mà chỉ có câu "đang tra" thì `evaluateStep` trả lý do `"Đã báo đang tra nhưng CHƯA có kết quả…"`. Bộ đo bắt chuỗi đó (chỉ khi ca **không ra mã nào**) và ghi `hetHanCho: true` + `lyDo` của Cổng vào kết quả ca, thay vì để `chamMotCa` chấm như một ca bot phân loại sai.
 
 ### Tự kiểm cái thước
 
