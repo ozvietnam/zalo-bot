@@ -14,6 +14,10 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-19 — OZV-1542: khoá `qa-that/` khỏi git bằng `.gitignore` (PR sắp mở, nhánh `chore/gitignore-qa-that`)
+
+- **Vì sao:** kết quả QA thật (`scripts/qa-that.mjs`) sinh mỗi lần chạy, có thể dính dữ liệu khách — AGENTS.md cấm commit dữ liệu khách thật, nhưng trước đây vài tệp `qa-that/ket-qua-*.md` đã lọt lên main theo các PR fix HS (#224–#234). Rule `qa-that/` chùm cả thư mục để tệp phát sinh sau cũng không lọt.
+
 ## 2026-11-14 — OZV-852 / OZV-867: tách số ca hết hạn chờ Cổng khỏi `"Bot không ra mã nào"` trong bộ đo HS (PR #243, commit `85f8815`)
 
 - **Đau:** sau khi OZV-842 (PR #240) gắn `r.hetHanCho = true` cho ca Cổng treo vượt trần chờ, `tongHop()` (`scripts/do-dung-hs.mjs`) vẫn đếm mọi ca `maBot === null` vào `khongRaMa` và `dungBaoCao()` in gộp vào dòng `"Bot không ra mã nào"` — làm tỷ lệ bot kém bị đọc cao giả vì lỗi Cổng/đường đo.

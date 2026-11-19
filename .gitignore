@@ -17,6 +17,10 @@ du-lieu-truot/
 # tưởng đó là độ đúng thật của bot. Số thật thì dán vào PR hoặc thẻ việc, kèm ngày chạy.
 bao-cao/do-dung/
 
+# Kết quả QA thật (scripts/qa-that.mjs): sinh ra mỗi lần chạy, có thể dính dữ liệu khách
+# (hội thoại, mã lượt) — không bao giờ commit vào repo. (OZV-1542)
+qa-that/
+
 # Tệp siêu dữ liệu của macOS (AppleDouble, Finder) — không bao giờ commit
 ._*
 .DS_Store
