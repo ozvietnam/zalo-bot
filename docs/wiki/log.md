@@ -14,7 +14,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
-## 2026-11-19 — OZV-1542: khoá `qa-that/` khỏi git bằng `.gitignore` (PR sắp mở, nhánh `chore/gitignore-qa-that`)
+## 2026-11-19 — OZV-1544: bỏ theo dõi (`git rm --cached`) 6 tệp báo cáo `qa-that/` cũ đã lọt lên `main` (nhánh `chore/untrack-qa-that`, gốc `1e48e7b`)
+
+- **Vì sao:** PR #251 (`1e48e7b`) đã khoá `qa-that/` trong `.gitignore`, nhưng 6 tệp báo cáo `qa-that/ket-qua-2026-11-09…14.md` lọt từ trước vẫn còn trong git index trên `main`. Bỏ theo dõi 6 tệp đó bằng `git rm --cached` (giữ nguyên tệp trên đĩa ở workspace, không rewrite lịch sử git) để `git ls-files qa-that/` rỗng; đồng thời đổi trích dẫn ở `docs/wiki/tien-do.md:58` sang `scripts/qa-that.mjs:769` để cổng `node scripts/kiem-wiki.mjs --nghiem` vẫn ĐẠT trên máy CI sạch không có thư mục `qa-that/`.
+- **Trang đổi:** `docs/wiki/tien-do.md`, `docs/wiki/log.md`.
+
+## 2026-11-19 — OZV-1542: khoá `qa-that/` khỏi git bằng `.gitignore` (PR #251, commit `1e48e7b`, nhánh `chore/gitignore-qa-that`)
 
 - **Vì sao:** kết quả QA thật (`scripts/qa-that.mjs`) sinh mỗi lần chạy, có thể dính dữ liệu khách — AGENTS.md cấm commit dữ liệu khách thật, nhưng trước đây vài tệp `qa-that/ket-qua-*.md` đã lọt lên main theo các PR fix HS (#224–#234). Rule `qa-that/` chùm cả thư mục để tệp phát sinh sau cũng không lọt.
 
