@@ -1,7 +1,7 @@
-// packs/hs/test/nhanh-hoi-hang-bien-tu.test.mjs — OZV-883: biên từ Unicode cho CO_KHI_VAT_LIEU_RE & laMayMocNgan và tách nhánh ống thép.
+// packs/hs/test/nhanh-hoi-hang-bien-tu.test.mjs — OZV-883 & OZV-1632: biên từ Unicode cho CO_KHI_VAT_LIEU_RE & laMayMocNgan, tách nhánh ống thép và van bi.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { kiemTraThongTinPhanLoai } from '../dien-cho-thieu.js';
+import { kiemTraThongTinPhanLoai, xuLyTraLoiHoiLai } from '../dien-cho-thieu.js';
 import { giaDinhNhomHang } from '../nhanh-hoi-hang.js';
 
 test('[OZV-883-1] "ốc vít" và "khoá cửa" (có dấu ở đầu/cuối từ) vào nhánh cơ khí, hỏi chất liệu + quy cách kích thước', () => {
@@ -42,3 +42,29 @@ test('[OZV-883-5] giaDinhNhomHang("ốc vít") và giaDinhNhomHang("ống thép"
   assert.equal(giaDinhNhomHang('ốc vít'), 'ốc vít quy cách thông dụng trong công nghiệp');
   assert.equal(giaDinhNhomHang('ống thép'), 'ống thép hàn, không mạ kẽm, quy cách thông dụng');
 });
+
+test('[OZV-1632] tách nhánh van bi khỏi van bướm, van một chiều, van giảm áp, van cầu trong hoiCoKhiVatLieu', () => {
+  const rVanBi = kiemTraThongTinPhanLoai('van bi', { vongHoi: 0 });
+  assert.equal(rVanBi.canHoi, true);
+  assert.match(rVanBi.cauHoi, /Dạ van bi này chất liệu bằng đồng, inox hay nhựa ạ\?/i, `"${rVanBi.cauHoi}"`);
+  assert.equal(rVanBi.giaDinhMacDinh, 'van bi đồng hoặc inox dùng cho đường ống nước thông thường');
+
+  for (const mon of ['van bướm', 'van một chiều', 'van giảm áp', 'van cầu']) {
+    const r = kiemTraThongTinPhanLoai(mon, { vongHoi: 0 });
+    assert.equal(r.canHoi, true, `"${mon}" phải hỏi lại thuộc tính`);
+    assert.match(r.cauHoi, new RegExp(`Dạ anh cho em hỏi ${mon} này làm bằng chất liệu gì ạ\\?`, 'i'), `"${mon}" phải hỏi đúng tên mặt hàng: "${r.cauHoi}"`);
+    assert.doesNotMatch(r.cauHoi, /van bi/i, `"${mon}" không được hỏi nhầm thành van bi: "${r.cauHoi}"`);
+    assert.doesNotMatch(r.giaDinhMacDinh, /van bi/i, `"${mon}" không được gắn giaDinhMacDinh của van bi: "${r.giaDinhMacDinh}"`);
+
+    const buong = xuLyTraLoiHoiLai('cứ tra đi', {
+      tenGoc: mon,
+      tenGoiY: r.tenGoiY,
+      giaDinhMacDinh: r.giaDinhMacDinh,
+      hoiThuocTinh: r.hoiThuocTinh,
+    });
+    assert.equal(buong.sanSangTra, true);
+    assert.match(buong.moTaTraCuu, new RegExp(mon, 'i'), `"${mon}" khi khách nói "cứ tra đi" phải giữ đúng tên loại van: "${buong.moTaTraCuu}"`);
+    assert.doesNotMatch(buong.moTaTraCuu, /van bi/i, `"${mon}" khi khách nói "cứ tra đi" không được tráo thành van bi: "${buong.moTaTraCuu}"`);
+  }
+});
+
