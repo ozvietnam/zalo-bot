@@ -44,7 +44,7 @@ export function giaDinhNhomHang(sSach) {
   if (DIEN_GIA_DUNG_RE.test(sSach)) {
     return `${sSach} loại thông dụng trong gia đình, điện áp 220V`;
   }
-  if (/van\s*bi/i.test(sSach)) {
+  if (/(?<![\p{L}\p{N}])van\s*bi(?![\p{L}\p{N}])/iu.test(sSach)) {
     return 'van bi đồng hoặc inox dùng cho đường ống nước thông thường';
   }
   if (/ống\s*thép|ong\s*thep/i.test(sSach)) {
@@ -147,7 +147,7 @@ export function hoiCoKhiVatLieu({ s, sSach, soTu, co, vongHoi = 0 }) {
   let noi = ' và ';
   let giaDinh = '';
 
-  if (/van(\s*bi)?/i.test(sSach)) {
+  if (/(?<![\p{L}\p{N}])van\s*bi(?![\p{L}\p{N}])/iu.test(sSach)) {
     cau1 = 'Dạ van bi này chất liệu bằng đồng, inox hay nhựa ạ?';
     muc = [{ khoa: 'kichThuoc', chu: 'kích thước đường kính (DN)' }, { khoa: 'congDung', chu: 'mục đích dùng' }];
     noi = ' hoặc ';
