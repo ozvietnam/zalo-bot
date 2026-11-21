@@ -104,20 +104,19 @@ test('cache âm thanh theo băm: tái sử dụng tệp .aac đã có, không g�
   const gn = createGiongNoi({
     apiKey: 'test-key',
     dataDir: testDir,
-    publicBaseUrl: 'https://zalo-bot.uythacnhapkhau.com',
     fetchImpl: fakeFetch,
     ffmpegImpl: fakeFfmpeg,
   });
 
   try {
-    // Lần 1: chưa có cache, gọi TTS
+    // Lần 1: chưa có cache, gọi TTS (kiểm luôn mặc định publicBaseUrl = https://chatbot.uythacnhapkhau.com)
     const res1 = await gn.taoAmThanh('Mã HS đề xuất 84137090');
     assert.equal(res1.cached, false);
     assert.equal(ttsCalls, 1);
     assert.equal(lastUrl.includes('?key='), false, 'URL không được chứa query parameter ?key=');
     assert.equal(lastHeaders['x-goog-api-key'], 'test-key', 'Header x-goog-api-key phải chứa apiKey');
     assert.ok(existsSync(res1.filePath));
-    assert.match(res1.voiceUrl, /^https:\/\/zalo-bot\.uythacnhapkhau\.com\/am-thanh\/[a-f0-9]+\.aac$/);
+    assert.match(res1.voiceUrl, /^https:\/\/chatbot\.uythacnhapkhau\.com\/am-thanh\/[a-f0-9]+\.aac$/);
 
     // Lần 2: đã có tệp trong testDir/am-thanh/<băm>.aac -> tái sử dụng
     const res2 = await gn.taoAmThanh('Mã HS đề xuất 84137090');

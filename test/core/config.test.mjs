@@ -16,7 +16,7 @@ test('mặc định với env tối thiểu', () => {
   assert.equal(cfg.capAllDay, 300);
   assert.equal(cfg.sessionTtlMs, 7_200_000);
   assert.equal(cfg.humanIdleMs, 7_200_000);
-  assert.equal(cfg.publicBaseUrl, 'https://zalo-bot.uythacnhapkhau.com');
+  assert.equal(cfg.publicBaseUrl, 'https://chatbot.uythacnhapkhau.com');
   assert.equal(cfg.voiceReplies, 'summary');
   assert.equal(cfg.geminiTtsVoice, 'Aoede');
   assert.equal(cfg.capVoiceDay, 50);

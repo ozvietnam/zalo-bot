@@ -69,7 +69,7 @@ export function loadConfig(env = process.env) {
     hotline: str(env, 'HOTLINE', '0972 433 318'),
     bannedPatterns: Object.freeze(patterns(env, 'BANNED_PATTERNS')),
     botNames: Object.freeze(list(env, 'BOT_NAMES')),
-    publicBaseUrl: str(env, 'PUBLIC_BASE_URL', 'https://zalo-bot.uythacnhapkhau.com'),
+    publicBaseUrl: str(env, 'PUBLIC_BASE_URL', 'https://chatbot.uythacnhapkhau.com'),
     voiceReplies,
     geminiTtsVoice: str(env, 'GEMINI_TTS_VOICE', 'Aoede'),
     geminiTtsPrompt: str(env, 'GEMINI_TTS_PROMPT', 'giọng nữ trẻ, miền Bắc, dịu dàng, ấm áp, lễ phép'),
