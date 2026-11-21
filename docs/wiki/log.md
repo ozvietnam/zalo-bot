@@ -14,6 +14,13 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-21 — OZV-1703: sửa mặc định `PUBLIC_BASE_URL` (`publicBaseUrl`) từ `https://zalo-bot.uythacnhapkhau.com` sang `https://chatbot.uythacnhapkhau.com` (nhánh `ozv-1703-public-base-url-chatbot`, gốc `381e9a8`)
+
+- **Đau:** thực địa 10:00 21/11 VN ghi nhận `lỗi theo khâu: voice 1` ở lượt tra cứu `2026-11-21 02:32 UTC`. Khi môi trường chạy chưa đặt biến `PUBLIC_BASE_URL`, `core/config.js:72` và `core/giong-noi.js:126` rơi về giá trị mặc định `https://zalo-bot.uythacnhapkhau.com` (trả `HTTP/2 404` trên Cloudflare), làm URL tệp âm thanh `/am-thanh/<hash>.aac` gửi qua Zalo `sendVoice` không tải được, trong khi tên miền thật đang sống của bot là `https://chatbot.uythacnhapkhau.com` (`scripts/kiem-webhook.mjs:1`, HTTP 200).
+- **Vá (`core/config.js:72`, `core/giong-noi.js:126`):** đổi giá trị mặc định `PUBLIC_BASE_URL` (`publicBaseUrl`) sang `https://chatbot.uythacnhapkhau.com` mà không thêm/bớt dòng để giữ nguyên các trích dẫn dòng trong wiki.
+- **Test đỏ trước (`test/core/config.test.mjs:19`, `test/core/giong-noi.test.mjs:104-119`):** cập nhật bài kiểm mặc định `cfg.publicBaseUrl` và `createGiongNoi` không truyền `publicBaseUrl` (đỏ 2/17 trước khi sửa, xanh 17/17 sau khi sửa).
+- **Trang đổi:** `docs/wiki/log.md`.
+
 ## 2026-11-19 — OZV-1544: bỏ theo dõi (`git rm --cached`) 6 tệp báo cáo `qa-that/` cũ đã lọt lên `main` (nhánh `chore/untrack-qa-that`, gốc `1e48e7b`)
 
 - **Vì sao:** PR #251 (`1e48e7b`) đã khoá `qa-that/` trong `.gitignore`, nhưng 6 tệp báo cáo `qa-that/ket-qua-2026-11-09…14.md` lọt từ trước vẫn còn trong git index trên `main`. Bỏ theo dõi 6 tệp đó bằng `git rm --cached` (giữ nguyên tệp trên đĩa ở workspace, không rewrite lịch sử git) để `git ls-files qa-that/` rỗng; đồng thời đổi trích dẫn ở `docs/wiki/tien-do.md:58` sang `scripts/qa-that.mjs:769` để cổng `node scripts/kiem-wiki.mjs --nghiem` vẫn ĐẠT trên máy CI sạch không có thư mục `qa-that/`.

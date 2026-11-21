@@ -123,7 +123,7 @@ export function createGiongNoi({
   voice = 'Aoede',
   prompt = 'giọng nữ trẻ, miền Bắc, dịu dàng, ấm áp, lễ phép',
   dataDir = './data',
-  publicBaseUrl = 'https://zalo-bot.uythacnhapkhau.com',
+  publicBaseUrl = 'https://chatbot.uythacnhapkhau.com',
   fetchImpl = fetch,
   ffmpegImpl = defaultFfmpeg,
   ttsTimeoutMs = 30_000,
