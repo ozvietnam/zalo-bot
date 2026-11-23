@@ -1,7 +1,7 @@
 // packs/hs/test/giong-quyen.test.mjs — Kiểm thử định dạng kết quả ngắn trước, chi tiết sau giọng Quyên
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderPhanLoaiGiongQuyen } from '../giong-quyen.js';
+import { renderPhanLoaiGiongQuyen, MENU_SO_GIONG_QUYEN } from '../giong-quyen.js';
 import { plain } from '../style.js';
 
 test('renderPhanLoaiGiongQuyen: tin kết quả <= 7 dòng, <= 2 emoji, đúng khung mục 2', () => {
@@ -64,6 +64,11 @@ test('renderPhanLoaiGiongQuyen: tin kết quả <= 7 dòng, <= 2 emoji, đúng k
   assert.match(text, /VAT 8%/);
   assert.match(text, /công bố hợp quy/i);
   assert.match(text, /soạn luôn mô tả khai báo/i);
+  // Menu số 0–3 cuối tin (OZV-2019 / OZV-1527 pa.1) — trước dòng cảnh báo gợi ý
+  assert.equal(dong[dong.length - 2], MENU_SO_GIONG_QUYEN);
+  assert.match(text, /Gõ 1 thuế/);
+  assert.match(text, /0 gặp nhân viên/);
+  assert.match(text, /"căn cứ"/);
 
   // 4. Không chứa chuỗi gói hay footer cồng kềnh
   assert.doesNotMatch(text, /Tự động chọn gói/);

@@ -14,6 +14,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-23 — OZV-2019: menu số 0–3 cuối tin Giọng Quyên (nhánh `ozv-1978-menu-so-giong-quyen`)
+
+- **Vì sao:** OZV-1527 pa.1 — cuối tin kết quả chat riêng cần 1 dòng menu phím `0–3` (thuế & C/O · giấy phép · mô tả khai báo · gặp nhân viên / "căn cứ"), trần ≤ 7 dòng; câu hỏi mở cũ không có phím số.
+- **Vá:** `MENU_SO_GIONG_QUYEN` trong `packs/hs/giong-quyen.js`; `renderPhanLoaiGiongQuyen` đẩy dòng này trước cảnh báo gợi ý. Chưa nhận phím (OZV-1991) · chưa bật ra khách đến khi anh Thắng duyệt câu chữ.
+- **Trang đổi:** `docs/wiki/log.md`, `docs/wiki/kiem-thu.md` (một dòng ghi khuôn tin).
+
 ## 2026-11-21 — OZV-1703: sửa mặc định `PUBLIC_BASE_URL` (`publicBaseUrl`) từ `https://zalo-bot.uythacnhapkhau.com` sang `https://chatbot.uythacnhapkhau.com` (nhánh `ozv-1703-public-base-url-chatbot`, gốc `381e9a8`)
 
 - **Đau:** thực địa 10:00 21/11 VN ghi nhận `lỗi theo khâu: voice 1` ở lượt tra cứu `2026-11-21 02:32 UTC`. Khi môi trường chạy chưa đặt biến `PUBLIC_BASE_URL`, `core/config.js:72` và `core/giong-noi.js:126` rơi về giá trị mặc định `https://zalo-bot.uythacnhapkhau.com` (trả `HTTP/2 404` trên Cloudflare), làm URL tệp âm thanh `/am-thanh/<hash>.aac` gửi qua Zalo `sendVoice` không tải được, trong khi tên miền thật đang sống của bot là `https://chatbot.uythacnhapkhau.com` (`scripts/kiem-webhook.mjs:1`, HTTP 200).

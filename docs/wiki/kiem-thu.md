@@ -135,7 +135,7 @@ Khi một ca vừa `roiVaoMaLan` vừa `dung6So` thì lý do in ra là **"rơi v
 Hàm đọc mã (`docMaTuTin`) phải biết **cả hai khuôn tin** bot thật gửi khách, thiếu một khuôn là độ đúng ra thấp giả:
 
 - **form đầy đủ** (`packs/hs/render.js:293,329`): chỉ nhặt mã trong **vùng liệt kê mã**, mỗi dòng một mã — render in `• 2106.10.00 — không phải 2106.90.00 vì…`, nhặt cả hai thì mã bị *loại trừ* trong lý do lại được tính là mã bot đề xuất và đẩy mã thật ra khỏi top-3;
-- **giọng Quyên** (`packs/hs/giong-quyen.js:67,70`), là khuôn dùng ở chat riêng: `Dạ … thì mã phù hợp nhất là {b}8509.40.00{/b} (…)`. Tin này không có tiêu đề mục nào nên vòng quét theo vùng liệt kê bỏ qua sạch; nhặt được mã ở câu chốt rồi là **đóng vùng** ngay, vì các dòng sau là thuế/chính sách/lưu ý và mã trong đó (số hiệu văn bản) không phải mã bot đề xuất.
+- **giọng Quyên** (`packs/hs/giong-quyen.js:67,70`), là khuôn dùng ở chat riêng: `Dạ … thì mã phù hợp nhất là {b}8509.40.00{/b} (…)`. Tin này không có tiêu đề mục nào nên vòng quét theo vùng liệt kê bỏ qua sạch; nhặt được mã ở câu chốt rồi là **đóng vùng** ngay, vì các dòng sau là thuế/chính sách/lưu ý và mã trong đó (số hiệu văn bản) không phải mã bot đề xuất. Từ OZV-2019, gần cuối tin có thêm 1 dòng `MENU_SO_GIONG_QUYEN` (phím `0–3`); dòng đó không chứa mã HS nên `docMaTuTin` vẫn đóng vùng sau câu chốt.
 
 ### Trần chờ mỗi ca và ca hết hạn chờ
 
