@@ -12,6 +12,9 @@ const ngayVN = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso |
 /** Tin đầu tối đa 3 căn cứ (issue #136 mục B4). */
 const TOI_DA_CAN_CU = 3;
 
+/** Dòng menu số 0–3 cuối tin kết quả Giọng Quyên (OZV-2018 / OZV-1527). */
+export const MENU_SO_GIONG_QUYEN = 'Anh/chị muốn em soạn luôn mô tả khai báo hay xem giấy tờ ạ? Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên (hoặc "căn cứ")';
+
 /**
  * Dựng câu trả lời tóm tắt ngắn kết quả phân loại mã HS theo giọng Quyên.
  * @param {object} param0
@@ -107,8 +110,8 @@ export function renderPhanLoaiGiongQuyen({
     lines.push(`• Lưu ý: ${cb}${cite(ccCs, ccCs?.chuaDoiChieu ? ', chưa đối chiếu bản gốc' : '')}`);
   }
 
-  // Dòng 5: Câu hỏi mở bước tiếp theo
-  lines.push(`Anh/chị muốn em soạn luôn mô tả khai báo, hay xem chi tiết giấy tờ cần làm ạ? Gõ "căn cứ" để xem đủ văn bản pháp lý.`);
+  // Dòng 5: Menu số 0–3 (OZV-1527 pa.1 / OZV-2019) — thay câu hỏi mở cũ; nhận phím = thẻ sau.
+  lines.push(MENU_SO_GIONG_QUYEN);
 
   // Dòng 6: Cảnh báo gợi ý gọn 1 dòng
   lines.push(`(Mã HS là gợi ý tham khảo, anh/chị đối chiếu thực tế khi khai báo nhé ạ)`);
