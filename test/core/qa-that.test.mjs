@@ -458,3 +458,40 @@ test('runSingleScenario: TMPDIR bị dọn giữa bài đo vẫn chạy được
   assert.doesNotMatch(res.lyDo || '', /ENOENT|mkdtemp/, 'Không được chết vì thiếu thư mục tạm');
   assert.equal(res.stepResults.length, 2);
 });
+
+// OZV-2100: Kịch bản QA thật G4 (g4-quyen-hoi-lai.json) phủ trọn Phương án 1 OZV-1527
+// (menu số 0–3, nhận phím tắt số 1 & 3, câu hỏi tách mã card mạng Mẫu 2, cảnh báo giấy phép Mẫu 3).
+test('runSingleScenario: G4 giọng Quyên & hỏi lại (g4-quyen-hoi-lai.json) phủ trọn Phương án 1 OZV-1527', async () => {
+  const g4HoiLaiPath = join(ROOT_DIR, 'eval', 'qa-that', 'g4-quyen-hoi-lai.json');
+  assert.ok(existsSync(g4HoiLaiPath), 'Tệp eval/qa-that/g4-quyen-hoi-lai.json phải tồn tại');
+  const scenario = JSON.parse(readFileSync(g4HoiLaiPath, 'utf8'));
+
+  const res = await runSingleScenario(scenario, { isMock: true });
+  assert.equal(res.ok, true, `g4-quyen-hoi-lai phải đạt toàn bộ 10 bước nhưng trượt vì: ${res.lyDo}`);
+  assert.equal(res.zaloApiCalls, 0);
+  assert.equal(res.stepResults.length, 10);
+
+  for (const st of res.stepResults) {
+    assert.equal(st.ok, true, `Bước ${st.stepIndex} (${st.mieuTa}) phải ĐẠT nhưng trượt: ${st.lyDo}`);
+  }
+
+  // Bước 2: kết quả 8509.40.00 có menu số 0–3
+  assert.match(res.stepResults[1].sent.join('\n'), /Gõ 1 thuế & C\/O · 2 giấy phép\/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên/);
+
+  // Bước 7: hỏi tách mã card mạng Mẫu 2, không gọi phan_loai_hs ở bước này
+  assert.equal(res.stepResults[6].baoDangTraSau, null);
+  assert.match(res.stepResults[6].sent.join('\n'), /kết nối mạng LAN\/WAN[\s\S]*cổng RJ45[\s\S]*điều khiển nội bộ/);
+
+  // Bước 8: trả lời LAN cổng RJ45 → kết quả 8517.62.43 có 10/2022/TT-BTTTT + thời gian cấp phép + menu 0–3
+  const step8Text = res.stepResults[7].sent.join('\n');
+  assert.match(step8Text, /8517\.62\.43/);
+  assert.match(step8Text, /10\/2022\/TT-BTTTT/);
+  assert.match(step8Text, /05 ngày làm việc/);
+  assert.match(step8Text, /Gõ 1 thuế & C\/O · 2 giấy phép\/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên/);
+
+  // Bước 9 & 10: phím số 1 (Gói 2) và phím số 3 (Gói 3 — gọi sinh_mo_ta_khai_bao)
+  assert.match(res.stepResults[8].sent.join('\n'), /Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra[\s\S]*8517\.62\.43/);
+  assert.match(res.stepResults[9].sent.join('\n'), /Gói 3: Viết mô tả khai báo — mã vừa tra[\s\S]*Bộ thích ứng mạng hữu tuyến/);
+  assert.ok(res.toolCalls.some((c) => c.name === 'sinh_mo_ta_khai_bao'), 'Bước gõ phím 3 phải gọi công cụ sinh_mo_ta_khai_bao');
+});
+

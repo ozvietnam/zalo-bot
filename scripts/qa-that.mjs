@@ -118,7 +118,26 @@ function createMockMcp() {
     { name: 'tra_thu_tuc_nhap_khau', description: 'Thủ tục nhập khẩu' },
     { name: 'tim_ma_hs', description: 'Tìm mã HS' },
     { name: 'kiem_tra_shtt', description: 'Kiểm tra SHTT' },
+    { name: 'sinh_mo_ta_khai_bao', description: 'Sinh mô tả khai báo' },
   ];
+
+  const traDanhMucMock = (n) => {
+    if (n.includes('8413') || n.includes('bom')) return { maHs: '84137090', nameVi: 'Máy bơm ly tâm' };
+    if (n.includes('8504') || n.includes('bien doi')) return { maHs: '85044090', nameVi: 'Bộ biến đổi tĩnh điện' };
+    if (n.includes('8509') || n.includes('xay') || n.includes('sinh to')) return { maHs: '85094000', nameVi: 'Máy xay, ép trái cây gia dụng' };
+    // Chốt kẹp cơ khí (case G5 của issue #170): mã thật của Cổng là 8302.42.00, KHÔNG phải 8537.10.99.
+    if (n.includes('8302') || n.includes('chot kep') || n.includes('chot xoay') || n.includes('chot ')) {
+      return { maHs: '83024200', nameVi: 'Khớp nối, giá đỡ, chốt kẹp bằng kim loại cơ bản khác' };
+    }
+    // Card mạng / bộ thích ứng (Phương án 1 OZV-1527): tách 8471.80.10 (điều khiển nội bộ) và 8517.62.43 (LAN/WAN RJ45).
+    if (n.includes('8471') || ((n.includes('card') || n.includes('bo thich ung')) && (n.includes('raid') || n.includes('noi bo') || n.includes('o cung') || n.includes('sas')))) {
+      return { maHs: '84718010', nameVi: 'Đơn vị điều khiển và bộ thích ứng dùng cho máy xử lý dữ liệu tự động' };
+    }
+    if (n.includes('8517') || n.includes('card mang') || n.includes('rj45') || (n.includes('bo thich ung') && n.includes('mang'))) {
+      return { maHs: '85176243', nameVi: 'Bộ điều khiển và bộ thích ứng khác, kể cả bộ lặp' };
+    }
+    return { maHs: '85371099', nameVi: 'Bàn điều khiển cầm tay' };
+  };
 
   return {
     calls: [],
@@ -129,19 +148,7 @@ function createMockMcp() {
       this.calls.push({ name, args, at: new Date() });
       if (name === 'phan_loai_hs') {
         const text = String(args.tenHang || args.moTa || '');
-        const n = normMock(text);
-        const is8413 = n.includes('8413') || n.includes('bom');
-        const is8504 = n.includes('8504') || n.includes('bien doi');
-        const is8509 = n.includes('8509') || n.includes('xay') || n.includes('sinh to');
-        // Chốt kẹp cơ khí (case G5 của issue #170): mã thật của Cổng là 8302.42.00, KHÔNG phải
-        // 8537.10.99 ("thiết bị điều khiển cầm tay" — nhóm hàng điện). Không có nhánh này thì bộ
-        // giả lập rơi vào mã dự phòng của mình và báo cáo QA ra một mã sai mặt hàng (người soát
-        // đo, điểm [S23]) — báo cáo đó là BẰNG CHỨNG cho người đọc, không được sai.
-        // Nhận diện bằng chuỗi ĐÃ BỎ DẤU: regex có dấu dễ trượt ("kẹp" ≠ "kệp") và lỡ mất
-        // nhánh thì báo cáo lại ra mã của món khác.
-        const is8302 = n.includes('8302') || n.includes('chot kep') || n.includes('chot xoay') || n.includes('chot ');
-        const maHs = is8413 ? '84137090' : (is8504 ? '85044090' : (is8509 ? '85094000' : (is8302 ? '83024200' : '85371099')));
-        const nameVi = is8413 ? 'Máy bơm ly tâm' : (is8504 ? 'Bộ biến đổi tĩnh điện' : (is8509 ? 'Máy xay, ép trái cây gia dụng' : (is8302 ? 'Khớp nối, giá đỡ, chốt kẹp bằng kim loại cơ bản khác' : 'Bàn điều khiển cầm tay')));
+        const { maHs, nameVi } = traDanhMucMock(normMock(text));
         return {
           ok: true,
           maLuot: 'ML-TEST-' + maHs,
@@ -151,26 +158,20 @@ function createMockMcp() {
           data: {
             maHs,
             ketQua: {
-              results: [
-                { hsCode: maHs, nameVi, confidence: 0.95, reasoning: nameVi },
-              ],
+              results: [{ hsCode: maHs, nameVi, confidence: 0.95, reasoning: nameVi }],
             },
           },
         };
       }
       if (name === 'ket_qua_phan_loai') {
-        const ml = String(args.maLuot || '');
-        const maHs = ml.includes('8509') ? '85094000' : (ml.includes('8413') ? '84137090' : (ml.includes('8504') ? '85044090' : (ml.includes('8302') ? '83024200' : '85371099')));
-        const nameVi = maHs === '85094000' ? 'Máy xay, ép trái cây gia dụng' : (maHs === '84137090' ? 'Máy bơm ly tâm' : (maHs === '83024200' ? 'Khớp nối, giá đỡ, chốt kẹp bằng kim loại cơ bản khác' : 'Bảng, bàn điều khiển cầm tay'));
+        const { maHs, nameVi } = traDanhMucMock(normMock(args.maLuot || ''));
         return {
           ok: true,
           maHs,
           trangThai: 'XONG',
           data: {
             maHs,
-            ketQua: {
-              results: [{ hsCode: maHs, nameVi, confidence: 0.95 }],
-            },
+            ketQua: { results: [{ hsCode: maHs, nameVi, confidence: 0.95 }] },
           },
           deXuat: [{ ma: maHs, moTa: nameVi }],
         };
@@ -178,13 +179,15 @@ function createMockMcp() {
       if (name === 'tra_thue') {
         const ma = String(args.maHs || '84137090');
         const is8509 = ma.startsWith('8509');
+        const is8517 = ma.startsWith('8517');
+        const { nameVi } = traDanhMucMock(ma);
         return {
           ok: true,
           data: {
             hsCode: ma,
-            nameVi: is8509 ? 'máy xay, ép trái cây gia dụng' : (ma.startsWith('8413') ? 'Máy bơm ly tâm khác' : (ma.startsWith('8504') ? 'Bộ biến đổi tĩnh điện khác' : (ma.startsWith('8302') ? 'Khớp nối, giá đỡ, chốt kẹp bằng kim loại cơ bản khác' : 'Thiết bị điều khiển cầm tay'))),
+            nameVi: is8509 ? 'máy xay, ép trái cây gia dụng' : nameVi,
             taxNkPreferential: is8509 ? 25 : 0,
-            taxVat: is8509 ? 8 : 10,
+            taxVat: (is8509 || is8517) ? 8 : 10,
             vatReduction: is8509 ? { noteVi: 'áp tới hết 2026' } : null,
             taxAcftaChina: { eligible: true, rate: is8509 ? 5 : 0 },
           },
@@ -193,34 +196,31 @@ function createMockMcp() {
       if (name === 'tra_thu_tuc_nhap_khau') {
         const ma = String(args.maHs || '');
         const is8509 = ma.startsWith('8509');
+        const is8517 = ma.startsWith('8517');
+        const gp8517 = { ten: 'Giấy phép nhập khẩu sản phẩm an toàn thông tin mạng', soHieu: '10/2022/TT-BTTTT', thoiGianCap: '05 ngày làm việc', tinhTrang: 'CON_HIEU_LUC' };
+        const vb8517 = { soHieu: '10/2022/TT-BTTTT', hieuLuc: { soHieu: '10/2022/TT-BTTTT', ten: 'Thông tư quy định Danh mục sản phẩm an toàn thông tin mạng nhập khẩu theo giấy phép', tinhTrang: 'CON_HIEU_LUC' } };
         return {
           ok: true,
           data: {
             kiemTraChuyenNganh: is8509 ? [{ label: 'công bố hợp quy' }] : [],
-            giayPhep: [],
-            vanBanQuanLy: [],
+            giayPhep: is8517 ? [gp8517] : [],
+            vanBanQuanLy: is8517 ? [vb8517] : [],
             chinhSach: is8509 ? { policyLines: [{ text: 'Đồ điện gia dụng phải công bố hợp quy trước khi bán' }] } : { policyLines: [] },
           },
         };
       }
+      if (name === 'sinh_mo_ta_khai_bao') {
+        const ma = String(args.maHs || '');
+        const ten = String(args.tenHang || args.moTa || '').trim();
+        const moTaEcus = ma.startsWith('8517')
+          ? `Bộ thích ứng mạng hữu tuyến (${ten || 'card mạng kết nối mạng LAN cổng RJ45'}), mới 100%`
+          : `${ten || 'Hàng hoá nhập khẩu'} (mã HS ${ma || '84137090'}), mới 100%`;
+        return { ok: true, data: { moTaEcus, banNhap: false } };
+      }
       if (name === 'tim_ma_hs') {
         const q = String(args.tuKhoa || '');
-        if (q.includes('8413')) {
-          return {
-            ok: true,
-            results: [{ hsCode: '84137090', nameVi: 'Máy bơm ly tâm khác', taxNkPreferential: 0, taxVat: 10 }],
-          };
-        }
-        if (q.includes('8504')) {
-          return {
-            ok: true,
-            results: [{ hsCode: '85044090', nameVi: 'Bộ biến đổi tĩnh điện khác', taxNkPreferential: 0, taxVat: 10 }],
-          };
-        }
-        return {
-          ok: true,
-          results: [{ hsCode: '85371099', nameVi: 'Thiết bị điều khiển cầm tay', taxNkPreferential: 0, taxVat: 10 }],
-        };
+        const { maHs, nameVi } = traDanhMucMock(normMock(q));
+        return { ok: true, results: [{ hsCode: maHs, nameVi, taxNkPreferential: 0, taxVat: 10 }] };
       }
       return { ok: true, data: 'mock-ok' };
     },
@@ -362,7 +362,7 @@ export function laBuocCoTheTraCong(step, { botVuaHoi = false } = {}) {
   if (step.kyVong?.botIm) return false;
   if (laBuocPhanLoai(step)) return true;
   const n = chuanQa(step.text);
-  if (/\b(tra|hs|hscode|ma hs|ma so|thue|thu tuc|chinh sach)\b/.test(n) || /\d{4}/.test(n)) return true;
+  if (/\b(tra|hs|hscode|ma hs|ma so|thue|thu tuc|chinh sach)\b/.test(n) || /\d{4}/.test(n) || /^[123]$/.test(n.trim())) return true;
   if (step.photoUrl) return true;
   return Boolean(botVuaHoi);
 }

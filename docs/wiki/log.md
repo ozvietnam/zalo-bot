@@ -14,6 +14,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-24 — OZV-2100: nâng cấp kịch bản QA thật G4 (`eval/qa-that/g4-quyen-hoi-lai.json` & `scripts/qa-that.mjs`) phủ Phương án 1 OZV-1527 (nhánh `ozv-2100-nang-cap-qa-that-g4`)
+
+- **Vì sao:** Sau khi các PR #256 (OZV-2019), #257 (OZV-2081), #258 (OZV-2082), #259 (OZV-2092) lên `main` (`ca979c2`), kịch bản Số đo 1 `eval/qa-that/g4-quyen-hoi-lai.json` chưa khẳng định dòng menu số `0–3`, chưa kiểm bước gõ phím tắt số và luồng hỏi tách mã card mạng `8517.62.43` kèm giấy phép `10/2022/TT-BTTTT` + thời gian cấp phép, đồng thời `createMockMcp` trong `scripts/qa-that.mjs` chưa giả lập mã `85176243`/`84718010` và công cụ `sinh_mo_ta_khai_bao`.
+- **Vá (`eval/qa-that/g4-quyen-hoi-lai.json:45-184`, `scripts/qa-that.mjs:113-228`, `scripts/qa-that.mjs:365`, `test/core/qa-that.test.mjs:462-496`):** bổ sung khẳng định dòng menu `0–3` ở bước 2 và thêm các bước 7–10 kiểm luồng `Tra hs card mạng` → câu hỏi tách mã Mẫu 2 (`khongBaoDangTra: true`) → đáp `kết nối mạng LAN cổng RJ45 ạ` → kết quả `8517.62.43` có `10/2022/TT-BTTTT` + `05 ngày làm việc` + menu `0–3` → gõ phím số `1` (Gói 2) và `3` (Gói 3); cập nhật `createMockMcp` hỗ trợ mã `85176243`, `84718010` và công cụ `sinh_mo_ta_khai_bao`; nhận diện phím số trần `1–3` trong `laBuocCoTheTraCong`. Test đỏ trước tại `test/core/qa-that.test.mjs:464`.
+- **Trang đổi:** `docs/wiki/log.md`.
+
 ## 2026-11-24 — OZV-2092: cảnh báo giấy phép kèm văn bản/thời gian cấp tin đầu (UX-02) & eval trọn luồng Phương án 1 OZV-1527 (nhánh `ozv-2092-canh-bao-giay-phep-eval`)
 
 - **Vì sao:** Khoá nghiệm thu đầu-cuối Phương án 1 OZV-1527 (nối tiếp OZV-2019, OZV-2081, OZV-2082) — khi mặt hàng thuộc diện cần giấy phép nhập khẩu (Mẫu 3: `8517.62.43` — `10/2022/TT-BTTTT`), tin kết quả đầu tiên Giọng Quyên phải nêu rõ số hiệu văn bản (còn hiệu lực) và thời gian cấp phép khi dữ liệu Cổng có, không bị cắt cụt ở ngưỡng 70 ký tự cũ, đồng thời không tự bịa khi Cổng không trả.
