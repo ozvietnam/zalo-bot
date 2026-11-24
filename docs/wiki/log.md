@@ -14,6 +14,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-24 — OZV-2081: nhận phím số trần 0–3 sau phân loại HS (nhánh `ozv-2081-nhan-phim-0-3`)
+
+- **Vì sao:** OZV-1527 pa.1 ([2/3], nối tiếp OZV-2019) — khi phiên vừa có mã HS (`session.last?.maHs`) và khách gõ số trần `"1"`, `"2"`, `"3"`, `"0"` theo dòng `MENU_SO_GIONG_QUYEN`, bot phải chạy đúng Gói 2 (`thue-thu-tuc`), Gói 3 (`mo-ta`) hoặc bàn giao nhân viên (`handoff`), và không bắt nhầm chuỗi không phải số trần (`"1 gói"`, `"chọn 2"`).
+- **Vá (`packs/hs/luong-chu.js:139-167`, `packs/hs/flow-turn.js:60-78`):** `result()` nhận tham số tuỳ chọn `handoff = null`; `textFlow` kiểm tra số trần `/^[0-3]$/` — gõ `"0"` khi `session.goi == null` và vừa có kết quả phân loại (`session.banDayDuPhanLoai || session.last?.maHs`) thì trả `handoff: { reason: 'khach-chon-0-gap-nhan-vien' }` (nếu `session.goi != null` vẫn về `tu-dong` như cũ); gõ trần `"1"` hoặc `"2"` khi có `session.last?.maHs` chạy Gói 2 với mã vừa tra; gõ trần `"3"` chạy Gói 3 với mã + tên hàng vừa tra. Test đỏ trước tại `packs/hs/test/giong-quyen.test.mjs:195`.
+- **Trang đổi:** `docs/wiki/log.md`.
+
 ## 2026-11-23 — OZV-2019: menu số 0–3 cuối tin Giọng Quyên (nhánh `ozv-1978-menu-so-giong-quyen`)
 
 - **Vì sao:** OZV-1527 pa.1 — cuối tin kết quả chat riêng cần 1 dòng menu phím `0–3` (thuế & C/O · giấy phép · mô tả khai báo · gặp nhân viên / "căn cứ"), trần ≤ 7 dòng; câu hỏi mở cũ không có phím số.
