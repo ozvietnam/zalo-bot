@@ -198,3 +198,21 @@ test('[OZV-607] có brain bật: câu tự do đã đủ thông số ("Tra hs m�
   assert.equal(a.jobs[0].context.giongQuyen, true, 'câu tự do phải bật giongQuyen');
   assert.equal(a.jobs[0].context.chonNhanh, false, 'câu tự do không được bị gắn chonNhanh=true');
 });
+
+test('[OZV-2082] đường thật hs.handle: hỏi "Tra hs card mạng" → hỏi đúng 1 câu tách mã 8471.80.10 vs 8517.62.43 → khách đáp LAN/RJ45 → gọi phan_loai_hs', async () => {
+  const { ctx, calls } = fakeCtx({ phan_loai_hs: { ok: true, data: { maLuot: ML, trangThai: 'DANG_XU_LY' } } });
+  const r1 = await hs.handle(turn('Tra hs card mạng'), ctx);
+  const tin1 = plain(r1.replies[0]?.text ?? '');
+  assert.equal(
+    tin1,
+    'Dạ anh/chị cho em hỏi thiết bị này dùng để kết nối mạng LAN/WAN (cổng RJ45, cáp quang) hay chỉ gắn điều khiển nội bộ trong máy tính (như card RAID, điều khiển ổ cứng PCIe/SAS) ạ?',
+  );
+  assert.equal(tenHangDaTra(calls).length, 0, 'lượt 1 chưa biết LAN/WAN hay nội bộ thì chưa gọi phan_loai_hs');
+
+  await hs.handle(turn('kết nối mạng LAN cổng RJ45 ạ'), ctx);
+  const ts = tenHangDaTra(calls);
+  assert.equal(ts.length, 1, 'lượt 2 khách đáp LAN/RJ45 thì gọi phan_loai_hs đúng 1 lần');
+  assert.match(ts[0], /card mạng/i);
+  assert.match(ts[0], /LAN.*RJ45/i);
+});
+

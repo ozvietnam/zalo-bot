@@ -248,4 +248,69 @@ test('[OZV-837] đường thật hs.handle: ca 85072094 hỏi chiều cao bình 
   assert.match(daGui[0], /cao 12cm/i);
 });
 
+const CAU_TACH_CARD_MANG = 'Dạ anh/chị cho em hỏi thiết bị này dùng để kết nối mạng LAN/WAN (cổng RJ45, cáp quang) hay chỉ gắn điều khiển nội bộ trong máy tính (như card RAID, điều khiển ổ cứng PCIe/SAS) ạ?';
+
+test('[OZV-2082] (a) "card mạng" / "card điều khiển máy tính" / "bộ thích ứng máy tính" chưa nêu LAN/WAN vs nội bộ → hỏi đúng 1 câu tách mã Mẫu 2 OZV-1527', () => {
+  for (const mau of [
+    'card mạng',
+    'card mang',
+    'cạc mạng',
+    'card điều khiển máy tính',
+    'card dieu khien may tinh',
+    'bộ thích ứng máy tính',
+    'bo thich ung may tinh',
+    'bộ điều khiển và bộ thích ứng',
+  ]) {
+    const r = kiemTraThongTinPhanLoai(mau, { vongHoi: 0 });
+    assert.equal(r.canHoi, true, `phải hỏi lại với "${mau}"`);
+    assert.equal(r.hoiThuocTinh, true, `nhánh card mạng phải đặt hoiThuocTinh=true với "${mau}"`);
+    assert.deepEqual(r.thieu, ['congDung'], `chỉ thiếu congDung với "${mau}"`);
+    assert.equal(r.cauHoi, CAU_TACH_CARD_MANG, `phải hỏi đúng 1 câu chuẩn Mẫu 2 OZV-1527 với "${mau}"`);
+  }
+});
+
+test('[OZV-2082] (b) đã nêu LAN/WAN (RJ45, cáp quang) hoặc điều khiển nội bộ (RAID, ổ cứng PCIe/SAS) → không hỏi lại', () => {
+  for (const mau of [
+    'card mạng LAN cổng RJ45',
+    'card mạng cáp quang SFP',
+    'card mạng kết nối mạng LAN/WAN',
+    'card điều khiển máy tính gắn điều khiển nội bộ trong máy tính',
+    'card điều khiển ổ cứng PCIe/SAS',
+    'card điều khiển máy tính RAID',
+    'bộ thích ứng máy tính truyền dữ liệu qua mạng hữu tuyến',
+  ]) {
+    const r = kiemTraThongTinPhanLoai(mau, { vongHoi: 0 });
+    assert.equal(r.canHoi, false, `đã rõ LAN/WAN vs nội bộ thì không hỏi lại với "${mau}": "${r.cauHoi}"`);
+    assert.equal(r.giaDinh, null);
+  }
+});
+
+test('[OZV-2082] (c) khách trả lời câu tách mã card mạng hoặc nói "cứ tra đi" / hết 2 vòng hỏi', () => {
+  const kt1 = kiemTraThongTinPhanLoai('card mạng', { vongHoi: 0 });
+  assert.equal(kt1.canHoi, true);
+
+  const xlLan = xuLyTraLoiHoiLai('kết nối mạng LAN cổng RJ45 ạ', kt1);
+  assert.equal(xlLan.sanSangTra, true);
+  assert.equal(xlLan.giaDinh, null);
+  assert.match(xlLan.moTaTraCuu, /card mạng.*kết nối mạng LAN cổng RJ45/i);
+  const kt2Lan = kiemTraThongTinPhanLoai(xlLan.moTaTraCuu, { vongHoi: 1, tenKhachTuGo: true });
+  assert.equal(kt2Lan.canHoi, false, 'đã trả lời LAN/RJ45 thì không hỏi vòng 2');
+
+  const xlNoiBo = xuLyTraLoiHoiLai('chỉ gắn điều khiển nội bộ trong máy tính, card RAID PCIe', kt1);
+  assert.equal(xlNoiBo.sanSangTra, true);
+  assert.match(xlNoiBo.moTaTraCuu, /card mạng.*điều khiển nội bộ.*card RAID PCIe/i);
+  const kt2NoiBo = kiemTraThongTinPhanLoai(xlNoiBo.moTaTraCuu, { vongHoi: 1, tenKhachTuGo: true });
+  assert.equal(kt2NoiBo.canHoi, false, 'đã trả lời nội bộ/RAID thì không hỏi vòng 2');
+
+  const buong = xuLyTraLoiHoiLai('không rõ, cứ tra đi', kt1);
+  assert.equal(buong.sanSangTra, true);
+  assert.ok(buong.giaDinh, 'khách buông phải có giả định');
+  assert.match(buong.moTaTraCuu, /card mạng/i);
+
+  const hetVong = kiemTraThongTinPhanLoai('card điều khiển máy tính', { vongHoi: 2 });
+  assert.equal(hetVong.canHoi, false);
+  assert.match(hetVong.giaDinh, /card điều khiển máy tính/i);
+});
+
+
 
