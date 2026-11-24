@@ -14,6 +14,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-24 — OZV-2105: đồng bộ wiki (`docs/wiki/goi-nghiep-vu.md` & `docs/wiki/tien-do.md`) với Phương án 1 OZV-1527 trên `main` (`0057d5c`) (nhánh `ozv-2105-dong-bo-wiki-ozv-1527`)
+
+- **Vì sao:** Sau khi hoàn tất trọn 5 PR (#256–#260: OZV-2019, OZV-2081, OZV-2082, OZV-2092, OZV-2100) của Phương án 1 OZV-1527 trên `main` (`0057d5c`), hai trang `docs/wiki/goi-nghiep-vu.md` (đang ở commit `0842386`) và `docs/wiki/tien-do.md` (đang ở commit `1e48e7b`) chưa ghi nhận luồng menu số `0–3` Giọng Quyên, nhận phím tắt số trần `0–3`, câu hỏi tách mã card mạng `8471.80.10` vs `8517.62.43`, cảnh báo giấy phép kèm số hiệu `CON_HIEU_LUC` + thời gian cấp phép tin đầu, cũng như số kịch bản eval `33/33` và kịch bản QA thật G4 `10/10` bước.
+- **Vá (`docs/wiki/goi-nghiep-vu.md:2`, `docs/wiki/goi-nghiep-vu.md:57-83`, `docs/wiki/tien-do.md:3-5`, `docs/wiki/tien-do.md:105`, `docs/wiki/tien-do.md:138-143`, `test/core/readme-t032.test.mjs:89-111`):** cập nhật mốc commit `0057d5c` và bổ sung mô tả + trích dẫn `tệp:dòng` cho Phương án 1 OZV-1527 ở cả hai trang wiki; thêm bài kiểm khoá các nhận định wiki mới trong `test/core/readme-t032.test.mjs` (đỏ trước, xanh sau).
+- **Trang đổi:** `docs/wiki/goi-nghiep-vu.md`, `docs/wiki/tien-do.md`, `docs/wiki/log.md`.
+
 ## 2026-11-24 — OZV-2100: nâng cấp kịch bản QA thật G4 (`eval/qa-that/g4-quyen-hoi-lai.json` & `scripts/qa-that.mjs`) phủ Phương án 1 OZV-1527 (nhánh `ozv-2100-nang-cap-qa-that-g4`)
 
 - **Vì sao:** Sau khi các PR #256 (OZV-2019), #257 (OZV-2081), #258 (OZV-2082), #259 (OZV-2092) lên `main` (`ca979c2`), kịch bản Số đo 1 `eval/qa-that/g4-quyen-hoi-lai.json` chưa khẳng định dòng menu số `0–3`, chưa kiểm bước gõ phím tắt số và luồng hỏi tách mã card mạng `8517.62.43` kèm giấy phép `10/2022/TT-BTTTT` + thời gian cấp phép, đồng thời `createMockMcp` trong `scripts/qa-that.mjs` chưa giả lập mã `85176243`/`84718010` và công cụ `sinh_mo_ta_khai_bao`.

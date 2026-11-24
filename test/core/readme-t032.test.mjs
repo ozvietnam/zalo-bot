@@ -85,3 +85,26 @@ test('package.json: scripts.test gom đủ test/core, test/giam-sat, test/gatewa
     assert.ok(testScript.includes(glob), `scripts.test trong package.json phải chứa ${glob}`);
   }
 });
+
+test('wiki: goi-nghiep-vu.md và tien-do.md đồng bộ Phương án 1 OZV-1527 tại commit 0057d5c (OZV-2105)', () => {
+  const goiNghiepVu = readFileSync(resolve(GOC, 'docs/wiki/goi-nghiep-vu.md'), 'utf8');
+  const tienDo = readFileSync(resolve(GOC, 'docs/wiki/tien-do.md'), 'utf8');
+
+  assert.match(goiNghiepVu, /> Cập nhật: 2026-11-24 · commit: 0057d5c/);
+  assert.match(goiNghiepVu, /MENU_SO_GIONG_QUYEN/);
+  assert.match(goiNghiepVu, /`packs\/hs\/giong-quyen\.js:16`/);
+  assert.match(goiNghiepVu, /`packs\/hs\/luong-chu\.js:138`/);
+  assert.match(goiNghiepVu, /`packs\/hs\/flow-turn\.js:60`/);
+  assert.match(goiNghiepVu, /8471\.80\.10/);
+  assert.match(goiNghiepVu, /8517\.62\.43/);
+  assert.match(goiNghiepVu, /`packs\/hs\/nhanh-hoi-hang\.js:127`/);
+  assert.match(goiNghiepVu, /`packs\/hs\/dien-cho-thieu\.js:171`/);
+  assert.match(goiNghiepVu, /`packs\/hs\/can-cu\.js:146-158`/);
+
+  assert.match(tienDo, /> Cập nhật: 2026-11-24 · commit: 0057d5c/);
+  assert.match(tienDo, /OZV-1527/);
+  assert.match(tienDo, /`eval\/fixtures\/ozv-1527-card-mang-menu-so\.jsonl:1`/);
+  assert.match(tienDo, /`eval\/qa-that\/g4-quyen-hoi-lai\.json:1`/);
+  assert.match(tienDo, /33\/33/);
+  assert.match(tienDo, /10\/10/);
+});

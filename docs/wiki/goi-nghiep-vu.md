@@ -1,5 +1,5 @@
 # Gói nghiệp vụ và Cổng OZ
-> Cập nhật: 2026-11-07 · commit: 0842386
+> Cập nhật: 2026-11-24 · commit: 0057d5c
 
 Trang này nói về **gói** (pack) — đơn vị nghiệp vụ của bot — và về **Cổng OZ**, nơi mọi tri thức nghiệp vụ nằm.
 
@@ -53,6 +53,26 @@ Phiên cũ không có cờ thì `laHoiThuocTinh` suy từ `thieu`, và phép suy
 Bản đầu (PR #232) có **4 khoá VẪN rụng** tên hàng: `cong_suat`, `dien_ap` (`DONG_BIEU`) và `power`, `voltage` (`TT39`). Chúng CÓ trong bảng `KHOA` nên `m.dai` không rỗng, mặc định an toàn của OZV-791 không che tới; chúng quy về `congSuat` / `dienAp` mà hai đại lượng này thiếu trong `DAI_THUOC_TINH` ⇒ `hoiThuocTinh: false` tường minh ⇒ tên hàng rụng y như OZV-782 (lần thứ TƯ của cùng lớp lỗi: #213 → OZV-782 → OZV-791 → OZV-799). **OZV-799 thêm `congSuat` + `dienAp` vào `DAI_THUOC_TINH`** và **bỏ hẳn** danh sách `DANG_DO` trong tệp test — đừng dựng lại nó: khoá nào rụng tên hàng về sau phải làm **đỏ** cổng, không treo `todo` cho im.
 
 Rà cả 28 mục của `KHOA`: chúng quy về đúng bảy đại lượng (`chatLieu`, `quyCach`, `congDung`, `kichThuoc`, `dungTich`, `congSuat`, `dienAp`) — `DAI_THUOC_TINH` nay phủ cả bảy, không còn mục nào ngoài.
+
+### Câu hỏi tách mã card mạng 8471.80.10 vs 8517.62.43 (Phương án 1 OZV-1527 / OZV-2082)
+
+Khi khách hỏi tự do về `"card mạng"`, `"card điều khiển máy tính"`, `"bộ thích ứng máy tính"` mà chưa nêu rõ thiết bị dùng để kết nối mạng LAN/WAN (cổng RJ45, cáp quang) hay chỉ gắn điều khiển nội bộ trong máy tính (như card RAID, điều khiển ổ cứng PCIe/SAS), nhánh 2c ở `packs/hs/dien-cho-thieu.js:171` gọi `hoiCardMang` (`packs/hs/nhanh-hoi-hang.js:127`) để hỏi đúng 1 câu tách mã `CAU_HOI_CARD_MANG` (`packs/hs/nhanh-hoi-hang.js:42`) nhằm phân định cặp mã `8471.80.10` và `8517.62.43` với cờ `hoiThuocTinh: true` (`packs/hs/nhanh-hoi-hang.js:134`).
+
+- Nếu mô tả hoặc hồ sơ mạch đã có dấu hiệu phân biệt LAN/WAN hay điều khiển nội bộ (`coPhanBietCardMang`, `packs/hs/nhanh-hoi-hang.js:54`) thì không hỏi lại.
+- Nếu đã hỏi đủ 2 vòng hoặc khách nói `"cứ tra đi"` thì áp giả định mặc định tại `giaDinhNhomHang` (`packs/hs/nhanh-hoi-hang.js:70-72`).
+
+### Cảnh báo giấy phép tin đầu, menu số `0–3` và phím tắt sau phân loại (Phương án 1 OZV-1527 / OZV-2019, OZV-2081, OZV-2092)
+
+1. **Cảnh báo giấy phép kèm số hiệu `CON_HIEU_LUC` và thời gian cấp phép ngay tin đầu (UX-02 / OZV-2092):**
+   - `canCuChinhSach` (`packs/hs/can-cu.js:117`) đọc cả `policyLines` lẫn mảng `giayPhep` từ kết quả `tra_thu_tuc_nhap_khau` (`packs/hs/can-cu.js:146-158`), giữ trường `thoiGianCap`/`thoiHanCap` và chỉ đánh dấu `dung: true` khi văn bản có `tinhTrang === 'CON_HIEU_LUC'` (`packs/hs/can-cu.js:158`).
+   - `renderPhanLoaiGiongQuyen` gọi `chonCanhBaoChinhSach` (`packs/hs/giong-quyen.js:51`, `packs/hs/giong-quyen.js:128-145`) để dựng dòng `• Lưu ý:` kèm số hiệu văn bản còn hiệu lực và thời gian cấp phép ở cuối dòng (nâng trần cắt lên 140 ký tự tại `packs/hs/giong-quyen.js:107-115`), không tự bịa khi Cổng không trả (`docs/hop-dong/luat-ung-xu.md:53`).
+2. **Menu số `0–3` cuối tin Giọng Quyên (OZV-2019):**
+   - Cuối tin kết quả phân loại Giọng Quyên gắn hằng `MENU_SO_GIONG_QUYEN` (`packs/hs/giong-quyen.js:16`, `packs/hs/giong-quyen.js:118`) ngay trước dòng cảnh báo gợi ý tham khảo, tổng độ dài tin vẫn ≤ 7 dòng.
+3. **Nhận phím tắt số trần `0–3` sau phân loại (OZV-2081):**
+   - Trong `textFlow`, biến `soTran` (`packs/hs/luong-chu.js:138`) chỉ khớp khi tin khách là đúng một chữ số trần `/^[0-3]$/` (không bắt nhầm `"1 gói"`, `"chọn 2"`):
+     - Gõ `"1"` hoặc `"2"` khi phiên vừa có mã HS (`s.last?.maHs`) → chạy ngay Gói 2 (`thue-thu-tuc`) cho mã vừa tra (`packs/hs/luong-chu.js:156-164`).
+     - Gõ `"3"` khi phiên vừa có mã và tên hàng (`s.last?.maHs` và `s.last.tenHang`) → chạy ngay Gói 3 (`mo-ta`) cho mã vừa tra (`packs/hs/luong-chu.js:162-164`).
+     - Gõ `"0"` ở chế độ tự động (`s.goi == null`) khi vừa có kết quả phân loại (`s.banDayDuPhanLoai || s.last?.maHs`) → trả `handoff: { reason: 'khach-chon-0-gap-nhan-vien' }` qua `result()` (`packs/hs/luong-chu.js:148-151`, `packs/hs/flow-turn.js:60`, `packs/hs/flow-turn.js:75`); khi đang ở trong một gói cụ thể (`s.goi != null`) thì `"0"` vẫn đưa về chế độ tự động (`packs/hs/luong-chu.js:152-154`).
 
 ### Gói nào đang hiện với khách
 
