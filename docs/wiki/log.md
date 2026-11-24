@@ -14,6 +14,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-24 — OZV-2092: cảnh báo giấy phép kèm văn bản/thời gian cấp tin đầu (UX-02) & eval trọn luồng Phương án 1 OZV-1527 (nhánh `ozv-2092-canh-bao-giay-phep-eval`)
+
+- **Vì sao:** Khoá nghiệm thu đầu-cuối Phương án 1 OZV-1527 (nối tiếp OZV-2019, OZV-2081, OZV-2082) — khi mặt hàng thuộc diện cần giấy phép nhập khẩu (Mẫu 3: `8517.62.43` — `10/2022/TT-BTTTT`), tin kết quả đầu tiên Giọng Quyên phải nêu rõ số hiệu văn bản (còn hiệu lực) và thời gian cấp phép khi dữ liệu Cổng có, không bị cắt cụt ở ngưỡng 70 ký tự cũ, đồng thời không tự bịa khi Cổng không trả.
+- **Vá (`packs/hs/can-cu.js:117-159`, `packs/hs/giong-quyen.js:51-53`, `packs/hs/giong-quyen.js:106-144`, `docs/hop-dong/luat-ung-xu.md:53`):** `canCuChinhSach` đọc thêm `thuTuc.data.giayPhep` (và `thoiGianCap` trên `policyLines`/`giayPhep`), chỉ đánh dấu `dung: true` khi `CON_HIEU_LUC`; `renderPhanLoaiGiongQuyen` đối chiếu căn cứ + thời gian cấp phép từ cả `policyLines` lẫn `giayPhep`, giữ cụm thời gian cấp phép ở cuối dòng `Lưu ý:` (nâng ngưỡng cắt lên 140 ký tự); bổ sung quy tắc bắt buộc số 4 vào UX-02. Test đỏ trước tại `packs/hs/test/giong-quyen.test.mjs:263` và fixture mới `eval/fixtures/ozv-1527-card-mang-menu-so.jsonl`.
+- **Trang đổi:** `docs/wiki/log.md`.
+
 ## 2026-11-24 — OZV-2082: câu hỏi tách mã card mạng 8471.80.10 vs 8517.62.43 (nhánh `ozv-2082-tach-ma-card-mang`)
 
 - **Vì sao:** OZV-1527 pa.1 ([3/3], thay OZV-1992) — khi khách hỏi tự do `"card mạng"`, `"card điều khiển máy tính"`, `"bộ thích ứng máy tính"` mà chưa nêu rõ kết nối mạng LAN/WAN (cổng RJ45, cáp quang) hay chỉ gắn điều khiển nội bộ trong máy tính (card RAID, điều khiển ổ cứng PCIe/SAS), bot phải hỏi đúng 1 câu tách mã theo Mẫu 2 OZV-1527 để phân định cặp mã `8471.80.10` và `8517.62.43`.
