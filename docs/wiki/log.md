@@ -14,6 +14,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-24 — OZV-2082: câu hỏi tách mã card mạng 8471.80.10 vs 8517.62.43 (nhánh `ozv-2082-tach-ma-card-mang`)
+
+- **Vì sao:** OZV-1527 pa.1 ([3/3], thay OZV-1992) — khi khách hỏi tự do `"card mạng"`, `"card điều khiển máy tính"`, `"bộ thích ứng máy tính"` mà chưa nêu rõ kết nối mạng LAN/WAN (cổng RJ45, cáp quang) hay chỉ gắn điều khiển nội bộ trong máy tính (card RAID, điều khiển ổ cứng PCIe/SAS), bot phải hỏi đúng 1 câu tách mã theo Mẫu 2 OZV-1527 để phân định cặp mã `8471.80.10` và `8517.62.43`.
+- **Vá (`packs/hs/nhanh-hoi-hang.js:35-62`, `packs/hs/nhanh-hoi-hang.js:121-136`, `packs/hs/dien-cho-thieu.js:170-171`):** thêm `hoiCardMang` và hằng `CAU_HOI_CARD_MANG`, cập nhật `giaDinhNhomHang` và nối vào `kiemTraThongTinPhanLoai` (`hoiThuocTinh: true`, không hỏi lại khi đã có dấu hiệu LAN/WAN hoặc điều khiển nội bộ). Test đỏ trước tại `packs/hs/test/dien-cho-thieu.test.mjs:251` và `packs/hs/test/hoi-lai.test.mjs:202`.
+- **Trang đổi:** `docs/wiki/an-toan.md` (cập nhật số dòng `packs/hs/dien-cho-thieu.js` 194 dòng, `packs/hs/nhanh-hoi-hang.js` 231 dòng), `docs/wiki/log.md`.
+
 ## 2026-11-24 — OZV-2081: nhận phím số trần 0–3 sau phân loại HS (nhánh `ozv-2081-nhan-phim-0-3`)
 
 - **Vì sao:** OZV-1527 pa.1 ([2/3], nối tiếp OZV-2019) — khi phiên vừa có mã HS (`session.last?.maHs`) và khách gõ số trần `"1"`, `"2"`, `"3"`, `"0"` theo dòng `MENU_SO_GIONG_QUYEN`, bot phải chạy đúng Gói 2 (`thue-thu-tuc`), Gói 3 (`mo-ta`) hoặc bàn giao nhân viên (`handoff`), và không bắt nhầm chuỗi không phải số trần (`"1 gói"`, `"chọn 2"`).

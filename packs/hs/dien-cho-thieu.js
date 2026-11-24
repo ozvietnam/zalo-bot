@@ -12,7 +12,7 @@ import {
 } from './ky-luat-hoi.js';
 import { xuLyTraLoiHoiLai } from './doc-tra-loi.js';
 import {
-  kemXuatXu, giaDinhNhomHang, hoiAcQuy, hoiDienGiaDung, hoiCoKhiVatLieu,
+  kemXuatXu, giaDinhNhomHang, hoiAcQuy, hoiCardMang, hoiDienGiaDung, hoiCoKhiVatLieu,
 } from './nhanh-hoi-hang.js';
 
 // `coThongSo` và `nhanDienCuTraDi` là hàm ĐO thuần nên đã chuyển sang `ky-luat-hoi.js`;
@@ -165,6 +165,11 @@ export function kiemTraThongTinPhanLoai(text, {
   // ≤ 13 cm ở 8507.20.94 ↔ > 23 cm ở 8507.20.99).
   const kqAcQuy = hoiAcQuy({ s, sSach, co, hoSo });
   if (kqAcQuy) return kqAcQuy;
+
+  // 2c. Nhóm card mạng / card điều khiển máy tính / bộ thích ứng máy tính (8471.80.10 vs 8517.62.43 — OZV-2082):
+  // hỏi đúng 1 câu tách mã Mẫu 2 OZV-1527 khi chưa nêu rõ LAN/WAN hay điều khiển nội bộ.
+  const kqCard = hoiCardMang({ s, sSach, co, hoSo });
+  if (kqCard) return kqCard;
 
   // 3. Đánh giá độ chi tiết của mô tả — tính CẢ dữ kiện trong hồ sơ mạch (kỷ luật hỏi: máy tự
   // xác định tối đa từ dữ kiện sẵn có trước khi hỏi; khách đã gõ thông số ở tin trước thì đủ rồi).

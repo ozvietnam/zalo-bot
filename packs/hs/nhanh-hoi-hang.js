@@ -32,6 +32,32 @@ const AC_QUY_RE = /(?:(?<![\p{L}\p{N}])(?:[aăắằẳẵặ]c\s*quy|ac\s*quy|a
 const AC_QUY_CONG_DUNG_RE = /(kh[oở]i\s*[đd][oộ]ng|[đd][eề]\s*n[oổ]|xe\s*[đd][aạ]p\s*[đd]i[eệ]n|xe\s*[đd]i[eệ]n|l[uư]u\s*[đd]i[eệ]n|\bups\b)/i;
 const AC_QUY_CONG_DUNG_NORM_RE = /\b(khoi\s*dong|de\s*no|xe\s*dap\s*dien|xe\s*dien|luu\s*dien|ups)\b/i;
 
+// Nhóm card mạng / card điều khiển máy tính / bộ thích ứng máy tính (8471.80.10 vs 8517.62.43 — OZV-2082):
+// tách đúng 1 câu theo Mẫu 2 OZV-1527 (kết nối mạng LAN/WAN vs chỉ gắn điều khiển nội bộ trong máy tính).
+const CARD_MANG_RE = /(?<![\p{L}\p{N}])(?:(?:card|c[aạ]c)\s*(?:m[aạ]ng|[đd]i[eề]u\s*khi[eể]n(?:\s*m[aá]y\s*t[ií]nh|\s*pc)?|th[ií]ch\s*[uứ]ng(?:\s*m[aá]y\s*t[ií]nh|\s*m[aạ]ng|\s*pc)?)|(?:b[oộ]|thi[eế]t\s*b[iị])\s*(?:th[ií]ch\s*[uứ]ng\s*(?:m[aá]y\s*t[ií]nh|m[aạ]ng|pc)|[đd]i[eề]u\s*khi[eể]n\s*m[aá]y\s*t[ií]nh|[đd]i[eề]u\s*khi[eể]n\s*v[aà]\s*b[oộ]\s*th[ií]ch\s*[uứ]ng))(?![\p{L}\p{N}])/iu;
+const CARD_MANG_NORM_RE = /\b(?:(?:card|cac)\s*(?:mang|dieu\s*khien(?:\s*may\s*tinh|\s*pc)?|thich\s*ung(?:\s*may\s*tinh|\s*mang|\s*pc)?)|(?:bo|thiet\s*bi)\s*(?:thich\s*ung\s*(?:may\s*tinh|mang|pc)|dieu\s*khien\s*may\s*tinh|dieu\s*khien\s*va\s*bo\s*thich\s*ung))\b/i;
+const CARD_PHAN_BIET_RE = /(?<![\p{L}\p{N}])(?:lan|wan|rj-?45|ethernet|sfp\+?|qsfp|wi-?fi|wlan|gigabit|10?gbe|poe|raid|pcie|pci-e|pci\s*express|sas|sata|nvme|scsi|hba)(?![\p{L}\p{N}])|(?:c[aá]p|c[oổ]ng|s[oợ]i)\s*quang|(?<![\p{L}\p{N}])quang(?![\p{L}\p{N}])|k[eế]t\s*n[oố]i\s*m[aạ]ng|truy[eề]n\s*(?:nh[aậ]n\s*)?d[uữ]\s*li[eệ]u|m[aạ]ng\s*(?:h[uữ]u\s*tuy[eế]n|kh[oô]ng\s*d[aâ]y|vi[eễ]n\s*th[oô]ng|n[oộ]i\s*b[oộ])|c[oổ]ng\s*m[aạ]ng|c[aắ]m\s*(?:d[aâ]y|c[aá]p)\s*m[aạ]ng|[đd]i[eề]u\s*khi[eể]n\s*n[oộ]i\s*b[oộ]|n[oộ]i\s*b[oộ](?:\s*(?:trong\s*)?m[aá]y\s*t[ií]nh)?|g[aắ]n\s*(?:[đd]i[eề]u\s*khi[eể]n\s*)?(?:n[oộ]i\s*b[oộ]|trong\s*m[aá]y\s*t[ií]nh)|b[eê]n\s*trong\s*m[aá]y\s*t[ií]nh|[oổ]\s*(?:c[uứ]ng|[đd][iĩ]a)|ngo[aạ]i\s*vi\s*tr[uự]c\s*ti[eế]p|bus\s*n[oộ]i\s*b[oộ]/iu;
+const CARD_PHAN_BIET_NORM_RE = /\b(?:lan|wan|rj-?45|ethernet|sfp\+?|qsfp|wi-?fi|wlan|gigabit|10?gbe|poe|raid|pcie|pci-e|pci\s*express|sas|sata|nvme|scsi|hba|quang)\b|(?:cap|cong|soi)\s*quang|ket\s*noi\s*mang|truyen\s*(?:nhan\s*)?du\s*lieu|mang\s*(?:huu\s*tuyen|khong\s*day|vien\s*thong|noi\s*bo)|cong\s*mang|cam\s*(?:day|cap)\s*mang|dieu\s*khien\s*noi\s*bo|noi\s*bo(?:\s*(?:trong\s*)?may\s*tinh)?|gan\s*(?:dieu\s*khien\s*)?(?:noi\s*bo|trong\s*may\s*tinh)|ben\s*trong\s*may\s*tinh|o\s*(?:cung|dia)|ngoai\s*vi\s*truc\s*tiep|bus\s*noi\s*bo/i;
+
+export const CAU_HOI_CARD_MANG = 'Dạ anh/chị cho em hỏi thiết bị này dùng để kết nối mạng LAN/WAN (cổng RJ45, cáp quang) hay chỉ gắn điều khiển nội bộ trong máy tính (như card RAID, điều khiển ổ cứng PCIe/SAS) ạ?';
+
+function laCardMang(sSach) {
+  return CARD_MANG_RE.test(sSach) || CARD_MANG_NORM_RE.test(norm(sSach));
+}
+
+function giaDinhCardMang(sSach) {
+  return /m[aạ]ng|\bmang\b/i.test(sSach)
+    ? `${sSach} kết nối mạng hữu tuyến LAN (cổng RJ45) thông dụng`
+    : `${sSach} gắn điều khiển nội bộ trong máy tính thông dụng`;
+}
+
+function coPhanBietCardMang(sSach, hoSo) {
+  const h = hoSo && typeof hoSo === 'object' ? hoSo : {};
+  const gop = [sSach, h.moTa, h.congDung, h.thongSo, ...(Array.isArray(h.sua) ? h.sua : [])]
+    .map((x) => String(x || '').trim()).filter(Boolean).join(' ');
+  return CARD_PHAN_BIET_RE.test(gop) || CARD_PHAN_BIET_NORM_RE.test(norm(gop));
+}
+
 // Danh sách từ khoá thiết bị điện gia dụng/cơ điện cần công suất / điện áp
 const DIEN_GIA_DUNG_RE = /m[aáàảãạ]y\s*(xay|s[aấầẩẫậâ]y|ep|[eéèẻẽẹ]p|b[oơớờởỡợ]m|h[uúùủũụ]t|qu[aạàảã]t|n[eéèẻẽẹ]n|l[oọ]c|gi[aặ]t|r[uử]a)|n[oồổỗộ]i\s*(c[oơớờởỡợ]m|chi[eêếềểễệ]n|[aá]p\s*su[aấ]t)|l[oò]\s*(vi\s*s[oó]ng|n[uướ]ng)|b[eế]p\s*(t[uừ]|h[oồ]ng\s*ngo[aạ]i)|qu[aạ]t\s*[đd]i[eệ]n/i;
 const CO_KHI_VAT_LIEU_RE = /(?<![\p{L}\p{N}])(van(\s*bi|\s*b[uướớ]m|\s*m[oộ]t\s*chi[eề]u|\s*gi[aả]m\s*[aá]p|\s*c[aầ]u)?|[oố]ng(\s*th[eé]p|\s*nh[uự]a|\s*[đd][oồ]ng|\s*inox)?|bu\s*l[oô]ng|[oố]c\s*v[ií]t|th[eé]p(\s*cu[oộ]n|\s*t[aấ]m|\s*h[iì]nh)?|nh[oô]m(\s*th[oỏi]|\s*t[aấ]m|\s*[đd][iị]nh\s*h[iì]nh)?|v[aả]i(\s*cu[oộ]n|\s*d[eệ]t)?|t[aấ]m\s*nh[uự]a|m[aà]ng\s*nh[uự]a|v[oò]ng\s*bi|(?:kh[oó]a|kho[aá])(\s*c[uử]a)?|m[aặ]t\s*b[ií]ch)(?![\p{L}\p{N}])/iu;
@@ -40,6 +66,9 @@ const CO_KHI_VAT_LIEU_RE = /(?<![\p{L}\p{N}])(van(\s*bi|\s*b[uướớ]m|\s*m[o�
 export function giaDinhNhomHang(sSach) {
   if (AC_QUY_RE.test(sSach)) {
     return `${sSach}, chiều cao thông dụng không quá 13 cm (không tính đầu cực và tay cầm)`;
+  }
+  if (laCardMang(sSach)) {
+    return giaDinhCardMang(sSach);
   }
   if (DIEN_GIA_DUNG_RE.test(sSach)) {
     return `${sSach} loại thông dụng trong gia đình, điện áp 220V`;
@@ -87,6 +116,27 @@ export function hoiAcQuy({ s, sSach, co, hoSo }) {
       { cau: cauXinThem(muc, coNay, 'có thì em chốt mã chuẩn hơn ạ.'), dai: muc.map((m) => m.khoa) },
     ], coNay),
     giaDinh,
+  });
+}
+
+/**
+ * Nhánh hỏi lại cho card mạng / card điều khiển máy tính / bộ thích ứng máy tính
+ * (8471.80.10 vs 8517.62.43 — Mẫu 2 OZV-1527, OZV-2082).
+ * Trả `null` nếu không phải nhóm card/bộ thích ứng máy tính; trả kết quả `ketQuaHoi` (đúng 1 câu tách mã).
+ */
+export function hoiCardMang({ s, sSach, co, hoSo }) {
+  if (!laCardMang(sSach)) return null;
+  const daRo = coPhanBietCardMang(sSach, hoSo);
+  const coNay = { ...co, congDung: daRo };
+  return ketQuaHoi({
+    s,
+    tenGoiY: sSach,
+    hoiThuocTinh: true,
+    thieu: daRo ? [] : ['congDung'],
+    cauHoi: gomCau([
+      { cau: CAU_HOI_CARD_MANG, dai: ['congDung'] },
+    ], coNay),
+    giaDinh: giaDinhCardMang(sSach),
   });
 }
 
