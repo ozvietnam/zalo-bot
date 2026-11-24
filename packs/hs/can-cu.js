@@ -82,7 +82,7 @@ const HONG = /^(HET_HIEU_LUC|CHUA_XAC_MINH|BI_BAI_BO|BI_THAY_THE)/;
 const duLieu = (r) => (r && r.ok !== false && !r.isError ? (r.data ?? r) : null);
 const dongThue = (d) => (d ? (Array.isArray(d.results) ? d.results[0] : d) : null);
 const ngayVN = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? `${m[3]}/${m[2]}/${m[1]}` : null; };
-const goc = (s) => String(s || '').trim().replace(/-PL\d+$/i, '');
+const goc = (s) => String(s || '').trim().replace(/^(?:NĐ|TT|QĐ|NQ|CV)\s+/i, '').replace(/-PL\d+$/i, '');
 
 /**
  * Căn cứ của một kết quả `tra_thue`: { mfn, tt, vat, fta, canDoiChieu } — mỗi mục { so, viec, hieuLuc }.
@@ -137,9 +137,21 @@ export function canCuChinhSach(...ketQua) {
     const cs = d.chinhSach && typeof d.chinhSach === 'object' ? d.chinhSach : d;
     for (const p of Array.isArray(cs.policyLines) ? cs.policyLines : []) {
       if (!p?.soHieu) continue;
+      const h = p.hieuLuc && typeof p.hieuLuc === 'object' ? p.hieuLuc : null;
       const viec = String(p.text || '').replace(/\s*[—–-]\s*[\d/\p{L}-]+$/u, '').trim() || null;
-      them(p.soHieu, { viec: vb.get(goc(p.soHieu))?.viec || viec, mucDo: p.level || null,
-        chuaDoiChieu: /chưa (?:xác minh|đối chiếu)/i.test(String(p.reasonVi || '')) });
+      const tg = p.thoiGianCap || p.thoiHanCap || null;
+      them(p.soHieu, { viec: vb.get(goc(p.soHieu))?.viec || viec, tinhTrang: h?.tinhTrang || p.tinhTrang || null, mucDo: p.level || null,
+        thoiGianCap: tg ? String(tg).trim() : null, chuaDoiChieu: /chưa (?:xác minh|đối chiếu)/i.test(String(p.reasonVi || '')) });
+    }
+    for (const g of Array.isArray(d.giayPhep) ? d.giayPhep : []) {
+      if (!g || typeof g !== 'object') continue;
+      const h = g.hieuLuc && typeof g.hieuLuc === 'object' ? g.hieuLuc : null;
+      const so = h?.soHieu || g.soHieu || g.vanBan || g.legalBasis || null;
+      const ten = g.ten || g.label || g.tenVi || g.name || null;
+      const tt = h?.tinhTrang || g.tinhTrang || (g.conHieuLuc === true ? 'CON_HIEU_LUC' : null);
+      const tg = g.thoiGianCap || g.thoiHanCap || null;
+      them(so, { viec: vb.get(goc(so))?.viec || (ten ? `Giấy phép: ${ten}` : null), tinhTrang: tt, mucDo: g.level || 'BLOCKING',
+        thoiGianCap: tg ? String(tg).trim() : null, chuaDoiChieu: /chưa (?:xác minh|đối chiếu)/i.test(String(g.reasonVi || '')), nguon: h?.url || g.url || null, ten: h?.ten || null });
     }
   }
   const cu = ketQua.some((r) => (duLieu(r)?.chinhSach ?? duLieu(r))?.policyBasisReview?.status === 'OUTDATED_BASIS');

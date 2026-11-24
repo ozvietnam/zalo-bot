@@ -49,6 +49,7 @@ Tài liệu này chuẩn hoá các quy tắc ứng xử cốt lõi của trợ l
   1. Mọi trích dẫn pháp luật phải kèm số hiệu văn bản có căn cứ từ công cụ.
   2. Văn bản đã hết hiệu lực hoặc bãi bỏ phải ghi chú cảnh báo rõ ràng cho khách.
   3. Tiền lệ không tìm thấy phải thông báo đã dò bao nhiêu mã, không được tự suy diễn tiền lệ.
+  4. Hàng thuộc diện cần giấy phép nhập khẩu phải nêu số hiệu văn bản và thời gian cấp phép ngay trong tin kết quả đầu tiên khi dữ liệu Cổng có.
 
 ---
 

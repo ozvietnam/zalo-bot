@@ -1,0 +1,24 @@
+// OZV-2092 / OZV-1527 Phương án 1: trọn luồng hỏi card mạng → câu hỏi tách mã Mẫu 2 (phan_loai_hs=0) → đáp LAN cổng RJ45 → kết quả 8517.62.43 có 10/2022/TT-BTTTT + thời gian cấp phép + menu số 0–3 → gõ "1" (thuế & thủ tục) → gõ "3" (mô tả khai báo).
+{"step":"mcp","tool":"phan_loai_hs","returns":[{"ok":true,"data":{"maLuot":"11111111-2222-4333-8444-555555555555","trangThai":"DANG_XU_LY"}}]}
+{"step":"mcp","tool":"ket_qua_phan_loai","returns":[{"ok":true,"data":{"maLuot":"11111111-2222-4333-8444-555555555555","trangThai":"XONG","ketQua":{"status":"OK","results":[{"hs":"85176243","confidence":0.94,"reason":"Bộ thích ứng mạng hữu tuyến kết nối mạng LAN qua cổng RJ45"}]}}}]}
+{"step":"mcp","tool":"tra_thue","returns":[{"ok":true,"data":{"found":true,"hsCode":"85176243","nameVi":"- - - Bộ điều khiển và bộ thích ứng khác, kể cả bộ lặp","unitVi":"chiếc","taxNkTt":"5","taxNkPreferential":"0","taxAcfta":"0","taxAcftaChina":{"origin":"CN","eligible":true,"rate":0,"noteVi":"ACFTA 0% khi có C/O mẫu E hợp lệ."},"taxVat":"8","acfta":{"raw":"0","available":true,"rate":0,"forOrigin":{"origin":"CN","eligible":true,"rate":0,"noteVi":"ACFTA 0% khi có C/O mẫu E hợp lệ."},"mauCO":"E"},"canCuChiTiet":{"mfn":{"vanBan":"26/2023/NĐ-CP","hieuLuc":"15/07/2023"},"acfta":{"vanBan":"118/2022/NĐ-CP","hieuLuc":"30/12/2022"},"vat":{"vanBan":"174/2025/NĐ-CP","hieuLuc":"01/07/2025"}}}}]}
+{"step":"mcp","tool":"tra_thu_tuc_nhap_khau","returns":[{"ok":true,"data":{"maHs":"85176243","trangThai":"CO_DU_LIEU","kiemTraChuyenNganh":[],"giayPhep":[{"ten":"Giấy phép nhập khẩu sản phẩm an toàn thông tin mạng","soHieu":"10/2022/TT-BTTTT","thoiGianCap":"05 ngày làm việc","tinhTrang":"CON_HIEU_LUC"}],"vanBanQuanLy":[{"soHieu":"10/2022/TT-BTTTT","hieuLuc":{"soHieu":"10/2022/TT-BTTTT","ten":"Thông tư quy định Danh mục sản phẩm an toàn thông tin mạng nhập khẩu theo giấy phép","tinhTrang":"CON_HIEU_LUC","url":"https://github.com/ozvietnam/oz-wiki-plhq/blob/main/registry/van-ban/10-2022-tt-btttt.yaml"}}]}}]}
+{"step":"mcp","tool":"sinh_mo_ta_khai_bao","returns":[{"ok":true,"data":{"moTaEcus":"Bộ thích ứng mạng hữu tuyến (card mạng kết nối mạng LAN cổng RJ45), mới 100%","banNhap":false}}]}
+{"step":"in","update":{"id":"cm1","text":"Tra hs card mạng"}}
+{"step":"expect","sentTo":"c1","count":1,"match":"kết nối mạng LAN/WAN.*cổng RJ45.*điều khiển nội bộ","notMatch":"đang tra|8517\\.62\\.43"}
+{"step":"expect","sentTo":"c1","mcpTool":"phan_loai_hs","mcpCount":0}
+{"step":"advance","by":"1m"}
+{"step":"in","update":{"id":"cm2","text":"kết nối mạng LAN cổng RJ45 ạ"}}
+{"step":"expect","sentTo":"c1","count":3,"match":"8517\\.62\\.43"}
+{"step":"expect","sentTo":"c1","match":"10/2022/TT-BTTTT"}
+{"step":"expect","sentTo":"c1","match":"05 ngày làm việc"}
+{"step":"expect","sentTo":"c1","match":"Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên"}
+{"step":"expect","sentTo":"c1","mcpTool":"phan_loai_hs","mcpCount":1,"mcpMatch":"card mạng.*RJ45"}
+{"step":"advance","by":"1m"}
+{"step":"in","update":{"id":"cm3","text":"1"}}
+{"step":"expect","sentTo":"c1","count":4,"match":"Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra[\\s\\S]*8517\\.62\\.43"}
+{"step":"expect","sentTo":"c1","mcpTool":"tra_thue","mcpCount":2}
+{"step":"advance","by":"1m"}
+{"step":"in","update":{"id":"cm4","text":"3"}}
+{"step":"expect","sentTo":"c1","count":5,"match":"Gói 3: Viết mô tả khai báo — mã vừa tra[\\s\\S]*Bộ thích ứng mạng hữu tuyến"}
+{"step":"expect","sentTo":"c1","mcpTool":"sinh_mo_ta_khai_bao","mcpCount":2}

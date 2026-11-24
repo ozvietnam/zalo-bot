@@ -46,10 +46,10 @@ export function renderPhanLoaiGiongQuyen({
   // Căn cứ pháp lý (issue #168): CHỈ số hiệu Cổng trả trong chính lượt này, mỗi ý một ngoặc.
   // Tối đa 3 văn bản "quyết định nhất" (mục B4), theo thứ tự: thuế NK, nghĩa vụ chính sách, FTA, VAT.
   const ccThue = canCuThue(thue) || {};
-  // Căn cứ của ý chính sách: văn bản CÒN hiệu lực mà dòng chính sách đầu tiên viện dẫn (Cổng đã kiểm).
+  // Căn cứ của ý chính sách: văn bản CÒN hiệu lực mà dòng chính sách/giấy phép đầu tiên viện dẫn (Cổng đã kiểm).
   // Văn bản hết hiệu lực / chưa xác minh không làm căn cứ chính (mục B3) → không nêu.
-  const dauCs = cs?.muc?.length ? (csData.chinhSach?.policyLines || []).find((p) => p?.soHieu && cs.muc[0].startsWith(String(p.text || '').slice(0, 15))) : null;
-  const ccCs = dauCs ? canCuChinhSach(thuTuc).find((c) => c.so === String(dauCs.soHieu).replace(/-PL\d+$/i, '') && c.dung) : null;
+  const { cbGoc, ccCs, tgCap } = chonCanhBaoChinhSach(cs, csData, thuTuc);
+  // Ưu tiên tối đa 3 căn cứ: thuế NK, chính sách/giấy phép (còn hiệu lực), FTA, VAT.
   const chon = new Set([ccThue.mfn, ccCs, ccThue.fta, ccThue.vat].filter((c) => c?.so).map((c) => c.so).filter((so, i, a) => a.indexOf(so) === i).slice(0, TOI_DA_CAN_CU));
   const cite = (c, them = '') => (c?.so && chon.has(c.so) ? ` (${c.so}${them})` : '');
 
@@ -103,10 +103,14 @@ export function renderPhanLoaiGiongQuyen({
     if (giaDinhXuatXu) lines.push(`• Các mức trên em tính theo giả định xuất xứ ${tenNuoc(xuatXu)} — anh/chị cho em biết nước nhập để em tra đúng ạ.`);
   }
 
-  // Dòng 4: 1 cảnh báo chính sách quan trọng nhất
-  if (cs && cs.muc.length > 0) {
-    let cb = cs.muc[0];
-    if (cb.length > 70) cb = `${cb.slice(0, 68)}…`;
+  // Dòng 4: 1 cảnh báo chính sách quan trọng nhất (nêu số hiệu + thời gian cấp phép ngay tin đầu khi Cổng có — UX-02 / OZV-2092)
+  if (cbGoc) {
+    let cb = cbGoc;
+    const canNoiTg = tgCap && !cb.toLowerCase().includes(tgCap.toLowerCase());
+    const duoiTg = canNoiTg ? `, ${/^(thời gian|cấp|mất)/i.test(tgCap) ? tgCap : `thời gian cấp ${tgCap}`}` : '';
+    const tranCb = Math.max(70, 140 - duoiTg.length);
+    if (cb.length > tranCb) cb = `${cb.slice(0, tranCb - 2)}…`;
+    cb = `${cb}${duoiTg}`;
     lines.push(`• Lưu ý: ${cb}${cite(ccCs, ccCs?.chuaDoiChieu ? ', chưa đối chiếu bản gốc' : '')}`);
   }
 
@@ -117,4 +121,26 @@ export function renderPhanLoaiGiongQuyen({
   lines.push(`(Mã HS là gợi ý tham khảo, anh/chị đối chiếu thực tế khi khai báo nhé ạ)`);
 
   return lines.join('\n');
+}
+
+const gocSo = (s) => String(s || '').trim().replace(/^(?:NĐ|TT|QĐ|NQ|CV)\s+/i, '').replace(/-PL\d+$/i, '');
+
+function chonCanhBaoChinhSach(cs, csData, thuTuc) {
+  const plList = csData?.chinhSach?.policyLines || csData?.policyLines || [];
+  const gpList = Array.isArray(csData?.giayPhep) ? csData.giayPhep.filter((g) => g && typeof g === 'object') : [];
+  const tenGp = (g) => String(g?.ten || g?.label || g?.tenVi || g?.name || '').trim();
+  const soGp = (g) => gocSo(g?.hieuLuc?.soHieu || g?.soHieu || g?.vanBan || g?.legalBasis);
+  const cbGoc = cs?.muc?.length
+    ? ((!plList.length && cs.muc.find((m) => /^Giấy phép:/i.test(m))) || cs.muc[0])
+    : (gpList.length ? `Giấy phép: ${tenGp(gpList[0]) || 'nhập khẩu theo quy định chuyên ngành'}` : null);
+  if (!cbGoc) return { cbGoc: null, ccCs: null, tgCap: '' };
+  const dauPl = plList.find((p) => (p?.soHieu || p?.thoiGianCap) && cbGoc.startsWith(String(p.text || '').slice(0, 15))) || null;
+  const dauGp = gpList.find((g) => tenGp(g) && cbGoc.includes(tenGp(g).slice(0, 15)))
+    || (dauPl?.soHieu ? gpList.find((g) => soGp(g) && soGp(g) === gocSo(dauPl.soHieu)) : null)
+    || (/^Giấy phép:|giấy phép/i.test(cbGoc) ? gpList.find((g) => soGp(g) || g.thoiGianCap || g.thoiHanCap) : null)
+    || null;
+  const soCs = gocSo(dauPl?.soHieu) || soGp(dauGp);
+  const ccCs = soCs ? (canCuChinhSach(thuTuc).find((c) => c.so === soCs && c.dung) || null) : null;
+  const tgCap = String(dauGp?.thoiGianCap || dauGp?.thoiHanCap || dauPl?.thoiGianCap || dauPl?.thoiHanCap || ccCs?.thoiGianCap || '').trim();
+  return { cbGoc, ccCs, tgCap };
 }

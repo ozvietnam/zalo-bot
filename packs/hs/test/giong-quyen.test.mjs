@@ -260,4 +260,124 @@ test('OZV-2081: sau phân loại HS, khách gõ trần "1" / "2" / "3" / "0" ch�
   }
 });
 
+test('OZV-2092: renderPhanLoaiGiongQuyen ca 8517.62.43 nêu rõ số hiệu 10/2022/TT-BTTTT và thời gian cấp phép ngay ở tin đầu (từ giayPhep hoặc policyLines dài > 70 ký tự), không tự bịa khi Cổng không trả', () => {
+  const phanLoai = {
+    data: {
+      maHs: '85176243',
+      ketQua: {
+        results: [
+          { hsCode: '85176243', nameVi: 'Bộ thích ứng mạng hữu tuyến', confidence: 0.94 },
+        ],
+      },
+    },
+  };
+
+  const thue = {
+    data: {
+      hsCode: '85176243',
+      nameVi: 'Bộ thích ứng mạng hữu tuyến',
+      taxNkPreferential: 0,
+      taxVat: 8,
+      acfta: { forOrigin: { eligible: true, rate: 0, origin: 'CN' } },
+      canCuChiTiet: {
+        mfn: { vanBan: '26/2023/NĐ-CP', hieuLuc: '15/07/2023' },
+        acfta: { vanBan: '118/2022/NĐ-CP', hieuLuc: '30/12/2022' },
+      },
+    },
+  };
+
+  // Ca 1: Dữ liệu giấy phép nằm ở thuTuc.data.giayPhep (có soHieu, thoiGianCap) và CON_HIEU_LUC
+  const thuTucGiayPhep = {
+    data: {
+      maHs: '85176243',
+      giayPhep: [
+        {
+          ten: 'Giấy phép nhập khẩu sản phẩm an toàn thông tin mạng theo danh mục Bộ TTTT',
+          soHieu: '10/2022/TT-BTTTT',
+          thoiGianCap: '05 ngày làm việc',
+          tinhTrang: 'CON_HIEU_LUC',
+        },
+      ],
+      vanBanQuanLy: [
+        {
+          soHieu: '10/2022/TT-BTTTT',
+          hieuLuc: { soHieu: '10/2022/TT-BTTTT', tinhTrang: 'CON_HIEU_LUC' },
+        },
+      ],
+    },
+  };
+
+  const out1 = plain(renderPhanLoaiGiongQuyen({
+    tenHang: 'card mạng kết nối mạng LAN cổng RJ45',
+    maHs: '85176243',
+    phanLoai,
+    thue,
+    thuTuc: thuTucGiayPhep,
+    xuatXu: 'CN',
+  }));
+  const dong1 = out1.split('\n').filter((d) => d.trim().length > 0);
+  assert.ok(dong1.length <= 7, `Số dòng phải <= 7, thực tế ${dong1.length}:\n${out1}`);
+  assert.match(out1, /8517\.62\.43/);
+  assert.match(out1, /10\/2022\/TT-BTTTT/, `Tin đầu phải có số hiệu 10/2022/TT-BTTTT:\n${out1}`);
+  assert.match(out1, /05 ngày làm việc/, `Tin đầu phải có thời gian cấp phép 05 ngày làm việc (không bị cắt ở 70 ký tự):\n${out1}`);
+  assert.equal(dong1[dong1.length - 2], MENU_SO_GIONG_QUYEN);
+
+  // Ca 2: Dữ liệu giấy phép nằm ở policyLines có cụm thời gian cấp phép ở cuối câu (> 70 ký tự)
+  const thuTucPolicyDai = {
+    data: {
+      maHs: '85176243',
+      vanBanQuanLy: [
+        {
+          soHieu: '10/2022/TT-BTTTT',
+          hieuLuc: { soHieu: '10/2022/TT-BTTTT', tinhTrang: 'CON_HIEU_LUC' },
+        },
+      ],
+      chinhSach: {
+        policyLines: [
+          {
+            text: 'Phải có giấy phép nhập khẩu sản phẩm an toàn thông tin mạng (thời gian cấp ~5 ngày làm việc) — 10/2022/TT-BTTTT',
+            level: 'BLOCKING',
+            soHieu: '10/2022/TT-BTTTT',
+          },
+        ],
+      },
+    },
+  };
+
+  const out2 = plain(renderPhanLoaiGiongQuyen({
+    tenHang: 'card mạng kết nối mạng LAN cổng RJ45',
+    maHs: '85176243',
+    phanLoai,
+    thue,
+    thuTuc: thuTucPolicyDai,
+    xuatXu: 'CN',
+  }));
+  assert.match(out2, /10\/2022\/TT-BTTTT/);
+  assert.match(out2, /~5 ngày làm việc/, `Không được cắt mất cụm ~5 ngày làm việc ở cuối policyLines:\n${out2}`);
+
+  // Ca 3: Khi Cổng không trả thoiGianCap và văn bản HET_HIEU_LUC → không nêu số hiệu hết hiệu lực, không tự bịa thời gian cấp
+  const thuTucKhongCo = {
+    data: {
+      maHs: '85176243',
+      giayPhep: [
+        {
+          ten: 'Giấy phép nhập khẩu sản phẩm an toàn thông tin mạng',
+          soHieu: '10/2022/TT-BTTTT',
+          tinhTrang: 'HET_HIEU_LUC',
+        },
+      ],
+    },
+  };
+  const out3 = plain(renderPhanLoaiGiongQuyen({
+    tenHang: 'card mạng kết nối mạng LAN cổng RJ45',
+    maHs: '85176243',
+    phanLoai,
+    thue,
+    thuTuc: thuTucKhongCo,
+    xuatXu: 'CN',
+  }));
+  assert.doesNotMatch(out3, /10\/2022\/TT-BTTTT/);
+  assert.doesNotMatch(out3, /ngày làm việc/);
+});
+
 
