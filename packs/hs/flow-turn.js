@@ -57,7 +57,7 @@ export function interestsOf(calls, known = {}) {
 }
 
 /** PackResult. Nhãn 'tra-cuu-hs' chỉ khi lượt có gọi Cổng (menu, chọn gói, hỏi lại theo mẫu thì không). */
-export function result(st, texts, { jobs = [], known = {}, calls = st.calls } = {}) {
+export function result(st, texts, { jobs = [], known = {}, calls = st.calls, handoff = null } = {}) {
   // Chốt chặn bịa số hiệu văn bản (issue #168, mục B2): mọi số hiệu trong tin gửi khách phải có trong
   // dữ liệu nguồn của lượt — kết quả Cổng của lượt, căn cứ Cổng đã lưu trong phiên, lời khách, mẫu tĩnh.
   // Dòng có số lạ (thường do não AI viết) bị bỏ và ghi log; không bao giờ gửi số văn bản không có nguồn.
@@ -72,7 +72,7 @@ export function result(st, texts, { jobs = [], known = {}, calls = st.calls } = 
     replies: sach.map((text) => ({ text })),
     evidence: calls.map((c) => c.result),
     jobs,
-    handoff: null,
+    handoff,
     labels: calls.length ? [LABEL] : [],
     interests: interestsOf(calls, known),
   };

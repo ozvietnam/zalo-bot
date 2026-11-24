@@ -135,6 +135,7 @@ export async function textFlow(turn, ctx, st) {
   // Não hiểu câu hỏi (ctx.brain) chỉ hỏi ở chế độ TỰ ĐỘNG; lỗi/không chắc → routeThongMinh tự về regex.
   const r = await routeThongMinh(text, { session: s, pkgs: st.pkgs, brain: ctx.brain ?? null });
   const one = (t) => result(st, [t]);
+  const soTran = /^[0-3]$/.test(text.trim());
 
   try {
     switch (r.kind) {
@@ -144,17 +145,25 @@ export async function textFlow(turn, ctx, st) {
       case 'chao':   // lời chào: ngắn + menu rút gọn (dán menu 900 ký tự vào câu chào là ấn tượng xấu nhất)
         return one(`{b}🤖 Chào anh/chị!{/b} Em là bot tra cứu hải quan OZ đây ạ.\n\n${menuText(st.pkgs, { compact: true })}\n\nAnh/chị cứ gõ mã HS hoặc mô tả hàng (tên, chất liệu, công dụng, thông số), em tra giúp.`);
       case 'tu-dong':
+        if (soTran && s.goi == null && (s.banDayDuPhanLoai || s.last?.maHs)) {
+          s.banDayDuPhanLoai = null;
+          return result(st, [], { handoff: { reason: 'khach-chon-0-gap-nhan-vien' } });
+        }
         s.goi = null;
         s.banDayDuPhanLoai = null;
         return one(`{b}🔄 Đã chuyển sang chế độ TỰ ĐỘNG:{/b} bot đoán gói theo nội dung bạn gõ.\n\n${st.footer}`);
-      case 'chon':
-        s.goi = r.pkg.so;
+      case 'chon': {
+        const goiSau = (soTran && s.last?.maHs && r.pkg.so === 1)
+          ? (st.pkgs.find((p) => p.so === 2) || r.pkg)
+          : r.pkg;
+        s.goi = goiSau.so;
         s.banDayDuPhanLoai = null;
-        // Vừa phân loại xong (phiên có mã + tên hàng) mà gõ "2"/"3" → chạy luôn với mã vừa tra, không bắt gõ lại theo mẫu.
-        if ((r.pkg.so === 2 || r.pkg.so === 3) && s.last?.maHs && (r.pkg.so === 2 || s.last.tenHang)) {
-          return runPkg(st, r.pkg, '', { head: `{b}${r.pkg.icon} Gói ${r.pkg.so}: ${r.pkg.ten} — mã vừa tra{/b}\n\n` });
+        // Vừa phân loại xong (phiên có mã + tên hàng) mà gõ trần "1"/"2"/"3" → chạy luôn với mã vừa tra, không bắt gõ lại theo mẫu.
+        if (soTran && (goiSau.so === 2 || goiSau.so === 3) && s.last?.maHs && (goiSau.so === 2 || s.last.tenHang)) {
+          return runPkg(st, goiSau, '', { head: `{b}${goiSau.icon} Gói ${goiSau.so}: ${goiSau.ten} — mã vừa tra{/b}\n\n` });
         }
         return one(`{b}${r.pkg.icon} Gói ${r.pkg.so}: ${r.pkg.ten}{/b}\n${r.pkg.moTa}\n\n{b}Gửi thông tin theo mẫu:{/b}\n${r.pkg.mau}\n\n${st.footer}`);
+      }
       case 'ket-qua': {
         const tn = ctx.tools;
         const tool = !tn || tn.has('ket_qua_phan_loai') ? 'ket_qua_phan_loai' : 'ket_qua_soat';
