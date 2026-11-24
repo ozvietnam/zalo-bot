@@ -2,7 +2,7 @@
   "id": "g4-quyen-hoi-lai",
   "dich": "G4",
   "ten": "G4 · Giọng Quyên & Hỏi lại: Điền chỗ thiếu trước khi tra, kết quả ngắn gọn, mở chi tiết và giả định",
-  "moTa": "Nghiệm thu issue #136: (a) Tra hs máy sấy sinh tố bot hỏi lại tên/thông số; (b) trả lời đủ ra tin <= 7 dòng, gõ chi tiết ra khối đầy đủ; (c) không rõ cứ tra ra kết quả nêu rõ giả định; (d) trong nhóm hỏi lại gắn đúng tên người.",
+  "moTa": "Nghiệm thu issue #136 & Phương án 1 OZV-1527: (a) Tra hs máy sấy sinh tố bot hỏi lại tên/thông số; (b) trả lời đủ ra tin <= 7 dòng kèm menu số 0–3, gõ chi tiết ra khối đầy đủ; (c) không rõ cứ tra ra kết quả nêu rõ giả định; (d) trong nhóm hỏi lại gắn đúng tên người; (e) Tra hs card mạng hỏi tách mã Mẫu 2, trả lời LAN cổng RJ45 ra 8517.62.43 có 10/2022/TT-BTTTT + thời gian cấp phép + menu 0–3, gõ phím số 1 và 3.",
   "chatType": "PRIVATE",
   "chatId": "khach_quyen_01",
   "userId": "khach_quyen_01",
@@ -29,7 +29,7 @@
     },
     {
       "step": 2,
-      "mieuTa": "(b) Khách trả lời đủ thông số → tin kết quả <= 7 dòng đúng giọng Quyên (chờ Cổng quá 3 giây thì phải có câu \"đang tra\" trước — #168)",
+      "mieuTa": "(b) Khách trả lời đủ thông số → tin kết quả <= 7 dòng đúng giọng Quyên kèm menu số 0–3 (chờ Cổng quá 3 giây thì phải có câu \"đang tra\" trước — #168)",
       "text": "đúng, 350W 220V",
       "kyVong": {
         "phaiCoPhanHoi": true,
@@ -38,7 +38,8 @@
           "Thuế NK 25%",
           "C/O mẫu E",
           "VAT 8%",
-          "soạn luôn mô tả khai báo"
+          "soạn luôn mô tả khai báo",
+          "Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên"
         ],
         "khongChua": [
           "Tự động chọn gói",
@@ -105,6 +106,77 @@
           "máy xay sinh tố",
           "công suất",
           "điện áp"
+        ]
+      }
+    },
+    {
+      "step": 7,
+      "mieuTa": "(e1) 'Tra hs card mạng' → câu hỏi tách mã Mẫu 2 (8471.80.10 vs 8517.62.43), KHÔNG báo đang tra",
+      "chatId": "khach_quyen_03",
+      "userId": "khach_quyen_03",
+      "userName": "Lê Minh Quân",
+      "text": "Tra hs card mạng",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "kết nối mạng LAN/WAN",
+          "cổng RJ45",
+          "điều khiển nội bộ"
+        ],
+        "khongChua": [
+          "8517\\.62\\.43",
+          "8471\\.80\\.10"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 8,
+      "mieuTa": "(e2) Khách trả lời 'kết nối mạng LAN cổng RJ45 ạ' → kết quả 8517.62.43 có giấy phép 10/2022/TT-BTTTT + thời gian cấp phép + menu số 0–3",
+      "chatId": "khach_quyen_03",
+      "userId": "khach_quyen_03",
+      "userName": "Lê Minh Quân",
+      "cachTruoc": "1m",
+      "text": "kết nối mạng LAN cổng RJ45 ạ",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "8517\\.62\\.43",
+          "10/2022/TT-BTTTT",
+          "05 ngày làm việc",
+          "Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên"
+        ]
+      }
+    },
+    {
+      "step": 9,
+      "mieuTa": "(e3) Khách gõ phím số '1' → chạy Gói 2 (Thuế & thủ tục nhập khẩu) cho mã vừa tra 8517.62.43",
+      "chatId": "khach_quyen_03",
+      "userId": "khach_quyen_03",
+      "userName": "Lê Minh Quân",
+      "cachTruoc": "1m",
+      "text": "1",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra",
+          "8517\\.62\\.43"
+        ]
+      }
+    },
+    {
+      "step": 10,
+      "mieuTa": "(e4) Khách gõ phím số '3' → chạy Gói 3 (Viết mô tả khai báo) cho mã vừa tra 8517.62.43",
+      "chatId": "khach_quyen_03",
+      "userId": "khach_quyen_03",
+      "userName": "Lê Minh Quân",
+      "cachTruoc": "1m",
+      "text": "3",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Gói 3: Viết mô tả khai báo — mã vừa tra",
+          "8517\\.62\\.43"
         ]
       }
     }
