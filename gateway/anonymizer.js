@@ -127,8 +127,21 @@ function laNgayGioDai(digits) {
     && h <= 23 && mi <= 59 && s <= 59;
 }
 
-/** Giữ mã HS: dạng có dấu 4.2.2, hoặc số trần đứng sau ngữ cảnh "mã HS"/"HS". */
+/**
+ * Giữ mã HS: dạng có dấu 4.2.2, hoặc số trần đứng sau ngữ cảnh "mã HS"/"HS".
+ * Chương 01–09 bắt đầu bằng `0` — `looksLikeHsCode` bác (trùng dạng SĐT VN nên
+ * ở NGỮ CẢNH SĐT phải bác). Ở đây là ngữ cảnh mã trơ gửi AI: nhận lại khi đúng
+ * nhóm 4+2+2(±2) có dấu tách (SĐT/STK không ai viết 4+2+2 có dấu), hoặc số
+ * trần 8/10 đứng sau ngữ cảnh "mã HS". SĐT 10 số 0… vẫn che ở nhánh findPhoneSpans.
+ */
 function giuMaHs(src, raw, s) {
+  if (raw[0] === '0') {
+    const d = digitsOf(raw);
+    if (d.length !== 8 && d.length !== 10) return false;
+    const shape = raw.split(/[^\d]+/).filter(Boolean).map((g) => g.length).join('+');
+    if (shape === '4+2+2' || shape === '4+2+2+2') return true;
+    return RE_CANH_HS.test(src.slice(Math.max(0, s - 24), s));
+  }
   if (!looksLikeHsCode(raw)) return false;
   if (/[.\-]/.test(raw)) return true;
   return RE_CANH_HS.test(src.slice(Math.max(0, s - 24), s));

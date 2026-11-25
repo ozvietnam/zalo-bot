@@ -501,3 +501,67 @@ test('OZV-743: xemst + số không được tha (không khớp từ khoá MST)',
   );
   assert.ok(anonymizedText.includes('[SĐT]'), 'xemst + 03… → [SĐT]');
 });
+
+test('OZV-2296: mã HS chương 01–09 (bắt đầu 0) KHÔNG bị che thành [STK]', () => {
+  // Chương 01: ngựa giống 0101.21; chương 03: cá 0301; chương 09: cà phê 0901 —
+  // mã thật có ở hs-code-api (scripts/test-tax-ten-zh.mjs: "0101.21").
+  const hs01 = ['0101', '21', '00'].join('.');
+  const hs09 = ['0901', '11', '00'].join('.');
+  const hsTran01 = ['0101', '2100'].join('');
+
+  const cham = anonymizePrompt({
+    text: `cho tôi xin mã hs ${hs01}`,
+    customerName: TEN_A,
+    convId: 'ozv2296-cham'
+  });
+  assert.ok(cham.anonymizedText.includes(hs01), `mã HS 0… có dấu chấm phải giữ: ${cham.anonymizedText}`);
+
+  const caPhe = anonymizePrompt({
+    text: `mã hs ${hs09} cà phê nhé`,
+    customerName: TEN_A,
+    convId: 'ozv2296-caphe'
+  });
+  assert.ok(caPhe.anonymizedText.includes(hs09), `mã HS chương 09 phải giữ: ${caPhe.anonymizedText}`);
+
+  const tran = anonymizePrompt({
+    text: `mã HS ${hsTran01} ngựa sống`,
+    customerName: TEN_A,
+    convId: 'ozv2296-tran'
+  });
+  assert.ok(
+    tran.anonymizedText.includes(hsTran01),
+    `mã HS 8 số trần (bắt đầu 0) có ngữ cảnh "mã HS" phải giữ: ${tran.anonymizedText}`
+  );
+});
+
+test('OZV-2296: chốt ngược — số 0 đầu KHÔNG phải mã HS thì vẫn che', () => {
+  const sdtThat = ['0901', '234', '567'].join('');
+  const stkTran = ['0123', '4567'].join('');
+  const mstSai = ['0101', '234567'].join('');
+
+  // SĐT di động thật 10 số (không có ngữ cảnh "mã hs") vẫn che [SĐT].
+  const sdt = anonymizePrompt({
+    text: `gọi tôi số ${sdtThat}`,
+    customerName: TEN_A,
+    convId: 'ozv2296-sdt'
+  });
+  assert.equal(sdt.anonymizedText.includes(sdtThat), false, 'SĐT thật phải che');
+  assert.ok(sdt.anonymizedText.includes('[SĐT]'), 'SĐT thật → [SĐT]');
+
+  // STK 8 số trần sau từ khoá vẫn che (giữ nguyên OZV-685).
+  const stk = anonymizePrompt({
+    text: `số tài khoản ${stkTran}`,
+    customerName: TEN_A,
+    convId: 'ozv2296-stk'
+  });
+  assert.equal(stk.anonymizedText.includes(stkTran), false, 'STK có từ khoá phải che');
+  assert.ok(stk.anonymizedText.includes('[STK]'), 'STK có từ khoá → [STK]');
+
+  // Dãy 0 đầu không ngữ cảnh "mã hs", không đúng nhóm 4+2+2 → vẫn che như cũ.
+  const rot = anonymizePrompt({
+    text: `mã số thuế công ty ${mstSai}`,
+    customerName: TEN_A,
+    convId: 'ozv2296-mst'
+  });
+  assert.equal(rot.anonymizedText.includes(mstSai), false, 'MST checksum sai vẫn che như cũ');
+});
