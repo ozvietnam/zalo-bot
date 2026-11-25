@@ -28,6 +28,7 @@ import { laCauHoiKhach, bocCumHoi, laHoiThuocTinh } from './cau-hoi-khach.js';
  */
 export function xuLyTraLoiHoiLai(text, sessionHoiLai = {}) {
   const s = String(text || '').trim();
+  const tenGoc = String(sessionHoiLai.tenGoc || '').replace(LENH_DAU_RE, '').trim();
 
   // Khách PHỦ ĐỊNH tên bot đoán → đọc tên khách nói, lùi về tên khách đã gõ nếu khách chỉ nói "không".
   // Xét TRƯỚC `nhanDienCuTraDi` vì mẫu "không rõ/không biết" của nó cũng khớp chữ "không" mở đầu.
@@ -47,17 +48,15 @@ export function xuLyTraLoiHoiLai(text, sessionHoiLai = {}) {
     return {
       sanSangTra: true,
       giaDinh,
-      moTaTraCuu: giaDinh,
+      moTaTraCuu: giuXuatXu(giaDinh, tenGoc),
     };
   }
 
-  // Khách HỎI LẠI chứ không trả lời ("là sao ạ", "nghĩa là gì ạ", "không hiểu ạ"). Câu hỏi của
-  // khách KHÔNG phải dữ kiện mặt hàng: đọc nó thành tên mới là bot đi tra mã của chữ "sao" — mã
-  // chắc chắn sai, mà mô tả khai báo in thẳng cho khách dùng (vòng soát 5 PR #213; Điều III, VIII).
+  // Khách HỎI LẠI chứ không trả lời ("là sao ạ", "nghĩa là gì ạ", "không hiểu ạ"): câu hỏi không
+  // phải dữ kiện mặt hàng, đọc thành tên mới là tra mã của chữ "sao" (vòng soát 5 PR #213; Điều III, VIII).
   const khachHoiLai = laCauHoiKhach(s);
 
-  // Khách XÁC NHẬN tên, có thể bổ sung thông số (vd: "đúng, 350W 220V" hoặc "350W 220V")
-  const tenGoc = String(sessionHoiLai.tenGoc || '').replace(LENH_DAU_RE, '').trim();
+  // Khách XÁC NHẬN tên, có thể bổ sung thông số (vd: "đúng, 350W 220V" hoặc "350W 220V").
   // Tên bot ĐOÁN (`tenGoiY`) chỉ được thay tên KHÁCH GÕ khi khách XÁC NHẬN RÕ ("đúng ạ", "chuẩn").
   // Khách đáp mỗi thông số ("350W 220V") là trả lời câu XIN THÔNG SỐ, không phải đồng ý đổi tên
   // món: coi im lặng là đồng ý thì bot lặng lẽ tráo "máy sấy sinh tố" thành "máy xay sinh tố" rồi
@@ -71,22 +70,10 @@ export function xuLyTraLoiHoiLai(text, sessionHoiLai = {}) {
   // khách nêu kèm trong cùng câu ("350W thì sao ạ") vẫn phải giữ.
   const thongSoMoi = khachHoiLai ? bocCumHoi(bocXaGiao(s)) : bocDemDau(bocXaGiao(s));
 
-  // Khách SỬA TÊN mà không mở đầu bằng "không" ("máy sấy thực phẩm ạ", "là máy sấy thực phẩm") —
-  // người Việt sửa tên hay nói thẳng như vậy. Tên mới THAY tên cũ, KHÔNG nối vào sau: nối thì Cổng
-  // nhận một mặt hàng lai mang CẢ HAI món ("máy sấy sinh tố máy sấy thực phẩm"), rồi `packages.js`
-  // ghi tên ghép đó vào `tenGoc` nên nó sống trong session sang vòng sau — bot in mã + thuế của
-  // một thứ không tồn tại (vòng soát 4 PR #213; Điều III, Điều VIII).
-  //
-  // Chỉ xét ở nhánh hỏi TÊN. Nhánh hỏi THUỘC TÍNH ("inox hay thép?", "đúc hay hàn?", "gia đình
-  // hay công nghiệp?") thì câu đáp là CHẤT LIỆU/QUY CÁCH/CÔNG DỤNG của đúng món đó, không phải tên
-  // món mới — đọc nó thành tên mới là làm rụng hẳn tên hàng khách đã gõ ("van bi" → Cổng chỉ nhận
-  // "inox 304 DN50"). Việc HỎI xác nhận tên mới vẫn do `kiemTraThongTinPhanLoai` lo ở vòng sau.
-  //
-  // Phép phân biệt là `laHoiThuocTinh` (nhánh khai lúc dựng câu hỏi), KHÔNG phải `hoiXacNhanTen`:
-  // `hoiXacNhanTen` ĐỔI GIÁ TRỊ giữa các vòng hỏi — sau lần sửa tên thứ nhất, tên là do KHÁCH gõ
-  // nên bot thôi hỏi xác nhận (`false`), và lần sửa tên thứ HAI rơi lại đúng nhánh nối hai tên:
-  // Cổng nhận "máy sấy thực phẩm máy sấy công nghiệp", một mặt hàng lai mang CẢ HAI món (vòng soát
-  // 5 PR #213; Điều III, Điều VIII). Khách HỎI LẠI thì cũng không phải tên mới.
+  // Khách SỬA TÊN không mở đầu bằng "không" ("máy sấy thực phẩm ạ", "là máy sấy thực phẩm") → tên
+  // mới THAY tên cũ, không nối vào sau thành mặt hàng lai (vòng soát 4 PR #213; Điều III, VIII).
+  // Chỉ xét ở nhánh hỏi TÊN (`!laHoiThuocTinh` — nhánh khai lúc dựng câu hỏi, không dùng
+  // `hoiXacNhanTen` vì biến đó đổi sang `false` ở lần sửa tên thứ hai, vòng soát 5 PR #213).
   const daXacNhanTen = Boolean(sessionHoiLai.hoiXacNhanTen) && laXacNhan(s) && !DEM_DAU_RE.test(bocXaGiao(s));
   const khachDuaTenMoi = !laHoiThuocTinh(sessionHoiLai) && !khachHoiLai && !daXacNhanTen && coTenTrong(thongSoMoi);
 
@@ -102,9 +89,8 @@ export function xuLyTraLoiHoiLai(text, sessionHoiLai = {}) {
   const tenKhongThongSo = xuatXuCua(thongSoMoi).giaDinh ? boThongSo(tenChuan) : chuTrong(tenChuan);
   const phanTen = trung || khachDuaTenMoi ? '' : tenKhongThongSo;
 
-  // Giữ THÔNG SỐ khách đã gõ ở tin trước: mô tả tra cứu dựng lại từ `tenGoiY` nên thông số nằm
-  // trong `tenGoc` sẽ rụng, Cổng mất dữ kiện khách đã cung cấp (nợ ghi ở PR #203).
-  const moTaTraCuu = giuThongSo([phanTen, thongSoMoi].filter(Boolean).join(' ').trim(), tenGoc);
+  // Giữ THÔNG SỐ và XUẤT XỨ khách đã gõ ở tin trước khi `tenGoiY` hoặc tên mới thay `tenGoc`.
+  const moTaTraCuu = giuXuatXu(giuThongSo([phanTen, thongSoMoi].filter(Boolean).join(' ').trim(), tenGoc), tenGoc);
 
   // KHÔNG trả thêm cờ "khách vừa hỏi lại" ở đây: `packages.js` đã đo lại chính `moTaTraCuu` bằng
   // `kiemTraThongTinPhanLoai`, nên còn vòng là bot tự hỏi tiếp một câu cho khách (ca `[#213-14]`
@@ -222,5 +208,19 @@ export function docTraLoiTen(text, { tenGoiY = '', tenGoc = '', hoiXacNhanTen = 
   // người soát PR #213 nêu). Thông số MỚI của khách vẫn được giữ, và thắng số cũ cùng loại.
   const goc = String(tenGoc || '').replace(LENH_DAU_RE, '').trim();
   const ten = coTenTrong(con) ? con : `${xuatXuCua(con).giaDinh ? boThongSo(goc) : chuTrong(goc)} ${con}`.trim();
-  return { phuDinh: true, ten: giuThongSo(ten, goc) || String(tenGoiY || '').trim() };
+  return { phuDinh: true, ten: giuXuatXu(giuThongSo(ten, goc), goc) || String(tenGoiY || '').trim() };
+}
+
+/** Giữ cụm xuất xứ trong `nguon` khi `moTa` mới chưa nêu nước khác (OZV-2255, lát 2 OZV-437). */
+function giuXuatXu(moTa, nguon) {
+  const t = String(moTa || '').trim();
+  if (!xuatXuCua(t).giaDinh || xuatXuCua(nguon).giaDinh) return t;
+  const dayDu = boThongSo(nguon).split(/\s+/).filter(Boolean);
+  const con = chuTrong(nguon).split(/\s+/).filter(Boolean);
+  const xx = [];
+  for (let i = 0, j = 0; i < dayDu.length; i += 1) {
+    if (j < con.length && dayDu[i] === con[j]) j += 1; else xx.push(dayDu[i]);
+  }
+  const cum = xx.join(' ').replace(/^[,.;:!?-]+|[,.;:!?-]+$/g, '').trim();
+  return cum && !xuatXuCua(cum).giaDinh ? [t, cum].filter(Boolean).join(' ') : t;
 }
