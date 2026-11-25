@@ -13,12 +13,45 @@ import { danhSachDayDu, KHONG_CO_CAN_CU } from './can-cu.js';
 import { fmtHs } from './format.js';
 import {
   layHoSo, hoSoRong, themChu, themSua, themTinTiep, duDeTra, dongDangTra, locTapAmAnh,
-  laLenhTroHoSo, laLenhCauTruc, laCauXemLai, laMonKhac, laCauHangMoi, boTienToHangMoi,
-  dungTuLichSu, cauDaDoi,
+  laLenhTroHoSo, laTenHangCam, laLenhCauTruc, laCauXemLai, laMonKhac, laCauHangMoi, boTienToHangMoi,
+  cungMonVoi, boYeuCauDau, dungTuLichSu, cauDaDoi,
 } from './ho-so.js';
 
 const OK_RE = /^(ok|oke|okay|dung|chuan|xac nhan|dong y|yes|y|uh|u|vang)[.!]*$/;
 const ANH_RE = /(ten hang|thong so|model|thuong hieu|chat lieu)\s*:/;
+
+// Câu tra MÃ HS trọn vẹn cho MỘT MÓN KHÁC, gửi khi phiên đã hết đường bot (handoff chuyên gia /
+// khách bấm 0 gặp nhân viên xong). OZV-2333: sau handoff phiên về TỰ DO nhưng `s.hoSo` vẫn là món
+// cũ; tin mô tả món mới trọn câu rơi vào `themTinTiep` → `themSua` (mục "khách nói thêm") rồi gói 1
+// tra trên bản gộp "Tên hàng: máy hút bụi… (khách nói thêm: máy nén khí…)" — MÃ MÓN CŨ gắn cho MÔ
+// TẢ TRỘN HAI MÓN (Hiến pháp Điều III). `laMonKhac` không bắt được cặp này: `TU_LOAI_VAT` không có
+// "nen/hut/bui/khi" nên câu không "gọi tên một loại vật". Điều kiện bám phép thử "câu hỏi mới" của
+// gói 1 (packages.js) nhưng HẸP HƠN — thiếu một điều thì tin giữ đường cũ (an toàn [S16]: thà giữ
+// hồ sơ cũ còn hơn xoá oan rồi gắn mã HS vào câu hội thoại):
+//   • phải hỏi ĐÚNG MÃ HS, không phải câu thuế/thủ tục/giá theo MÃ CŨ;
+//   • không nhắc lại đặc trưng món cũ (`cungMonVoi`) — hỏi lại món cũ thì vẫn là món cũ;
+//   • phần còn lại sau lời nhờ phải THẬT SỰ là mô tả món (≥3 từ, không chỉ toàn từ trỏ "này/chưa"),
+//     nếu không "mã hs này đúng chưa ạ" sẽ thành tên hàng gửi Cổng.
+const HOI_MA_HS_RE = /(hs\s*code|ma\s+hs|ma\s+so\s+hs)/;
+const HOI_THEO_MA_RE = /(thue|thu tu nhap khau|bao nhieu|phan tram)/;
+const TU_CHI_TRO = new Set('nay do day chu chua sai roi the a ah vay oi'.split(' '));
+// Từ LỜI NHỜ ("tra giúp em…") không mang đặc trưng món, nhưng `moTa` của mạch giữ nguyên câu
+// nên `cungMonVoi` đếm luôn "tra/giup" là đặc trưng — đúng 2 từ là coi "cùng món" và CA CHÍNH
+// CỦA OZV-2333 ("tra giúp em mã HS máy hút bụi…" → "tra giúp em mã HS máy nén khí…") bị hụt.
+// Lọc bộ từ này RA ở CẢ HAI BÊN trước khi so, rồi vẫn giao việc so cho `cungMonVoi` (tập
+// `TU_CHUNG`, mã riêng, ngưỡng 2 từ đặc trưng giữ nguyên một chỗ).
+const TU_LOI_NHO = new Set('tra cuu giup em minh toi anh chi ban nho ho cho xin check tim ma so hs code a oi nhe gi lam on xem co'.split(' '));
+const catLoiNho = (s) => norm(s).split(/[^a-z0-9]+/).filter((w) => w && !TU_LOI_NHO.has(w)).join(' ');
+function laCauTraMonMoiSauHandoff(text, hoSo) {
+  const moTaCu = String(hoSo?.moTa ?? '').trim();
+  if (!moTaCu) return false;                        // chưa có hồ sơ thì không có gì để tách
+  if (!HOI_MA_HS_RE.test(norm(text))) return false;
+  if (HOI_THEO_MA_RE.test(norm(text))) return false;
+  if (laLenhTroHoSo(text) || laTenHangCam(text) || laCauXemLai(text)) return false;
+  if (cungMonVoi(catLoiNho(text), catLoiNho(moTaCu))) return false;
+  const tenMoi = boYeuCauDau(String(text)).split(/\s+/).filter(Boolean);
+  return tenMoi.length >= 3 && !tenMoi.some((w) => TU_CHI_TRO.has(norm(w)));
+}
 
 export async function textFlow(turn, ctx, st) {
   const text = String(turn.text ?? '');
@@ -53,6 +86,14 @@ export async function textFlow(turn, ctx, st) {
     // Món KHÁC HẲN hồ sơ đang mở → mở hồ sơ mới, không gộp hai món làm một tên hàng lai.
     roiHoSo();
     const h = themChu(hoSoRong(), boTienToHangMoi(text));
+    if (duDeTra(h)) return trenHoSo(st, phanLoai, h, { cauKhach: text });
+    s.hoSo = h;
+  } else if (phanLoai && !lenhCauTruc && !s.choBoSung && !s.goi && !s.hoiLai && !s.choXacNhanAnh
+    && !hoSoTruoc.choTraLoi && laCauTraMonMoiSauHandoff(text, hoSoTruoc)) {
+    // Phiên đã hết đường bot sau handoff mà khách tra MÃ HS cho MÓN KHÁC → mở hồ sơ MỚI,
+    // không để mô tả món B thành "khách nói thêm" của hồ sơ món A (OZV-2333).
+    roiHoSo();
+    const h = themChu(hoSoRong(), text);
     if (duDeTra(h)) return trenHoSo(st, phanLoai, h, { cauKhach: text });
     s.hoSo = h;
   }
