@@ -47,6 +47,15 @@ const CUM_HOI = 'l[aà]\\s*sao|th[iì]\\s*sao|t[aạ]i\\s*sao|sao\\s*(?:v[aậ]y
   // câu hỏi thành TÊN MỚI ⇒ tenGoc rụng hẳn khỏi mô tả gửi Cổng ("xem công suất ở đâu ạ?" →
   // mô tả thành "phải không ạ?"), mà mã + thuế in ra là của món khác (Điều III, VIII).
   + '|[oở]\\s*[đd][aâ]u|ch[oỗ]\\s*n[aà]o|bao\\s*nhi[eê]u|l[aà]m\\s*(?:g[iì]|sao)'
+  // OZV-2305 (lát 10 OZV-437): "làm chi" (miền Nam) = "làm gì"; "tác dụng gì" = hỏi công dụng.
+  // Thiếu hai cụm này thì `laCauHoiKhach` false ⇒ chữ "chi"/"tác dụng" bị `coTenTrong` đếm thành
+  // TÊN MỚI ⇒ tenGoc rụng khỏi mô tả gửi Cổng — cùng lớp lỗi OZV-2263. "làm chi" PHẢI neo cuối
+  // câu (như neo câu hỏi ngược dưới): bản norm() bỏ dấu làm "chi tiết" thành "chi tiet" — hai
+  // từ — nên "máy làm chi tiết gỗ" (TÊN HÀNG) vẫn khớp `l[aà]m\s*chi` nếu không chốt đuôi. Còn
+  // "tác dụng" phải viết ĐỦ cụm kèm "gì": câu TRẢ LỜI mô tả công dụng ("có tác dụng làm sạch")
+  // không được nhận là hỏi.
+  + `|l[aà]m\\s*chi(?=${NGAT_HOI}(?:${TAN_GIAO_HOI}${NGAT_HOI})?\\?*\\s*$)`
+  + '|t[aá]c\\s*d[uụ]ng\\s*g[iì]'
   // Câu hỏi ngược xác nhận ("phải không ạ?", "đúng không em?", "đúng không nhỉ?"). Bắt buộc neo
   // CUỐI câu — sau cặp "(đúng|phải|chính xác|chuẩn) (không|chưa|ko|kg)" chỉ được còn từ xã giao
   // và dấu "?" — nếu không sẽ bắt oan câu TRẢ LỜI phủ định thuộc tính: "đúng, không mạ kẽm"

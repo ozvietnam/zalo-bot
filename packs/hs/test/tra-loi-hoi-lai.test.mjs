@@ -453,3 +453,33 @@ test('OZV-2274 [2/2] chốt ngược: tenGoc không mở rộng tên bot → moT
   assert.match(r3.moTaTraCuu, /máy sấy thực phẩm gia đình/i, `công dụng phải còn: "${r3.moTaTraCuu}"`);
   assert.match(r3.moTaTraCuu, /h[aà]ng Nh[aậ]t/i, `xuất xứ phải còn: "${r3.moTaTraCuu}"`);
 });
+
+// ── 8. OZV-2305 (lát 10 của OZV-437): CUM_HOI nhận "làm chi" (miền Nam) và "tác dụng gì" ──
+//
+// GĐ đo trên main: 'máy này dùng làm chi?' → false, 'có tác dụng gì không?' → false, trong khi
+// 'dùng để làm gì ạ?' → true. Khách miền Nam hỏi "làm chi" là CÙNG một câu hỏi với "làm gì", còn
+// "tác dụng gì" là câu hỏi công dụng; `CUM_HOI` thiếu hai cụm này ⇒ `laCauHoiKhach` false ⇒
+// `coTenTrong` đếm chữ "chi"/"tác dụng" thành TÊN HÀNG MỚI ⇒ tenGoc rụng khỏi mô tả gửi Cổng
+// (Điều III, Điều VIII) — cùng lớp lỗi với OZV-2263 (lát 2c).
+test('OZV-2305 [1/2]: laCauHoiKhach nhận "làm chi" / "tác dụng gì", không bắt oan câu trả lời', () => {
+  for (const cau of ['máy này dùng làm chi?', 'có tác dụng gì không?', 'dùng để làm chi ạ',
+    'cái này tác dụng gì ạ?', 'dùng để làm gì ạ?', // câu cuối là đối chứng đã đúng từ trước
+    'may nay dung lam chi a?', 'co tac dung gi khong a?', 'tac dung gi a?']) {
+    assert.equal(laCauHoiKhach(cau), true, `phải nhận là câu hỏi của khách: "${cau}"`);
+  }
+  // Câu TRẢ LỜI nói công dụng (không có "gì") hay chứa "làm chi tiết" KHÔNG được bắt oan:
+  // "tác dụng làm sạch" là khách MÔ TẢ món, "làm chi tiết" có "chi" dính chữ "tiết" (biên từ).
+  for (const cau of ['có tác dụng làm sạch bề mặt', 'máy làm chi tiết gỗ', 'túi da ạ']) {
+    assert.equal(laCauHoiKhach(cau), false, `câu TRẢ LỜI bị bắt oan thành câu hỏi: "${cau}"`);
+  }
+  // bocCumHoi: câu hỏi chỉ giữ thông số đo được kèm theo, chữ câu hỏi bỏ hết.
+  assert.equal(bocCumHoi('máy này dùng làm chi ạ?'), '');
+  assert.equal(bocCumHoi('350W có tác dụng gì không?'), '350W');
+});
+
+test('OZV-2305 [2/2]: hỏi "dùng làm chi?" / "tác dụng gì?" không làm rụng tenGoc', () => {
+  for (const cau of ['máy này dùng làm chi?', 'có tác dụng gì không?']) {
+    assert.equal(xuLyTraLoiHoiLai(cau, SS_2263_XAC_NHAN).moTaTraCuu, 'máy sấy sinh tố',
+      `"${cau}" là câu hỏi, tenGoc phải còn nguyên: "${xuLyTraLoiHoiLai(cau, SS_2263_XAC_NHAN).moTaTraCuu}"`);
+  }
+});
