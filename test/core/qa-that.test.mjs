@@ -495,3 +495,60 @@ test('runSingleScenario: G4 giọng Quyên & hỏi lại (g4-quyen-hoi-lai.json)
   assert.ok(res.toolCalls.some((c) => c.name === 'sinh_mo_ta_khai_bao'), 'Bước gõ phím 3 phải gọi công cụ sinh_mo_ta_khai_bao');
 });
 
+
+// OZV-2319: nhóm kịch bản QA G6 — khoá hồi quy menu số 0–3 & phím 0–3 cho Phương án 1 OZV-1527.
+// Menu render vô điều kiện cuối tin kết quả Giọng Quyên (`packs/hs/giong-quyen.js:118`, hằng
+// MENU_SO_GIONG_QUYEN); phím 0 → handoff hotline (`packs/hs/luong-chu.js:150`), phím 1/2 → Gói 2,
+// phím 3 → Gói 3 chạy với mã vừa tra.
+test('runSingleScenario: G6 menu số 0–3 (g6-menu-so.json) — dòng menu đúng khuôn ở riêng tư và nhóm', async () => {
+  const g6MenuPath = join(ROOT_DIR, 'eval', 'qa-that', 'g6-menu-so.json');
+  assert.ok(existsSync(g6MenuPath), 'Tệp eval/qa-that/g6-menu-so.json phải tồn tại');
+  const scenario = JSON.parse(readFileSync(g6MenuPath, 'utf8'));
+
+  const res = await runSingleScenario(scenario, { isMock: true });
+  assert.equal(res.ok, true, `g6-menu-so phải đạt toàn bộ ${scenario.steps.length} bước nhưng trượt vì: ${res.lyDo}`);
+  assert.equal(res.zaloApiCalls, 0);
+  assert.equal(res.stepResults.length, scenario.steps.length);
+  for (const st of res.stepResults) {
+    assert.equal(st.ok, true, `Bước ${st.stepIndex} (${st.mieuTa}) phải ĐẠT nhưng trượt: ${st.lyDo}`);
+  }
+
+  // Bước 2: tin kết quả riêng tư kèm dòng menu 0–3 NGUYÊN VĂN MENU_SO_GIONG_QUYEN
+  assert.match(
+    res.stepResults[1].sent.join('\n'),
+    /8509\.40\.00[\s\S]*Anh\/chị muốn em soạn luôn mô tả khai báo hay xem giấy tờ ạ\? Gõ 1 thuế & C\/O · 2 giấy phép\/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên \(hoặc "căn cứ"\)/,
+  );
+
+  // Bước 4: trong nhóm, tin kết quả tag đúng người và vẫn kèm menu đúng khuôn
+  const nhom = res.stepResults[3].sent.join('\n');
+  assert.ok(nhom.startsWith('@Mai\n'), 'Tin kết quả trong nhóm phải mở đầu bằng @Mai');
+  assert.match(nhom, /8517\.62\.43[\s\S]*Gõ 1 thuế & C\/O · 2 giấy phép\/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên \(hoặc "căn cứ"\)/);
+});
+
+test('runSingleScenario: G6 phím số 0–3 (g6-phim-so.json) — bot rẽ đúng nhánh theo phím khách bắn', async () => {
+  const g6PhimPath = join(ROOT_DIR, 'eval', 'qa-that', 'g6-phim-so.json');
+  assert.ok(existsSync(g6PhimPath), 'Tệp eval/qa-that/g6-phim-so.json phải tồn tại');
+  const scenario = JSON.parse(readFileSync(g6PhimPath, 'utf8'));
+
+  const res = await runSingleScenario(scenario, { isMock: true });
+  assert.equal(res.ok, true, `g6-phim-so phải đạt toàn bộ ${scenario.steps.length} bước nhưng trượt vì: ${res.lyDo}`);
+  assert.equal(res.zaloApiCalls, 0);
+  assert.equal(res.stepResults.length, scenario.steps.length);
+  for (const st of res.stepResults) {
+    assert.equal(st.ok, true, `Bước ${st.stepIndex} (${st.mieuTa}) phải ĐẠT nhưng trượt: ${st.lyDo}`);
+  }
+
+  // Bước 3: phím 0 sau kết quả phân loại → hotline gặp nhân viên, KHÔNG chạy gói, KHÔNG về chế độ tự động
+  const phim0 = res.stepResults[2].sent.join('\n');
+  assert.match(phim0, /gọi hoặc nhắn Zalo hotline OZ/);
+  assert.doesNotMatch(phim0, /Gói \d/);
+  assert.doesNotMatch(phim0, /chế độ TỰ ĐỘNG/);
+
+  // Bước 6 & 7: phím 1 và phím 2 → Gói 2 (Thuế & thủ tục) chạy với mã vừa tra 8517.62.43
+  assert.match(res.stepResults[5].sent.join('\n'), /Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra[\s\S]*8517\.62\.43/);
+  assert.match(res.stepResults[6].sent.join('\n'), /Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra[\s\S]*8517\.62\.43/);
+
+  // Bước 8: phím 3 → Gói 3 (Viết mô tả khai báo) với mã vừa tra, gọi sinh_mo_ta_khai_bao
+  assert.match(res.stepResults[7].sent.join('\n'), /Gói 3: Viết mô tả khai báo — mã vừa tra[\s\S]*Bộ thích ứng mạng hữu tuyến/);
+  assert.ok(res.toolCalls.some((c) => c.name === 'sinh_mo_ta_khai_bao'), 'Phím 3 phải gọi công cụ sinh_mo_ta_khai_bao');
+});
