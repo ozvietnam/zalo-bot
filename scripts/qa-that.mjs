@@ -35,6 +35,32 @@ export function laTinDangTra(text) {
   return Object.values(CAU_DANG_TRA).some((c) => t.includes(c));
 }
 
+/** Cờ MENU_SO_0_3 đọc theo cùng quy ước `core/config.js` (`menuSo03`) và `packs/hs/giong-quyen.js:118`
+ * (OZV-2327): khớp /^(1|true|yes)$/i thì BẬT, còn lại TẮT. Truyền `env` để kiểm đơn vị không đụng process.env. */
+export function menuSo03Bat(env = process.env) {
+  return /^(1|true|yes)$/i.test(String(env?.MENU_SO_0_3 ?? ''));
+}
+
+/**
+ * Phân lớp mẫu kỳ vọng menu (OZV-2327): mẫu đòi dòng menu số 0–3 đánh dấu tiền tố `menu:` trong
+ * `kyVong.phaiChua`. Cờ BẬT thì đòi có như cũ; cờ TẮT thì LẬT thành cấm có (tin kết quả KHÔNG được
+ * kèm dòng menu) — kịch bản QA không trượt oan khi bot đúng luật không render menu, và vẫn bắt được
+ * bot lén render menu khi cờ TẮT. Mẫu thường (không tiền tố) giữ nguyên vị trí.
+ */
+export function phanLopMauMenu(kyVong, menuBat) {
+  const phaiChua = [];
+  const khongChua = [...(kyVong.khongChua || [])];
+  for (const mau of kyVong.phaiChua || []) {
+    const s = String(mau);
+    if (s.startsWith('menu:')) {
+      (menuBat ? phaiChua : khongChua).push(s.slice('menu:'.length));
+    } else {
+      phaiChua.push(mau);
+    }
+  }
+  return { phaiChua, khongChua };
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT_DIR = join(__dirname, '..');
@@ -251,9 +277,12 @@ function createMockVision() {
  * không phải câu đang tra). `phaiChua`/`khongChua` đo trên tin KẾT QUẢ; câu đang tra không thay được kết quả.
  * `opts.batDau` (ms) — mốc khách gửi, để đo giây; `opts.nguon` — dữ liệu Cổng + lời khách cho kiểm chống bịa.
  */
-export function evaluateStep(stepDef, newMessages, scenario, { batDau = null, nguon = null, coTheTraCong = false } = {}) {
+export function evaluateStep(stepDef, newMessages, scenario, { batDau = null, nguon = null, coTheTraCong = false, menuBat = null } = {}) {
   const kyVong = stepDef.kyVong || {};
   const sentTexts = newMessages.map((m) => m.text);
+  // OZV-2327: mẫu đòi dòng menu (`menu:`) bám theo cờ — BẬT đòi có, TẮT lật thành cấm có.
+  const menuBatHieuLuc = menuBat ?? menuSo03Bat();
+  const { phaiChua: mauPhaiChua, khongChua: mauKhongChua } = phanLopMauMenu(kyVong, menuBatHieuLuc);
   const ketQua = newMessages.filter((m) => !laTinDangTra(m.text));
   const combinedText = ketQua.map((m) => m.text).join('\n---\n');
   const giay = (m) => (batDau != null && m?.at ? (new Date(m.at).getTime() - batDau) : null);
@@ -320,9 +349,9 @@ export function evaluateStep(stepDef, newMessages, scenario, { batDau = null, ng
     }
   }
 
-  // 4. Kiểm tra mẫu phải chứa
-  if (Array.isArray(kyVong.phaiChua)) {
-    for (const pattern of kyVong.phaiChua) {
+  // 4. Kiểm tra mẫu phải chứa — mẫu "menu:" đã được phân lớp theo cờ (OZV-2327)
+  if (mauPhaiChua.length) {
+    for (const pattern of mauPhaiChua) {
       const re = new RegExp(pattern, 'i');
       if (!re.test(combinedText)) {
         return {
@@ -334,9 +363,9 @@ export function evaluateStep(stepDef, newMessages, scenario, { batDau = null, ng
     }
   }
 
-  // 5. Kiểm tra mẫu không được chứa
-  if (Array.isArray(kyVong.khongChua)) {
-    for (const pattern of kyVong.khongChua) {
+  // 5. Kiểm tra mẫu không được chứa — gồm cả mẫu "menu:" lật từ phaiChua khi cờ TẮT (OZV-2327)
+  if (mauKhongChua.length) {
+    for (const pattern of mauKhongChua) {
       const re = new RegExp(pattern, 'i');
       if (re.test(combinedText)) {
         return {
