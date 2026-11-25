@@ -700,7 +700,7 @@ export function xuatXuCua(...nguon) {
  * thuế theo CN và báo "giả định xuất xứ Trung Quốc" — in mức thuế của một nước khách KHÔNG nói,
  * trong khi khách đã nói nước khác (điểm 5 người soát PR #203 nêu; chạm Điều III và Điều VIII).
  *
- * Hồ sơ không có ô "xuất xứ" riêng, nên nước nằm trong `moTa` / các câu khách nói thêm (`sua`).
+ * Hồ sơ không có ô "xuất xứ" riêng, nên nước nằm trong `moTa` / `congDung` / `thongSo` (OZV-2285: khách khai nhãn "thông số: 350W hàng Nhật") / các câu khách nói thêm (`sua`).
  * Trả về chuỗi tự do — chỉ quét bằng `findCountryInText`, KHÔNG dùng `countryCode` (xem ghi chú
  * của `xuatXuCua`: mô tả "van bi DN25 PN16 CF8M" sẽ bị đọc thành mã nước).
  * @param {object|null} hoSo
@@ -708,6 +708,6 @@ export function xuatXuCua(...nguon) {
  */
 export function chuHoSoChoXuatXu(hoSo) {
   const h = hoSo && typeof hoSo === 'object' ? hoSo : {};
-  return [h.moTa, h.congDung, h.chuAnh, ...(Array.isArray(h.sua) ? h.sua : [])]
+  return [h.moTa, h.congDung, h.thongSo, h.chuAnh, ...(Array.isArray(h.sua) ? h.sua : [])]
     .map((x) => String(x || '').trim()).filter(Boolean).join(' ');
 }

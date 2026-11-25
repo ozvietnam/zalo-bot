@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { fakeCtx, turn, hoiMotLuot, tenHangDaGui } from './giup-duong-that-hs.mjs';
 import { kiemTraThongTinPhanLoai } from '../dien-cho-thieu.js';
 import { daNeu } from '../ky-luat-hoi.js';
-import { xuatXuCua } from '../input.js';
+import { xuatXuCua, chuHoSoChoXuatXu } from '../input.js';
 import hs from '../index.js';
 
 /** Câu hỏi nước nhập, dù chữ nào, cũng phải chứa một trong các cụm này. */
@@ -46,6 +46,49 @@ test('[OZV-802] nước nêu ở lượt TRƯỚC (hồ sơ mạch #170) → lư
   if (kt.canHoi) {
     assert.doesNotMatch(kt.cauHoi, HOI_NUOC_RE, `hỏi lại nước khách đã nêu lượt trước: ${kt.cauHoi}`);
   }
+});
+
+// OZV-2285 (lát 5 OZV-437): khách khai nước TRONG Ô THÔNG SỐ ("thông số: 350W hàng Nhật" — điền
+// `h.thongSo` qua nhãn `themChu`, hoặc AI đọc ảnh) thì `chuHoSoChoXuatXu` không đọc ô đó nên
+// `daNeu().xuatXu` đo là CHƯA nêu ⇒ lượt sau hỏi lại đúng nước khách đã trả lời (luật 2 kỷ luật
+// hỏi). Cùng lớp lỗi với #170/OZV-802 ở Ô THỨ BA của hồ sơ — không phải ô mới.
+test('[OZV-2285] xuất xứ nằm trong THÔNG SỐ hồ sơ → lượt sau KHÔNG hỏi lại nước', () => {
+  const hoSo = { moTa: 'máy sấy', thongSo: '350W hàng Nhật', sua: [] };
+  // Khuôn 1 (đo lại được bằng node): chữ hồ sơ cho phép dò xuất xứ phải còn nguyên cụm nước.
+  assert.match(chuHoSoChoXuatXu(hoSo), /h[aà]ng Nh[aậ]t/,
+    `chuHoSoChoXuatXu rụng nước trong thongSo: "${chuHoSoChoXuatXu(hoSo)}"`);
+  assert.equal(daNeu('máy sấy', hoSo).xuatXu, true,
+    'nước trong thongSo bị coi là CHƯA nêu → bot hỏi lại điều khách đã trả lời');
+  const kt = kiemTraThongTinPhanLoai('máy sấy', { vongHoi: 0, hoSo });
+  if (kt.canHoi) {
+    assert.doesNotMatch(kt.cauHoi, HOI_NUOC_RE, `hỏi lại nước khách đã khai trong thông số: ${kt.cauHoi}`);
+  }
+});
+
+// Cùng ca nhưng đi ĐƯỜNG THẬT `hs.handle` hai lượt — chứng minh ô `thongSo` THẬT SỰ giữ được nước
+// khách gõ (không chỉ là hồ sơ dựng tay ở test trên).
+test('[OZV-2285] hai lượt thật: khách đáp "thông số: 50W 220V hàng Nhật" → không hỏi lại nước', async () => {
+  const { ctx } = fakeCtx(hoiMotLuot([]));
+  await hs.handle(turn('Tra hs quạt điện'), ctx);
+  await hs.handle(turn('thông số: 50W 220V hàng Nhật'), ctx);
+  const hoSo = ctx.session.get().hoSo;
+  assert.match(String(hoSo.thongSo || ''), /h[aà]ng Nh[aậ]t/,
+    'ca này phải là ca nước nằm trong thongSo (nếu ô rỗng thì test đo nhầm đường)');
+  assert.equal(daNeu('quạt điện', hoSo).xuatXu, true,
+    'bot hỏi lại nước khách vừa khai trong thông số');
+});
+
+// Chốt ngược (khuôn 3): nước ở Ô KHÁC (moTa/congDung) hoặc KHÔNG có → hành vi y như cũ.
+test('[OZV-2285] chốt ngược: nước trong moTa/congDung → như cũ; thông số KHÔNG nước → vẫn đo là chưa nêu', () => {
+  assert.equal(daNeu('máy sấy', { moTa: 'máy sấy hàng Nhật', sua: [] }).xuatXu, true);
+  assert.equal(daNeu('máy sấy', { moTa: 'máy sấy', congDung: 'sấy thực phẩm của Hàn Quốc', sua: [] }).xuatXu, true);
+  // Thông số chỉ có số/ký hiệu kỹ thuật thì KHÔNG bị bắt oan làm nước (findCountryInText, không
+  // countryCode — "DN25 PN16 CF8M" không phải mã nước ở đây).
+  assert.equal(daNeu('van bi', { moTa: 'van bi', thongSo: 'DN25 PN16 CF8M áp lực 16 bar', sua: [] }).xuatXu, false,
+    'thông số không nước mà đo là đã nêu ⇒ bot thôi hỏi, tự giả định CN (Điều VIII)');
+  // Không đếm đôi: nước đã nằm trong moTa thì thêm thongSo không đổi kết quả phép dò.
+  assert.deepEqual(xuatXuCua(chuHoSoChoXuatXu({ moTa: 'máy sấy hàng Nhật', thongSo: '350W hàng Nhật', sua: [] })),
+    xuatXuCua(chuHoSoChoXuatXu({ moTa: 'máy sấy hàng Nhật', sua: [] })));
 });
 
 test('[OZV-802] khách KHÔNG trả lời nước → vẫn ra kết quả theo giả định CN, nói rõ là giả định', () => {

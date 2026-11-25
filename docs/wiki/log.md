@@ -14,6 +14,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-25 — OZV-2285 (zalo-bot): `chuHoSoChoXuatXu` đọc cả ô `thongSo` — nước khách khai trong thông số không bị hỏi lại (lát 5 OZV-437, nhánh `ozv-437-lat5-xuat-xu-thong-so`)
+
+- **Vì sao:** hồ sơ mạch (#170) có ô `thongSo` riêng, được điền khi khách khai theo nhãn có dấu hai chấm ("thông số: 50W 220V hàng Nhật" → `themChu`, `packs/hs/ho-so.js:68-71`) hoặc khi AI đọc ảnh (`themAnh`, `packs/hs/ho-so.js:143-146`). Nhưng `chuHoSoChoXuatXu` (`packs/hs/input.js:709-713`) chỉ gộp `moTa`/`congDung`/`chuAnh`/`sua` ⇒ nước nằm trong `thongSo` bị coi là CHƯA nêu ⇒ lượt sau `daNeu().xuatXu` false ⇒ bot hỏi lại đúng nước khách vừa trả lời (luật 2 của kỷ luật hỏi #177), còn nếu hết vòng hỏi thì tự giả định CN (Điều VIII).
+- **Vá:** thêm `h.thongSo` vào mảng nguồn của `chuHoSoChoXuatXu`. Nước vẫn qua đúng MỘT phép dò `xuatXuCua` (một cửa quyết định, trang An toàn mục "Luật đọc xuất xứ"); thông số chỉ có ký hiệu kỹ thuật ("DN25 PN16 CF8M") thì `findCountryInText` không bắt oan vì đường câu tự do không mở bảng ISO-2 trơ. Giữ `packs/hs/input.js` đúng 713 dòng (Điều VI) nên các tham chiếu dòng khác trong wiki không đổi.
+- **Test & Trang đổi:** `packs/hs/test/soat-802-hoi-xuat-xu.test.mjs` (+3 test OZV-2285: đo đơn vị `chuHoSoChoXuatXu`/`daNeu`/câu hỏi; hai lượt thật `hs.handle` với tin "thông số: 50W 220V hàng Nhật"; chốt ngược — nước ở `moTa`/`congDung` như cũ, thông số không nước vẫn đo là chưa nêu, không đếm đôi — đỏ trước khi sửa, xanh sau khi sửa); `docs/wiki/an-toan.md` (ghi nhận ô `thongSo` trong mục một cửa quyết định xuất xứ), `docs/wiki/log.md`.
+
 ## 2026-11-25 — OZV-2274 (zalo-bot): khách buông "không rõ, cứ tra đi" thì công dụng khách đã gõ trong `tenGoc` không rụng khỏi `moTaTraCuu` (lát 4 OZV-437, nhánh `ozv-437-lat4-cong-dung`)
 
 - **Vì sao:** nhánh "cứ tra đi" ở `packs/hs/doc-tra-loi.js` dựng `moTaTraCuu` từ `tenGoiY` (tên bot đoán) kể cả khi tên KHÁCH GÕ (`tenGoc`) mở rộng tên bot ở phần chữ: khách gõ "máy sấy thực phẩm gia đình", bot đoán "máy sấy thực phẩm", khách buông "không rõ, cứ tra đi" ⇒ Cổng nhận "máy sấy thực phẩm theo thông số phổ biến" — rụng chữ "gia đình" khách đã gõ, tra mã của món thiếu công dụng (Điều III). Buông câu này tức khách CHƯA nhận tên đoán, nên phần khách gõ dư ra phải được giữ.
