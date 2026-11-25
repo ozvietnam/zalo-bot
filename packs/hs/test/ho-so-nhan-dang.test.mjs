@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { hoSoRong, themChu, themAnh, themTinTiep, moTaGop, dungTuLichSu, locTapAmAnh } from '../ho-so.js';
-import { laMonKhac, cungMonVoi } from '../nhan-dang.js';
+import { laMonKhac, cungMonVoi, laTenHangCam, laLenhTroHoSo } from '../nhan-dang.js';
 
 const MO_TA = 'Chốt kẹp xoay 1/4 vòng loại núm thấp, mã QCTHL0525-10S, cố định vỏ máy và cửa bảo vệ';
 const ANH_ON_OFF = { tenHang: 'Núm vặn khoá bật tắt ON OFF', chatLieu: 'thép không gỉ + núm nhựa ABS', chuTrongAnh: 'ON OFF' };
@@ -166,6 +166,28 @@ test('[S5] cungMonVoi: trùng MỘT từ chung không phải cùng món (món m�
   assert.equal(cungMonVoi('mã QCTHL0525-10S thì sao', 'chốt kẹp xoay 1/4 vòng QCTHL0525-10S'), true, 'trùng mã/model riêng là cùng món');
   assert.equal(cungMonVoi('', 'máy bơm nước'), false);
   assert.equal(cungMonVoi('máy bơm nước', ''), false);
+});
+
+test('lát 12 OZV-437: lệnh HS dạng TRẦN không lọt chốt tên hàng — suy từ LENH_DAU_RE, hết chép tay', () => {
+  // Bằng chứng chạy thật (điểm nghi 1, bình luận [OZV-2312](/OZV/issues/OZV-2312) trên main 725ef1e):
+  // khách gõ TRẦN "check mã hs"/"phân loại"/"tìm mã" thì `lamGonCauHoi` bóc hết còn rỗng → fallback
+  // trả nguyên câu lệnh (packages.js) → vượt chốt `laTenHangCam` cuối → Cổng nhận `tenHang` = câu
+  // lệnh (lớp lỗi [OZV-437](/OZV/issues/OZV-437)). Hai bảng LENH_TRO/TEN_CAM chép tay đã lạc hậu
+  // so với `LENH_DAU_RE` từ lát 6 ([OZV-2287](/OZV/issues/OZV-2287) thêm 'xin/check/tìm mã/tra cứu/
+  // phân loại') — dạng lệnh mới phải SUY từ nguồn chung thì mới tự theo mỗi lần thêm lệnh.
+  for (const s of ['check mã hs', 'xin mã hs', 'tìm mã', 'phân loại', 'tra cứu mã hs']) {
+    assert.equal(laTenHangCam(s), true, `lệnh trần "${s}" không được làm tên hàng gửi Cổng`);
+    assert.equal(laLenhTroHoSo(s), true, `lệnh trần "${s}" phải nhận là lệnh trỏ hồ sơ đang mở (luong-chu.js re-run)`);
+  }
+  // Dạng cũ đã chạy ngon từ trước phải giữ nguyên.
+  for (const s of ['tra hs', 'hscode', 'ok', 'tiếp']) {
+    assert.equal(laTenHangCam(s), true, `dạng cũ "${s}" vẫn phải cấm làm tên hàng`);
+  }
+  // Không chặn quá tay: chuỗi CÓ mô tả hàng thật (lệnh chỉ ở đầu câu) vẫn qua chốt để Cổng đọc món
+  // — tiền tố đã do `lamGonCauHoi` bóc bằng đúng `LENH_DAU_RE` (lát 11), chốt này chỉ bắt dạng trần.
+  for (const s of ['máy xay sinh tố', 'check mã hs máy xay sinh tố']) {
+    assert.equal(laTenHangCam(s), false, `chuỗi chứa mô tả hàng thật "${s}" không được cấm oan`);
+  }
 });
 
 test('locTapAmAnh: không cắt đứt số thập phân (0.75kW, 1.5HP, dày 1.2mm, dung tích 1,5 lít)', () => {

@@ -5,6 +5,20 @@
 // không đụng tới cấu trúc hồ sơ. Hồ sơ nằm ở `ho-so.js`, bộ lọc tạp âm ở `loc-tap-am.js`.
 
 import { norm, parseLabeled, dai } from './input.js';
+import { LENH_DAU_RE } from './ky-luat-hoi.js';
+
+/**
+ * Lệnh HS dạng TRẦN (tin CHỈ có lệnh, không kèm tên hàng) — SUY từ nguồn chung `LENH_DAU_RE`
+ * (ky-luat-hoi.js), cùng khuôn với `LENH_HS_TRONG_CAU` ở packages.js:79 (lát 11): bỏ neo `^`
+ * của nguồn rồi tự dựng neo ép KHỚP TOÀN CHUỖI. Không thay `LENH_DAU_RE` trực tiếp được vì nó
+ * là regex TIỀN TỐ (bóc lệnh ở ĐẦU tin, còn phần sau là tên hàng). Chép tay hai bảng dưới đây
+ * từng lạc hậu sau lát 6 (OZV-2287 thêm 'xin/check/tìm mã/tra cứu/phân loại' vào `LENH_DAU_RE`)
+ * → khách gõ trần "check mã hs"/"phân loại" lọt chốt `laTenHangCam` thành tên hàng gửi Cổng
+ * (lớp lỗi OZV-437, điểm nghi 1 bình luận OZV-2312) — từ nay thêm lệnh mới vào `LENH_DAU_RE`
+ * thì dạng trần tự theo. Biên cuối từ `(?![\p{L}\p{N}])` của nguồn giữ nguyên nên "mã hs codec"
+ * (tên hàng thật) không bị cấm oan.
+ */
+const LENH_DAU_TRAN_RE = new RegExp(`^(?:${LENH_DAU_RE.source.replace(/^\^/, '')})$`, 'iu');
 
 /** Lệnh ngắn trỏ vào hồ sơ đang xử lý — KHÔNG phải tên hàng. */
 const LENH_TRO = [
@@ -13,6 +27,7 @@ const LENH_TRO = [
   /^(ok|oke|okie|okay|dung|chuan|xac nhan|dong y|yes|y|uh|u|vang|da)$/,
   /^(day|day nhe|day a|nay|nay nhe)$/,
   /^(tiep|tiep tuc|lam tiep|chay di|tra di|tra tiep)$/,
+  LENH_DAU_TRAN_RE,
 ];
 
 /** Những chuỗi KHÔNG BAO GIỜ được dùng làm tên hàng gửi Cổng (lỗi "phân loại hàng tên là tra"). */
