@@ -19,6 +19,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT_DIR = join(__dirname, '..', '..');
 
+// OZV-2326: các kịch bản khoá hồi quy menu số 0–3 (G4/G6/G8) chạy ở chế độ cờ BẬT — QA thật sẽ
+// bật `MENU_SO_0_3=1` cho tới khi CEO duyệt bật trên bot thật. Riêng ca cờ TẮT (mặc định an toàn
+// khi chuyển đường tin) có kịch bản nội tuyến riêng ở cuối tệp.
+process.env.MENU_SO_0_3 = '1';
+
 test('QA Recorder Channel: Zalo API calls luôn bằng 0 và ghi nhận tin nhắn ra', async () => {
   const channel = createQaChannel();
   assert.equal(channel.zaloApiCallCount, 0, 'Kênh giả ghi lại phải có đúng 0 lượt gọi API Zalo');
@@ -796,4 +801,44 @@ test('runSingleScenario: G8 phím sau phím 0 (g8-phim-sau-xin-nguoi.json) — b
   assert.match(res.stepResults[4].sent.join('\n'), /Gói 3: Viết mô tả khai báo — mã vừa tra[\s\S]*Bộ thích ứng mạng hữu tuyến/);
   assert.ok(res.toolCalls.some((c) => c.name === 'tra_thue'), 'Phím 1 sau phím 0 phải thật sự gọi lại Cổng (tra_thue)');
   assert.ok(res.toolCalls.some((c) => c.name === 'sinh_mo_ta_khai_bao'), 'Phím 3 sau phím 0 phải thật sự gọi lại Cổng (sinh_mo_ta_khai_bao)');
+});
+
+// OZV-2326: chế độ cờ TẮT (mặc định khi chưa có duyệt bật menu) — luồng phân loại vẫn chạy trọn:
+// tin kết quả KHÔNG kèm dòng menu số 0–3, nhưng phím số trần "1" vẫn chạy Gói 2 với mã vừa tra
+// (nhận phím dựa session, không phụ thuộc menu đã render — `packs/hs/luong-chu.js:138`).
+test('runSingleScenario: cờ MENU_SO_0_3 TẮT — tin kết quả không có menu số 0–3, phím "1" vẫn chạy Gói 2', async () => {
+  const cu = process.env.MENU_SO_0_3;
+  delete process.env.MENU_SO_0_3;
+  try {
+    const scenario = {
+      id: 'ozv-2326-menu-tat',
+      dich: 'OZV-2326',
+      ten: 'OZV-2326 · Cờ MENU_SO_0_3 TẮT (mặc định): phân loại chạy trọn, tin không kèm menu số 0–3, phím "1" vẫn chạy Gói 2',
+      moTa: 'Kịch bản nội tuyến chỉ dùng trong test (OZV-2326): cờ MENU_SO_0_3 TẮT là mặc định khi chuyển đường tin sang main chưa được duyệt bật menu — tin kết quả Giọng Quyên KHÔNG kèm dòng "Gõ 1 thuế & C/O ..." nhưng luồng vẫn trả kết quả mã HS và phím số trần "1" vẫn chạy Gói 2 với mã vừa tra.',
+      chatType: 'PRIVATE',
+      chatId: 'khach_2326_menu_tat_01',
+      userId: 'khach_2326_menu_tat_01',
+      userName: 'Lê Văn Nam',
+      steps: [
+        { step: 1, mieuTa: "'Tra hs card mạng' → bot hỏi lại để tách mã (chưa có menu vì chưa có kết quả)", text: 'Tra hs card mạng', kyVong: { phaiCoPhanHoi: true, phaiChua: ['cổng RJ45'], khongChua: ['8517', 'Gõ 1 thuế & C/O'], khongBaoDangTra: true } },
+        { step: 2, mieuTa: 'Khách trả lời đủ → kết quả 8517.62.43 KHÔNG kèm dòng menu số 0–3 (cờ TẮT)', cachTruoc: '1m', text: 'kết nối mạng LAN cổng RJ45 ạ', kyVong: { phaiCoPhanHoi: true, phaiChua: ['8517\\.62\\.43'], khongChua: ['Gõ 1 thuế & C/O', 'soạn luôn mô tả khai báo'] } },
+        { step: 3, mieuTa: "Phím '1' sau tin không menu → vẫn chạy Gói 2 với mã vừa tra", cachTruoc: '1m', text: '1', kyVong: { phaiCoPhanHoi: true, phaiChua: ['Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra', '8517\\.62\\.43'], khongChua: ['hotline OZ'] } },
+      ],
+    };
+
+    const res = await runSingleScenario(scenario, { isMock: true });
+    assert.equal(res.ok, true, `Kịch bản cờ TẮT phải đạt toàn bộ ${scenario.steps.length} bước nhưng trượt vì: ${res.lyDo}`);
+    assert.equal(res.zaloApiCalls, 0);
+    assert.equal(res.stepResults.length, scenario.steps.length);
+    for (const st of res.stepResults) {
+      assert.equal(st.ok, true, `Bước ${st.stepIndex} (${st.mieuTa}) phải ĐẠT nhưng trượt: ${st.lyDo}`);
+    }
+
+    // Bước 2: chứng cứ cờ TẮT — mọi tin gửi khách ở bước kết quả đều không chứa dòng menu.
+    for (const tin of res.stepResults[1].sent) {
+      assert.doesNotMatch(tin, /Gõ 1 thuế & C\/O/, `Cờ TẮT thì tin KHÔNG được kèm menu số 0–3: ${tin}`);
+    }
+  } finally {
+    process.env.MENU_SO_0_3 = cu;
+  }
 });

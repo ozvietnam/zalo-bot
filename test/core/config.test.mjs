@@ -78,3 +78,13 @@ test('HOTLINE nạp từ biến môi trường, có mặc định', () => {
   assert.equal(loadConfig(min).hotline, '0972 433 318');
   assert.equal(loadConfig({ ...min, HOTLINE: '0912345678' }).hotline, '0912345678');
 });
+
+test('MENU_SO_0_3: cờ menu số 0–3 TẮT mặc định, bật bằng 1/true/yes (OZV-2326)', () => {
+  assert.equal(loadConfig(min).menuSo03, false, 'Không set biến thì cờ phải TẮT (mặc định an toàn)');
+  for (const bat of ['1', 'true', 'TRUE', 'Yes', 'yes']) {
+    assert.equal(loadConfig({ ...min, MENU_SO_0_3: bat }).menuSo03, true, `MENU_SO_0_3=${bat} phải BẬT`);
+  }
+  for (const tat of ['0', 'false', 'on', 'bật', '']) {
+    assert.equal(loadConfig({ ...min, MENU_SO_0_3: tat }).menuSo03, false, `MENU_SO_0_3=${tat} phải TẮT`);
+  }
+});
