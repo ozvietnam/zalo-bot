@@ -308,3 +308,40 @@ test('OZV-2255 hàm xuLyTraLoiHoiLai: giữ xuất xứ trong tenGoc khi xác nh
   assert.match(doiNuoc.moTaTraCuu, /h[aà]ng H[aà]n/i, `nước mới phải còn: "${doiNuoc.moTaTraCuu}"`);
   assert.doesNotMatch(doiNuoc.moTaTraCuu, /Nh[aậ]t/i, `nước cũ phải bị thay: "${doiNuoc.moTaTraCuu}"`);
 });
+
+// ── 7. OZV-2257 (lát 3 của OZV-437): xác nhận / phủ định tự nhiên & "dạ <tên mới>" ─────────────
+
+const SS_2257 = {
+  tenGoc: 'Tra hs máy sấy sinh tố',
+  tenGoiY: 'máy xay sinh tố',
+  hoiXacNhanTen: true,
+  hoiThuocTinh: false,
+};
+
+test('OZV-2257 [1/4]: khách đáp "phải rồi, 350W 220V" → xác nhận tenGoiY, không mất tên hàng', () => {
+  assert.equal(xuLyTraLoiHoiLai('đúng, 350W 220V', SS_2257).moTaTraCuu, 'máy xay sinh tố 350W 220V');
+  assert.equal(xuLyTraLoiHoiLai('phải rồi, 350W 220V', SS_2257).moTaTraCuu, 'máy xay sinh tố 350W 220V');
+  assert.equal(xuLyTraLoiHoiLai('chính xác, 350W 220V', SS_2257).moTaTraCuu, 'máy xay sinh tố 350W 220V');
+  assert.equal(xuLyTraLoiHoiLai('đúng rồi, 350W 220V', SS_2257).moTaTraCuu, 'máy xay sinh tố 350W 220V');
+});
+
+test('OZV-2257 [2/4]: khách đáp "không phải rồi, 350W 220V" → phủ định, lùi về tenGoc không dính chữ "rồi"', () => {
+  assert.equal(xuLyTraLoiHoiLai('không phải rồi, 350W 220V', SS_2257).moTaTraCuu, 'máy sấy sinh tố 350W 220V');
+  assert.equal(xuLyTraLoiHoiLai('chưa phải, 350W 220V', SS_2257).moTaTraCuu, 'máy sấy sinh tố 350W 220V');
+  assert.equal(xuLyTraLoiHoiLai('không đúng rồi, 350W 220V', SS_2257).moTaTraCuu, 'máy sấy sinh tố 350W 220V');
+});
+
+test('OZV-2257 [3/4]: khách đáp "à không, 350W 220V" → phủ định, lùi về tenGoc không biến "à không" thành tên hàng', () => {
+  assert.equal(xuLyTraLoiHoiLai('à không, 350W 220V', SS_2257).moTaTraCuu, 'máy sấy sinh tố 350W 220V');
+  assert.equal(xuLyTraLoiHoiLai('à không phải rồi, 350W 220V', SS_2257).moTaTraCuu, 'máy sấy sinh tố 350W 220V');
+  assert.equal(xuLyTraLoiHoiLai('ờ không, 350W 220V', SS_2257).moTaTraCuu, 'máy sấy sinh tố 350W 220V');
+});
+
+test('OZV-2257 [4/4]: khách đáp "dạ máy sấy thực phẩm 350W 220V" → thay bằng tên mới, không ghép hai món', () => {
+  assert.equal(
+    xuLyTraLoiHoiLai('dạ máy sấy thực phẩm 350W 220V', SS_2257).moTaTraCuu,
+    'máy sấy thực phẩm 350W 220V',
+  );
+  // Chốt ngược: "dạ 350W 220V" (chỉ có thông số, không có tên mới) vẫn là xác nhận tenGoiY.
+  assert.equal(xuLyTraLoiHoiLai('dạ 350W 220V', SS_2257).moTaTraCuu, 'máy xay sinh tố 350W 220V');
+});
