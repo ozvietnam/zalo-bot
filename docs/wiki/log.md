@@ -14,6 +14,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-25 — OZV-635: `findCountryInText` nới biên ngoặc/nháy, bỏ dấu câu ở token trước khi so `'made'` và chống bịa xuất xứ trong thông số (nhánh `ozv-635-made-in-ngoac-tach-tu`, gốc `76f2ebd`)
+
+- **Vì sao:** Bước quét mã trơ cuối `findCountryInText` (`packs/hs/input.js:534-545`) trên `main` dùng regex `/(?:^|\s)(CN|JP|KR|TW|TH|US|DE|IN|MY|ID|VN)(?=\s|$|,)/g` và lấy token trước bằng `raw.slice(0, mm.index).trim().split(/\s+/).pop()`, nên khi khách gõ `"(MADE IN JP)"` hoặc `"[MADE IN JP]"` thì token trước `"IN"` là `"(MADE"` / `"[MADE"` (dính dấu ngoặc mở) làm `norm(truoc) === 'made'` trả `false` ⇒ trả về `"IN"` (Ấn Độ); khi khách gõ `"(made in JP)"` thì sau `"JP"` là dấu đóng ngoặc `)` không khớp `(?=\s|$|,)` ⇒ mất `"JP"`, `xuatXuCua` rơi về mặc định `'CN'` (`giaDinh: true`). Ngược lại, nếu bỏ regex biên để duyệt `tachTu(raw)` thì mã dính ký hiệu kỹ thuật (`6205-DE`, `ID:123`, `TH-500`, `US-STD`, `IN/OUT`, `2.5mm/VN`, `TW/CN`) hoặc kèm thông số trong ngoặc (`(ID 18mm)`) bị đọc nhầm thành xuất xứ (`giaDinh: false`).
+- **Vá (`packs/hs/input.js:481-494`, `packs/hs/input.js:534-545`):** giữ quét trên chuỗi gốc `raw`, chỉ nới biên trước (`(?:^|[\s(\["“])`) và biên sau (`(?=$|[\s)\]"”,.;])`) nên không bắt mã dính `-`, `/`, `:` hay chữ số; bỏ dấu câu đầu/cuối ở token trước khi so `norm(truoc) === 'made'`; thêm rào `hopLeTrongNgoac` để khi mã nằm trong ngoặc `(...)` / `[...]` chỉ nhận nếu cả ngoặc là `MADE IN XX` hoặc đúng một mã `XX`. Test tại `packs/hs/test/xuat-xu-ngoac-ozv-635.test.mjs:1` (4/4 test: bảng 7 câu chuẩn, 9 câu chống bịa xuất xứ, cụm ngoặc trong câu mô tả, và luồng `hs.handle`).
+- **Trang đổi:** `docs/wiki/an-toan.md` (cập nhật số dòng `packs/hs/input.js` lên 605 dòng), `docs/wiki/log.md`.
+
 ## 2026-11-25 — OZV-634: `maCuoiCau` tách chữ Unicode trước khi nhận mã ISO — không đọc `"hàng ĐỒNG"` thành `"NG"` (nhánh `ozv-634-macuoicau-tach-chu-unicode`, gốc `476b128`)
 
 - **Vì sao:** `maCuoiCau` (`packs/hs/input.js:348`) dùng regex ASCII `\b([A-Z]{2})\s*$`, mà `\b` của JS chỉ coi `[A-Za-z0-9_]` là ký tự từ nên cắt ngay sau nguyên âm có dấu (`Ồ`, `Ạ`, `À`, `Ắ`) và lấy 2 chữ cái ASCII cuối làm mã nước khi đứng sau từ dẫn hoặc mã HS: `"hàng ĐỒNG"` → `"NG"` (Nigeria), `"hàng GẠCH"` → `"CH"` (Thụy Sĩ), `"64041190 ĐỒNG"` → `"NG"`.

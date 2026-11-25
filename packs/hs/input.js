@@ -478,6 +478,20 @@ export function countryCode(s) {
   return findCountryInText(t);
 }
 
+const hopLeTrongNgoac = (raw, viTriMa, ma) => {
+  for (let k = viTriMa - 1; k >= 0; k--) {
+    const ch = raw[k];
+    if (ch === ')' || ch === ']') return true;
+    if (ch === '(' || ch === '[') {
+      const dong = ch === '(' ? ')' : ']';
+      const j = raw.indexOf(dong, viTriMa + ma.length);
+      const trong = dai(raw.slice(k + 1, j === -1 ? raw.length : j)).replace(/[.,;]+$/, '').trim();
+      return trong === ma || (/^made\s+in\s+[A-Z]{2}$/i.test(trong) && trong.slice(-2) === ma);
+    }
+  }
+  return true;
+};
+
 export function findCountryInText(s) {
   const raw = String(s || '');
   // So từng CỬA SỔ từ (1–3 từ) trên chuỗi CHƯA rụng dấu — không rụng dấu cả câu, vì "Mỹ"
@@ -516,14 +530,18 @@ export function findCountryInText(s) {
   // GB/HK trần trong câu vẫn đọc được qua `maNuocTrongCau` ("hàng từ GB", "made in HK",
   // "Nike ... HK" cuối câu) — chỗ đó có rào vị trí, không bắt bừa mã đứng giữa câu.
   //
-  // OZV-535 nhóm 3: "MADE IN JP" — chữ "IN" trong cụm "made in" là GIỚI TỪ, không phải mã nước
-  // Ấn Độ; mã nước là chữ sau nó ("JP"). Bỏ qua "IN" đứng ngay sau "made" rồi lấy mã kế tiếp.
-  const re = /(?:^|\s)(CN|JP|KR|TW|TH|US|DE|IN|MY|ID|VN)(?=\s|$|,)/g;
+  // OZV-535 nhóm 3 + OZV-635: giữ quét trên chuỗi gốc để không bắt mã dính ký hiệu kỹ thuật
+  // ("6205-DE", "ID:123", "IN/OUT", "TW/CN"), chỉ nới biên cho ngoặc/nháy/dấu câu cuối; bỏ dấu câu
+  // ở token trước khi so 'made'; trong ngoặc chỉ nhận khi cả ngoặc là "MADE IN XX" hoặc đúng "XX".
+  const re = /(?:^|[\s(\["“])(CN|JP|KR|TW|TH|US|DE|IN|MY|ID|VN)(?=$|[\s)\]"”,.;])/g;
   let mm;
   while ((mm = re.exec(raw)) !== null) {
-    const truoc = raw.slice(0, mm.index).trim().split(/\s+/).pop() || '';
-    if (mm[1] === 'IN' && norm(truoc) === 'made') continue;
-    return mm[1];
+    const ma = mm[1];
+    const truoc = (raw.slice(0, mm.index).trim().split(/\s+/).pop() || '').replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+    if (ma === 'IN' && norm(truoc) === 'made') continue;
+    const viTriMa = mm.index + mm[0].length - ma.length;
+    if (!hopLeTrongNgoac(raw, viTriMa, ma)) continue;
+    return ma;
   }
   return null;
 }
