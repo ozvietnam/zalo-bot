@@ -1,0 +1,140 @@
+{
+  "id": "g7-bien-rieng-tu",
+  "dich": "G7",
+  "ten": "G7 · Biên menu 0–3 (riêng tư): phím 0/1/2/3 khi KHÔNG có kết quả tra trước đó, phím lạ 4/9 và chữ — bot không rẽ nhánh gói theo menu",
+  "moTa": "Khoá hồi quy BIÊN menu 0–3 của Phương án 1 (OZV-1527): dòng menu chỉ rẽ nhánh đặc biệt (0 gặp nhân viên, 1/2/3 chạy gói với mã vừa tra) khi phiên ĐÃ CÓ kết quả phân loại trước đó. Khi khách CHƯA tra gì mà bắn phím, hành vi thật của luong-chu.js là: '0' → chỉ chuyển chế độ TỰ ĐỘNG (KHÔNG hotline, KHÔNG handoff); '1'/'2'/'3' → chỉ giới thiệu gói kèm mẫu nhập (KHÔNG chạy gói, KHÔNG gọi Cổng, không có mã HS vừa tra); phím lạ '4'/'9' không có gói tương ứng trên menu → in menu đầy đủ; chữ vô nghĩa → đi luồng tin thường (tự chọn gói 1, trả kết quả phân loại kèm dòng menu 0–3). Khách và số máy trong kịch bản đều là dữ liệu giả phục vụ QA.",
+  "chatType": "PRIVATE",
+  "chatId": "khach_g7_01",
+  "userId": "khach_g7_01",
+  "userName": "Trịnh Quốc Bảo",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "(a1) Khách mới, chưa tra gì, bắn phím '0' trống không → bot chỉ chuyển chế độ TỰ ĐỘNG: không hotline, không gặp nhân viên, không chạy gói",
+      "text": "0",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Đã chuyển sang chế độ TỰ ĐỘNG"
+        ],
+        "khongChua": [
+          "hotline OZ",
+          "gặp nhân viên",
+          "Gói [0-9]"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 2,
+      "mieuTa": "(a2) Cùng khách bắn tiếp '1' → chỉ giới thiệu Gói 1 kèm mẫu nhập, KHÔNG chạy gói (không có mã HS kết quả trong tin)",
+      "cachTruoc": "1m",
+      "text": "1",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Gói 1: Phân loại mã HS",
+          "Gửi thông tin theo mẫu"
+        ],
+        "khongChua": [
+          "mã vừa tra",
+          "8537",
+          "hotline OZ"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 3,
+      "mieuTa": "(a3) Bắn tiếp '2' → chỉ giới thiệu Gói 2 kèm mẫu nhập (mã 84137090 trong tin là VÍ DỤ mẫu chung, không phải kết quả tra cho khách)",
+      "cachTruoc": "1m",
+      "text": "2",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Gói 2: Thuế & thủ tục nhập khẩu",
+          "Gửi thông tin theo mẫu"
+        ],
+        "khongChua": [
+          "mã vừa tra",
+          "8537",
+          "hotline OZ"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 4,
+      "mieuTa": "(a4) Bắn tiếp '3' → chỉ giới thiệu Gói 3 kèm mẫu nhập, KHÔNG sinh mô tả khai báo",
+      "cachTruoc": "1m",
+      "text": "3",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Gói 3: Viết mô tả khai báo",
+          "Gửi thông tin theo mẫu"
+        ],
+        "khongChua": [
+          "mã vừa tra",
+          "8537",
+          "hotline OZ"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 5,
+      "mieuTa": "(b1) Khách khác bắn phím lạ '4' (menu không có gói 4) → bot in menu đầy đủ, không chạy gói nào",
+      "chatId": "khach_g7_02",
+      "userId": "khach_g7_02",
+      "userName": "Lâm Thu Trang",
+      "text": "4",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "CHỌN GÓI TRA CỨU"
+        ],
+        "khongChua": [
+          "mã vừa tra",
+          "8537"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 6,
+      "mieuTa": "(b2) Bắn tiếp phím lạ '9' → vẫn chỉ in menu đầy đủ",
+      "chatId": "khach_g7_02",
+      "userId": "khach_g7_02",
+      "userName": "Lâm Thu Trang",
+      "cachTruoc": "1m",
+      "text": "9",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "CHỌN GÓI TRA CỨU"
+        ],
+        "khongChua": [
+          "mã vừa tra",
+          "8537"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 7,
+      "mieuTa": "(c) Khách khác gõ chữ vô nghĩa 'xyz' → đi luồng tin thường: tự chọn gói 1, trả mã gợi ý (bộ giả lập: 8537.10.99) kèm dòng menu 0–3 cuối tin — không rẽ nhánh theo phím",
+      "chatId": "khach_g7_03",
+      "userId": "khach_g7_03",
+      "userName": "Đinh Hải Yến",
+      "text": "xyz",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "8537\\.10\\.99",
+          "Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên"
+        ]
+      }
+    }
+  ]
+}

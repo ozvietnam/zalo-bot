@@ -552,3 +552,93 @@ test('runSingleScenario: G6 phím số 0–3 (g6-phim-so.json) — bot rẽ đú
   assert.match(res.stepResults[7].sent.join('\n'), /Gói 3: Viết mô tả khai báo — mã vừa tra[\s\S]*Bộ thích ứng mạng hữu tuyến/);
   assert.ok(res.toolCalls.some((c) => c.name === 'sinh_mo_ta_khai_bao'), 'Phím 3 phải gọi công cụ sinh_mo_ta_khai_bao');
 });
+
+// OZV-2321: nhóm kịch bản QA G7 — khoá hồi quy BIÊN menu 0–3 (OZV-1527):
+// phím 0–3 khi KHÔNG có kết quả tra trước đó, phím lạ 4–9 và chữ.
+test('runSingleScenario: G7 biên riêng tư (g7-bien-rieng-tu.json) — phím 0/1/2/3 khi chưa tra gì không rẽ nhánh gói', async () => {
+  const g7Path = join(ROOT_DIR, 'eval', 'qa-that', 'g7-bien-rieng-tu.json');
+  assert.ok(existsSync(g7Path), 'Tệp eval/qa-that/g7-bien-rieng-tu.json phải tồn tại');
+  const scenario = JSON.parse(readFileSync(g7Path, 'utf8'));
+
+  const res = await runSingleScenario(scenario, { isMock: true });
+  assert.equal(res.ok, true, `g7-bien-rieng-tu phải đạt toàn bộ ${scenario.steps.length} bước nhưng trượt vì: ${res.lyDo}`);
+  assert.equal(res.zaloApiCalls, 0);
+  assert.equal(res.stepResults.length, scenario.steps.length);
+  for (const st of res.stepResults) {
+    assert.equal(st.ok, true, `Bước ${st.stepIndex} (${st.mieuTa}) phải ĐẠT nhưng trượt: ${st.lyDo}`);
+  }
+
+  // Bước 1: phím '0' trống không (chưa có kết quả tra) → CHỈ chuyển chế độ TỰ ĐỘNG,
+  // không hotline, không handoff gặp nhân viên.
+  const phim0 = res.stepResults[0].sent.join('\n');
+  assert.match(phim0, /Đã chuyển sang chế độ TỰ ĐỘNG/);
+  assert.doesNotMatch(phim0, /hotline OZ/);
+  assert.doesNotMatch(phim0, /Gói \d/);
+
+  // Bước 2–4: phím 1/2/3 khi chưa tra gì → CHỈ template giới thiệu gói + mẫu nhập,
+  // KHÔNG chạy gói: không có nhãn "mã vừa tra" và không có mã kết quả 8537.10.99 của bộ giả lập.
+  for (const i of [1, 2, 3]) {
+    const t = res.stepResults[i].sent.join('\n');
+    assert.match(t, /Gói \d: [\s\S]*Gửi thông tin theo mẫu/, `Bước ${i + 1} phải là template gói kèm mẫu nhập`);
+    assert.doesNotMatch(t, /mã vừa tra/, `Bước ${i + 1} không được chạy gói với mã vừa tra khi chưa có kết quả`);
+    assert.doesNotMatch(t, /8537/, `Bước ${i + 1} không được trả mã kết quả khi chưa có kết quả tra trước đó`);
+  }
+
+  // Bước 5–6: phím lạ 4/9 (không có gói tương ứng trên menu) → in menu đầy đủ.
+  for (const i of [4, 5]) {
+    assert.match(res.stepResults[i].sent.join('\n'), /CHỌN GÓI TRA CỨU/);
+  }
+
+  // Bước 7: chữ vô nghĩa → luồng tin thường (tự chọn gói 1, trả mã của bộ giả lập kèm dòng menu).
+  assert.match(res.stepResults[6].sent.join('\n'), /8537\.10\.99[\s\S]*Gõ 1 thuế & C\/O · 2 giấy phép\/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên/);
+
+  // Chỉ 6 bước phím (bỏ bước chữ): phím 0–4/9 khi chưa tra gì phải 0 lần gọi Cổng.
+  const resChiPhim = await runSingleScenario(
+    { ...scenario, id: 'g7-bien-rieng-tu-chi-phim', steps: scenario.steps.slice(0, 6) },
+    { isMock: true },
+  );
+  assert.equal(resChiPhim.ok, true, `Mạch chỉ phím phải đạt: ${resChiPhim.lyDo}`);
+  assert.equal(resChiPhim.toolCalls.length, 0, 'Phím 0–4/9 khi chưa có kết quả tra không được gọi Cổng lần nào');
+});
+
+test('runSingleScenario: G7 biên nhóm (g7-bien-nhom.json) — phím khi chưa tra gì trong nhóm không rẽ nhánh gói, không tag thì im', async () => {
+  const g7Path = join(ROOT_DIR, 'eval', 'qa-that', 'g7-bien-nhom.json');
+  assert.ok(existsSync(g7Path), 'Tệp eval/qa-that/g7-bien-nhom.json phải tồn tại');
+  const scenario = JSON.parse(readFileSync(g7Path, 'utf8'));
+
+  const res = await runSingleScenario(scenario, { isMock: true });
+  assert.equal(res.ok, true, `g7-bien-nhom phải đạt toàn bộ ${scenario.steps.length} bước nhưng trượt vì: ${res.lyDo}`);
+  assert.equal(res.zaloApiCalls, 0);
+  assert.equal(res.stepResults.length, scenario.steps.length);
+  for (const st of res.stepResults) {
+    assert.equal(st.ok, true, `Bước ${st.stepIndex} (${st.mieuTa}) phải ĐẠT nhưng trượt: ${st.lyDo}`);
+  }
+
+  // Bước 1: tag bot + phím '0' khi chưa tra gì → tag đúng Quân, chỉ chế độ TỰ ĐỘNG (không hotline).
+  const phim0 = res.stepResults[0].sent.join('\n');
+  assert.ok(phim0.startsWith('@Quân\n'), 'Tin trong nhóm phải mở đầu bằng @Quân');
+  assert.match(phim0, /Đã chuyển sang chế độ TỰ ĐỘNG/);
+  assert.doesNotMatch(phim0, /hotline OZ/);
+  assert.doesNotMatch(phim0, /Gói \d/);
+
+  // Bước 2: tag bot + phím '2' → chỉ template Gói 2 (mã 84137090 trong tin là ví dụ mẫu, không phải kết quả tra).
+  const goi2 = res.stepResults[1].sent.join('\n');
+  assert.ok(goi2.startsWith('@Linh\n'), 'Tin trong nhóm phải mở đầu bằng @Linh');
+  assert.match(goi2, /Gói 2: Thuế & thủ tục nhập khẩu[\s\S]*Gửi thông tin theo mẫu/);
+  assert.doesNotMatch(goi2, /mã vừa tra/);
+
+  // Bước 3: tag bot + phím lạ '8' → menu đầy đủ, tag đúng Phúc.
+  const menu = res.stepResults[2].sent.join('\n');
+  assert.ok(menu.startsWith('@Phúc\n'), 'Tin trong nhóm phải mở đầu bằng @Phúc');
+  assert.match(menu, /CHỌN GÓI TRA CỨU/);
+
+  // Bước 4: phím '3' KHÔNG tag bot → bot im (luật nhóm G2), không rẽ nhánh gói.
+  assert.equal(res.stepResults[3].sent.length, 0, 'Tin phím không tag bot trong nhóm thì bot phải im');
+
+  // Bước 5: Quân tag bot bắn '1' sau phím '0' của mình → mạch Quân vẫn chưa có kết quả → chỉ template Gói 1.
+  const goi1 = res.stepResults[4].sent.join('\n');
+  assert.ok(goi1.startsWith('@Quân\n'), 'Tin trong nhóm phải mở đầu bằng @Quân');
+  assert.match(goi1, /Gói 1: Phân loại mã HS[\s\S]*Gửi thông tin theo mẫu/);
+  assert.doesNotMatch(goi1, /mã vừa tra/);
+  assert.equal(res.toolCalls.length, 0, 'Cả kịch bản nhóm không gọi Cổng lần nào: phím số khi chưa tra gì không chạy gói');
+});
