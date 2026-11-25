@@ -26,6 +26,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { docTraLoiTen, bocXaGiao, laXacNhan } from '../doc-tra-loi.js';
+import { laCauHoiKhach, bocCumHoi } from '../cau-hoi-khach.js';
 import { kiemTraThongTinPhanLoai, xuLyTraLoiHoiLai } from '../dien-cho-thieu.js';
 import { fakeMcp } from '../../../test/helpers/fakes.mjs';
 import hs from '../index.js';
@@ -360,4 +361,66 @@ test('OZV-2257 [soát #271 2/2]: khách hỏi ngược "đúng không em?" / "ch
     const { moTaTraCuu } = xuLyTraLoiHoiLai(cau, SS_2257);
     assert.doesNotMatch(moTaTraCuu, /máy xay sinh tố/i, `"${cau}" không được tráo sang tenGoiY: "${moTaTraCuu}"`);
   }
+});
+
+// ── Lát 2c OZV-437 (OZV-2263): khách hỏi lại bằng câu hỏi THÔNG DỤNG mà bot chưa nhận ra ──────
+//
+// Trạng thái đã biết trên main (731bb77): CUM_HOI thiếu "ở đâu / chỗ nào / bao nhiêu / làm gì /
+// làm sao" và câu hỏi ngược "(phải|đúng) (không|chưa)" nên:
+//   • "mạ kẽm là sao ạ?" bóc thiếu chủ ngữ → "ống thép mạ kẽm ạ" — bot tự chốt tra ống thép MẠ
+//     KẼM dù khách chỉ hỏi nghĩa chữ (kiemTraThongTinPhanLoai trả canHoi:false).
+//   • "phải không ạ?" / "đúng không em?" / "xem công suất ở đâu ạ?" không nhận ra là câu hỏi →
+//     coTenTrong đếm chữ câu hỏi thành tên mới ⇒ tenGoc RỤNG HẲN khỏi mô tả gửi Cổng.
+
+const SS_2263_TEN = {
+  tenGoc: 'ống thép',
+  tenGoiY: 'ống thép',
+  hoiXacNhanTen: false,
+  hoiThuocTinh: true,
+};
+const SS_2263_XAC_NHAN = {
+  tenGoc: 'máy sấy sinh tố',
+  tenGoiY: 'máy xay sinh tố',
+  hoiXacNhanTen: true,
+  hoiThuocTinh: false,
+};
+
+test('OZV-2263 [1/3]: câu hỏi thông dụng giữ nguyên tên hàng, không ghép chủ ngữ câu hỏi vào mô tả', () => {
+  for (const [cau, chuan] of [
+    ['mạ kẽm là sao ạ?', 'ống thép'],
+    ['đúc hay hàn là gì ạ?', 'ống thép'],
+    ['xem ở đâu ạ?', 'ống thép'],
+  ]) {
+    const { moTaTraCuu } = xuLyTraLoiHoiLai(cau, SS_2263_TEN);
+    assert.equal(moTaTraCuu, chuan, `"${cau}" phải giữ đúng tenGoc, không ghép chữ câu hỏi: "${moTaTraCuu}"`);
+    assert.equal(kiemTraThongTinPhanLoai(moTaTraCuu, { vongHoi: 1 }).canHoi, true,
+      `mô tả "${cau}" phải để bot hỏi tiếp được: "${moTaTraCuu}"`);
+  }
+});
+
+test('OZV-2263 [2/3]: câu hỏi ngược "phải không ạ?" / "đúng không em?" không làm rụng tenGoc', () => {
+  for (const cau of ['phải không ạ?', 'đúng không em?', 'xem công suất ở đâu ạ?']) {
+    assert.equal(xuLyTraLoiHoiLai(cau, SS_2263_XAC_NHAN).moTaTraCuu, 'máy sấy sinh tố',
+      `"${cau}" là câu hỏi, tenGoc phải còn nguyên: "${xuLyTraLoiHoiLai(cau, SS_2263_XAC_NHAN).moTaTraCuu}"`);
+  }
+  // Thông số khách nêu KÈM trong câu hỏi vẫn giữ ("350W thì sao ạ").
+  assert.equal(xuLyTraLoiHoiLai('350W thì sao ạ', SS_2263_XAC_NHAN).moTaTraCuu, 'máy sấy sinh tố 350W');
+});
+
+test('OZV-2263 [3/3]: laCauHoiKhach nhận câu hỏi mới, KHÔNG bắt oan câu trả lời xác nhận kèm phủ định', () => {
+  for (const cau of ['mạ kẽm là sao ạ?', 'đúc hay hàn là gì ạ?', 'xem ở đâu ạ?', 'phải không ạ?',
+    'đúng không em?', 'xem công suất ở đâu ạ?', 'phải không?', 'đúng không nhỉ?',
+    'ma kem la sao a?', 'phai khong a?', 'o dau a?', 'dung tich bao nhieu a?']) {
+    assert.equal(laCauHoiKhach(cau), true, `phải nhận là câu hỏi của khách: "${cau}"`);
+  }
+  // "đúng/không" sát nhau trong câu TRẢ LỜI phủ định thuộc tính không được bắt oan.
+  for (const cau of ['không mạ kẽm, đúc DN50', 'đúng, không mạ kẽm', 'đúng không mạ kẽm',
+    'phải, không có màn hình', 'máy sấy thực phẩm ạ', 'túi da ạ']) {
+    assert.equal(laCauHoiKhach(cau), false, `câu TRẢ LỜI bị bắt oan thành câu hỏi: "${cau}"`);
+  }
+  // bocCumHoi: câu hỏi chỉ giữ thông số đo được, câu trả lời giữ nguyên văn.
+  assert.equal(bocCumHoi('350W thì sao ạ'), '350W');
+  assert.equal(bocCumHoi('mạ kẽm là sao ạ?'), '');
+  assert.equal(bocCumHoi('xem công suất ở đâu ạ?'), '');
+  assert.equal(bocCumHoi('máy sấy thực phẩm ạ'), 'máy sấy thực phẩm ạ');
 });

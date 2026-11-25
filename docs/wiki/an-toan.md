@@ -149,10 +149,10 @@ Hiện tại có bốn tệp vượt quá 300 dòng: `packs/hs/packages.js` (703
 
 Vòng soát 5 của PR 213 cắt tiếp theo cùng ranh đó, vì bản vá hai điểm người soát chặn (khách sửa tên lần thứ hai; khách HỎI LẠI thì câu hỏi bị gửi đi làm tên hàng) đẩy `packs/hs/ky-luat-hoi.js` lên 367 dòng:
 
-- nhận diện câu khách HỎI LẠI (`laCauHoiKhach`, `bocCumHoi`, `laHoiThuocTinh`) sang tệp mới `packs/hs/cau-hoi-khach.js` (120 dòng);
+- nhận diện câu khách HỎI LẠI (`laCauHoiKhach`, `bocCumHoi`, `laHoiThuocTinh`) sang tệp mới `packs/hs/cau-hoi-khach.js` (lúc tách chỉ 120 dòng, số đo hiện nay ghi ở đoạn dưới);
 - các hàm ĐỌC câu trả lời (`docTraLoiTen`, `bocXaGiao`, `laXacNhan`, `bocDemDau`) và các mẫu chữ của chúng về `packs/hs/doc-tra-loi.js` — chúng là phần ĐỌC, không phải phần ĐO.
 
-Nay cả năm tệp của lớp hỏi lại đều dưới trần: `packs/hs/dien-cho-thieu.js` (196 dòng), `packs/hs/nhanh-hoi-hang.js` (229 dòng), `packs/hs/doc-tra-loi.js` (226 dòng), `packs/hs/ky-luat-hoi.js` (297 dòng), `packs/hs/cau-hoi-khach.js` (120 dòng) — đo bằng `wc -l` ngày 2026-11-25 sau OZV-2245 (tách `chatLieuNgoaiTen` cho `soChiTiet` và dọn gọn công dụng ở `packs/hs/ky-luat-hoi.js`, `packs/hs/dien-cho-thieu.js` và `packs/hs/nhanh-hoi-hang.js`). Các hàm đã chuyển vẫn được tệp cũ XUẤT LẠI để `packs/hs/packages.js`, `packs/hs/loc-tap-am.js` và các test cũ không phải đổi đường dẫn nhập.
+Nay cả năm tệp của lớp hỏi lại đều dưới trần: `packs/hs/dien-cho-thieu.js` (196 dòng), `packs/hs/nhanh-hoi-hang.js` (229 dòng), `packs/hs/doc-tra-loi.js` (226 dòng), `packs/hs/ky-luat-hoi.js` (297 dòng), `packs/hs/cau-hoi-khach.js` (145 dòng) — đo bằng `wc -l` ngày 2026-11-25 sau OZV-2263 (lát 2c OZV-437: `CUM_HOI` thêm "ở đâu/chỗ nào/bao nhiêu/làm gì-làm sao" và câu hỏi ngược "(phải|đúng) (không|chưa)" neo cuối câu; `bocCumHoi` đo lại bằng `thongSoTrong` thay replace cụm hỏi — sau OZV-2245 đã tách `chatLieuNgoaiTen` cho `soChiTiet` và dọn gọn công dụng ở `packs/hs/ky-luat-hoi.js`, `packs/hs/dien-cho-thieu.js` và `packs/hs/nhanh-hoi-hang.js`). Các hàm đã chuyển vẫn được tệp cũ XUẤT LẠI để `packs/hs/packages.js`, `packs/hs/loc-tap-am.js` và các test cũ không phải đổi đường dẫn nhập.
 
 ---
 
