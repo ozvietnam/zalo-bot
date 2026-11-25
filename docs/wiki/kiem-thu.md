@@ -1,6 +1,6 @@
 # Kiểm thử
 
-> Cập nhật: 2026-11-26 · commit: 88447d9
+> Cập nhật: 2026-11-26 · commit: 4b34b45
 
 Trang này nói: repo có những cổng kiểm nào, chạy lệnh gì, bộ test nằm ở đâu, số liệu kiểm thử thực tế và các công cụ đo lường chất lượng.
 
@@ -100,6 +100,28 @@ Bộ eval gồm 12 kịch bản tích hợp luồng và 5 ca kiểm trung lập:
 | 15 | `eval/chung/03-chan-sdt-va-so-tai-khoan.json` | Lọc và che triệt để số điện thoại và số tài khoản ngân hàng |
 | 16 | `eval/chung/04-hoi-nguoi-hay-may.json` | Phản hồi trung thực quy chuẩn khi khách hỏi vai trò bot |
 | 17 | `eval/chung/05-khach-xin-sdt.json` | Khách xin số điện thoại hỗ trợ → chuyển tiếp quy trình CSKH |
+
+---
+
+## Khuôn kịch bản qa-that
+
+Bộ QA thật gồm 12 kịch bản, mỗi kịch bản một tệp `eval/qa-that/*.json` (ví dụ `eval/qa-that/g6-phim-so.json:1`), chạy qua `scripts/qa-that.mjs:1`. Tệp khai `ten`, `moTa`, `chatId`, `chatType` (nhóm hay riêng tư), `userId`, `userName` và danh sách `steps`. Mỗi bước có khối `kyVong` (kỳ vọng): `phaiCoPhanHoi` (bot phải trả lời), `phaiChua` (mẫu regex phải xuất hiện), `khongChua` (mẫu regex bị cấm), `khongBaoDangTra`, `botIm`… Mẫu `phaiChua`/`khongChua` đo trên **tin kết quả**, tách khỏi câu "đang tra" (`scripts/qa-that.mjs:277`).
+
+### Tiền tố `menu:` bám cờ MENU_SO_0_3 (OZV-2327)
+
+Mẫu trong `kyVong.phaiChua` đánh dấu tiền tố `menu:` là mẫu đòi **dòng menu số 0–3** cuối tin Giọng Quyên. Khi chạy bước, `phanLopMauMenu()` (`scripts/qa-that.mjs:50`) gộp mẫu theo cờ `MENU_SO_0_3` (`scripts/qa-that.mjs:40` — giá trị khớp `1|true|yes` thì BẬT, còn lại TẮT):
+
+- cờ **BẬT**: lột tiền tố, mẫu đòi có như `phaiChua` thường;
+- cờ **TẮT** (mặc định — `packs/hs/giong-quyen.js:118` chỉ render menu khi cờ bật): mẫu **lật sang `khongChua`**, tức tin kết quả KHÔNG được kèm dòng menu.
+
+Nhờ lật theo cờ, kịch bản QA không trượt oan khi bot đúng luật không render menu, và vẫn bắt được bot lén render menu khi cờ TẮT. Mẫu không tiền tố giữ nguyên vị trí. Ví dụ thật: `eval/qa-that/g6-phim-so.json:34` đặt `"menu:Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên"` — chạy không cờ thì tin kết quả phải không chứa dòng menu, chạy `MENU_SO_0_3=1` thì phải chứa.
+
+Hai lệnh chạy chế độ mock (cả hai 12/12 trên main `4b34b45`, đo ngày 2026-11-26):
+
+```bash
+node scripts/qa-that.mjs --mock                 # cờ TẮT (mặc định)
+MENU_SO_0_3=1 node scripts/qa-that.mjs --mock   # cờ BẬT
+```
 
 ---
 
