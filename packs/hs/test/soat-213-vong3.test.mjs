@@ -164,16 +164,56 @@ test('[#213-9] hồi quy bắt buộc: hàm `xuLyTraLoiHoiLai` giữ "không" ch
   assert.match(r.moTaTraCuu, /[oố]ng\s*th[eé]p/i, `tên hàng không được rụng: "${r.moTaTraCuu}"`);
 });
 
-test('[#213-9b] NỢ SẴN CÓ trên `main`: "ống thép DN50" đủ 2 chi tiết nên KHÔNG hỏi quy cách', () => {
-  // Đo được y hệt trên `main` (a84e8bb) — KHÔNG phải tác dụng phụ của PR này, nên chỉ KHOÁ hành vi
-  // hiện tại ở đây để lần sau đổi là có test nói, không nong PR #213 ra sửa.
-  // Gốc: `soChiTiet >= 2` đếm `kichThuoc` (DN50) + `chatLieu` ("thép" trong "ống thép") là đủ, nên
-  // bỏ qua cả nhánh hỏi QUY CÁCH — mà đúc/hàn/mạ kẽm mới là thứ đổi dòng thuế của ống thép
-  // (7304 đúc ≠ 7306 hàn). Khách gõ tiếp "không mạ kẽm, đúc" thì câu đó thành lượt tra MỚI.
-  assert.equal(kiemTraThongTinPhanLoai('ống thép DN50', { vongHoi: 0 }).canHoi, false,
-    'khoá hành vi hiện tại: đủ 2 chi tiết thì không hỏi lại');
-  assert.equal(kiemTraThongTinPhanLoai('ống thép', { vongHoi: 0 }).canHoi, true,
-    'chưa có kích thước thì vẫn phải hỏi quy cách');
+test('[#213-9b] OZV-371 điểm 2: chất liệu nằm sẵn trong tên cơ khí không đếm vào soChiTiet', () => {
+  // "thép" nằm sẵn trong "ống thép" / "thép tấm" chỉ làm `co.chatLieu = true` (để không hỏi lại
+  // chất liệu), KHÔNG đếm vào `soChiTiet` ở cổng thoát sớm. Nhờ đó khách mới nêu thêm 1 chi tiết
+  // (kích thước DN25/DN50/3mm hoặc quy cách hàn) vẫn được hỏi phần còn thiếu (7304 đúc ≠ 7306 hàn).
+  for (const mon of ['ống thép DN25', 'ống thép DN50']) {
+    const r = kiemTraThongTinPhanLoai(mon, { vongHoi: 0 });
+    assert.equal(r.canHoi, true, `"${mon}" mới có kích thước, phải hỏi quy cách đúc/hàn/mạ kẽm`);
+    assert.match(r.cauHoi, /đúc hay hàn, có mạ kẽm không/i, `"${mon}": "${r.cauHoi}"`);
+    assert.doesNotMatch(r.cauHoi, /đường kính và độ dày/i, `"${mon}" đã có DN nên không xin lại đường kính: "${r.cauHoi}"`);
+  }
+
+  const rHan = kiemTraThongTinPhanLoai('ống thép hàn', { vongHoi: 0 });
+  assert.equal(rHan.canHoi, true, '"ống thép hàn" mới có quy cách, phải xin kích thước');
+  assert.doesNotMatch(rHan.cauHoi, /đúc hay hàn/i, `đã nói hàn thì không hỏi lại đúc/hàn: "${rHan.cauHoi}"`);
+  assert.match(rHan.cauHoi, /đường kính và độ dày/i, `phải xin đường kính và độ dày: "${rHan.cauHoi}"`);
+
+  const rThepTam = kiemTraThongTinPhanLoai('thép tấm 3mm', { vongHoi: 0 });
+  assert.equal(rThepTam.canHoi, true, '"thép tấm 3mm" mới có kích thước, phải xin thêm công dụng');
+  assert.doesNotMatch(rThepTam.cauHoi, /chất liệu gì/i, `đã rõ thép thì không hỏi lại chất liệu: "${rThepTam.cauHoi}"`);
+  assert.doesNotMatch(rThepTam.cauHoi, /quy cách kích thước/i, `đã có 3mm thì không xin lại kích thước: "${rThepTam.cauHoi}"`);
+  assert.match(rThepTam.cauHoi, /công dụng/i, `chỉ xin thêm công dụng: "${rThepTam.cauHoi}"`);
+  assert.equal(kiemTraThongTinPhanLoai('thép tấm 3mm', { vongHoi: 1 }).canHoi, false, 'vongHoi >= 1 tự thoát');
+
+  // Đối chứng: đã đủ 2 chi tiết ngoài tên ("ống thép đúc DN25" hoặc "van bi đồng DN25") → không hỏi
+  assert.equal(kiemTraThongTinPhanLoai('ống thép đúc DN25', { vongHoi: 0 }).canHoi, false);
+  assert.equal(kiemTraThongTinPhanLoai('van bi đồng DN25', { vongHoi: 0 }).canHoi, false);
+});
+
+test('[#213-9c] OZV-371 điểm 2 đường thật: "Tra hs ống thép DN50" → "không mạ kẽm, đúc" giữ đủ chữ gửi Cổng', async () => {
+  const { ctx, calls } = fakeCtx();
+  const r1 = await hs.handle(turn('Tra hs ống thép DN50'), ctx);
+  assert.match(tin(r1), /đúc hay hàn, có mạ kẽm không/i, `vòng 1 phải hỏi quy cách: "${tin(r1)}"`);
+  assert.equal(tenHangDaTra(calls).length, 0, 'vòng 1 chưa gọi Cổng');
+
+  await hs.handle(turn('không mạ kẽm, đúc'), ctx);
+  const ts = tenHangDaTra(calls);
+  assert.equal(ts.length, 1, `vòng 2 phải gọi Cổng đúng 1 lần: ${JSON.stringify(ts)}`);
+  assert.match(ts[0], /[oố]ng\s*th[eé]p/i, `tên hàng không được rụng: "${ts[0]}"`);
+  assert.match(ts[0], /DN50/i, `kích thước DN50 ở lượt 1 phải còn: "${ts[0]}"`);
+  assert.match(ts[0], /kh[oô]ng\s*m[aạ]\s*k[eẽ]m,\s*[đd][uú]c/i, `phải giữ đủ "không mạ kẽm, đúc": "${ts[0]}"`);
+});
+
+test('[#213-9d] OZV-371 điểm 3: công dụng không dấu ("cam tay") & công dụng trong hoSo lượt trước', () => {
+  assert.equal(kiemTraThongTinPhanLoai('máy hút bụi cam tay 600W', { vongHoi: 0 }).canHoi, false,
+    'có công suất 600W + công dụng không dấu "cam tay" phải đủ điều kiện không hỏi lại');
+  const rHoSo = kiemTraThongTinPhanLoai('máy bơm', { vongHoi: 0, hoSo: { moTa: 'dung cho gia dinh' } });
+  assert.equal(rHoSo.canHoi, true, 'vẫn hỏi thông số công suất/điện áp');
+  assert.ok(!rHoSo.thieu.includes('congDung'), `đã có công dụng trong hoSo: ${JSON.stringify(rHoSo.thieu)}`);
+  assert.doesNotMatch(rHoSo.cauHoi, /gia đình hay công nghiệp/i,
+    `không hỏi lại câu công dụng khi hoSo đã có "dung cho gia dinh": "${rHoSo.cauHoi}"`);
 });
 
 test('[#213-9] hồi quy bắt buộc: "không nha khoa" không bị cắt oan', () => {

@@ -69,6 +69,14 @@ export function nhanDienCuTraDi(text) {
   return CU_TRA_RE.test(n);
 }
 
+// Tên mặt hàng cơ khí bản thân đã gắn liền từ chất liệu ("ống thép", "ống nhựa", "thép tấm"…):
+// vẫn giữ `chatLieu: true` để không hỏi lại chất liệu, nhưng bóc ra khi tính `chatLieuNgoaiTen`
+// cho `soChiTiet` để "ống thép DN50" / "ống thép hàn" / "thép tấm 3mm" vẫn hỏi phần thiếu (OZV-371).
+const TEN_CO_SAN_CHAT_LIEU_RE = new RegExp(
+  `${DAU_TU}(?:[oố]ng\\s*(?:th[eé]p(?:\\s*kh[oô]ng\\s*g[iỉ])?|nh[uự]a|[đd][oồ]ng|inox(?:\\s*\\d+)?)`
+  + '|th[eé]p(?:\\s*(?:cu[oộ]n|t[aấ]m|h[iì]nh))?|nh[oô]m(?:\\s*(?:th[oỏ]i|t[aấ]m|[đd][iị]nh\\s*h[iì]nh))?'
+  + `|(?:t[aấ]m|m[aà]ng)\\s*nh[uự]a)${CUOI_TU}`, 'giu');
+
 /**
  * Dữ kiện khách ĐÃ NÊU: chữ của lượt này + HỒ SƠ MẠCH (#170 — thông số khách gõ ở tin trước,
  * ô có nhãn, câu khách nói thêm). Máy tự xác định được điều gì thì không hỏi lại điều đó.
@@ -85,12 +93,14 @@ export function daNeu(sSach, hoSo) {
   // ("ống thép hàn"), để nguyên thì "ống thép xuất xứ Hàn Quốc" bị đếm thành đủ 2 chi tiết
   // (`chatLieu` + `quyCach`) và rụng mất câu hỏi quy cách (OZV-866).
   const tHang = bocCumXuatXu(t);
+  const coCl = Boolean(String(h.chatLieu || '').trim());
   return {
     congSuat: CONG_SUAT_RE.test(tHang),
     dienAp: DIEN_AP_RE.test(tHang),
     dungTich: DUNG_TICH_RE.test(tHang),
     kichThuoc: KICH_THUOC_RE.test(tHang),
-    chatLieu: CHAT_LIEU_RE.test(tHang) || Boolean(String(h.chatLieu || '').trim()),
+    chatLieu: CHAT_LIEU_RE.test(tHang) || coCl,
+    chatLieuNgoaiTen: CHAT_LIEU_RE.test(tHang.replace(TEN_CO_SAN_CHAT_LIEU_RE, ' ')) || coCl,
     congDung: CONG_DUNG_RE.test(tHang) || Boolean(String(h.congDung || '').trim()),
     quyCach: QUY_CACH_RE.test(tHang),
     // Nước nhập: KHÔNG regex riêng. `xuatXuCua` trả `giaDinh: true` đúng khi không tìm thấy nước

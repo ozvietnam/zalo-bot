@@ -1,6 +1,6 @@
 # An toàn
 
-> Cập nhật: 2026-11-25 · commit: 70384fe
+> Cập nhật: 2026-11-25 · commit: bd349e6
 
 Trang này đối chiếu 9 điều hiến pháp với code thật trên nhánh `main`. Mỗi điều có hai phần rõ ràng: **đã có code ở đâu** và **điểm cần lưu ý / kiểm chứng**.
 
@@ -152,7 +152,7 @@ Vòng soát 5 của PR 213 cắt tiếp theo cùng ranh đó, vì bản vá hai 
 - nhận diện câu khách HỎI LẠI (`laCauHoiKhach`, `bocCumHoi`, `laHoiThuocTinh`) sang tệp mới `packs/hs/cau-hoi-khach.js` (120 dòng);
 - các hàm ĐỌC câu trả lời (`docTraLoiTen`, `bocXaGiao`, `laXacNhan`, `bocDemDau`) và các mẫu chữ của chúng về `packs/hs/doc-tra-loi.js` — chúng là phần ĐỌC, không phải phần ĐO.
 
-Nay cả năm tệp của lớp hỏi lại đều dưới trần: `packs/hs/dien-cho-thieu.js` (194 dòng), `packs/hs/nhanh-hoi-hang.js` (231 dòng), `packs/hs/doc-tra-loi.js` (226 dòng), `packs/hs/ky-luat-hoi.js` (287 dòng), `packs/hs/cau-hoi-khach.js` (120 dòng) — đo bằng `wc -l` ngày 2026-11-24 sau OZV-2082 (bổ sung nhánh hỏi tách mã card mạng 8471.80.10 vs 8517.62.43 vào `packs/hs/nhanh-hoi-hang.js` và `packs/hs/dien-cho-thieu.js`). Các hàm đã chuyển vẫn được tệp cũ XUẤT LẠI để `packs/hs/packages.js`, `packs/hs/loc-tap-am.js` và các test cũ không phải đổi đường dẫn nhập.
+Nay cả năm tệp của lớp hỏi lại đều dưới trần: `packs/hs/dien-cho-thieu.js` (196 dòng), `packs/hs/nhanh-hoi-hang.js` (229 dòng), `packs/hs/doc-tra-loi.js` (226 dòng), `packs/hs/ky-luat-hoi.js` (297 dòng), `packs/hs/cau-hoi-khach.js` (120 dòng) — đo bằng `wc -l` ngày 2026-11-25 sau OZV-2245 (tách `chatLieuNgoaiTen` cho `soChiTiet` và dọn gọn công dụng ở `packs/hs/ky-luat-hoi.js`, `packs/hs/dien-cho-thieu.js` và `packs/hs/nhanh-hoi-hang.js`). Các hàm đã chuyển vẫn được tệp cũ XUẤT LẠI để `packs/hs/packages.js`, `packs/hs/loc-tap-am.js` và các test cũ không phải đổi đường dẫn nhập.
 
 ---
 
