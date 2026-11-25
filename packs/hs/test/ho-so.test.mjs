@@ -181,3 +181,28 @@ test('[S26] hai câu sửa của khách phải cùng sống trong tên hàng g�
   assert.match(ten, /QCTHL0525-10S/, `câu sửa thứ nhất phải còn trong tên hàng: "${ten}"`);
   assert.match(ten, /không liên quan dòng điện/i, `câu sửa thứ hai phải còn trong tên hàng: "${ten}"`);
 });
+
+// OZV-2248 (lát 1 của OZV-437): khách gỡ HƯỚNG ĐỌC ĐIỆN của chữ trên ảnh ("ON/OFF là đóng mở") thì
+// chỉ bỏ cách hiểu "công tắc điện", KHÔNG được xoá luôn nước in trên tem. Trước đây `themSua` gán
+// `chuAnh = null` → `chuHoSoChoXuatXu` mất "MADE IN KOREA" → `xuatXuCua` rơi về mặc định CN và bot tra
+// thuế Trung Quốc cho hàng tem ghi Hàn Quốc (cùng khuôn lỗi PR #214: dữ liệu thật bị bỏ, số mặc định
+// trông như thật — Điều III, VIII).
+test('OZV-2248: gỡ hướng đọc điện từ ảnh không làm mất xuất xứ in trên tem', async () => {
+  const { chuHoSoChoXuatXu, xuatXuCua } = await import('../input.js');
+  let h = themChu(hoSoRong(), 'chốt kẹp inox');
+  h = themAnh(h, { tenHang: 'chốt kẹp', chuTrongAnh: 'ON OFF MADE IN KOREA' }, '');
+  assert.equal(xuatXuCua(chuHoSoChoXuatXu(h)).ma, 'KR');
+  h = themSua(h, 'chữ on/off là đóng mở, không liên quan dòng điện');
+  assert.equal(h.daGiaiMauThuan, true);
+  assert.equal(mauThuan(h), null, 'đã giải mâu thuẫn thì không hỏi lại');
+  assert.deepEqual(xuatXuCua(chuHoSoChoXuatXu(h)), { ma: 'KR', giaDinh: false });
+  assert.ok(!moTaGop(h).includes('ON OFF'), 'chữ trên ảnh vẫn không vào tên hàng gửi Cổng');
+});
+
+test('OZV-2248: ảnh không có nước nào thì gỡ hướng điện vẫn xoá chữ ảnh như cũ', () => {
+  let h = themChu(hoSoRong(), 'chốt kẹp inox');
+  h = themAnh(h, { tenHang: 'công tắc', chuTrongAnh: 'ON OFF' }, '');
+  h = themSua(h, 'chữ on/off là đóng mở, không liên quan dòng điện');
+  assert.equal(h.chuAnh, null);
+  assert.equal(h.boHuongAnh, 'ON OFF');
+});
