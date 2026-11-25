@@ -14,6 +14,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-25 — OZV-2296 vá soát PR #277 (zalo-bot): số 0-đầu có dấu tách SAI nhóm HS sau chữ "mã hs" được GIỮ nhầm — rò rỉ STK 8 số lên AI Studio (lát 7 OZV-437, nhánh `ozv-437-lat7-anonymizer-ma-hs`)
+
+- **Vì sao (soát GĐ + soat-khac Gemini xác nhận bằng tay):** nhánh 0-đầu của `giuMaHs` (`gateway/anonymizer.js`) nhận số theo đúng nhóm `4+2+2(±2)`, còn lại rơi hết xuống `RE_CANH_HS` — kể cả số CÓ dấu tách sai cấu trúc HS. Khách gõ "mã hs 0123-4567 stk công ty" → shape `4+4` rơi xuống ngữ cảnh "mã hs" (trong 24 ký tự trước) → được GIỮ → STK 8 số viết gạch lọt nguyên lên AI Studio. Đồng thời 2 test dấu chấm của lát trước đều có "mã hs" đứng trước nên không hề đi qua nhánh shape — nhánh đó chưa được test kiểm chứng.
+- **Vá (một nhánh, không đụng gì khác):** sau khi nhóm `4+2+2(±2)` không khớp, chỉ số trần LIỀN (shape `8`/`10`, không dấu tách) mới được tin ngữ cảnh "mã hs"; số có dấu tách sai nhóm → `return false` → che `[STK]`. Số trần 8/10 sau "mã hs" giữ như cũ (test cũ `01012100` vẫn xanh), SĐT/STK/MST các ca khác không đổi.
+- **Test đỏ trước:** `test/gateway/anonymizer.test.mjs` +1 test OZV-2296-vá: `0101.21.00` KHÔNG có ngữ cảnh vẫn giữ (đi qua nhánh shape lần đầu); "mã hs 0123-4567 stk công ty" → che `[STK]` (đỏ đúng lỗi rò rỉ trước khi vá). Cổng: `npm test` 1745/1745 · `npm run eval` 33/33. Trang đổi: `docs/wiki/log.md`.
+
 ## 2026-11-25 — OZV-2296 (zalo-bot): mã HS chương 01–09 (bắt đầu `0`) không bị anonymizer che thành `[STK]` trước khi lên AI Studio (lát 7 OZV-437, nhánh `ozv-437-lat7-anonymizer-ma-hs`)
 
 - **Vì sao:** `giuMaHs` (`gateway/anonymizer.js`) phán theo `looksLikeHsCode` (`core/sdt.js:25`) vốn BÁC mọi số bắt đầu `0` ("SĐT VN luôn bắt đầu bằng 0" — đúng cho ngữ cảnh trích SĐT). Nhưng chương HS 01–09 (ngựa sống `0101.21`, cá `0304`, cà phê `0901` — mã thật có trong hs-code-api) đều bắt đầu `0`: khách gõ "cho tôi xin mã hs 0101.21.00" thì `RE_SO_TRAN` che thành `[STK]` ⇒ AI Studio nhận "mã hs [STK]" không trả lời được, trong khi bot tự bóc vẫn đúng vì `HS8` ở `packs/hs/input.js:42` nhận 0-đầu.

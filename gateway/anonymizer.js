@@ -132,7 +132,8 @@ function laNgayGioDai(digits) {
  * Chương 01–09 bắt đầu bằng `0` — `looksLikeHsCode` bác (trùng dạng SĐT VN nên
  * ở NGỮ CẢNH SĐT phải bác). Ở đây là ngữ cảnh mã trơ gửi AI: nhận lại khi đúng
  * nhóm 4+2+2(±2) có dấu tách (SĐT/STK không ai viết 4+2+2 có dấu), hoặc số
- * trần 8/10 đứng sau ngữ cảnh "mã HS". SĐT 10 số 0… vẫn che ở nhánh findPhoneSpans.
+ * trần liền 8/10 (không dấu tách) đứng sau ngữ cảnh "mã HS" — số có dấu tách
+ * sai nhóm là STK/SĐT viết gạch, phải che. SĐT 10 số 0… vẫn che ở nhánh findPhoneSpans.
  */
 function giuMaHs(src, raw, s) {
   if (raw[0] === '0') {
@@ -140,6 +141,10 @@ function giuMaHs(src, raw, s) {
     if (d.length !== 8 && d.length !== 10) return false;
     const shape = raw.split(/[^\d]+/).filter(Boolean).map((g) => g.length).join('+');
     if (shape === '4+2+2' || shape === '4+2+2+2') return true;
+    // Chỉ số trần LIỀN (8/10 chữ số, không dấu tách) mới tin ngữ cảnh "mã hs".
+    // Số CÓ dấu tách mà sai nhóm HS (vd `0123-4567` = 4+4) là STK/SĐT viết
+    // gạch → che, kể cả khi khách gõ "mã hs" ngay trước (rò rỉ PR #277).
+    if (shape !== '8' && shape !== '10') return false;
     return RE_CANH_HS.test(src.slice(Math.max(0, s - 24), s));
   }
   if (!looksLikeHsCode(raw)) return false;

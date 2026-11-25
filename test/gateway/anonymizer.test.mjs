@@ -565,3 +565,33 @@ test('OZV-2296: chốt ngược — số 0 đầu KHÔNG phải mã HS thì vẫ
   });
   assert.equal(rot.anonymizedText.includes(mstSai), false, 'MST checksum sai vẫn che như cũ');
 });
+
+test('OZV-2296 (vá soát PR #277): 0-đầu đúng nhóm 4+2+2 giữ KHÔNG cần ngữ cảnh; số gạch sai cấu trúc sau "mã hs" phải che', () => {
+  // Đi qua nhánh shape (không có "mã hs" đứng trước — hai test dấu chấm cũ
+  // đều có ngữ cảnh nên không kiểm chứng được nhánh này).
+  const hs01 = ['0101', '21', '00'].join('.');
+  const khongCanh = anonymizePrompt({
+    text: `con ngựa giống ${hs01} xuất đi nhé`,
+    customerName: TEN_A,
+    convId: 'ozv2296-khongcanh'
+  });
+  assert.ok(
+    khongCanh.anonymizedText.includes(hs01),
+    `mã HS 0… dấu chấm KHÔNG có ngữ cảnh vẫn phải giữ: ${khongCanh.anonymizedText}`
+  );
+
+  // LỖI RÒ RỈ (soát PR #277): `0123-4567` có dấu tách, shape 4+4 không phải
+  // cấu trúc HS → không được tin ngữ cảnh "mã hs", phải che STK 8 số.
+  const gachSai = ['0123', '4567'].join('-');
+  const am = anonymizePrompt({
+    text: `mã hs ${gachSai} stk công ty`,
+    customerName: TEN_A,
+    convId: 'ozv2296-gachsai'
+  });
+  assert.equal(
+    am.anonymizedText.includes(gachSai),
+    false,
+    '0123-4567 (4+4, có dấu tách) sau "mã hs" phải che — không rơi xuống RE_CANH_HS'
+  );
+  assert.ok(am.anonymizedText.includes('[STK]'), 'STK 8 số viết gạch → [STK]');
+});
