@@ -14,6 +14,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-25 — OZV-645: ghi luật đọc xuất xứ chống bịa mã nước (#214, #216, #263–#265) và đánh đổi `64041190 tu GB` vào `docs/wiki/an-toan.md` (nhánh `ozv-645-wiki-an-toan-xuat-xu`, gốc `0ee743f`)
+
+- **Vì sao:** Sau khi các PR #214, #216, #263, #264, #265 lên `main` (`0ee743f`), `packs/hs/input.js` (713 dòng) đã có hệ thống rào nhiều lớp chống đọc nhầm từ thường, đơn vị đo và tên hãng thành mã nước xuất xứ (`giaDinh: false`), nhưng `docs/wiki/an-toan.md` mới chỉ nhắc `packs/hs/input.js` ở mục độ dài tệp (Điều VI) mà chưa ghi nhận cơ chế bảo vệ xuất xứ ở Điều III và Điều VIII.
+- **Vá (`docs/wiki/an-toan.md:3`, `docs/wiki/an-toan.md:28`, `docs/wiki/an-toan.md:87`, `docs/wiki/an-toan.md:187-217`):** cập nhật mốc commit `0ee743f` và bổ sung tiểu mục `"Luật đọc xuất xứ chống bịa mã nước (Điều III & Điều VIII)"` dưới Điều VIII (kèm liên kết từ Điều III), tổng hợp đủ 4 nhóm luật với trích dẫn `packs/hs/input.js:<dòng>` chính xác: (1) một cửa quyết định xuất xứ `xuatXuCua` (`{ ma: 'CN', giaDinh: true }` khi chưa rõ, tách ô có nhãn `countryCode` và câu tự do `findCountryInText`); (2) rào đơn vị đo `DON_VI_DO` sau số lượng < 8 chữ số (`laDonViDoSauSo`), ký hiệu kỹ thuật và rào ngoặc `hopLeTrongNgoac` (#263); (3) tầng từ dẫn xuất xứ giữ dấu tiếng Việt, rào ngữ cảnh `TRUOC_DAN_KHONG_DAU` cho bản không dấu (#264), rào câu tự do `laTuDanCauTuDo` và bảng tên nước tiếng Anh `TEN_NUOC_ANH` kèm `coDauHieuXuatXuAnh` (#265); (4) luật mã ISO cuối câu (`maCuoiCau`) và đánh đổi có chủ ý với `"64041190 tu GB"`.
+- **Trang đổi:** `docs/wiki/an-toan.md`, `docs/wiki/log.md`.
+
 ## 2026-11-25 — OZV-2239: tên nước tiếng Anh đầy đủ (`"made in Germany"`, `"(Made in Korea)"`, `"Japan made"`) đọc đúng mã nước, không rơi về giả định CN (nhánh `ozv-ten-nuoc-anh`, gốc `8daaf32`)
 
 - **Vì sao:** đo trên main `8daaf32`: 20 câu "made in <tên nước tiếng Anh>" đều ra `{ ma: 'CN', giaDinh: true }` ở cả chuỗi tự do lẫn `{ nhan }` — từ điển `NUOC` chỉ có tên Việt (+ `china`). Khách khai hàng Đức mà bot tra thuế Trung Quốc.

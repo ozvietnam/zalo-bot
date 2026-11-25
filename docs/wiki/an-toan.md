@@ -1,6 +1,6 @@
 # An toàn
 
-> Cập nhật: 2026-11-10 · commit: 14595d4
+> Cập nhật: 2026-11-25 · commit: 0ee743f
 
 Trang này đối chiếu 9 điều hiến pháp với code thật trên nhánh `main`. Mỗi điều có hai phần rõ ràng: **đã có code ở đâu** và **điểm cần lưu ý / kiểm chứng**.
 
@@ -25,7 +25,7 @@ Nơi duy nhất trong toàn bộ mã nguồn sản xuất gọi `channel.sendTex
 | V | Tri thức một nhà | Đạt (`packs/hs/packages.js:142`, `core/mcp.js:90`, `core/registry.js:9`) |
 | VI | Đơn giản, không phụ thuộp | Đạt phần lớn (`package.json:8` Node ≥ 22.13, 0 dependency; 1 tệp `core/` vượt 300 dòng (`core/engine.js`); 3 tệp `packs/hs/` vượt 300 dòng) |
 | VII | Sai thì dừng | Đạt (`core/gate-decide.js:91`, `core/gate.js:214`, `core/handoff-ticket.js:107`, `server.js:74`, `server.js:87`) |
-| VIII | Trung thực với khách | Đạt (`core/intents.js:185`, `core/intents.js:202`, `packs/hs/packages.js:196`) |
+| VIII | Trung thực với khách | Đạt (`core/intents.js:185`, `core/intents.js:202`, `packs/hs/packages.js:196`, `packs/hs/input.js:686`) |
 | IX | Bí mật không bao giờ lộ | Đạt (`core/redact.js:16`, `core/sdt.js:167`, `core/sanitizer.js:77`, `scripts/audit.mjs:29`, `core/gate-decide.js:135`) |
 
 ---
@@ -84,7 +84,7 @@ Phòng `human` chỉ được trả về `bot` khi nhân viên gõ `/tra-bot` ho
 - Từ chối khi có số không có căn cứ trong bằng chứng: `core/gate-decide.js:143`.
 - Bộ trích xuất số tiền trong văn bản: `core/text.js:40` (`extractMoney`).
 - Não biên tập kiểm từng con số của bản chốt viết lại so với bản gốc: `packs/hs/editor.js:45` (`soDungChuan`). Lệch số thì huỷ bản chốt, giữ bản đầy đủ.
-- Mô-đun kiểm số theo giá trị: `core/sanitizer.js:189` (`kiemSoTheoGiaTri`), chuẩn hoá giá trị số tại `core/sanitizer.js:135` (`chuanHoaGiaTriSo`).
+- Mô-đun kiểm số theo giá trị: `core/sanitizer.js:189` (`kiemSoTheoGiaTri`), chuẩn hoá giá trị số tại `core/sanitizer.js:135` (`chuanHoaGiaTriSo`); chống bịa mã nước xuất xứ làm sai dòng thuế ưu đãi FTA/MFN qua một cửa quyết định `xuatXuCua` (`packs/hs/input.js:686`, xem tiểu mục dưới Điều VIII).
 
 **Điểm cần lưu ý.**
 Gói hải quan hiện đặt `moneyCheck: false` tại `packs/hs/index.js:24` vì dữ liệu thuế trả về từ Cổng OZ dạng văn bản phong phú chưa có schema số cố định. Tuy nhiên, toàn bộ hạ tầng kiểm duyệt ở cửa và não biên tập (`packs/hs/editor.js`) đã sẵn sàng kích hoạt.
@@ -184,7 +184,36 @@ Nay cả năm tệp của lớp hỏi lại đều dưới trần: `packs/hs/die
 - Mã HS luôn kèm thông báo pháp lý: `packs/hs/packages.js:196`.
 - So khớp logo chỉ mang tính tham khảo: `packs/hs/flow-photo.js:14`.
 - Chưa rõ ý thì hỏi lại một câu thay vì phỏng đoán: `packs/hs/brain.js:70`.
+- Không tự bịa xuất xứ khi khách chưa nói: `packs/hs/input.js:686` (`xuatXuCua`) trả `{ ma: 'CN', giaDinh: true }` để tin gửi khách nói rõ `"giả định xuất xứ Trung Quốc"` (`packs/hs/render.js:143`).
 - Bảo chứng bằng kịch bản eval: `eval/fixtures/is-bot.jsonl`, `eval/chung/04-hoi-nguoi-hay-may.json`.
+
+### Luật đọc xuất xứ chống bịa mã nước (Điều III & Điều VIII)
+
+Mức thuế MFN/FTA Cổng OZ trả về và dòng mô tả tờ khai (`sinh_mo_ta_khai_bao`) phụ thuộc trực tiếp vào mã nước xuất xứ. Nếu đọc nhầm một từ thường, đơn vị đo hay tên hãng thành mã nước thật (`giaDinh: false`), bot sẽ vừa in mức thuế sai mà không báo là giả định (vi phạm Điều III & Điều VIII), vừa đưa mã nước sai vào mô tả khai báo. Lớp đọc xuất xứ tại `packs/hs/input.js` khoá các nhóm lỗi này qua 4 nguyên tắc (tổng hợp từ PR #214, #216, #263, #264, #265):
+
+1. **Một cửa quyết định xuất xứ (`xuatXuCua`):**
+   - Mọi gói hải quan lấy xuất xứ qua đúng một hàm `xuatXuCua` (`packs/hs/input.js:686-695`), kết hợp chữ của hồ sơ mạch ở các lượt trước qua `chuHoSoChoXuatXu` (`packs/hs/input.js:709-713`).
+   - Khi khách chưa nêu nước nào, hàm trả `{ ma: 'CN', giaDinh: true }` (`packs/hs/input.js:658`, `packs/hs/input.js:694`) để lớp dựng tin (`packs/hs/render.js:143`, `packs/hs/giong-quyen.js:100`) ghi rõ `"giả định xuất xứ Trung Quốc"` và mời khách sửa lại nếu khác.
+   - Tách bạch hai đường đọc (`packs/hs/input.js:688-691`):
+     - **Ô có nhãn** (`{ nhan }` → `countryCode` tại `packs/hs/input.js:538-570`): khi khách khai riêng một mã không dấu (`coDau` ở `packs/hs/input.js:18`, kiểm token cuối ở `packs/hs/input.js:555`), bot chấp bảng ISO-3166-1 alpha-2 đầy đủ 249 mã (`MA_ISO2` ở `packs/hs/input.js:212-228`) và bảng `ALIAS` chỉ dành cho ô có nhãn (`UK → GB`, `ANH → GB` ở `packs/hs/input.js:161`; không map `XK` hay `VD`), trước khi tra từ điển `NUOC` (`packs/hs/input.js:99-101`), `TEN_NUOC_ANH` (`packs/hs/input.js:121-128`) hoặc quét câu qua `maNuocTrongCau` (`packs/hs/input.js:485-523`).
+     - **Câu tự do** (chuỗi → `findCountryInText` tại `packs/hs/input.js:586-655`): quét theo ưu tiên khoá dài 3 → 2 → 1 từ (`NHOM_KHOA_ANH` ở `packs/hs/input.js:132-136`, `NHOM_KHOA` ở `packs/hs/input.js:173-177`); phân biệt `"Mỹ"`/`"mỹ"`/`"my"` (Hoa Kỳ `US`) với `"MY"` in hoa (Malaysia `MY`) tại `packs/hs/input.js:618-621`; tuyệt đối không mở bảng 249 mã ISO trơ cho câu tự do để tránh bắt nhầm ký hiệu kỹ thuật trong mô tả hàng.
+
+2. **Rào đơn vị đo (`DON_VI_DO`) & ký hiệu kỹ thuật:**
+   - Tách từ theo chữ Unicode kèm dấu tổ hợp (`tachTuViTri` ở `packs/hs/input.js:464-466`) và loại từ có dấu khỏi nhánh mã ISO (`packs/hs/input.js:444`, `packs/hs/input.js:495`), nên chữ tiếng Việt có dấu (`"hàng ĐỒNG"`, `"VIỆT NAM"`), mã dính liền chữ số (`PN16`, `DN25`, `CF8M`, `SS304`) và danh sách viết tắt kỹ thuật `VIET_TAT_KHONG_PHAI_NUOC` (`SX`, `IN`, `CO`, `CF`, `PN`, `SS`, `GI` ở `packs/hs/input.js:244`) không bị cắt mảnh hoặc nhận nhầm thành mã nước.
+   - Mã 2 chữ thuộc tập `DON_VI_DO` (`GB`, `KG`, `MM`, `CM`, `ML`, `KW`, `MT`, `LT`, `MG`, `VA`, `KM`, `MW`, `GW`, `LU`, `PE`, `BA` ở `packs/hs/input.js:310-311`) đứng ngay sau một con số lượng (< 8 chữ số tính trên nguyên văn phần chữ trước mã, kể cả số có dấu chấm/phẩy như `6404.11.90` = 8 chữ số — `laDonViDoSauSo` ở `packs/hs/input.js:326-331`) được chặn làm đơn vị đo hoặc hậu tố kỹ thuật (`"ổ cứng 500 GB"`, `"thuốc 500 MG"`, `"biến áp 100 VA"`, `"vòng bi 6205 LU"`, `"ống 110 PE"`, `"inox 304 BA"`), không phải mã nước (`packs/hs/input.js:446`, `packs/hs/input.js:506`).
+   - Ngoại lệ: khi khách khai riêng một mã trong ô có nhãn (`Xuất xứ: MM` ⇒ Malta, `Xuất xứ: PE` ⇒ Peru, `Xuất xứ: LU` ⇒ Luxembourg) hoặc mã đứng ngay sau mã HS 8 số (`Nike 64041190 GB` ⇒ `GB`, `Nike 64041190 PE` ⇒ `PE`), bot vẫn nhận đúng mã nước (`packs/hs/input.js:330`, `packs/hs/input.js:516`, `packs/hs/input.js:555-558`).
+   - Ở bước quét mã trơ cuối `findCountryInText` (`packs/hs/input.js:644-653`), regex giữ biên trên chuỗi gốc (chặn mã dính `-`, `/`, `:` như `6205-DE`, `ID:123`, `IN/OUT`, `TW/CN`), bóc dấu câu ở token trước khi so `'made'` để `"(MADE IN JP)"` ra `JP` chứ không ra `'IN'` (`packs/hs/input.js:648-649`), và hàm `hopLeTrongNgoac` (`packs/hs/input.js:572-584`) chỉ cho phép mã nằm trong ngoặc khi cả cặp ngoặc là `(XX)` hoặc `(MADE IN XX)` — chặn thông số trong ngoặc như `(ID 18mm)` (PR #263).
+
+3. **Tầng từ dẫn xuất xứ & tên nước tiếng Anh (`TEN_NUOC_ANH`):**
+   - Hàm `laTuDanXuatXu` (`packs/hs/input.js:261-295`, `packs/hs/input.js:352-361`) so từ dẫn theo tầng, không phân biệt hoa/thường nhưng **giữ dấu tiếng Việt** ở `DAN_XUAT_XU_VN` (`packs/hs/input.js:262`) để danh từ hàng không trùng từ dẫn (`tủ` ≠ `từ`, `ổ` ≠ `ở`, `cửa` ≠ `của` — `"tủ BT"`, `"ổ BI"`, `"cửa AL"` không thành Bhutan, Burundi, Albania). Từ dẫn yếu `nước`/`nuoc` (`DAN_XUAT_XU_VN_YEU` ở `packs/hs/input.js:272`, `packs/hs/input.js:358`) chỉ được nhận ở đầu giá trị hoặc ngay sau một từ dẫn khác (`"hàng nước GB"` ⇒ `GB`, còn `"máy lọc nước RO"` không thành Romania).
+   - Bản không dấu `tu`/`tai`/`o`/`cua` (`DAN_XUAT_XU_ASCII_KHONG_DAU_DAU` ở `packs/hs/input.js:282`) chỉ là từ dẫn khi đứng ngay sau một từ chỉ nguồn gốc/mua bán trong `TRUOC_DAN_KHONG_DAU` (`hang`, `sx`, `xuat`, `nhap`, `mua`, `lay`, `giao`, `gui`, `ship`, `ve`, `den`, `sang`, `nguon`, `goc`, `lam`, `che`, `tao`, `khau`, `xx`, `qc` ở `packs/hs/input.js:294-295`, `packs/hs/input.js:359`) — `"hàng tu GB"`, `"SX tai TQ"` vẫn đọc đúng nước, còn `"Hoa Phat tu BT"`, `"vong o BI"`, `"khung cua AL"` không bị bịa thành Bhutan/Burundi/Albania (PR #264).
+   - Trên đường **câu tự do**, `laTuDanCauTuDo` (`packs/hs/input.js:382-385`) không nhận `của`/`cua` và `hàng`/`hang` làm từ dẫn trực tiếp trước mã hoặc tên nước (giữ `từ`/`tu`, `tại`/`tai`, `ở`/`o`, `made in`, `from`, `origin`, `xuất xứ`, `nước`/`nuoc`), áp dụng cho cả `maIsoSauTuDan` (`packs/hs/input.js:392-408`) và `coDauHieuXuatXuAnh` (`packs/hs/input.js:388-389`). Nhờ đó tên hãng như `"chip nhớ của SK hynix"`, `"hàng của GE"`, `"hang cua GE"` không bị đoán sai thành Slovakia (`SK`) hay Gruzia (`GE`) (PR #265).
+   - Bảng tên nước tiếng Anh đầy đủ `TEN_NUOC_ANH` (`packs/hs/input.js:121-128`, cố ý không chứa `us`, `america`, `turkey`) được duyệt trước khoá tiếng Việt cùng số từ trong `findCountryInText` (`packs/hs/input.js:606-610`) nhưng bắt buộc thoả `coDauHieuXuatXuAnh` (`packs/hs/input.js:388-389`): cả chuỗi chỉ là tên nước, hoặc đứng ngay sau `laTuDanCauTuDo`, hoặc đứng ngay trước `"made"`. Nhờ vậy `"made in Germany"`, `"(Made in Korea)"`, `"Japan made"` đọc đúng mã nước (`DE`, `KR`, `JP`), còn `"hạt Brazil nuts rang muối"`, `"mực India ink"`, `"áo Canada Goose"` không bị đoán sai nước (PR #265).
+   - Alias trong câu tự do (`ALIAS_TRONG_CAU = { UK: 'GB' }` ở `packs/hs/input.js:188`) bắt buộc đứng ngay sau từ dẫn xuất xứ (`maAliasTrongCau` ở `packs/hs/input.js:367-374`, `aliasCuoiCau` ở `packs/hs/input.js:417-423`, `packs/hs/input.js:513`) — `"made in UK"` ⇒ `GB`, còn `"áo size UK"` không thành Vương quốc Anh (PR #214 vòng 9).
+
+4. **Mã ISO cuối câu & ĐÁNH ĐỔI có chủ ý:**
+   - Mã ISO 2 chữ in hoa ở cuối câu tự do (`maCuoiCau` ở `packs/hs/input.js:438-450` cho Gói 6 tại `packs/hs/packages.js:602`, và nhánh cuối `maNuocTrongCau` ở `packs/hs/input.js:520`) chỉ được nhận khi không phải đơn vị đo sau số lượng và đứng ngay sau **mã HS / con số** (`"Nike 64041190 CN"` ⇒ `CN`, `"Nike 6404.11.90 GB"` ⇒ `GB`) hoặc ngay sau **từ dẫn xuất xứ** (`"hàng từ GB"` ⇒ `GB`, và trong câu tự do qua `maIsoSauTuDan` ở `packs/hs/input.js:392-408`). Đứng sau danh từ hàng (`"tủ BT"`, `"máy lọc nước RO"`) thì bot bỏ qua và rơi về giả định có nói rõ (PR #216).
+   - **Đánh đổi có chủ ý:** chuỗi `"64041190 tu GB"` (mã HS + `"tu"` không dấu) rơi về giả định Trung Quốc (`{ ma: 'CN', giaDinh: true }`) vì khi mất dấu, `"64041190 tu GB"` có cấu trúc giống hệt `"85371099 tu BT"` (mã HS + `"tủ BT"` — tủ điện hạ thế, không phải `"từ Bhutan"`). Thiết kế ưu tiên rơi về giả định có báo rõ cho khách (trung thực theo Điều VIII) thay vì âm thầm bịa mã nước (`giaDinh: false`) làm sai thuế và mô tả tờ khai (Điều III). Khách muốn khai hàng từ Anh sau mã HS chỉ cần gõ có dấu (`"64041190 từ GB"`), thêm từ chỉ nguồn (`"64041190 hàng tu GB"`), hoặc gõ thẳng mã nước sau mã HS (`"64041190 GB"`).
 
 ---
 
