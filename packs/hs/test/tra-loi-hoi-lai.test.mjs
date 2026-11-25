@@ -424,3 +424,32 @@ test('OZV-2263 [3/3]: laCauHoiKhach nhận câu hỏi mới, KHÔNG bắt oan c�
   assert.equal(bocCumHoi('xem công suất ở đâu ạ?'), '');
   assert.equal(bocCumHoi('máy sấy thực phẩm ạ'), 'máy sấy thực phẩm ạ');
 });
+
+// ── 7. OZV-2274 (lát 4 của OZV-437): khách buông "cứ tra đi" thì công dụng trong tenGoc không rụng ─
+//
+// Bot hỏi xác nhận tên ("em hiểu là máy sấy thực phẩm đúng không ạ?") còn tên KHÁCH GÕ dài hơn —
+// mang công dụng ("máy sấy thực phẩm gia đình"). Khách không xác nhận cũng không phủ định, chỉ buông
+// "không rõ, cứ tra đi": nhánh cũ dựng moTaTraCuu từ `tenGoiY` (tên bot đoán, thiếu công dụng) nên
+// Cổng nhận "máy sấy thực phẩm theo thông số phổ biến" — rụng chữ "gia đình" khách đã gõ (Điều III).
+test('OZV-2274 [1/2]: khách buông "cứ tra đi" → công dụng trong tenGoc còn nguyên trong moTaTraCuu', () => {
+  const ss = { tenGoc: 'máy sấy thực phẩm gia đình', tenGoiY: 'máy sấy thực phẩm', hoiXacNhanTen: true };
+  const r = xuLyTraLoiHoiLai('không rõ, cứ tra đi', ss);
+  assert.match(r.moTaTraCuu, /máy sấy thực phẩm gia đình/i,
+    `công dụng "gia đình" khách đã gõ không được rụng: "${r.moTaTraCuu}"`);
+});
+
+test('OZV-2274 [2/2] chốt ngược: tenGoc không mở rộng tên bot → moTaTraCuu giữ dạng cũ; xuất xứ vẫn giữ', () => {
+  // tenGoc cùng phần chữ với tenGoiY → giữ đúng dạng 'tên + theo thông số phổ biến' như trước.
+  const ss = { tenGoc: 'máy sấy thực phẩm', tenGoiY: 'máy sấy thực phẩm', hoiXacNhanTen: true };
+  assert.equal(xuLyTraLoiHoiLai('không rõ, cứ tra đi', ss).moTaTraCuu,
+    'máy sấy thực phẩm theo thông số phổ biến');
+  // tenGoc NGẮN hơn tenGoiY ("máy sấy") → tên bot đoán đầy đủ hơn, không ghép lai hai tên.
+  const ss2 = { tenGoc: 'máy sấy', tenGoiY: 'máy sấy thực phẩm', hoiXacNhanTen: true };
+  assert.equal(xuLyTraLoiHoiLai('không rõ, cứ tra đi', ss2).moTaTraCuu,
+    'máy sấy thực phẩm theo thông số phổ biến');
+  // Xuất xứ trong tenGoc vẫn giữ (không hồi quy PR #270 — OZV-2255), kèm công dụng mới giữ (lát này).
+  const ss3 = { tenGoc: 'máy sấy thực phẩm gia đình hàng Nhật', tenGoiY: 'máy sấy thực phẩm', hoiXacNhanTen: true };
+  const r3 = xuLyTraLoiHoiLai('không rõ, cứ tra đi', ss3);
+  assert.match(r3.moTaTraCuu, /máy sấy thực phẩm gia đình/i, `công dụng phải còn: "${r3.moTaTraCuu}"`);
+  assert.match(r3.moTaTraCuu, /h[aà]ng Nh[aậ]t/i, `xuất xứ phải còn: "${r3.moTaTraCuu}"`);
+});
