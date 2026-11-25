@@ -139,10 +139,10 @@ export function cauXinThem(muc, co, duoi, noi = ' và ') {
   return `Anh/chị cho em xin thêm ${con.map((m) => m.chu).join(noi)} nhé — ${duoi}`;
 }
 
-/** Lệnh mở đầu tin khách ("tra hs/code", "tra (cứu) mã hs", "xin/check mã hs", "tìm mã", "phân loại") — không phải tên hàng, không gửi Cổng.
- * "code" cách `hs` bằng khoảng trắng cũng thuộc lệnh (OZV-2287); biên cuối từ sau `hs` để không ăn nửa chữ "hscode" (OZV-2266). */
+/** Lệnh mở đầu tin khách ("tra hs/code", "tra (cứu) mã (số) hs", "xin/check mã (số) hs", "tìm mã", "phân loại") — không phải tên hàng, không gửi Cổng.
+ * "code" cách `hs` bằng khoảng trắng cũng thuộc lệnh (OZV-2287); biên cuối từ sau `hs` để không ăn nửa chữ "hscode" (OZV-2266); "mã SỐ hs" nhập từ bảng tay boYeuCauDau cũ (OZV-2314, lát 13 OZV-437). */
 export const LENH_DAU_RE
-  = /^(?:(?:(?:tra(?:\s*c[uứ]u)?|x[ií]n|check|t[iì]m)\s*)?m[aã]\s*hs(?:\s*code)?|tra\s*hs(?:\s*code)?|t[iì]m\s*m[aã]|ph[aâ]n\s*lo[aạ]i)(?![\p{L}\p{N}])\s*/iu;
+  = /^(?:(?:(?:tra(?:\s*c[uứ]u)?|x[ií]n|check|t[iì]m)\s*)?m[aã](?:\s*s[oố])?\s*hs(?:\s*code)?|tra\s*hs(?:\s*code)?|t[iì]m\s*m[aã]|ph[aâ]n\s*lo[aạ]i)(?![\p{L}\p{N}])\s*/iu;
 
 /** Các LOẠI đại lượng đo được. Chia theo LOẠI để số MỚI của khách thắng số CŨ cùng loại. */
 const RE_THONG_SO = [CONG_SUAT_RE, DIEN_AP_RE, DUNG_TICH_RE, KICH_THUOC_RE];

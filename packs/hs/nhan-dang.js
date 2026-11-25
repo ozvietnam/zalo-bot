@@ -82,16 +82,24 @@ export function boLoiChao(s) {
 }
 
 /**
- * Bỏ LỜI NHỜ ở đầu mô tả: "tra hs máy xay sinh tố" → "máy xay sinh tố".
+ * Bỏ LỜI NHỜ/LỆNH ở đầu mô tả: "tra hs máy xay sinh tố" → "máy xay sinh tố".
  *
- * "Tra hs" là câu khách nói VỚI BOT (lời nhờ tra mã), không phải món hàng. Để nó lọt vào
- * `tenHang` gửi Cổng thì Cổng đọc cả lời nhờ của khách (điểm [S25] của người soát: lệnh/lời
- * nhờ không bao giờ thành tên hàng). CHỈ bỏ dạng "tra + (mã|hs)"; KHÔNG bỏ chữ "tra" trần vì
- * "tra sứ đồ gốm" là tên hàng (tra = gốm).
+ * "Tra hs"/"check mã hs"/"phân loại"… là câu khách nói VỚI BOT (lời nhờ tra mã), không phải món
+ * hàng. Để nó lọt vào `tenHang` gửi Cổng thì Cổng đọc cả lời nhờ của khách (điểm [S25] của người
+ * soát: lệnh/lời nhờ không bao giờ thành tên hàng). Regex SUY từ nguồn chung `LENH_DAU_RE`
+ * (ky-luat-hoi.js) — cùng khuôn `LENH_DAU_TRAN_RE` (lát 12) và `LENH_HS_TRONG_CAU` ở packages.js:79
+ * (lát 11): bỏ neo `^` của nguồn, tự dựng neo `^\s*` ở đầu (bóc TIỀN TỐ, phần sau là tên hàng)
+ * và giữ đuôi dấu câu `[:,.-]*` của bảng cũ ("tra hs: máy xay" vẫn bóc sạch dấu hai chấm).
+ * Bảng chép tay ở đây từng lệch nguồn: biết 'tra mã số hs' mà không biết 'xin/check/tìm mã/
+ * phân loại' (OZV-2314, lát 13 OZV-437) — từ nay thêm lệnh mới vào `LENH_DAU_RE` thì ba nơi
+ * dùng chung (`themChu`, `lamGonCauHoi`, lớp hỏi lại) tự theo. Biên cuối `(?![\p{L}\p{N}])` của
+ * nguồn giữ nguyên nên KHÔNG bóc "tra" TRẦN — "tra sứ đồ gốm" là tên hàng (tra = gốm).
  */
+const YEU_CAU_DAU_RE = new RegExp(`^\\s*${LENH_DAU_RE.source.replace(/^\^/, '')}[:,.-]*\\s*`, 'iu');
+
 export function boYeuCauDau(s) {
   const t = String(s ?? '');
-  const out = t.replace(/^\s*tra\s+(?:m[ãa]\s+s[oố]\s+hs|m[ãa]\s+hs|hs\s*code|hs)\b\s*[:,.-]*\s*/i, '').trim();
+  const out = t.replace(YEU_CAU_DAU_RE, '').trim();
   return out || t.trim();
 }
 

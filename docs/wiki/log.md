@@ -14,6 +14,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-26 — OZV-2314 (zalo-bot): `boYeuCauDau` bóc lệnh đầu câu suy từ `LENH_DAU_RE` — hết bảng chép tay cuối cùng của mạch lệnh HS (lát 13 OZV-437, nhánh `ozv-2314-boyeucaudau-suy-lenh-dau`, gốc `cd7d911`)
+
+- **Vì sao:** bảng regex chép tay `/^\s*tra\s+(?:mã số hs|mã hs|hs code|hs)\b/` trong `boYeuCauDau` (`packs/hs/nhan-dang.js`) lệch nguồn chung theo HAI chiều: biết "tra mã số hs" mà `LENH_DAU_RE` (`packs/hs/ky-luat-hoi.js`) không có dạng "số", lại không biết "xin/check/tìm mã/phân loại" (lát 6 OZV-2287 thêm vào nguồn). Về sau thêm lệnh mới thì `themChu` (`packs/hs/ho-so.js:51`) và `lamGonCauHoi` (`packs/hs/packages.js:88`) bóc lệch nhau — điểm nghi 13, mạch cuối của OZV-437.
+- **Vá:** nhập dạng "mã SỐ hs" vào `LENH_DAU_RE` (thêm nhóm tùy chọn "số" giữa "mã" và "hs") rồi dựng `YEU_CAU_DAU_RE` suy từ `LENH_DAU_RE.source` (cùng khuôn `LENH_DAU_TRAN_RE` lát 12, `LENH_HS_TRONG_CAU` lát 11): bỏ neo `^`, tự dựng `^\s*`, giữ đuôi dấu câu `[:,.-]*` của bảng cũ ("tra hs: máy xay" vẫn bóc sạch). Hiện trạng giữ nguyên: "tra mã số hs / tra mã hs / tra hs code / tra hs" đầu câu vẫn bóc; "tra" TRẦN không bóc ("tra sứ đồ gốm" là tên hàng, [S25]); biên cuối `(?![\p{L}\p{N}])` giữ nguyên. `packs/hs/ky-luat-hoi.js` giữ 299/300 dòng (Điều VI).
+- **Cổng:** `npm test` 1758/1758 (+ `test/test.mjs` 34 đạt) · `npm run eval` 33/33 · `kiem-wiki` ĐẠT (16 trang).
+
 ## 2026-11-26 — OZV-2313 (zalo-bot): `LENH_TRO`/`TEN_CAM` thêm dạng lệnh HS TRẦN suy từ `LENH_DAU_RE` — khách gõ trần "check mã hs"/"phân loại"/"tìm mã" không còn lọt thành tên hàng gửi Cổng (lát 12 OZV-437, nhánh `ozv-2313-ten-cam-suy-lenh-dau`, gốc `725ef1e`)
 
 - **Vì sao:** hai bảng `LENH_TRO`/`TEN_CAM` ở `packs/hs/nhan-dang.js` chép tay miền "tin chỉ có lệnh" đã lạc hậu sau lát 6 (OZV-2287 thêm 'xin/check/tìm mã/tra cứu/phân loại' vào `LENH_DAU_RE`). Khách gõ TRẦN "check mã hs"/"phân loại" → `lamGonCauHoi` (đã bóc đúng lệnh ở lát 11) còn rỗng → fallback trả nguyên câu lệnh → vượt chốt `laTenHangCam` cuối (`packs/hs/packages.js:310`) → `phan_loai_hs` nhận `tenHang` = câu lệnh — lớp lỗi OZV-437 (điểm nghi 1, bình luận OZV-2312). Luồng phụ: `laLenhTroHoSo` không nhận dạng trần này nên `packs/hs/luong-chu.js:117` bỏ đường re-run hồ sơ đang mở.

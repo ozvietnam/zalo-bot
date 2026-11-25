@@ -3,8 +3,9 @@
 // Tách khỏi `ho-so.test.mjs` (Điều VI: mỗi tệp một trách nhiệm, dưới 300 dòng).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { hoSoRong, themChu, themAnh, themTinTiep, moTaGop, dungTuLichSu, locTapAmAnh } from '../ho-so.js';
-import { laMonKhac, cungMonVoi, laTenHangCam, laLenhTroHoSo } from '../nhan-dang.js';
+import { laMonKhac, cungMonVoi, laTenHangCam, laLenhTroHoSo, boYeuCauDau } from '../nhan-dang.js';
 
 const MO_TA = 'Chốt kẹp xoay 1/4 vòng loại núm thấp, mã QCTHL0525-10S, cố định vỏ máy và cửa bảo vệ';
 const ANH_ON_OFF = { tenHang: 'Núm vặn khoá bật tắt ON OFF', chatLieu: 'thép không gỉ + núm nhựa ABS', chuTrongAnh: 'ON OFF' };
@@ -188,6 +189,41 @@ test('lát 12 OZV-437: lệnh HS dạng TRẦN không lọt chốt tên hàng �
   for (const s of ['máy xay sinh tố', 'check mã hs máy xay sinh tố']) {
     assert.equal(laTenHangCam(s), false, `chuỗi chứa mô tả hàng thật "${s}" không được cấm oan`);
   }
+});
+
+test('lát 13 OZV-437: boYeuCauDau bóc lệnh đầu câu theo LENH_DAU_RE dùng chung — hết bảng chép tay', () => {
+  // Bảng chép tay /^\s*tra\s+(?:mã số hs|mã hs|hs code|hs)\b/ trong boYeuCauDau chỉ biết 'tra …'
+  // nên lệch nguồn chung: 'xin/check/tìm mã/phân loại' (LENH_DAU_RE có từ lát 6) không bóc ở
+  // themChu (ho-so.js:51), còn dạng 'mã số hs' thì NGƯỢC lại chỉ bảng tay biết — thêm vào
+  // LENH_DAU_RE (ky-luat-hoi.js) rồi SUY như LENH_DAU_TRAN_RE (lát 12) và LENH_HS_TRONG_CAU
+  // (lát 11) — điểm nghi 13, mạch cuối của [OZV-437](/OZV/issues/OZV-437).
+  // 1) Hiện trạng PHẢI GIỮ: 'tra + (mã số hs|mã hs|hs code|hs)' ở đầu câu, cả dấu câu theo sau.
+  assert.equal(boYeuCauDau('tra mã số hs máy xay sinh tố'), 'máy xay sinh tố');
+  assert.equal(boYeuCauDau('tra mã hs ống thép'), 'ống thép');
+  assert.equal(boYeuCauDau('tra hs code cảm biến tiệm cận'), 'cảm biến tiệm cận');
+  assert.equal(boYeuCauDau('tra hs: máy sấy thực phẩm'), 'máy sấy thực phẩm');
+  assert.equal(boYeuCauDau('  tra hs gạo st25'), 'gạo st25');
+  // 2) Đỏ trước — cùng một nguồn LENH_DAU_RE (sau khi nhập dạng 'mã số hs') phải bóc hết:
+  assert.equal(boYeuCauDau('xin mã số hs áo khoác'), 'áo khoác');
+  assert.equal(boYeuCauDau('check mã số hs gạo st25'), 'gạo st25');
+  assert.equal(boYeuCauDau('mã số hs ống thép'), 'ống thép');
+  assert.equal(boYeuCauDau('phân loại máy xay'), 'máy xay');
+  assert.equal(boYeuCauDau('tìm mã thỏi vàng 9999'), 'thỏi vàng 9999');
+  assert.equal(boYeuCauDau('tra cứu mã số hs xe đạp trẻ em'), 'xe đạp trẻ em');
+  // 3) KHÔNG bóc 'tra' TRẦN và không ăn vào giữa câu — tên hàng thật phải còn nguyên [S25].
+  assert.equal(boYeuCauDau('tra sứ đồ gốm'), 'tra sứ đồ gốm');
+  assert.equal(boYeuCauDau('máy phân loại gạo'), 'máy phân loại gạo');
+  assert.equal(boYeuCauDau('máy tìm mã vạch'), 'máy tìm mã vạch');
+  // "hscode" dính liền vẫn bóc như bảng cũ (lamGonCauHoi có cùng assert ở lam-gon-lenh-dau.test.mjs).
+  assert.equal(boYeuCauDau('tra hscode ống thép'), 'ống thép');
+  // 4) Đường thật themChu (ho-so.js:51): mô tả gửi Cổng không còn dính chữ lệnh.
+  const h = themChu(hoSoRong(), 'check mã số hs máy xay sinh tố');
+  assert.equal(h.moTa, 'máy xay sinh tố', `themChu phải cất mô tả đã bóc lệnh: "${h.moTa}"`);
+  // 5) Hết bảng chép tay: regex của boYeuCauDau phải SUY từ LENH_DAU_RE.source.
+  const src = readFileSync(new URL('../nhan-dang.js', import.meta.url), 'utf8');
+  const ham = src.slice(src.indexOf('export function boYeuCauDau'));
+  assert.match(src, /LENH_DAU_RE\.source/, 'boYeuCauDau phải suy regex từ LENH_DAU_RE.source (nguồn chung)');
+  assert.ok(!ham.includes('m[ãa]\\s+s'), 'còn bảng lệnh chép tay trong boYeuCauDau — phải suy từ LENH_DAU_RE');
 });
 
 test('locTapAmAnh: không cắt đứt số thập phân (0.75kW, 1.5HP, dày 1.2mm, dung tích 1,5 lít)', () => {
