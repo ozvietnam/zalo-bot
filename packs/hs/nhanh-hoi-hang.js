@@ -146,9 +146,7 @@ export function hoiDienGiaDung({ s, sSach, soTu, co }) {
   const laMayMocNgan = /^(?<![\p{L}\p{N}])(m[aáàảãạ]y|thi[eế]t\s*b[iị]|n[oồổỗộ]i|qu[aạ]t)(?![\p{L}\p{N}])/iu.test(sSach) && soTu < 8;
   if (!laDienGiaDung && !laMayMocNgan) return null;
 
-  const coLoaiCongDung = co.congDung
-    || /(gia\s*d[iì]nh|c[oô]ng\s*nghi[eệ]p|gia\s*d[uụ]ng|d[aâ]n\s*d[uụ]ng|c[aâàảãạáầẩẫậấ]m\s*tay|di\s*[đd][oộ]ng|mini)/i.test(sSach)
-    || /(gia\s*dinh|cong\s*nghiep|gia\s*dung|dan\s*dung|cam\s*tay|di\s*dong|mini)/i.test(norm(sSach));
+  const coLoaiCongDung = Boolean(co.congDung);
   const coNay = { ...co, congDung: coLoaiCongDung };
   let cau1 = '';
   let muc = [];
@@ -179,7 +177,7 @@ export function hoiDienGiaDung({ s, sSach, soTu, co }) {
     s,
     tenGoiY: sSach,
     hoiThuocTinh: true,
-    thieu: [...(coLoaiCongDung ? [] : ['congDung']), ...muc.filter((m) => !co[m.khoa]).map((m) => m.khoa)],
+    thieu: [...(coLoaiCongDung ? [] : ['congDung']), ...muc.filter((m) => !coNay[m.khoa]).map((m) => m.khoa)],
     cauHoi: gomCau([
       { cau: cau1, dai: ['congDung'] },
       { cau: cauXinThem(muc, coNay, duoi), dai: muc.map((m) => m.khoa) },

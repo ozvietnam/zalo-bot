@@ -14,6 +14,15 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-25 — OZV-2245 (OZV-371 điểm 2 & 3): không đếm chất liệu nằm sẵn trong tên mặt hàng cơ khí vào `soChiTiet` & khoá hồi quy công dụng (nhánh `ozv-371-diem2-3-ky-luat-hoi`, gốc `bd349e6`)
+
+- **Vì sao (Điểm 2):** Khi khách gõ `"ống thép DN25"`, `"ống thép DN50"`, `"ống thép hàn"`, `"thép tấm 3mm"`, từ chất liệu (`"thép"`) nằm sẵn trong tên mặt hàng làm `co.chatLieu = true`; kết hợp với 1 thông số khách nêu (`DN25`/`3mm` → `co.kichThuoc = true`, hoặc `hàn` → `co.quyCach = true`), `soChiTiet` tại `packs/hs/dien-cho-thieu.js:180` đạt `2` và thoát sớm (`canHoi: false`), bỏ qua câu hỏi đúc/hàn/mạ kẽm (73.04 ↔ 73.06) hoặc đường kính/độ dày.
+- **Vá Điểm 2 (`packs/hs/ky-luat-hoi.js:75-106`, `packs/hs/dien-cho-thieu.js:178-180`):** giữ `co.chatLieu = true` để `gomCau`/`cauXinThem` không hỏi lại `"làm bằng chất liệu gì ạ?"`, đồng thời thêm cờ `chatLieuNgoaiTen` trong `daNeu` (bóc cụm tên cơ khí gắn sẵn chất liệu `TEN_CO_SAN_CHAT_LIEU_RE` khỏi `tHang` trước khi kiểm `CHAT_LIEU_RE`) và dùng `chatLieuNgoaiTen` khi tính `soChiTiet`.
+- **Vá Điểm 3 (`packs/hs/nhanh-hoi-hang.js:149-180`):** dọn gọn `coLoaiCongDung = Boolean(co.congDung)` (vì `CONG_DUNG_RE` ở `packs/hs/ky-luat-hoi.js:46-47` đã ăn cả có dấu và không dấu trên cả `sSach` lẫn `hoSo`) và dùng `!coNay[m.khoa]` đồng nhất với `hoiAcQuy`.
+- **Test (`packs/hs/test/soat-213-vong3.test.mjs:167-225`):** cập nhật `[#213-9b]` và thêm `[#213-9c]`, `[#213-9d]` (đỏ 2 ca trước khi sửa, xanh 15/15 sau khi sửa).
+- **Vòng soát 1 (Giám đốc zalo-bot):** `TEN_CO_SAN_CHAT_LIEU_RE` để đuôi hình dạng của `thép`/`nhôm` là tuỳ chọn nên bóc cả `thép`/`nhôm` trần ở `"van bi thép DN25"`, `"van thép DN50"`, `"khung nhôm 2m"`, `"lưới thép 1m"`, `"nồi nhôm 5 lít"` (bị hỏi thừa). Sửa `packs/hs/ky-luat-hoi.js:77` bắt buộc đuôi `thép (cuộn|tấm|hình)` và `nhôm (thỏi|tấm|định hình)`; thêm 5 câu đối chứng `canHoi === false` vào `[#213-9b]` (đỏ trước khi sửa, xanh sau). `wc -l` không đổi.
+- **Trang đổi:** `docs/wiki/an-toan.md` (cập nhật số dòng `packs/hs/dien-cho-thieu.js` 196 dòng, `packs/hs/nhanh-hoi-hang.js` 229 dòng, `packs/hs/ky-luat-hoi.js` 297 dòng), `docs/wiki/log.md`.
+
 ## 2026-11-25 — OZV-2243 (OZV-371 điểm 1): rào `maNuocTrongCau` không bắt mã ISO 2 chữ sau `"của/cua"` và `"hàng/hang"` ở ô có nhãn `{ nhan }` & Gói 2 (nhánh `ozv-371-diem1-xuat-xu-goi2`, gốc `70384fe`)
 
 - **Vì sao:** PR #265 (OZV-2239) đã thêm `laTuDanCauTuDo` (`packs/hs/input.js:382-385`) trên đường câu tự do, nhưng Gói 2 (`packs/hs/packages.js:479`) truyền `{ nhan: text.replace(/[\d.\s]{4,}/, '').trim() }` qua `countryCode` → `maNuocTrongCau` (`packs/hs/input.js:485-523`), nơi dòng `packs/hs/input.js:514` vẫn dùng `laTuDanXuatXu` cho mã ISO 2 chữ. Hệ quả: khi khách gõ `"84137090 của SK hynix"`, `"84137090 hàng của GE"`, `"84137090 hang cua GE"`, bot vẫn đọc `"SK"`/`"GE"` thành mã nước Slovakia/Gruzia với `giaDinh: false` (tra thuế sai nước mà không báo giả định — Điều III & Điều VIII).

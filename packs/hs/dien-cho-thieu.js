@@ -173,8 +173,10 @@ export function kiemTraThongTinPhanLoai(text, {
 
   // 3. Đánh giá độ chi tiết của mô tả — tính CẢ dữ kiện trong hồ sơ mạch (kỷ luật hỏi: máy tự
   // xác định tối đa từ dữ kiện sẵn có trước khi hỏi; khách đã gõ thông số ở tin trước thì đủ rồi).
+  // Dùng `chatLieuNgoaiTen` để chất liệu gắn sẵn trong tên hàng cơ khí ("ống thép", "thép tấm")
+  // không tự ăn 1 suất `soChiTiet` làm rụng câu hỏi quy cách/kích thước (OZV-371 điểm 2).
   const { congSuat: coCongSuat, dienAp: coDienAp, dungTich: coDungTich, kichThuoc: coKichThuoc,
-    chatLieu: coChatLieu, congDung: coCongDung, quyCach: coQuyCach } = co;
+    chatLieuNgoaiTen: coChatLieu, congDung: coCongDung, quyCach: coQuyCach } = co;
   const soChiTiet = [coCongSuat, coDienAp, coDungTich, coKichThuoc, coChatLieu, coCongDung, coQuyCach].filter(Boolean).length;
 
   // Nếu đã có từ 2 thông số/chi tiết trở lên hoặc có điện áp rõ ràng + công dụng: đủ thông số
