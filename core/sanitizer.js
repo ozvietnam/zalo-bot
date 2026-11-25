@@ -40,6 +40,15 @@ const laSdtVn = (d, coMaHs) => {
   return false;
 };
 
+// Mã HS chương 01–09 (0-đầu) đủ 10 số cùng hình dạng SĐT Việt Nam nên bị laSdtVn nhận nhầm —
+// giữ lại khi: viết chấm đủ nhóm 4+2+2+2, hoặc có ngữ cảnh nghiệp vụ hải quan trong cửa sổ 30 ký tự
+// nhìn lui (dùng lại đúng thứ tự hỏi-HS-trước-khi-nhận-SĐT của PR #278, OZV-2300).
+const giuMaHsChuong01 = (src, nhom, i, j, d) => {
+  if (d.length !== 10 || d[0] !== '0') return false;
+  if (j > i) return nhom.slice(i, j + 1).map((g) => g.d.length).join('+') === '4+2+2+2';
+  return RE_NGHIEP_VU.test(src.slice(Math.max(0, nhom[i].s - 30), nhom[i].s));
+};
+
 /** Tìm các khoảng span [từ, đến) là số điện thoại trong văn bản. */
 export function timKhoangSdt(text) {
   const src = String(text ?? '').normalize('NFKC');
@@ -63,6 +72,7 @@ export function timKhoangSdt(text) {
         const coMaHs = (d.length === 11 || d.length === 12) && d.startsWith('84')
           && looksLikeHs(nhom.slice(i, j + 1).map((g) => g.d).join('.'));
         if (laSdtVn(d, coMaHs)) {
+          if (giuMaHsChuong01(src, nhom, i, j, d)) continue;
           let start = nhom[i].s;
           if (start > 0 && src[start - 1] === '+' && src.startsWith('84', start)) start -= 1;
           spans.push([start, nhom[j].e]);

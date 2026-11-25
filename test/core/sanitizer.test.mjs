@@ -123,6 +123,40 @@ test('cheSoTaiKhoan: đối kháng 3 chiều (không bắt nhầm từ nghiệp 
   assert.ok(ms < 2000, `Thời gian chạy trên chuỗi > 40.000 từ phải < 2000ms (thực tế ${ms}ms)`);
 });
 
+// Mã HS chương 01–09 (0-đầu, đủ 10 số) có cùng hình dạng SĐT Việt Nam — OZV-2300
+const HS_TOM_TRAN = ghep('03', '06', '16', '00', '00');
+const HS_TOM_CHAM = ghep('03', '06.', '16.', '00.', '00');
+const HS_GIA_SUC = ghep('01', '01', '21', '00', '00');
+
+test('cheThongTinNhayCam: GIỮ mã HS chương 01–09 đủ 10 số 0-đầu (OZV-2300)', () => {
+  // Trần liền ngay sau "mã hs"
+  assert.equal(cheThongTinNhayCam(`mã hs ${HS_TOM_TRAN} thuế?`), `mã hs ${HS_TOM_TRAN} thuế?`);
+  // Chấm đủ nhóm 4+2+2+2 sau "mã hs"
+  assert.equal(cheThongTinNhayCam(`mã hs ${HS_TOM_CHAM} thuế?`), `mã hs ${HS_TOM_CHAM} thuế?`);
+  // Trần sau "tờ khai"
+  assert.equal(cheThongTinNhayCam(`tờ khai ${HS_GIA_SUC}`), `tờ khai ${HS_GIA_SUC}`);
+  // Ngữ cảnh nghiệp vụ nằm trong cửa sổ 30 ký tự nhìn lui
+  assert.equal(cheThongTinNhayCam(`nhóm hs ${HS_GIA_SUC} nhập khẩu`), `nhóm hs ${HS_GIA_SUC} nhập khẩu`);
+  assert.equal(chuaThongTinNhayCam(`mã hs ${HS_TOM_TRAN}`), false);
+});
+
+test('cheThongTinNhayCam: CHỐT NGƯỢC — vẫn che SĐT/STK khi giữ mã HS 0-đầu (OZV-2300)', () => {
+  const SDT_TRU = ghep('09', '01', '23', '45', '67');
+  const SDT_CHAM_433 = ghep('09', '01.', '234.', '567');
+  const STK_10_0DAU = ghep('01', '02', '34', '56', '78');
+  const SDT_11_SO = ghep('09', '01', '23', '45', '678');
+  // SĐT thật 10 số trần, không ngữ cảnh HS
+  assert.equal(cheThongTinNhayCam(`Gọi ${SDT_TRU} ngay`), 'Gọi *** ngay');
+  // SĐT chấm 4+3+3 — hình dạng không phải mã HS
+  assert.equal(cheThongTinNhayCam(`Số ${SDT_CHAM_433} đây`), 'Số *** đây');
+  // STK 10 số có từ khoá
+  assert.equal(cheThongTinNhayCam(`STK: ${STK_10_0DAU} VCB`), 'STK: *** VCB');
+  // SĐT 11 số
+  assert.equal(cheThongTinNhayCam(`Gọi ${SDT_11_SO} ngay`), 'Gọi *** ngay');
+  // Mã HS không 0-đầu giữ nguyên như cũ
+  assert.equal(cheThongTinNhayCam('Mã HS: 84137090'), 'Mã HS: 84137090');
+});
+
 test('kiemSoTheoGiaTri: số 0 và 0.0, 0% và 0,0%', () => {
   assert.equal(kiemSoTheoGiaTri('Thuế 0%', 'Thuế ưu đãi 0,0%').hopLe, true);
   assert.equal(kiemSoTheoGiaTri('Thuế 0%', 'Thuế ưu đãi 5%').hopLe, false);
