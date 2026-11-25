@@ -133,7 +133,9 @@ function laNgayGioDai(digits) {
  * ở NGỮ CẢNH SĐT phải bác). Ở đây là ngữ cảnh mã trơ gửi AI: nhận lại khi đúng
  * nhóm 4+2+2(±2) có dấu tách (SĐT/STK không ai viết 4+2+2 có dấu), hoặc số
  * trần liền 8/10 (không dấu tách) đứng sau ngữ cảnh "mã HS" — số có dấu tách
- * sai nhóm là STK/SĐT viết gạch, phải che. SĐT 10 số 0… vẫn che ở nhánh findPhoneSpans.
+ * sai nhóm là STK/SĐT viết gạch, phải che. Nhánh findPhoneSpans (cheSdtVaStk)
+ * cũng hỏi giuMaHs trước khi nhận SĐT (OZV-2298) — SĐT 10 số 0… không có ngữ
+ * cảnh "mã hs" vẫn che như cũ.
  */
 function giuMaHs(src, raw, s) {
   if (raw[0] === '0') {
@@ -166,6 +168,10 @@ function cheSdtVaStk(src) {
     if (chongLan(s, e, stkUuTien)) return false;
     const raw = src.slice(s, e);
     const d = digitsOf(raw);
+    // Mã HS 0-đầu 10 số trùng dạng SĐT 0… → findPhoneSpans bắt mất (OZV-2298):
+    // hỏi giuMaHs TRƯỚC khi nhận là SĐT — cùng thứ tự ưu tiên với vòng RE_SO_TRAN
+    // (STK từ khoá → HS → MST). Không ngữ cảnh "mã hs" thì giuMaHs bác → vẫn che.
+    if (giuMaHs(src, raw, s)) return false;
     if (laMstHopLe(d)) {
       const coChiNhanh = /^-\d{3}(?!\d)/.test(src.slice(e));
       if (coCanhMst(src, s) || coChiNhanh) return false;
