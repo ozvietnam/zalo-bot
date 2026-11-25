@@ -1,0 +1,67 @@
+{
+  "id": "g11-needs-facts-vong-2",
+  "dich": "G11",
+  "ten": "G11 · NEEDS_FACTS vòng 2 qua phan_loai_hs trên bản GỘP — câu trả lời không có từ khoá vẫn chốt mã vì Cổng nhớ lượt",
+  "moTa": "Khoá hồi quy VÒNG 2 của luồng NEEDS_FACTS (OZV-2334): Cổng trả CAN_DU_KIEN kèm câu hỏi, bot hỏi khách; khách trả lời → bot GỘP câu trả lời vào mô tả hồ sơ rồi gọi phan_loai_hs LẦN THỨ HAI với tenHang bản gộp (packs/hs/luong-chu.js themTinTiep → trenHoSo), không chỉ nằm chờ ket_qua_phan_loai. Hợp đồng Cổng (ozplugin apps/gateway/src/huong-dan.ts mục 3): kết quả TỨC THÌ không có biên nhận / client không có tool bo_sung_du_kien thì vòng 2 đi qua phan_loai_hs — bộ giả lập --mock đúng tình huống này (không có bo_sung_du_kien trong tools). Khác G10 (PR #295): câu trả lời của khách KHÔNG chứa chữ 'mới' nên vòng 2 không thể chốt nhờ từ khoá trong tenHang — chỉ chốt được khi Cổng NHỚ LƯỢT (scripts/qa-that.mjs đếm lượt hỏi 'hut bui' ≥ 2), chứng minh vòng 2 là một lượt phan_loai_hs THẬT trên bản gộp chứ không phải đọc lại kết quả cũ. tenHang vòng 2 chứa cả mô tả gốc lẫn câu trả lời được chốt thêm bằng test đơn vị packs/hs/test/needs-facts-vong-2.test.mjs (OZV-2334). Sau khi có mã: phím '2' tự chạy Gói 2 thuế với mã vừa tra (luong-chu.js:203). Tên người và hội thoại là dữ liệu giả phục vụ QA.",
+  "chatType": "PRIVATE",
+  "chatId": "khach_g11_vong2_01",
+  "userId": "khach_g11_vong2_01",
+  "userName": "Nguyễn Minh Đức",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "(b1) Cổng trả NEEDS_FACTS: bot hỏi thêm đúng câu Cổng, KHÔNG chốt 'Mã đề xuất' dù có mã ứng viên",
+      "text": "Tra giúp em mã HS máy hút bụi loại mini để bàn, dùng cho văn phòng",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "cho biết thêm",
+          "chưa chốt",
+          "8508\\.11\\.00",
+          "gửi lại mô tả đầy đủ hơn"
+        ],
+        "khongChua": [
+          "✅ Mã đề xuất",
+          "Mã HS đề xuất"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 2,
+      "mieuTa": "(b2) Khách trả lời KHÔNG có từ khoá 'mới' → vòng 2 là lượt phan_loai_hs THỨ HAI trên bản gộp (Cổng nhớ lượt) → chốt mã 8508.11.00 ngay trong lượt",
+      "cachTruoc": "1m",
+      "text": "dùng trong nhà ạ, máy hãng Hitachi",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "✅ Mã HS đề xuất",
+          "8508\\.11\\.00"
+        ],
+        "khongChua": [
+          "cho biết thêm",
+          "chưa chốt"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 3,
+      "mieuTa": "(b3) Phím '2' sau khi có mã: tự chạy Gói 2 thuế với mã vừa tra (luong-chu.js:203)",
+      "cachTruoc": "1m",
+      "text": "2",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra",
+          "8508\\.11\\.00"
+        ],
+        "khongChua": [
+          "Gửi thông tin theo mẫu",
+          "hotline OZ",
+          "lỗi tạm thời"
+        ]
+      }
+    }
+  ]
+}
