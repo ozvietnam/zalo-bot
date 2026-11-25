@@ -108,14 +108,14 @@ export function xuLyTraLoiHoiLai(text, sessionHoiLai = {}) {
 const HET_TU = '(?![\\p{L}\\p{N}])';
 const NGAT = '[\\s,.!:;-]*';
 
-// Tiền tố lễ phép đứng TRƯỚC chữ phủ định ("Dạ không…", "vâng không phải…", "ừ không…").
+// Tiền tố lễ phép đứng TRƯỚC chữ phủ định ("Dạ không…", "vâng không phải…", "ừ không…", "à không…").
 // Thiếu nó thì "Dạ không, là máy sấy thật ạ" — câu người Việt nói hàng ngày — trượt hẳn khỏi
 // PHU_DINH_RE và rơi lại đúng lỗi PR #213 đi sửa (điểm 3 của người soát).
-const LE_PHEP_DAU = `(?:(?:d[aạ]|v[aâ]ng|[uừ]|[oơ]k?e?)${HET_TU}${NGAT})?`;
-// Câu khách PHỦ ĐỊNH tên bot vừa đoán ("không", "không phải", "sai rồi", "ko ạ", "nhầm").
+const LE_PHEP_DAU = `(?:(?:d[aạ]|v[aâ]ng|[uừ]m?|[aà]|[oờ]|[oơ]k?e?)${HET_TU}${NGAT})*`;
+// Câu khách PHỦ ĐỊNH tên bot vừa đoán ("không", "không phải rồi", "sai rồi", "ko ạ", "chưa phải").
 const PHU_DINH_RE = new RegExp(
-  `^\\s*${LE_PHEP_DAU}(?:kh[oô]ng|ko|kg|sai|nh[aầ]m|ch[uư]a\\s*[đd][uú]ng)${HET_TU}${NGAT}`
-  + `(?:(?:ph[aả]i|[đd][uú]ng|r[oồ]i)${HET_TU}${NGAT})?`, 'iu');
+  `^\\s*${LE_PHEP_DAU}(?:kh[oô]ng|ko|kg|sai|nh[aầ]m|ch[uư]a\\s*(?:[đd][uú]ng|ph[aả]i))${HET_TU}${NGAT}`
+  + `(?:(?:ph[aả]i|[đd][uú]ng|r[oồ]i)${HET_TU}${NGAT})*`, 'iu');
 // Từ đệm mở đầu phần tên khách nói lại ("là máy sấy…", "mà máy sấy…").
 const DEM_DAU_RE = new RegExp(`^(?:l[aà]|m[aà]|n[oó]\\s*l[aà]|[đd][aâ]y\\s*l[aà])${HET_TU}${NGAT}`, 'iu');
 
@@ -134,7 +134,7 @@ export function bocDemDau(s) {
 // `XA_GIAO_CUOI_RE` chỉ cắt ở cuối chuỗi nên phần giữa còn nguyên, lại đủ ≥2 chữ cái ⇒
 // `coTenTrong` tưởng là tên mới ⇒ VỨT SẠCH tên hàng khách đã gõ: "không nhé, 350W 220V" →
 // "nhé, 350W 220V" gửi Cổng (điểm 2 vòng soát 2 của PR #213).
-const DEM = '(?:[đd][aâ]u|[aạ]|[aà]|nh[eé]|nh[aá]|nha|[oơ]i|m[aà]|th[eế]|v[aậ]y)';
+const DEM = '(?:[đd][aâ]u|[aạ]|[aà]|nh[eé]|nh[aá]|nha|[oơ]i|m[aà]|th[eế]|v[aậ]y|r[oồ]i)';
 // Cả phần còn lại CHỈ là từ đệm → khách chỉ phủ định, không nêu tên nào.
 const DEM_SAU_HET_RE = new RegExp(`^(?:${DEM}${HET_TU}${NGAT})+$`, 'iu');
 // Cụm từ đệm được ĐÓNG bằng dấu ngắt ("nhé, …", "ạ, là máy sấy"). Bắt buộc có dấu ngắt để không
@@ -145,8 +145,9 @@ const DEM_SAU_DAU_RE = new RegExp(`^(?:${DEM}${HET_TU}\\s*)+[,.!:;-]+\\s*`, 'iu'
 // không thì "mica" bị cắt đuôi thành "mic". KHÔNG có "da" không dấu: "túi da", "ví bằng da" là
 // CHẤT LIỆU, mà chất liệu đổi chương thuế (túi da 4202 ≠ túi nhựa) — điểm 3 của người soát PR #213.
 const XA_GIAO_CUOI_RE = /(?:^|[\s,.!:;-])(?:ạ|a|nh[eé]|nha|nh[aá]|[oơ]i|th[eế]|v[aậ]y|dạ)\s*$/iu;
-// Từ xã giao mở đầu câu XÁC NHẬN ("đúng, 350W" → "350W"). Gắn `HET_TU` và không nhận "dung"/"vang"/"u"/"da"/"dạ dày" (OZV-885).
-const XAC_NHAN_DAU_RE = new RegExp(`^(?:[đd]úng|đung|oke|ok|chu[aẩ]n|vâng|ừ|dạ(?!\\s*d[aà]y))${HET_TU}[,.\\s]*`, 'iu');
+// Từ xã giao mở đầu câu XÁC NHẬN ("đúng, 350W", "phải rồi, 350W" → "350W"); loại trừ câu hỏi ngược "(phải|đúng|chuẩn) (không|chưa|ko)" (OZV-885, OZV-2257).
+const CHI_DA_RE = new RegExp(`^dạ(?!\\s*d[aà]y)${HET_TU}[,.\\s]*`, 'iu');
+const XAC_NHAN_DAU_RE = new RegExp(`^(?!(?:(?:vâng|ừ|dạ(?!\\s*d[aà]y))${HET_TU}[,.\\s]*)?(?:[đd][uú]ng|ph[aả]i|ch[ií]nh\\s*x[aá]c|chu[aẩ]n)(?:\\s*r[oồ]i)?\\s+(?:kh[oô]ng|ch[uư]a|ko|kg)${HET_TU})(?:(?:vâng|ừ|dạ(?!\\s*d[aà]y))${HET_TU}[,.\\s]*)?(?:[đd]úng|đung|phải|ph[aả]i\\s*r[oồ]i|ch[ií]nh\\s*x[aá]c|chu[aẩ]n|oke|ok|vâng|ừ|dạ(?!\\s*d[aà]y))(?:\\s*r[oồ]i)?${HET_TU}[,.\\s]*`, 'iu');
 
 /** Bỏ từ xã giao đầu và cuối câu, giữ lại phần DỮ KIỆN khách nói. */
 export function bocXaGiao(s) {
@@ -156,15 +157,14 @@ export function bocXaGiao(s) {
 }
 
 /**
- * Khách có XÁC NHẬN RÕ tên bot đoán không ("đúng ạ", "chuẩn", "vâng")?
- *
- * Chỉ lời xác nhận RÕ mới cho phép tên BOT ĐOÁN thay tên KHÁCH TỰ GÕ. Khách đáp mỗi thông số
- * ("350W 220V") là trả lời câu xin thông số, KHÔNG phải đồng ý đổi tên món — coi im lặng là đồng ý
- * thì bot lặng lẽ tráo "máy sấy" thành "máy xay" rồi in mã + thuế của món khách không hỏi
- * (vòng soát 3 của PR #213; Điều III, Điều VIII).
+ * Khách có XÁC NHẬN RÕ tên bot đoán không ("đúng ạ", "phải rồi", "chuẩn", "vâng")? "dạ <tên mới>" chỉ là tiếng thưa (OZV-2257).
  */
 export function laXacNhan(s) {
-  return XAC_NHAN_DAU_RE.test(String(s || '').trim());
+  const t = String(s || '').trim();
+  if (!XAC_NHAN_DAU_RE.test(t) || laCauHoiKhach(t)) return false;
+  if (!CHI_DA_RE.test(t) || XAC_NHAN_DAU_RE.test(t.replace(CHI_DA_RE, ''))) return true;
+  const con = bocXaGiao(t);
+  return !DEM_DAU_RE.test(con) && !coTenTrong(bocDemDau(con));
 }
 
 /**

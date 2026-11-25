@@ -14,6 +14,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-25 — OZV-2257 (zalo-bot): nhận câu xác nhận/phủ định tự nhiên (`"phải rồi"`, `"không phải rồi"`, `"à không"`) và không ghép hai tên khi khách đáp `"dạ <tên mới>"` (lát 3 của OZV-437, nhánh `ozv-437-xac-nhan-tu-nhien`, gốc `ac0cbf6`)
+
+- **Vì sao:** ở `packs/hs/doc-tra-loi.js:114-168` (chỗ NGUY HIỂM thứ 2 ghi nhận từ lát 2 OZV-2255), các mẫu mở đầu chưa nhận `"phải rồi"`, `"chính xác"`, `"đúng rồi"`, `"không phải rồi"`, `"chưa phải"`, `"à không"` nên phần chữ mở đầu trượt xuống `coTenTrong = true` và đè mất tên hàng gửi Cổng; riêng `"dạ máy sấy thực phẩm 350W 220V"` bị `laXacNhan` coi là xác nhận `tenGoiY` nên bật `daXacNhanTen` và nối hai tên thành `"máy xay sinh tố máy sấy thực phẩm 350W 220V"`.
+- **Vá (`packs/hs/doc-tra-loi.js:114-168`):** mở rộng `LE_PHEP_DAU` (thêm `[aà]`, `[oờ]`, `[uừ]m?`), `PHU_DINH_RE` (thêm `chưa phải`, lặp đuôi `(?:phải|đúng|rồi)*`), `DEM` (thêm `rồi`), `XAC_NHAN_DAU_RE` (thêm `phải`, `phải rồi`, `chính xác` và đuôi `rồi` tuỳ chọn; vòng soát PR #271 thêm rào loại trừ câu hỏi ngược `(phải|đúng|chính xác|chuẩn) (không|chưa|ko)` để `"phải không ạ?"`, `"đúng không em?"`, `"chuẩn chưa nhỉ?"` không bị tính là xác nhận `tenGoiY`); trong `laXacNhan`, khi câu chỉ mở đầu bằng tiếng thưa `"dạ"` mà theo sau là tên hàng mới (`coTenTrong` hoặc `DEM_DAU_RE`) thì trả `false` để tên mới thay tên cũ thay vì ghép đôi. Giữ `packs/hs/doc-tra-loi.js` đúng 226 dòng (Điều VI).
+- **Test & Trang đổi:** `packs/hs/test/tra-loi-hoi-lai.test.mjs` (+6 test, gồm 4 test của thẻ và 2 test vòng soát PR #271, đỏ trước khi sửa, xanh 28/28 sau khi sửa); `docs/wiki/log.md`.
+
 ## 2026-11-25 — OZV-2255 (zalo-bot): quét danh sách viết tay ở `packs/hs/doc-tra-loi.js` + `packs/hs/cau-hoi-khach.js` (lát 2 của OZV-437); giữ xuất xứ trong `tenGoc` khi dựng `moTaTraCuu`
 
 - **Quét:** 2 tệp có 10 danh sách/nhánh gác cửa dữ liệu. Ở `packs/hs/cau-hoi-khach.js`: `DAI_THUOC_TINH` (`packs/hs/cau-hoi-khach.js:86`) phủ đủ 8/8 đại lượng của `daNeu` (`packs/hs/ky-luat-hoi.js:97`) và 28/28 khoá `KHOA` (`packs/hs/so-tay-hoi.js:32`), khoá lạ có mặc định an toàn `hoiThuocTinh: true` tại `packs/hs/so-tay-hoi.js:172`; `DAI_SUY_TU_THIEU` (`packs/hs/cau-hoi-khach.js:97`, 6/8 đại lượng) chỉ là nhánh suy dự phòng khi thiếu cờ boolean.
