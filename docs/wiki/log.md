@@ -14,6 +14,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-25 — OZV-635: `findCountryInText` tách từ theo chữ Unicode trước khi so `'made'` — không đọc `"(MADE IN JP)"` thành `"IN"` (nhánh `ozv-635-made-in-ngoac-tach-tu`, gốc `76f2ebd`)
+
+- **Vì sao:** Bước quét mã trơ cuối `findCountryInText` (`packs/hs/input.js:521-528`) dùng regex `/(?:^|\s)(CN|JP|KR|TW|TH|US|DE|IN|MY|ID|VN)(?=\s|$|,)/g` và lấy token trước bằng `raw.slice(0, mm.index).trim().split(/\s+/).pop()`, nên khi khách gõ `"(MADE IN JP)"` hoặc `"[MADE IN JP]"` thì token trước `"IN"` là `"(MADE"` / `"[MADE"` (dính dấu ngoặc mở) làm `norm(truoc) === 'made'` trả `false` ⇒ trả về `"IN"` (Ấn Độ); khi khách gõ `"(made in JP)"` thì sau `"JP"` là dấu đóng ngoặc `)` không khớp `(?=\s|$|,)` ⇒ mất `"JP"`, `xuatXuCua` rơi về mặc định `'CN'` (`giaDinh: true`).
+- **Vá (`packs/hs/input.js:519-528`):** dùng danh sách từ đã tách theo chữ Unicode `tu = tachTu(raw)` (`tachTuViTri`) ở đầu hàm `findCountryInText` để duyệt mã trơ và so từ đứng trước `norm(tu[i - 1]) === 'made'` (đồng nhất với `maNuocTrongCau` và `maCuoiCau` tại PR #262 / OZV-634). Test đỏ trước tại `packs/hs/test/xuat-xu-ngoac-ozv-635.test.mjs:1` (3/3 đỏ trước vá, 3/3 xanh sau vá).
+- **Trang đổi:** `docs/wiki/an-toan.md` (cập nhật số dòng `packs/hs/input.js` lên 588 dòng), `docs/wiki/log.md`.
+
 ## 2026-11-25 — OZV-634: `maCuoiCau` tách chữ Unicode trước khi nhận mã ISO — không đọc `"hàng ĐỒNG"` thành `"NG"` (nhánh `ozv-634-macuoicau-tach-chu-unicode`, gốc `476b128`)
 
 - **Vì sao:** `maCuoiCau` (`packs/hs/input.js:348`) dùng regex ASCII `\b([A-Z]{2})\s*$`, mà `\b` của JS chỉ coi `[A-Za-z0-9_]` là ký tự từ nên cắt ngay sau nguyên âm có dấu (`Ồ`, `Ạ`, `À`, `Ắ`) và lấy 2 chữ cái ASCII cuối làm mã nước khi đứng sau từ dẫn hoặc mã HS: `"hàng ĐỒNG"` → `"NG"` (Nigeria), `"hàng GẠCH"` → `"CH"` (Thụy Sĩ), `"64041190 ĐỒNG"` → `"NG"`.

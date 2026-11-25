@@ -516,14 +516,15 @@ export function findCountryInText(s) {
   // GB/HK trần trong câu vẫn đọc được qua `maNuocTrongCau` ("hàng từ GB", "made in HK",
   // "Nike ... HK" cuối câu) — chỗ đó có rào vị trí, không bắt bừa mã đứng giữa câu.
   //
-  // OZV-535 nhóm 3: "MADE IN JP" — chữ "IN" trong cụm "made in" là GIỚI TỪ, không phải mã nước
-  // Ấn Độ; mã nước là chữ sau nó ("JP"). Bỏ qua "IN" đứng ngay sau "made" rồi lấy mã kế tiếp.
-  const re = /(?:^|\s)(CN|JP|KR|TW|TH|US|DE|IN|MY|ID|VN)(?=\s|$|,)/g;
-  let mm;
-  while ((mm = re.exec(raw)) !== null) {
-    const truoc = raw.slice(0, mm.index).trim().split(/\s+/).pop() || '';
-    if (mm[1] === 'IN' && norm(truoc) === 'made') continue;
-    return mm[1];
+  // OZV-535 nhóm 3 + OZV-635: "MADE IN JP" / "(MADE IN JP)" / "[MADE IN JP]" — chữ "IN" trong cụm
+  // "made in" là GIỚI TỪ, không phải Ấn Độ; dùng danh sách từ Unicode `tu` (`tachTu` / `tachTuViTri`)
+  // thay cho `split(/\s+/).pop()` và regex biên dấu cách để ngoặc không dính vào `made` hay nuốt `JP`.
+  const maTro = new Set(['CN', 'JP', 'KR', 'TW', 'TH', 'US', 'DE', 'IN', 'MY', 'ID', 'VN']);
+  for (let i = 0; i < tu.length; i++) {
+    const ma = tu[i];
+    if (/[\p{M}]/u.test(ma) || !maTro.has(ma)) continue;
+    if (ma === 'IN' && i > 0 && norm(tu[i - 1]) === 'made') continue;
+    return ma;
   }
   return null;
 }
