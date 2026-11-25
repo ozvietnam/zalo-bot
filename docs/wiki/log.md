@@ -14,6 +14,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-25 — OZV-2266 (zalo-bot): bóc đúng lệnh tra mã HS kèm tên hàng ("tra mã hs ống thép", "tra hscode ống thép"…) — bot hỏi lại thay vì tự chốt (lát 3 OZV-437, nhánh `ozv-437-lat3-tra-ma-hs`, gốc `ce339ca`)
+
+- **Vì sao:** `LENH_DAU_RE` (`packs/hs/ky-luat-hoi.js:144`) chỉ nhận "tra hs", "mã hs", "tìm mã", "phân loại" và thiếu biên cuối từ sau `hs`: "tra hscode ống thép" bị bóc nửa thành "code ống thép"; "tra mã hs ống thép", "tra cứu mã hs ống thép", "xin mã hs ống thép", "check mã hs ống thép" không bóc gì ⇒ `soTu > 4` ⇒ `kiemTraThongTinPhanLoai` trả `canHoi: false` ⇒ bot tự chốt, không hỏi lại chất liệu (Điều II).
+- **Vá:** mở rộng `LENH_DAU_RE` (`packs/hs/ky-luat-hoi.js:144`) — nhận thêm "tra (cứu) mã hs", "xin mã hs", "check mã hs", "tra hscode" và có biên cuối từ `(?![\p{L}\p{N}])` sau `hs` (đúng thành ngữ `CUOI_TU` ở `packs/hs/ky-luat-hoi.js:29`, thêm cờ `u` cho `\p{...}`); bỏ bản chép tay regex y hệt ở `packs/hs/dien-cho-thieu.js:80`, nhập `LENH_DAU_RE` từ `packs/hs/ky-luat-hoi.js` — một bộ đo duy nhất, cùng thói quen `thongSoTrong` của PR #272. Đổi giá trị bóc: "mã hscode ống thép" nay bóc trọn "mã hscode" (trước để nguyên). Giữ `packs/hs/ky-luat-hoi.js` 299/300 dòng, `packs/hs/dien-cho-thieu.js` 197 dòng (Điều VI).
+- **Test & Trang đổi:** `packs/hs/test/ky-luat-hoi-lenh-tra-ma-hs.test.mjs` (mới, 3 test: bóc đúng 10 câu lệnh, chốt ngược 3 câu không bóc oan, `canHoi: true` cho cả lệnh mới và lệnh cũ — đỏ trước khi sửa, xanh 3/3 sau khi sửa); `docs/wiki/an-toan.md` (số dòng mới của hai tệp), `docs/wiki/log.md`.
+
 ## 2026-11-25 — OZV-2257 (zalo-bot): nhận câu xác nhận/phủ định tự nhiên (`"phải rồi"`, `"không phải rồi"`, `"à không"`) và không ghép hai tên khi khách đáp `"dạ <tên mới>"` (lát 3 của OZV-437, nhánh `ozv-437-xac-nhan-tu-nhien`, gốc `ac0cbf6`)
 
 - **Vì sao:** ở `packs/hs/doc-tra-loi.js:114-168` (chỗ NGUY HIỂM thứ 2 ghi nhận từ lát 2 OZV-2255), các mẫu mở đầu chưa nhận `"phải rồi"`, `"chính xác"`, `"đúng rồi"`, `"không phải rồi"`, `"chưa phải"`, `"à không"` nên phần chữ mở đầu trượt xuống `coTenTrong = true` và đè mất tên hàng gửi Cổng; riêng `"dạ máy sấy thực phẩm 350W 220V"` bị `laXacNhan` coi là xác nhận `tenGoiY` nên bật `daXacNhanTen` và nối hai tên thành `"máy xay sinh tố máy sấy thực phẩm 350W 220V"`.
