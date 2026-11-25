@@ -16,6 +16,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-26 — OZV-2328 (zalo-bot): wiki kiem-thu thêm mục "Khuôn kịch bản qa-that" — ghi khuôn tiền tố `menu:` bám cờ MENU_SO_0_3 (nhánh `2328-wiki-khuon-qa-that`, gốc `4b34b45`)
+
+- **Vì sao:** OZV-2327 (PR #291) thêm `menuSo03Bat()` + `phanLopMauMenu()` vào `scripts/qa-that.mjs` nhưng wiki chưa có chỗ nào ghi khuôn viết kịch bản `menu:` — người viết kịch bản qa-that phải mò mã thay vì đọc wiki.
+- **Kết quả:** `docs/wiki/kiem-thu.md` thêm mục "Khuôn kịch bản qa-that": cấu trúc tệp `eval/qa-that/*.json` (khối `steps` + `kyVong`), luật tiền tố `menu:` (cờ BẬT → đòi có sau khi lột tiền tố; TẮT mặc định → lật sang `khongChua`), ví dụ thật ở `eval/qa-that/g6-phim-so.json:34`, hai lệnh chạy mock. Docs-only, không đụng mã, `eval/`, `test/`, `core/`, `packs/`.
+- **Cổng:** `node scripts/qa-that.mjs --mock` **12/12 ĐẠT** · `MENU_SO_0_3=1 node scripts/qa-that.mjs --mock` **12/12 ĐẠT** · `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
+
 ## 2026-11-26 — OZV-2322 (zalo-bot): kịch bản QA G8 — biên TRẠNG THÁI menu 0–3: phím lặp, phím sau tin "Lỗi Cổng", phím sau phím 0 (nhánh `ozv-2322-qa-menu-trang-thai`)
 
 - **Vì sao:** thẻ OZV-2322 cần khoá hồi quy nhóm biên thứ ba của Phương án 1 (OZV-1527) sau G6 (phím đúng) và G7 (phím khi chưa tra): hành vi menu theo TRẠNG THÁI phiên — phím lặp có chạy lại không, tin lỗi Cổng có làm mất mã vừa tra không, phím sau phím 0 (xin gặp nhân viên) còn chạy gói không.
