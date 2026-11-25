@@ -1,0 +1,145 @@
+{
+  "id": "g6-phim-so",
+  "dich": "G6",
+  "ten": "G6 · Phím số 0–3: khách bắn đúng phím theo menu thì bot rẽ đúng nhánh (0 gặp nhân viên, 1/2 gói 2, 3 gói 3)",
+  "moTa": "Khoá hồi quy cho Phương án 1 (OZV-1527): (a) phím '0' ngay sau tin kết quả phân loại → chuyển gặp nhân viên qua hotline, KHÔNG chạy gói, KHÔNG rơi về 'chế độ TỰ ĐỘNG', bot vẫn ở lại phục vụ; (b) phím '1' và '2' → Gói 2 (Thuế & thủ tục nhập khẩu) chạy với mã vừa tra; (c) phím '3' → Gói 3 (Viết mô tả khai báo) gọi sinh_mo_ta_khai_bao cho mã vừa tra.",
+  "chatType": "PRIVATE",
+  "chatId": "khach_g6_phim_01",
+  "userId": "khach_g6_phim_01",
+  "userName": "Vũ Đình Hùng",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "(a1) Mạch 1: 'Tra hs máy sấy sinh tố' → bot hỏi lại",
+      "text": "Tra hs máy sấy sinh tố",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "máy xay sinh tố"
+        ],
+        "khongChua": [
+          "8509"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 2,
+      "mieuTa": "(a2) Khách trả lời đủ → tin kết quả kèm menu 0–3 (bối cảnh để khách bắn phím)",
+      "text": "đúng, 350W 220V",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "8509\\.40\\.00",
+          "Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên"
+        ]
+      }
+    },
+    {
+      "step": 3,
+      "mieuTa": "(a3) Khách bắn phím '0' → gặp nhân viên qua hotline, không chạy gói, không về chế độ TỰ ĐỘNG, bot vẫn ở lại",
+      "cachTruoc": "1m",
+      "text": "0",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "gọi hoặc nhắn Zalo hotline OZ",
+          "Em vẫn ở đây"
+        ],
+        "khongChua": [
+          "Đã chuyển sang chế độ TỰ ĐỘNG",
+          "Gói [0-9]"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 4,
+      "mieuTa": "(b1) Mạch 2, khách khác: 'Tra hs card mạng' → câu hỏi tách mã",
+      "chatId": "khach_g6_phim_02",
+      "userId": "khach_g6_phim_02",
+      "userName": "Đỗ Thu Hà",
+      "text": "Tra hs card mạng",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "cổng RJ45"
+        ],
+        "khongChua": [
+          "8517\\.62\\.43"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 5,
+      "mieuTa": "(b2) Khách trả lời 'kết nối mạng LAN cổng RJ45 ạ' → kết quả 8517.62.43 kèm menu 0–3",
+      "chatId": "khach_g6_phim_02",
+      "userId": "khach_g6_phim_02",
+      "userName": "Đỗ Thu Hà",
+      "cachTruoc": "1m",
+      "text": "kết nối mạng LAN cổng RJ45 ạ",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "8517\\.62\\.43",
+          "Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên"
+        ]
+      }
+    },
+    {
+      "step": 6,
+      "mieuTa": "(b3) Khách bắn phím '1' (menu hứa '1 thuế & C/O' nhưng phiên vừa tra → Gói 2 chạy với mã vừa tra)",
+      "chatId": "khach_g6_phim_02",
+      "userId": "khach_g6_phim_02",
+      "userName": "Đỗ Thu Hà",
+      "cachTruoc": "1m",
+      "text": "1",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra",
+          "8517\\.62\\.43"
+        ],
+        "khongChua": [
+          "hotline OZ"
+        ]
+      }
+    },
+    {
+      "step": 7,
+      "mieuTa": "(b4) Khách bắn tiếp phím '2' → vẫn Gói 2 với mã vừa tra (phím 2 trên menu trỏ cùng gói)",
+      "chatId": "khach_g6_phim_02",
+      "userId": "khach_g6_phim_02",
+      "userName": "Đỗ Thu Hà",
+      "cachTruoc": "1m",
+      "text": "2",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra",
+          "8517\\.62\\.43"
+        ],
+        "khongChua": [
+          "hotline OZ"
+        ]
+      }
+    },
+    {
+      "step": 8,
+      "mieuTa": "(c) Khách bắn phím '3' → Gói 3 viết mô tả khai báo cho mã vừa tra (gọi sinh_mo_ta_khai_bao)",
+      "chatId": "khach_g6_phim_02",
+      "userId": "khach_g6_phim_02",
+      "userName": "Đỗ Thu Hà",
+      "cachTruoc": "1m",
+      "text": "3",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Gói 3: Viết mô tả khai báo — mã vừa tra",
+          "Bộ thích ứng mạng hữu tuyến"
+        ]
+      }
+    }
+  ]
+}

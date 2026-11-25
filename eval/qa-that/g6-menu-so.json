@@ -1,0 +1,85 @@
+{
+  "id": "g6-menu-so",
+  "dich": "G6",
+  "ten": "G6 · Menu số 0–3: dòng menu đúng khuôn nguyên văn cuối tin kết quả Giọng Quyên, ở riêng tư và trong nhóm",
+  "moTa": "Khoá hồi quy cho Phương án 1 (OZV-1527): (a) tin kết quả phân loại riêng tư phải kèm NGUYÊN VĂN dòng menu số 0–3 (MENU_SO_GIONG_QUYEN) — đầu câu, ba phím 1/2/3, phím 0 và mẹo 'căn cứ' đủ cả, không lẫn menu gõ chữ; (b) trong nhóm, tin hỏi tách mã và tin kết quả vẫn tag đúng người và menu không bị cắt; (c) menu chỉ xuất hiện sau khi CỔNG trả kết quả, câu hỏi lại thì chưa có.",
+  "chatType": "PRIVATE",
+  "chatId": "khach_g6_menu_01",
+  "userId": "khach_g6_menu_01",
+  "userName": "Phạm Thị Lan",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "(c) 'Tra hs máy sấy sinh tố' → bot hỏi lại tên/thông số, CHƯA có dòng menu số 0–3 (menu chỉ đi cùng tin kết quả)",
+      "text": "Tra hs máy sấy sinh tố",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "máy xay sinh tố",
+          "công suất"
+        ],
+        "khongChua": [
+          "8509",
+          "Gõ 1 thuế & C/O"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 2,
+      "mieuTa": "(a) Khách trả lời đủ thông số → tin kết quả có dòng menu số 0–3 NGUYÊN VĂN từ đầu tới đuôi (Phương án 1 OZV-1527)",
+      "text": "đúng, 350W 220V",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "8509\\.40\\.00",
+          "Anh/chị muốn em soạn luôn mô tả khai báo hay xem giấy tờ ạ\\? Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên \\(hoặc \"căn cứ\"\\)"
+        ],
+        "khongChua": [
+          "Tự động chọn gói",
+          "Gõ \"menu\""
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 3,
+      "mieuTa": "(b1) Trong nhóm: 'Tra hs card mạng' → câu hỏi tách mã tag đúng @Mai, chưa có mã, chưa có menu",
+      "chatType": "GROUP",
+      "chatId": "nhom_g6_menu_01",
+      "userId": "mai_01",
+      "userName": "Mai",
+      "text": "Bot OZ Tra hs card mạng",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "tagDungNguoi": "@Mai\n",
+        "phaiChua": [
+          "cổng RJ45"
+        ],
+        "khongChua": [
+          "8517\\.62\\.43",
+          "Gõ 1 thuế & C/O"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 4,
+      "mieuTa": "(b2) Mai trả lời 'Bot OZ kết nối mạng LAN cổng RJ45 ạ' (nhắc bot vì ở nhóm) → tin kết quả trong nhóm vẫn tag @Mai và kèm menu 0–3 nguyên văn, không bị cắt",
+      "chatType": "GROUP",
+      "chatId": "nhom_g6_menu_01",
+      "userId": "mai_01",
+      "userName": "Mai",
+      "cachTruoc": "1m",
+      "text": "Bot OZ kết nối mạng LAN cổng RJ45 ạ",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "tagDungNguoi": "@Mai\n",
+        "phaiChua": [
+          "8517\\.62\\.43",
+          "Anh/chị muốn em soạn luôn mô tả khai báo hay xem giấy tờ ạ\\? Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên \\(hoặc \"căn cứ\"\\)"
+        ]
+      }
+    }
+  ]
+}
