@@ -347,15 +347,16 @@ export const aliasCuoiCau = (s) => {
  */
 export const maCuoiCau = (s) => {
   const t = String(s || '');
-  const m = t.match(/\b([A-Z]{2})\s*$/);
-  if (!m) return null;
-  const truoc = t.slice(0, m.index).trim();
-  if (laDonViDoSauSo(m[1], truoc)) return null;
-  const tu = tachTu(t);
-  const i = tu.length - 1;
-  const truocToken = i > 0 ? tu[i - 1] : '';
-  const sauMaHoacTuDan = laSo(truocToken) || (i > 0 && laTuDanXuatXu(tu, i - 1));
-  return sauMaHoacTuDan ? m[1] : null;
+  const dsTu = tachTuViTri(t);
+  const i = dsTu.length - 1;
+  if (i < 1) return null;
+  const ma = dsTu[i].tu;
+  if (/[\p{M}]/u.test(ma) || !/^[A-Z]{2}$/.test(ma)) return null;
+  const truoc = t.slice(0, dsTu[i].viTri).trim();
+  if (laDonViDoSauSo(ma, truoc)) return null;
+  const tu = dsTu.map((x) => x.tu);
+  const sauMaHoacTuDan = laSo(tu[i - 1]) || laTuDanXuatXu(tu, i - 1);
+  return sauMaHoacTuDan ? ma : null;
 };
 
 /** Bỏ nhãn ô xuất xứ ở đầu giá trị ("Xuất xứ: SK", "origin: HR", "xx TQ") để còn lại phần khách khai. */
