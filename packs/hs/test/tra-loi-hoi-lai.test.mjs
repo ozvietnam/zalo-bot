@@ -269,3 +269,42 @@ test('[#213-7] khách vừa phủ định tên vừa nêu TÊN MỚI kèm công 
   assert.doesNotMatch(ten, /sinh t[oố]/i, `tên cũ đã bị khách sửa: "${ten}"`);
   assert.match(ten, /500W/i, `thông số mới: "${ten}"`);
 });
+
+// ── 6. OZV-2255 (lát 2 của OZV-437): không xoá mất xuất xứ trong tenGoc khi dựng moTaTraCuu ───
+
+test('OZV-2255 đường thật: khách đã khai nước ở vòng 1 rồi vòng 2 nói "cứ tra đi" → không rơi về mặc định CN', async () => {
+  for (const [tin1, tin2, ma] of [
+    ['Tra hs máy bơm', 'gia đình, hàng Nhật', 'JP'],
+    ['Tra hs nồi chiên', 'gia đình, hàng Nhật', 'JP'],
+    ['Tra hs van bi', 'hàng Nhật', 'JP'],
+  ]) {
+    const { ctx, calls } = fakeCtx();
+    await hs.handle(turn(tin1), ctx);
+    await hs.handle(turn(tin2), ctx);
+    await hs.handle(turn('không rõ, cứ tra đi'), ctx);
+    const ts = tenHangDaTra(calls);
+    assert.equal(ts.length, 1, `phải gọi Cổng cho (${tin1} -> ${tin2}): ${JSON.stringify(ts)}`);
+    assert.match(ts[0], /h[aà]ng Nh[aậ]t/i, `moTaTraCuu mất xuất xứ khách đã khai, rơi về CN: "${ts[0]}"`);
+  }
+});
+
+test('OZV-2255 đường thật: khách sửa cả tên lẫn nước ở vòng 1 rồi đưa thông số ở vòng 2 → tenGoiY không đè mất nước mới', async () => {
+  const { ctx, calls } = fakeCtx();
+  await hs.handle(turn('Tra hs máy sấy sinh tố Trung Quốc'), ctx);
+  await hs.handle(turn('không, là máy sấy thực phẩm hàng Nhật'), ctx);
+  await hs.handle(turn('350W 220V'), ctx);
+  const ts = tenHangDaTra(calls);
+  assert.equal(ts.length, 1, `phải gọi Cổng 1 lần: ${JSON.stringify(ts)}`);
+  assert.match(ts[0], /h[aà]ng Nh[aậ]t/i, `tenGoiY ghi đè tenGoc làm rụng nước mới "hàng Nhật": "${ts[0]}"`);
+});
+
+test('OZV-2255 hàm xuLyTraLoiHoiLai: giữ xuất xứ trong tenGoc khi xác nhận hoặc sửa tên, nước mới thắng nước cũ', () => {
+  const hoiLai = kiemTraThongTinPhanLoai('Tra hs máy sấy sinh tố hàng Nhật', { vongHoi: 0 });
+  for (const dap of ['đúng, 350W 220V', 'không, là máy sấy thực phẩm 350W 220V', 'máy sấy thực phẩm 350W 220V']) {
+    const r = xuLyTraLoiHoiLai(dap, hoiLai);
+    assert.match(r.moTaTraCuu, /h[aà]ng Nh[aậ]t/i, `"${dap}" làm rụng xuất xứ ở tenGoc: "${r.moTaTraCuu}"`);
+  }
+  const doiNuoc = xuLyTraLoiHoiLai('không, là máy sấy thực phẩm 350W 220V hàng Hàn', hoiLai);
+  assert.match(doiNuoc.moTaTraCuu, /h[aà]ng H[aà]n/i, `nước mới phải còn: "${doiNuoc.moTaTraCuu}"`);
+  assert.doesNotMatch(doiNuoc.moTaTraCuu, /Nh[aậ]t/i, `nước cũ phải bị thay: "${doiNuoc.moTaTraCuu}"`);
+});
