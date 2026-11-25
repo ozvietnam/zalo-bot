@@ -149,6 +149,10 @@ Trần 120s cũ cắt đúng giữa poll 4 (90s) và poll 5 (150s): bài đo C�
 
 Bước đo còn đặt `kyVong: { phaiCoPhanHoi: true }`, nên hết hạn mà chỉ có câu "đang tra" thì `evaluateStep` trả lý do `"Đã báo đang tra nhưng CHƯA có kết quả…"`. Bộ đo bắt chuỗi đó (chỉ khi ca **không ra mã nào**) và ghi `hetHanCho: true` + `lyDo` của Cổng vào kết quả ca, thay vì để `chamMotCa` chấm như một ca bot phân loại sai. Khi tổng hợp, `tongHop()` (`scripts/do-dung-hs.mjs:149-150`) đếm riêng `hetHanCho` khỏi `khongRaMa` (`!r.maBot && !r.hetHanCho`), và `dungBaoCao()` (`scripts/do-dung-hs.mjs:244`) in dòng riêng `| Hết hạn chờ Cổng (chưa có kết quả) |` trong bảng `## Kết quả` (khoá bởi `test/core/do-dung-hs.test.mjs:357-379`) để ca Cổng treo không làm đội tỷ lệ `"Bot không ra mã nào"`.
 
+### Log tin gửi khách từng ca (OZV-2324)
+
+Mỗi lượt đo (cả `--mock` lẫn đo thật) sinh thêm tệp `bao-cao/do-dung/<ngày>[-mock]-tung-ca.json` cạnh báo cáo md, đường dẫn in ở cuối lệnh (`🗂 Log từng ca: …`, hàm `dungLogTungCa`). Mỗi ca lưu: `stt`, `ma` (mã chuẩn văn bản), `maBot` (mã bot đầu), `maBotRa` (danh sách mã bot), `tinLoi` (tin CUỐI bot gửi khách khi ca không ra mã — phân biệt *không ra mã thật* với *tin lỗi Cổng* / *CHƯA có kết quả*), `giay`, và cờ `hetHanCho`/`lyDo` nếu có. Báo cáo OZV-2323 (nhóm A2 + giả thuyết (c) "LLM không theo lệnh trả JSON") không tách được các nhóm này vì ảnh chụp phép đo cũ chỉ lưu mã đầu — lần đo sau đọc tệp log này để kết luận.
+
 ### Tự kiểm cái thước
 
 `test/core/do-dung-hs.test.mjs` có hai bài chạy bộ đo qua lõi thật với Cổng kịch bản: Cổng trả **đúng** mã của văn bản thì bộ đo phải báo **100%**, trả **sai** thì phải báo **0%**. Thiếu hai bài này thì một bộ đo hỏng (đọc sai khuôn tin, sai tên công cụ…) luôn báo 0% và trông y như một con bot kém.

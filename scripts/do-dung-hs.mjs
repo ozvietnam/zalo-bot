@@ -191,9 +191,11 @@ export async function chayBoDo({ env = process.env, isMock = false, n = 0, boDe 
     let maBotRa = [];
     let loi = null;
     let hetHanCho = false;
+    let tinGui = []; // tin bot GỬI KHÁCH của ca — giữ lại khi không ra mã (OZV-2324)
     try {
       const res = await runSingleScenario(kichBanCuaCa(ca, i, timeoutMs), { env: mergedEnv, isMock, customMcp, now });
-      maBotRa = docMaTuTin(res.stepResults.flatMap((s) => s.sent || []));
+      tinGui = res.stepResults.flatMap((s) => s.sent || []);
+      maBotRa = docMaTuTin(tinGui);
       // Chỉ đọc lý do trượt khi ca KHÔNG ra mã nào: ra mã rồi thì điểm do chamMotCa quyết.
       if (res.lyDo && !maBotRa.length) {
         hetHanCho = LA_HET_HAN_CHO.test(res.lyDo);
@@ -206,6 +208,9 @@ export async function chayBoDo({ env = process.env, isMock = false, n = 0, boDe 
     const r = { ...cham, msCho: Date.now() - batDau, cauKhach: ca.cauKhach, nguon: ca.nguon, loi };
     if (hetHanCho) r.hetHanCho = true;
     if (loi) r.lyDo = loi;
+    // OZV-2324: ca KHÔNG ra mã thì giữ tin cuối bot gửi khách — bẫy "không ra mã" lẫn "tin lỗi
+    // Cổng" lẫn "CHƯA có kết quả" không tách được nếu chỉ lưu mã (báo cáo OZV-2323 mục 5c, 7).
+    if (!maBotRa.length) r.tinLoi = tinGui.length ? tinGui[tinGui.length - 1] : (loi || null);
     ketQua.push(r);
     if (!im) {
       const dau = r.top1 ? '✓' : (r.top3 ? '~' : '✗');
@@ -268,6 +273,37 @@ export function dungBaoCao({ ketQua, tomTat, isMock, startedAt = new Date() }) {
   return l.join('\n');
 }
 
+/** Log per-case (OZV-2324) — JSON cho lần đo sau tách nhóm "không ra mã": mỗi ca lưu mã bot đầu,
+ *  danh sách mã bot, tin lỗi bot gửi khách (nếu không ra mã), số giây. Ảnh chụp phép đo cũ chỉ
+ *  lưu mã đầu nên giả thuyết (c) của OZV-2323 ("LLM không theo lệnh trả JSON") không kiểm được. */
+export function dungLogTungCa({ ketQua, tomTat, isMock, startedAt = new Date() }) {
+  return JSON.stringify({
+    version: 1,
+    nguon: 'scripts/do-dung-hs.mjs',
+    boDe: DUONG_BO_DE,
+    cheDo: isMock ? 'mock' : 'that',
+    thoiGian: vnStamp(startedAt),
+    soCa: tomTat.tong,
+    top1: tomTat.top1,
+    top3: tomTat.top3,
+    khongRaMa: tomTat.khongRaMa,
+    hetHanCho: tomTat.hetHanCho || 0,
+    cases: ketQua.map((r, i) => {
+      const e = {
+        stt: i + 1,
+        ma: r.ma,
+        maBot: r.maBot || null,
+        maBotRa: r.maBotRa || [],
+        tinLoi: r.tinLoi || null,
+        giay: Number((r.msCho / 1000).toFixed(1)),
+      };
+      if (r.hetHanCho) e.hetHanCho = true;
+      if (r.lyDo) e.lyDo = r.lyDo;
+      return e;
+    }),
+  }, null, 2) + '\n';
+}
+
 const docCo = (argv, ten, md = null) => {
   const hit = argv.find((a) => a === `--${ten}` || a.startsWith(`--${ten}=`));
   if (!hit) return md;
@@ -292,7 +328,10 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   mkdirSync(outDir, { recursive: true });
   const duong = join(outDir, `${vnDateKey(startedAt)}${isMock ? '-mock' : ''}.md`);
   writeFileSync(duong, dungBaoCao({ ...res, startedAt }), 'utf8');
+  const duongLog = join(outDir, `${vnDateKey(startedAt)}${isMock ? '-mock' : ''}-tung-ca.json`);
+  writeFileSync(duongLog, dungLogTungCa({ ...res, startedAt }), 'utf8');
   const t = res.tomTat;
   console.log(`\n📄 Báo cáo: ${duong}`);
+  console.log(`🗂 Log từng ca: ${duongLog}`);
   console.log(`📊 top-1 ${t.top1}/${t.tong} (${t.top1Pct}%) · top-3 ${t.top3}/${t.tong} (${t.top3Pct}%) · trung bình ${(t.msTrungBinh / 1000).toFixed(1)}s\n`);
 }

@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { docBoDe, chamMotCa, tongHop, docMaTuTin, chayBoDo, dungBaoCao, DUONG_BO_DE, CHO_MOT_CA_MS } from '../../scripts/do-dung-hs.mjs';
+import { docBoDe, chamMotCa, tongHop, docMaTuTin, chayBoDo, dungBaoCao, dungLogTungCa, DUONG_BO_DE, CHO_MOT_CA_MS } from '../../scripts/do-dung-hs.mjs';
 import { renderPhanLoaiDayDu, renderClassify } from '../../packs/hs/render.js';
 import { renderPhanLoaiGiongQuyen } from '../../packs/hs/giong-quyen.js';
 
@@ -376,4 +376,57 @@ test('báo cáo: bảng Kết quả có dòng riêng cho ca hết hạn chờ C�
   assert.match(md, /Hết hạn chờ Cổng/, 'bảng Kết quả phải có dòng hết hạn chờ Cổng');
   assert.match(md, /\| Hết hạn chờ Cổng[^|]*\| 1\/2 \| 50\.0% \|/, `dòng hết hạn chờ phải ra 1/2 — 50.0%, bảng đang là:\n${md}`);
   assert.match(md, /\| Bot không ra mã nào \| 0\/2 \| 0\.0% \|/, 'ca treo Cổng không được cộng vào dòng bot không ra mã');
+});
+
+// OZV-2324: log per-case lưu lại tin bot GỬI KHÁCH — báo cáo OZV-2323 mục 5c/7 không tách được
+// nhóm "không ra mã" khỏi "tin lỗi Cổng" / "CHƯA có kết quả" vì ảnh chụp cũ chỉ lưu mã đầu.
+test('log từng ca: mỗi ca đủ stt, mã chuẩn, mã bot đầu, danh sách mã bot, tin lỗi, số giây', () => {
+  const ketQua = [
+    { ma: '85094000', maBot: '85094000', maBotRa: ['85094000'], top1: true, top3: true, msCho: 1540 },
+    { ma: '12081000', maBot: null, maBotRa: [], top1: false, top3: false, msCho: 240_000,
+      tinLoi: '⚠️ Cổng tra cứu gặp lỗi ở mục này, bạn thử lại sau ít phút nhé.' },
+  ];
+  const log = JSON.parse(dungLogTungCa({ ketQua, tomTat: tongHop(ketQua), isMock: true }));
+  assert.equal(log.cheDo, 'mock', 'log phải ghi rõ chế độ đo để người đọc không nhầm số mock với số thật');
+  assert.equal(log.soCa, 2);
+  assert.deepEqual(log.cases.map((c) => [c.stt, c.ma, c.maBot, c.tinLoi, c.giay]), [
+    [1, '85094000', '85094000', null, 1.5],
+    [2, '12081000', null, '⚠️ Cổng tra cứu gặp lỗi ở mục này, bạn thử lại sau ít phút nhé.', 240],
+  ], `khuôn per-case sai, đang là:\n${JSON.stringify(log.cases, null, 1)}`);
+  assert.deepEqual(log.cases[0].maBotRa, ['85094000']);
+  assert.deepEqual(log.cases[1].maBotRa, []);
+});
+
+test('log từng ca: ca hết hạn chờ giữ cờ hetHanCho và lý do đo, không lẫn với ca lỗi Cổng', () => {
+  const ketQua = [{ ma: '85371099', maBot: null, maBotRa: [], top1: false, top3: false,
+    msCho: 240_000, hetHanCho: true, lyDo: 'CHƯA có kết quả sau 240 giây chờ', tinLoi: 'Bot đang tra cứu mã HS cho bạn, vui lòng chờ ít phút nhé.' }];
+  const log = JSON.parse(dungLogTungCa({ ketQua, tomTat: tongHop(ketQua), isMock: false }));
+  const c = log.cases[0];
+  assert.equal(c.hetHanCho, true, 'cờ hết hạn chờ phải vào log để tách khỏi nhóm "không ra mã" thật');
+  assert.equal(c.lyDo, 'CHƯA có kết quả sau 240 giây chờ');
+  assert.equal(c.tinLoi, 'Bot đang tra cứu mã HS cho bạn, vui lòng chờ ít phút nhé.');
+  assert.equal(log.cheDo, 'that');
+});
+
+// Cổng ném lỗi → bot gửi khách tin lỗi, không ra mã: log phải giữ nguyên tin đó. Thiếu thì
+// nhóm "không ra mã" giả tăng lên và giả thuyết (c) của OZV-2323 mãi không kiểm được.
+test('chạy bộ đo: ca Cổng lỗi — tinLoi là tin lỗi bot vừa gửi khách, không phải bỏ trống', async () => {
+  const boDe = docBoDe().slice(0, 1);
+  const congLo = {
+    calls: [],
+    async listTools() { throw new Error('Cổng OZ lỗi HTTP 502 Bad Gateway'); },
+    async callTool() { throw new Error('Cổng OZ lỗi HTTP 502 Bad Gateway'); },
+  };
+  const res = await chayBoDo({ boDe, env: {}, im: true, customMcp: congLo, timeoutMs: 5_000 });
+  const r = res.ketQua[0];
+  assert.equal(r.maBot, null, 'ca Cổng lỗi thì không có mã nào');
+  assert.match(String(r.tinLoi), /lỗi/i, `tinLoi phải là tin bot vừa gửi khách (tin lỗi), đang là: ${JSON.stringify(r.tinLoi)}`);
+});
+
+test('chạy bộ đo: ca ra mã thì tinLoi không đặt — khách đã nhận được mã', async () => {
+  const boDe = docBoDe().slice(0, 1);
+  const res = await chayBoDo({ boDe, env: {}, im: true, customMcp: congKichBan(() => boDe[0].ma) });
+  const r = res.ketQua[0];
+  assert.equal(r.top1, true);
+  assert.equal(r.tinLoi, undefined, 'ca ra mã không được có tinLoi');
 });
