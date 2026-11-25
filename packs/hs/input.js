@@ -511,7 +511,7 @@ export function maNuocTrongCau(s) {
     // câu mà không có từ dẫn thì KHÔNG phải nước ("áo size UK" là kích cỡ giày, không phải xuất
     // xứ; đọc thành GB là bịa nước ⇒ đèn rủi ro nhãn hiệu sai — vòng soát 9 PR #214).
     if (alias) { if (tuDan) return alias; continue; }
-    if (tuDan) return ma;
+    if (i > 0 && laTuDanCauTuDo(tu, i - 1)) return ma;
     // Ô khai chỉ có MỘT mã ("SK", "MM"): khách CỐ Ý khai mã nước ⇒ nhận, như `main`.
     if (tu.length === 1) return ma;
     // MÃ ISO THẬT ở cuối câu: chỉ nhận khi đứng NGAY SAU MÃ/SỐ ("Nike 64041190 CN" ⇒ CN).
