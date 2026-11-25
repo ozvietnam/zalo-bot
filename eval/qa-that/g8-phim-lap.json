@@ -1,0 +1,128 @@
+{
+  "id": "g8-phim-lap",
+  "dich": "G8",
+  "ten": "G8 · Biên trạng thái menu 0–3: phím LẶP — khách bắn lại đúng phím thì bot chạy lại gói với cùng mã, gọi Cổng lần nữa",
+  "moTa": "Khoá hồi quy biên TRẠNG THÁI menu 0–3 (Phương án 1, OZV-1527): khách bắn lại ĐÚNG phím vừa bắn thì bot KHÔNG in lại kết quả cũ trong bộ nhớ đệm mà CHẠY LẠI gói với cùng mã vừa tra — mỗi lần phím là một lần gọi Cổng thật (tra_thue/tra_thu_tuc_nhap_khau với Gói 2, sinh_mo_ta_khai_bao với Gói 3). (a1) mạch 1: phân loại card mạng ra 8517.62.43 rồi phím '1' hai lần liên tiếp — cả hai lần đều là tin 'Gói 2 … mã vừa tra' chạy lại từ Cổng; (a2) mạch 2: phân loại máy sấy sinh tố ra 8509.40.00 rồi phím '3' hai lần — Gói 3 sinh lại mô tả mỗi lần. Số lần gọi công cụ được nhóm test G8 trong test/core/qa-that.test.mjs đếm và chốt (≥2 mỗi công cụ). Tên người và hội thoại là dữ liệu giả phục vụ QA.",
+  "chatType": "PRIVATE",
+  "chatId": "khach_g8_lap_01",
+  "userId": "khach_g8_lap_01",
+  "userName": "Ngô Bảo Sơn",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "(a1-1) Mạch 1: 'Tra hs card mạng' → bot hỏi lại để tách mã",
+      "text": "Tra hs card mạng",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": ["cổng RJ45"],
+        "khongChua": ["8517"],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 2,
+      "mieuTa": "(a1-2) Khách trả lời đủ → tin kết quả 8517.62.43 kèm menu 0–3 (bối cảnh để bắn phím)",
+      "cachTruoc": "1m",
+      "text": "kết nối mạng LAN cổng RJ45 ạ",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "8517\\.62\\.43",
+          "Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên"
+        ]
+      }
+    },
+    {
+      "step": 3,
+      "mieuTa": "(a1-3) Khách bắn phím '1' lần thứ nhất → Gói 2 chạy với mã vừa tra (gọi Cổng lần 1)",
+      "cachTruoc": "1m",
+      "text": "1",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra",
+          "8517\\.62\\.43"
+        ],
+        "khongChua": ["hotline OZ", "lỗi tạm thời"]
+      }
+    },
+    {
+      "step": 4,
+      "mieuTa": "(a1-4) Khách bắn LẶP phím '1' lần thứ hai → bot CHẠY LẠI Gói 2 với cùng mã, không im, không bắt gõ lại mẫu",
+      "cachTruoc": "1m",
+      "text": "1",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra",
+          "8517\\.62\\.43"
+        ],
+        "khongChua": ["hotline OZ", "lỗi tạm thời"]
+      }
+    },
+    {
+      "step": 5,
+      "mieuTa": "(a2-1) Mạch 2, khách khác: 'Tra hs máy sấy sinh tố' → bot hỏi lại",
+      "chatId": "khach_g8_lap_02",
+      "userId": "khach_g8_lap_02",
+      "userName": "Lý Thu Thảo",
+      "text": "Tra hs máy sấy sinh tố",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": ["máy xay sinh tố"],
+        "khongChua": ["8509"],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 6,
+      "mieuTa": "(a2-2) Khách trả lời 'đúng, 350W 220V' → kết quả 8509.40.00 kèm menu 0–3",
+      "chatId": "khach_g8_lap_02",
+      "userId": "khach_g8_lap_02",
+      "userName": "Lý Thu Thảo",
+      "cachTruoc": "1m",
+      "text": "đúng, 350W 220V",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "8509\\.40\\.00",
+          "Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên"
+        ]
+      }
+    },
+    {
+      "step": 7,
+      "mieuTa": "(a2-3) Khách bắn phím '3' lần thứ nhất → Gói 3 viết mô tả khai báo cho mã vừa tra (gọi Cổng lần 1)",
+      "chatId": "khach_g8_lap_02",
+      "userId": "khach_g8_lap_02",
+      "userName": "Lý Thu Thảo",
+      "cachTruoc": "1m",
+      "text": "3",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Gói 3: Viết mô tả khai báo — mã vừa tra",
+          "8509"
+        ],
+        "khongChua": ["hotline OZ", "lỗi tạm thời"]
+      }
+    },
+    {
+      "step": 8,
+      "mieuTa": "(a2-4) Khách bắn LẶP phím '3' lần thứ hai → bot CHẠY LẠI Gói 3, sinh lại mô tả khai báo từ Cổng",
+      "chatId": "khach_g8_lap_02",
+      "userId": "khach_g8_lap_02",
+      "userName": "Lý Thu Thảo",
+      "cachTruoc": "1m",
+      "text": "3",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Gói 3: Viết mô tả khai báo — mã vừa tra",
+          "8509"
+        ],
+        "khongChua": ["hotline OZ", "lỗi tạm thời"]
+      }
+    }
+  ]
+}

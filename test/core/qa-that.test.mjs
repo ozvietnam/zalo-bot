@@ -642,3 +642,158 @@ test('runSingleScenario: G7 biên nhóm (g7-bien-nhom.json) — phím khi chưa 
   assert.doesNotMatch(goi1, /mã vừa tra/);
   assert.equal(res.toolCalls.length, 0, 'Cả kịch bản nhóm không gọi Cổng lần nào: phím số khi chưa tra gì không chạy gói');
 });
+
+// OZV-2322: nhóm kịch bản QA G8 — khoá hồi quy BIÊN TRẠNG THÁI menu 0–3 (OZV-1527):
+// (a) phím lặp chạy lại gói với cùng mã — mỗi lần phím là một lần gọi Cổng;
+// (b) phím ngay sau tin "Lỗi Cổng" vẫn chạy với mã cũ (s.last không bị xoá bởi tin lỗi);
+// (c) phím 1/3 sau phím 0 (xin gặp nhân viên) — HÀNH VI THẬT: bot vẫn tự chạy gói vì
+//     CEO 10/11 phím 0 không cầm phòng, chế độ NHÂN VIÊN không vào được từ phía khách.
+test('runSingleScenario: G8 phím lặp (g8-phim-lap.json) — bắn lại đúng phím thì chạy lại gói, gọi Cổng lần nữa', async () => {
+  const g8Path = join(ROOT_DIR, 'eval', 'qa-that', 'g8-phim-lap.json');
+  assert.ok(existsSync(g8Path), 'Tệp eval/qa-that/g8-phim-lap.json phải tồn tại');
+  const scenario = JSON.parse(readFileSync(g8Path, 'utf8'));
+
+  const res = await runSingleScenario(scenario, { isMock: true });
+  assert.equal(res.ok, true, `g8-phim-lap phải đạt toàn bộ ${scenario.steps.length} bước nhưng trượt vì: ${res.lyDo}`);
+  assert.equal(res.zaloApiCalls, 0);
+  assert.equal(res.stepResults.length, scenario.steps.length);
+  for (const st of res.stepResults) {
+    assert.equal(st.ok, true, `Bước ${st.stepIndex} (${st.mieuTa}) phải ĐẠT nhưng trượt: ${st.lyDo}`);
+  }
+
+  // Bước 3 & 4: hai lần phím '1' → CẢ HAI đều là tin "Gói 2 … mã vừa tra" (chạy lại, không im).
+  for (const i of [2, 3]) {
+    const t = res.stepResults[i].sent.join('\n');
+    assert.match(t, /Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra[\s\S]*8517\.62\.43/, `Bước ${i + 1} phải chạy lại Gói 2 với mã vừa tra`);
+    assert.doesNotMatch(t, /lỗi tạm thời/, `Bước ${i + 1} không được lỗi Cổng`);
+  }
+
+  // Bước 7 & 8: hai lần phím '3' → CẢ HAI đều chạy lại Gói 3.
+  for (const i of [6, 7]) {
+    assert.match(res.stepResults[i].sent.join('\n'), /Gói 3: Viết mô tả khai báo — mã vừa tra[\s\S]*8509/, `Bước ${i + 1} phải chạy lại Gói 3 với mã vừa tra`);
+  }
+
+  // Phím LẶP là gọi Cổng LẠI, không phải in lại kết quả nhớ sẵn:
+  // 2 lần phím '1' (Gói 2) → ≥2 lần tra_thue; 2 lần phím '3' (Gói 3) → ≥2 lần sinh_mo_ta_khai_bao.
+  const soLan = (name) => res.toolCalls.filter((c) => c.name === name).length;
+  assert.ok(soLan('tra_thue') >= 2, `Hai lần phím '1' phải gọi tra_thue ít nhất 2 lần (thực tế ${soLan('tra_thue')})`);
+  assert.ok(soLan('sinh_mo_ta_khai_bao') >= 2, `Hai lần phím '3' phải gọi sinh_mo_ta_khai_bao ít nhất 2 lần (thực tế ${soLan('sinh_mo_ta_khai_bao')})`);
+});
+
+test('runSingleScenario: G8 phím sau tin Lỗi Cổng (kịch bản nội tuyến, customMcp) — s.last cũ còn, phím chạy tiếp với mã cũ', async () => {
+  // Cổng giả: phan_loai_hs NÉM LỞI đúng ở LẦN GỌI THỨ HAI (bước 3) rồi khoẻ lại —
+  // mô phỏng "Cổng lỗi một nhịp" đúng hypothesis (b) của thẻ OZV-2322, điều bộ --mock thuần
+  // không làm được (mock không bao giờ lỗi) và moPhongLoi 'mcp-error' lại lỗi MỌI bước.
+  // Lỗi tra_thue riêng lẻ không sinh tin "Lỗi Cổng" (packages.js bỏ đúng mục đó) nên phải lỗi
+  // ở phan_loai_hs — đường chưa bọc .catch, ném lên luong-chu.js → tin "⚠️ Cổng … lỗi tạm thời".
+  const calls = [];
+  let soLanPhanLoai = 0;
+  const loiMotNhip = {
+    calls,
+    async listTools() {
+      return [
+        { name: 'phan_loai_hs', description: 'Phân loại HS' },
+        { name: 'ket_qua_phan_loai', description: 'Kết quả phân loại' },
+        { name: 'tra_thue', description: 'Tra cứu thuế' },
+        { name: 'tra_thu_tuc_nhap_khau', description: 'Thủ tục nhập khẩu' },
+        { name: 'sinh_mo_ta_khai_bao', description: 'Sinh mô tả khai báo' },
+      ];
+    },
+    async callTool(name, args = {}) {
+      calls.push({ name, args, at: new Date() });
+      if (name === 'phan_loai_hs') {
+        soLanPhanLoai += 1;
+        if (soLanPhanLoai === 2) throw new Error('mock G8: Cổng OZ lỗi HTTP 502 Bad Gateway');
+        return {
+          ok: true,
+          maLuot: 'ML-TEST-G8',
+          trangThai: 'XONG',
+          maHs: '85176243',
+          doChac: 0.95,
+          data: { maHs: '85176243', ketQua: { results: [{ hsCode: '85176243', nameVi: 'Bộ điều khiển và bộ thích ứng khác, kể cả bộ lặp', confidence: 0.95 }] } },
+        };
+      }
+      if (name === 'ket_qua_phan_loai') {
+        return { ok: true, maHs: '85176243', trangThai: 'XONG', data: { maHs: '85176243', ketQua: { results: [{ hsCode: '85176243', confidence: 0.95 }] } } };
+      }
+      if (name === 'tra_thue') {
+        return { ok: true, data: { hsCode: '85176243', nameVi: 'Bộ điều khiển và bộ thích ứng khác', taxNkPreferential: 0, taxVat: 8 } };
+      }
+      if (name === 'tra_thu_tuc_nhap_khau') {
+        return { ok: true, data: { kiemTraChuyenNganh: [], giayPhep: [], vanBanQuanLy: [], chinhSach: { policyLines: [] } } };
+      }
+      if (name === 'sinh_mo_ta_khai_bao') {
+        return { ok: true, data: { moTaEcus: 'Bộ thích ứng mạng hữu tuyến (card mạng kết nối mạng LAN cổng RJ45), mới 100%', banNhap: false } };
+      }
+      return { ok: true };
+    },
+  };
+
+  const scenario = {
+    id: 'g8-phim-sau-loi-cong',
+    dich: 'G8',
+    ten: 'G8 · Biên trạng thái: phím ngay sau tin "Lỗi Cổng" vẫn chạy với mã vừa tra cũ',
+    moTa: 'Kịch bản nội tuyến chỉ dùng trong test: khách đã tra card mạng ra 8517.62.43 (s.last đã ghi), xin tra tiếp máy sấy sinh tố thì Cổng phan_loai_hs lỗi đúng một nhịp → tin "⚠️ Cổng tra cứu OZ đang lỗi tạm thời". Tin lỗi KHÔNG xoá s.last nên phím "1" ngay sau đó vẫn chạy Gói 2 với MÃ CŨ 8517.62.43, không bắt khách tra lại từ đầu, và Cổng được gọi lại thật (tra_thue chạy thêm lần nữa).',
+    chatType: 'PRIVATE',
+    chatId: 'khach_g8_loi_01',
+    userId: 'khach_g8_loi_01',
+    userName: 'Phạm Đức Anh',
+    steps: [
+      { step: 1, mieuTa: "'Tra hs card mạng' → bot hỏi lại để tách mã", text: 'Tra hs card mạng', kyVong: { phaiCoPhanHoi: true, phaiChua: ['cổng RJ45'], khongChua: ['8517'], khongBaoDangTra: true } },
+      { step: 2, mieuTa: 'Khách trả lời đủ → kết quả 8517.62.43 kèm menu (s.last ghi mã này)', cachTruoc: '1m', text: 'kết nối mạng LAN cổng RJ45 ạ', kyVong: { phaiCoPhanHoi: true, phaiChua: ['8517\\.62\\.43', 'Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên'] } },
+      { step: 3, mieuTa: "Khách xin tra tiếp máy sấy sinh tố nhưng Cổng phan_loai_hs lỗi → tin 'Cổng tra cứu OZ đang lỗi tạm thời', không lộ mã dở của lượt mới", cachTruoc: '1m', text: 'Tra hs máy sấy sinh tố', kyVong: { phaiCoPhanHoi: true, phaiChua: ['Cổng tra cứu OZ đang lỗi tạm thời'], khongChua: ['8509', 'Gói [0-9]'] } },
+      { step: 4, mieuTa: "Phím '1' NGAY SAU tin lỗi → s.last cũ vẫn còn → Gói 2 chạy với mã 8517.62.43 cũ, không bắt tra lại từ đầu", cachTruoc: '1m', text: '1', kyVong: { phaiCoPhanHoi: true, phaiChua: ['Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra', '8517\\.62\\.43'] } },
+    ],
+  };
+
+  const res = await runSingleScenario(scenario, { isMock: false, customMcp: loiMotNhip, now: () => new Date() });
+  assert.equal(res.ok, true, `g8-phim-sau-loi-cong phải đạt toàn bộ ${scenario.steps.length} bước nhưng trượt vì: ${res.lyDo}`);
+  assert.equal(res.zaloApiCalls, 0);
+  assert.equal(res.stepResults.length, scenario.steps.length);
+  for (const st of res.stepResults) {
+    assert.equal(st.ok, true, `Bước ${st.stepIndex} (${st.mieuTa}) phải ĐẠT nhưng trượt: ${st.lyDo}`);
+  }
+
+  // Bước 3: tin lỗi thân thiện, không lộ lỗi gốc (Hiến pháp IX) và không in mã dở của lượt tra mới.
+  const tinLoi = res.stepResults[2].sent.join('\n');
+  assert.match(tinLoi, /Cổng tra cứu OZ đang lỗi tạm thời/);
+  assert.doesNotMatch(tinLoi, /8509/);
+  for (const mat of ['ECONNREFUSED', 'HTTP 502', 'TypeError', 'undefined']) {
+    assert.doesNotMatch(tinLoi, new RegExp(mat), `Tin lỗi không được lộ lỗi gốc (${mat})`);
+  }
+
+  // Bước 4: phím sau tin lỗi vẫn chạy với MÃ CŨ — s.last sống qua tin lỗi.
+  const tinLai = res.stepResults[3].sent.join('\n');
+  assert.match(tinLai, /Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra[\s\S]*8517\.62\.43/);
+  // Chứng cứ Cổng được gọi lại THẬT sau tin lỗi: phan_loai_hs lỗi đúng 1 lần, tra_thue chạy
+  // thêm lần nữa cho Gói 2 (lần đầu là form đầy đủ sau khi chốt mã).
+  assert.equal(calls.filter((c) => c.name === 'phan_loai_hs').length, 2, 'phan_loai_hs phải được gọi đúng 2 lần: lần 2 ném lỗi');
+  assert.ok(calls.filter((c) => c.name === 'tra_thue').length >= 2, 'tra_thue phải chạy lại sau tin lỗi (≥2 lần: form đầy đủ + Gói 2 sau phím)');
+});
+
+test('runSingleScenario: G8 phím sau phím 0 (g8-phim-sau-xin-nguoi.json) — bot vẫn tự chạy gói vì phím 0 không cầm phòng', async () => {
+  const g8Path = join(ROOT_DIR, 'eval', 'qa-that', 'g8-phim-sau-xin-nguoi.json');
+  assert.ok(existsSync(g8Path), 'Tệp eval/qa-that/g8-phim-sau-xin-nguoi.json phải tồn tại');
+  const scenario = JSON.parse(readFileSync(g8Path, 'utf8'));
+
+  const res = await runSingleScenario(scenario, { isMock: true });
+  assert.equal(res.ok, true, `g8-phim-sau-xin-nguoi phải đạt toàn bộ ${scenario.steps.length} bước nhưng trượt vì: ${res.lyDo}`);
+  assert.equal(res.zaloApiCalls, 0);
+  assert.equal(res.stepResults.length, scenario.steps.length);
+  for (const st of res.stepResults) {
+    assert.equal(st.ok, true, `Bước ${st.stepIndex} (${st.mieuTa}) phải ĐẠT nhưng trượt: ${st.lyDo}`);
+  }
+
+  // Bước 3: phím 0 → hotline, KHÔNG chạy gói, KHÔNG về chế độ TỰ ĐỘNG (như G6).
+  const phim0 = res.stepResults[2].sent.join('\n');
+  assert.match(phim0, /gọi hoặc nhắn Zalo hotline OZ/);
+  assert.doesNotMatch(phim0, /Gói \d/);
+  assert.doesNotMatch(phim0, /chế độ TỰ ĐỘNG/);
+
+  // Bước 4 & 5 — HÀNH VI THẬT (CEO 10/11: phím 0 không chuyển phòng sang 'human'):
+  // phím '1'/'3' SAU phím 0 vẫn TỰ CHẠY gói với mã vừa tra, bot không im.
+  assert.match(res.stepResults[3].sent.join('\n'), /Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra[\s\S]*8517\.62\.43/);
+  assert.match(res.stepResults[4].sent.join('\n'), /Gói 3: Viết mô tả khai báo — mã vừa tra[\s\S]*Bộ thích ứng mạng hữu tuyến/);
+  assert.ok(res.toolCalls.some((c) => c.name === 'tra_thue'), 'Phím 1 sau phím 0 phải thật sự gọi lại Cổng (tra_thue)');
+  assert.ok(res.toolCalls.some((c) => c.name === 'sinh_mo_ta_khai_bao'), 'Phím 3 sau phím 0 phải thật sự gọi lại Cổng (sinh_mo_ta_khai_bao)');
+});

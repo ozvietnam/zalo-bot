@@ -1,0 +1,82 @@
+{
+  "id": "g8-phim-sau-xin-nguoi",
+  "dich": "G8",
+  "ten": "G8 · Biên trạng thái menu 0–3: phím 1/3 SAU khi khách đã bấm 0 xin gặp nhân viên — bot vẫn tự chạy gói với mã vừa tra",
+  "moTa": "Khoá hồi quy biên TRẠNG THÁI menu 0–3 (Phương án 1, OZV-1527) ở giả thiết (c) 'phím khi phiên ở chế độ NHÂN VIÊN thì bot KHÔNG tự chạy gói'. Ghi HÀNH VI THẬT của code hiện giờ: từ phía KHÁCH không có đường nào vào chế độ NHÂN VIÊN — sau quyết định CEO 10/11, phím '0' chỉ hiện hotline, KHÔNG chuyển phòng sang 'human' (packs/hs/luong-chu.js:148-151 → core/engine-handoff.js goiChuyen), nên khách bấm phím '1'/'3' ngay SAU phím '0' thì bot VẪN TỰ CHẠY gói với mã vừa tra, không im. Chế độ NHÂN VIÊN thật chỉ vào được qua nhân viên gõ tay trên OA (echo-detected) hoặc lệnh /tl, /nhan trong nhóm nhân viên — hai đường đó nằm ngoài tầm mô phỏng của bộ QA tin khách; khi phòng đã 'human' thì lõi chặn TRƯỚC khi tới gói (core/engine.js:177 → human.im, 0 tin ra) và đã có test lõi riêng trong test/core/engine-handoff.test.mjs. Kịch bản này chốt biên trong tầm đó: phím 0 → hotline, bot ở lại; phím 1 ngay sau → Gói 2 chạy lại với mã vừa tra; phím 3 ngay sau → Gói 3 chạy với mã vừa tra. Tên người và hội thoại là dữ liệu giả phục vụ QA.",
+  "chatType": "PRIVATE",
+  "chatId": "khach_g8_nv_01",
+  "userId": "khach_g8_nv_01",
+  "userName": "Trần Gia Khánh",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "(c1) 'Tra hs card mạng' → bot hỏi lại để tách mã",
+      "text": "Tra hs card mạng",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": ["cổng RJ45"],
+        "khongChua": ["8517"],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 2,
+      "mieuTa": "(c2) Khách trả lời đủ → kết quả 8517.62.43 kèm menu 0–3",
+      "cachTruoc": "1m",
+      "text": "kết nối mạng LAN cổng RJ45 ạ",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "8517\\.62\\.43",
+          "Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên"
+        ]
+      }
+    },
+    {
+      "step": 3,
+      "mieuTa": "(c3) Khách bấm phím '0' xin gặp nhân viên → bot chỉ hiện hotline, KHÔNG chạy gói, KHÔNG vào chế độ NHÂN VIÊN (phòng vẫn 'bot')",
+      "cachTruoc": "1m",
+      "text": "0",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "gọi hoặc nhắn Zalo hotline OZ",
+          "Em vẫn ở đây"
+        ],
+        "khongChua": [
+          "Đã chuyển sang chế độ TỰ ĐỘNG",
+          "Gói [0-9]"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 4,
+      "mieuTa": "(c4) Khách bắn phím '1' NGAY SAU phím 0 — HÀNH VI THẬT: bot vẫn TỰ CHẠY Gói 2 với mã vừa tra (không im, không bắt gõ lại mẫu)",
+      "cachTruoc": "1m",
+      "text": "1",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra",
+          "8517\\.62\\.43"
+        ],
+        "khongChua": ["lỗi tạm thời"]
+      }
+    },
+    {
+      "step": 5,
+      "mieuTa": "(c5) Khách bắn tiếp phím '3' — bot vẫn TỰ CHẠY Gói 3 (sinh mô tả khai báo) với mã vừa tra",
+      "cachTruoc": "1m",
+      "text": "3",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Gói 3: Viết mô tả khai báo — mã vừa tra",
+          "Bộ thích ứng mạng hữu tuyến"
+        ],
+        "khongChua": ["lỗi tạm thời"]
+      }
+    }
+  ]
+}
