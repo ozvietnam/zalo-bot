@@ -595,3 +595,52 @@ test('OZV-2296 (vá soát PR #277): 0-đầu đúng nhóm 4+2+2 giữ KHÔNG c�
   );
   assert.ok(am.anonymizedText.includes('[STK]'), 'STK 8 số viết gạch → [STK]');
 });
+
+test('OZV-2298: mã HS 10 số 0-đầu sau ngữ cảnh "mã hs" không bị findPhoneSpans che [SĐT]', () => {
+  // Lỗi lát 7 (PR #277): SĐT 10 số 0… trùng dạng mã HS chương 01–09 →
+  // findPhoneSpans bắt, nhánh giuMaHs shape '10' trong vòng RE_SO_TRAN thành
+  // dead code vì span SĐT đã phủ số.
+  const hsTran10 = ['0101', '2100', '22'].join('');
+  const hsCham10 = ['0101', '21', '00', '22'].join('.');
+  const sdtThat = ['0901', '234', '567'].join('');
+  const stkTran10 = ['0123', '4567', '89'].join('');
+
+  const tran = anonymizePrompt({
+    text: `mã hs ${hsTran10} ngựa sống`,
+    customerName: TEN_A,
+    convId: 'ozv2298-tran'
+  });
+  assert.ok(
+    tran.anonymizedText.includes(hsTran10),
+    `mã HS 10 số trần 0-đầu có ngữ cảnh "mã hs" phải giữ: ${tran.anonymizedText}`
+  );
+
+  // 10 số chấm 4+2+2+2: findPhoneSpans cũng nuốt cả dấu chấm → phải giữ qua giuMaHs.
+  const cham = anonymizePrompt({
+    text: `cho tôi hs code ${hsCham10} nhé`,
+    customerName: TEN_A,
+    convId: 'ozv2298-cham'
+  });
+  assert.ok(
+    cham.anonymizedText.includes(hsCham10),
+    `mã HS 10 số chấm 0-đầu (4+2+2+2) phải giữ: ${cham.anonymizedText}`
+  );
+
+  // Chốt ngược: không ngữ cảnh "mã hs" thì SĐT 10 số 0-đầu thật vẫn che.
+  const sdt = anonymizePrompt({
+    text: `gọi tôi số ${sdtThat}`,
+    customerName: TEN_A,
+    convId: 'ozv2298-sdt'
+  });
+  assert.equal(sdt.anonymizedText.includes(sdtThat), false, 'SĐT thật 10 số vẫn che');
+  assert.ok(sdt.anonymizedText.includes('[SĐT]'), 'SĐT thật → [SĐT]');
+
+  // Chốt ngược: STK 10 số 0-đầu sau từ khoá vẫn che [STK].
+  const stk = anonymizePrompt({
+    text: `số tài khoản ${stkTran10}`,
+    customerName: TEN_A,
+    convId: 'ozv2298-stk'
+  });
+  assert.equal(stk.anonymizedText.includes(stkTran10), false, 'STK 10 số có từ khoá phải che');
+  assert.ok(stk.anonymizedText.includes('[STK]'), 'STK 10 số → [STK]');
+});
