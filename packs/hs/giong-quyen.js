@@ -114,8 +114,8 @@ export function renderPhanLoaiGiongQuyen({
     lines.push(`• Lưu ý: ${cb}${cite(ccCs, ccCs?.chuaDoiChieu ? ', chưa đối chiếu bản gốc' : '')}`);
   }
 
-  // Dòng 5: Menu số 0–3 (OZV-1527 pa.1 / OZV-2019) — thay câu hỏi mở cũ; nhận phím = thẻ sau.
-  lines.push(MENU_SO_GIONG_QUYEN);
+  // Dòng 5: Menu số 0–3 (OZV-1527 pa.1 / OZV-2019) — thay câu hỏi mở cũ; nhận phím = thẻ sau. OZV-2326: chỉ render khi cờ `MENU_SO_0_3` bật (mặc định TẮT — khai báo ở `core/config.js`; QA thật/test bật bằng env; số dòng 16 & 118 ghim wiki, đừng thêm dòng mới làm trôi).
+  if (/^(1|true|yes)$/i.test(process.env.MENU_SO_0_3 || '')) lines.push(MENU_SO_GIONG_QUYEN);
 
   // Dòng 6: Cảnh báo gợi ý gọn 1 dòng
   lines.push(`(Mã HS là gợi ý tham khảo, anh/chị đối chiếu thực tế khi khai báo nhé ạ)`);

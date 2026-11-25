@@ -1,5 +1,6 @@
 # Nhật ký wiki
 
+> Cập nhật: 2026-11-26 · commit: 0ecfb2f
 > Cập nhật: 2026-11-26 · commit: 7b9c55b
 > Cập nhật: 2026-11-13 · commit: (OZV-693 / MST checksum bắt đầu bằng 0)
 > Cập nhật: 2026-11-13 · commit: (OZV-685 / T808 vòng 3)
@@ -1330,3 +1331,10 @@ Quy ước:
 - **Test đỏ trước:** +4 test ở `test/core/do-dung-hs.test.mjs` — khuôn log per-case (stt/mã/mã bot đầu/danh sách mã/tin lỗi/giây), ca hết hạn chờ giữ `hetHanCho` + `lyDo` không lẫn ca lỗi Cổng, ca Cổng lỗi có `tinLoi` là tin lỗi bot vừa gửi, ca ra mã thì không đặt `tinLoi`.
 - **Trang wiki đã sửa:** `docs/wiki/kiem-thu.md` (mục mới "Log tin gửi khách từng ca (OZV-2324)" trong phần Bộ đo độ đúng).
 - **Cổng:** `npm test` exit 0 (33/33 test do-dung-hs, gồm 4 test mới) · `TMPDIR=/tmp/ozv2324-tmp node scripts/do-dung-hs.mjs --mock` 50/50 ca sống, sinh tệp log per-case theo khuôn `<ngày>[-mock]-tung-ca.json` tại chỗ chạy (không commit; kiểm khuôn đủ trường) · `node scripts/qa-that.mjs --mock` **12/12 ĐẠT**.
+
+## 2026-11-26 — OZV-2326 (zalo-bot): menu số 0–3 cuối tin Giọng Quyên sau cờ cấu hình `MENU_SO_0_3` — mặc định TẮT, tách rủi ro khỏi chuyển đường tin (nhánh `ozv-2326-menu-0-3-co-cfg`, PR #290)
+- **Vấn đề:** dòng menu số 0–3 (`MENU_SO_GIONG_QUYEN`) render vô điều kiện trong tin kết quả Giọng Quyên (`packs/hs/giong-quyen.js:118`) — chuyển đường tin sang main sẽ tự bật menu chưa được CEO duyệt với khách thật.
+- **Việc làm (không đụng `core/gate.js`, logic chọn mã HS, khuôn báo cáo đo):** cờ `MENU_SO_0_3` đọc lúc render tại `packs/hs/giong-quyen.js:118` (quy ước bật 1/true/yes giống `core/digest-scan.js:30`), khai báo field `menuSo03` ở `core/config.js:95`; phím `0–3` dựa phiên (`packs/hs/luong-chu.js:138`) nên vẫn chạy khi cờ TẮT. Fixture `eval/fixtures/ozv-1527-card-mang-menu-so.jsonl:1` bỏ rượt dòng menu (menu nguyên văn khoá ở test G6 chạy với cờ BẬT).
+- **Test đỏ trước (commit `8966ddf`):** test khuôn cờ ở `test/core/config.test.mjs`; test cờ TẮT — tin kết quả không có menu, dòng cuối là cảnh báo gợi ý — ở `packs/hs/test/giong-quyen.test.mjs:387`; test QA thật cờ TẮT — phím `1` vẫn chạy Gói 2 với mã vừa tra — ở `test/core/qa-that.test.mjs:814`.
+- **Trang wiki đã sửa:** `docs/wiki/trien-khai-van-hanh.md` (bảng #256–#259), `docs/wiki/goi-nghiep-vu.md`, `docs/wiki/tien-do.md`, trang này.
+- **Cổng:** `npm test` 1772 pass · 0 fail · `npm run eval` 33/33 · `MENU_SO_0_3=1 node scripts/qa-that.mjs --mock` **12/12 ĐẠT**, cờ TẮT **6/12** (6 ca trượt đúng thiết kế ở bước expect dòng menu) · `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.

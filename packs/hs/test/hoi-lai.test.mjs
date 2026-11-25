@@ -10,6 +10,11 @@ import { fakeMcp } from '../../../test/helpers/fakes.mjs';
 import hs from '../index.js';
 import { plain } from '../style.js';
 
+// OZV-2326: bài này kiểm mạch hỏi lại + não AI, tin cuối dùng giọng Quyên nguyên bản (kèm menu
+// số 0–3) nên chạy ở chế độ cờ BẬT `MENU_SO_0_3=1`; mặc định cờ TẮT được khoá riêng ở
+// packs/hs/test/giong-quyen.test.mjs và test/core/qa-that.test.mjs.
+process.env.MENU_SO_0_3 = '1';
+
 const ALL = ['phan_loai_hs', 'ket_qua_phan_loai', 'tra_thue', 'tra_thu_tuc_nhap_khau', 'tim_ma_hs', 'sinh_mo_ta_khai_bao',
   'soat_to_khai', 'kiem_ma_to_khai', 'ket_qua_soat', 'tra_hieu_luc_van_ban', 'tra_chu_giai', 'tra_tien_le', 'kiem_tra_shtt',
   'soan_ho_so_giai_trinh', 'kiem_tra_shtt_anh', 'bo_sung_du_kien'];

@@ -6,6 +6,10 @@ import hs from '../index.js';
 import { renderPhanLoaiGiongQuyen, MENU_SO_GIONG_QUYEN } from '../giong-quyen.js';
 import { plain } from '../style.js';
 
+// OZV-2326: tin kết quả Giọng Quyên chỉ kèm menu số 0–3 khi cờ MENU_SO_0_3 bật (QA thật/test này
+// chạy ở chế độ cờ BẬT); riêng ca cờ TẮT — mặc định khi chưa có duyệt — có test chuyên ở cuối tệp.
+process.env.MENU_SO_0_3 = '1';
+
 test('renderPhanLoaiGiongQuyen: tin kết quả <= 7 dòng, <= 2 emoji, đúng khung mục 2', () => {
   const phanLoai = {
     data: {
@@ -378,6 +382,34 @@ test('OZV-2092: renderPhanLoaiGiongQuyen ca 8517.62.43 nêu rõ số hiệu 10/2
   }));
   assert.doesNotMatch(out3, /10\/2022\/TT-BTTTT/);
   assert.doesNotMatch(out3, /ngày làm việc/);
+});
+
+test('OZV-2326: cờ MENU_SO_0_3 TẮT (mặc định) → tin kết quả KHÔNG có dòng menu số 0–3', () => {
+  const phanLoai = {
+    data: {
+      maHs: '85094000',
+      ketQua: { results: [{ hsCode: '85094000', nameVi: 'Máy xay, ép trái cây gia dụng', confidence: 0.95 }] },
+    },
+  };
+  const thue = { data: { hsCode: '85094000', taxNkPreferential: 25, taxVat: 8 } };
+  const cu = process.env.MENU_SO_0_3;
+  delete process.env.MENU_SO_0_3;
+  try {
+    const out = plain(renderPhanLoaiGiongQuyen({
+      tenHang: 'máy xay sinh tố 350W',
+      maHs: '85094000',
+      phanLoai,
+      thue,
+      xuatXu: 'CN',
+    }));
+    assert.doesNotMatch(out, /Gõ 1 thuế/, `Cờ TẮT thì tin KHÔNG được kèm dòng menu số 0–3:\n${out}`);
+    assert.doesNotMatch(out, /soạn luôn mô tả khai báo/i, `Cờ TẮT thì không được mời bắn phím:\n${out}`);
+    // Dòng cảnh báo gợi ý tham khảo vẫn giữ, trở thành dòng cuối tin.
+    const dong = out.split('\n').filter((d) => d.trim().length > 0);
+    assert.equal(dong[dong.length - 1], '(Mã HS là gợi ý tham khảo, anh/chị đối chiếu thực tế khi khai báo nhé ạ)');
+  } finally {
+    process.env.MENU_SO_0_3 = cu;
+  }
 });
 
 

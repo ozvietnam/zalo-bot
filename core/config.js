@@ -88,5 +88,10 @@ export function loadConfig(env = process.env) {
     // theo hội thoại, fetch treo vô hạn giữ khoá vĩnh viễn → bot im hẳn với đúng khách đó.
     // 15 giây: gửi tin phải nhanh hơn tra cứu (`channels/zalo-bot.js` để 40 giây vì còn tải tệp).
     sendTimeoutMs: int(env, 'SEND_TIMEOUT_MS', 15_000, 1),
+    // OZV-2326: cờ bật menu số 0–3 cuối tin Giọng Quyên — mặc định TẮT để chuyển đường tin sang
+    // main không tự bật menu chưa được CEO duyệt với khách thật. Quy ước bật giống `core/digest-scan.js:30`
+    // (1/true/yes, không phân biệt hoa thường). Gói hs đọc trực tiếp env lúc render (`packs/hs/giong-quyen.js:118`)
+    // vì gói không nhận config; field này để config.test.mjs khoá khuôn và tài liệu vận hành có chỗ dẫn.
+    menuSo03: /^(1|true|yes)$/i.test(str(env, 'MENU_SO_0_3', '')),
   });
 }

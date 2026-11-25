@@ -1,4 +1,4 @@
-// OZV-2092 / OZV-1527 Phương án 1: trọn luồng hỏi card mạng → câu hỏi tách mã Mẫu 2 (phan_loai_hs=0) → đáp LAN cổng RJ45 → kết quả 8517.62.43 có 10/2022/TT-BTTTT + thời gian cấp phép + menu số 0–3 → gõ "1" (thuế & thủ tục) → gõ "3" (mô tả khai báo).
+// OZV-2092 / OZV-1527 Phương án 1: trọn luồng hỏi card mạng → câu hỏi tách mã Mẫu 2 (phan_loai_hs=0) → đáp LAN cổng RJ45 → kết quả 8517.62.43 có 10/2022/TT-BTTTT + thời gian cấp phép → gõ "1" (thuế & thủ tục) → gõ "3" (mô tả khai báo). Từ OZV-2326 dòng menu số 0–3 chỉ render khi cờ MENU_SO_0_3 bật (mặc định TẮT) nên fixture này không rượt dòng menu; menu nguyên văn được khoá ở test/core/qa-that.test.mjs G6 (chạy với MENU_SO_0_3=1) và test packs/hs/test/giong-quyen.test.mjs.
 {"step":"mcp","tool":"phan_loai_hs","returns":[{"ok":true,"data":{"maLuot":"11111111-2222-4333-8444-555555555555","trangThai":"DANG_XU_LY"}}]}
 {"step":"mcp","tool":"ket_qua_phan_loai","returns":[{"ok":true,"data":{"maLuot":"11111111-2222-4333-8444-555555555555","trangThai":"XONG","ketQua":{"status":"OK","results":[{"hs":"85176243","confidence":0.94,"reason":"Bộ thích ứng mạng hữu tuyến kết nối mạng LAN qua cổng RJ45"}]}}}]}
 {"step":"mcp","tool":"tra_thue","returns":[{"ok":true,"data":{"found":true,"hsCode":"85176243","nameVi":"- - - Bộ điều khiển và bộ thích ứng khác, kể cả bộ lặp","unitVi":"chiếc","taxNkTt":"5","taxNkPreferential":"0","taxAcfta":"0","taxAcftaChina":{"origin":"CN","eligible":true,"rate":0,"noteVi":"ACFTA 0% khi có C/O mẫu E hợp lệ."},"taxVat":"8","acfta":{"raw":"0","available":true,"rate":0,"forOrigin":{"origin":"CN","eligible":true,"rate":0,"noteVi":"ACFTA 0% khi có C/O mẫu E hợp lệ."},"mauCO":"E"},"canCuChiTiet":{"mfn":{"vanBan":"26/2023/NĐ-CP","hieuLuc":"15/07/2023"},"acfta":{"vanBan":"118/2022/NĐ-CP","hieuLuc":"30/12/2022"},"vat":{"vanBan":"174/2025/NĐ-CP","hieuLuc":"01/07/2025"}}}}]}
@@ -12,7 +12,6 @@
 {"step":"expect","sentTo":"c1","count":3,"match":"8517\\.62\\.43"}
 {"step":"expect","sentTo":"c1","match":"10/2022/TT-BTTTT"}
 {"step":"expect","sentTo":"c1","match":"05 ngày làm việc"}
-{"step":"expect","sentTo":"c1","match":"Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên"}
 {"step":"expect","sentTo":"c1","mcpTool":"phan_loai_hs","mcpCount":1,"mcpMatch":"card mạng.*RJ45"}
 {"step":"advance","by":"1m"}
 {"step":"in","update":{"id":"cm3","text":"1"}}
