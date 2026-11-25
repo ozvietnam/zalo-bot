@@ -38,8 +38,8 @@
           "Thuế NK 25%",
           "C/O mẫu E",
           "VAT 8%",
-          "soạn luôn mô tả khai báo",
-          "Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên"
+          "menu:soạn luôn mô tả khai báo",
+          "menu:Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên"
         ],
         "khongChua": [
           "Tự động chọn gói",
@@ -144,7 +144,7 @@
           "8517\\.62\\.43",
           "10/2022/TT-BTTTT",
           "05 ngày làm việc",
-          "Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên"
+          "menu:Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên"
         ]
       }
     },

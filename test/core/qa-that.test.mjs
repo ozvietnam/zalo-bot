@@ -13,6 +13,8 @@ import {
   loadDotEnv,
   runQa,
   laBuocPhanLoai,
+  menuSo03Bat,
+  phanLopMauMenu,
 } from '../../scripts/qa-that.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -837,6 +839,94 @@ test('runSingleScenario: cờ MENU_SO_0_3 TẮT — tin kết quả không có m
     // Bước 2: chứng cứ cờ TẮT — mọi tin gửi khách ở bước kết quả đều không chứa dòng menu.
     for (const tin of res.stepResults[1].sent) {
       assert.doesNotMatch(tin, /Gõ 1 thuế & C\/O/, `Cờ TẮT thì tin KHÔNG được kèm menu số 0–3: ${tin}`);
+    }
+  } finally {
+    process.env.MENU_SO_0_3 = cu;
+  }
+});
+
+// OZV-2327: lớp kỳ vọng menu của qa-that bám theo cờ MENU_SO_0_3 — kịch bản QA không trượt oan
+// 6 ca menu khi cờ TẮT (mặc định khi chuyển đường tin, chưa duyệt bật menu). Khuôn: mẫu đòi dòng
+// menu đánh dấu tiền tố `menu:` trong `phaiChua`; cờ BẬT thì đòi có, cờ TẮT thì lật thành cấm có.
+// Quy ước đọc cờ trùng `core/config.js` (`menuSo03`) và `packs/hs/giong-quyen.js:118`.
+test('menuSo03Bat: đọc cờ MENU_SO_0_3 theo quy ước /^(1|true|yes)$/i', () => {
+  for (const v of ['1', 'true', 'yes', 'TRUE', 'Yes']) {
+    assert.equal(menuSo03Bat({ MENU_SO_0_3: v }), true, `Giá trị "${v}" phải tính là BẬT`);
+  }
+  for (const v of [undefined, '', '0', 'false', 'no', 'bật', '1 ']) {
+    assert.equal(menuSo03Bat({ MENU_SO_0_3: v }), false, `Giá trị "${v}" phải tính là TẮT`);
+  }
+});
+
+test('phanLopMauMenu: cờ BẬT — mẫu "menu:" về phaiChua (đã strip tiền tố), mẫu thường giữ nguyên', () => {
+  const { phaiChua, khongChua } = phanLopMauMenu(
+    {
+      phaiChua: ['8517\\.62\\.43', 'menu:Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên'],
+      khongChua: ['Tự động chọn gói'],
+    },
+    true,
+  );
+  assert.deepEqual(phaiChua, ['8517\\.62\\.43', 'Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên']);
+  assert.deepEqual(khongChua, ['Tự động chọn gói']);
+});
+
+test('phanLopMauMenu: cờ TẮT — mẫu "menu:" lật sang khongChua (tin KHÔNG được kèm menu)', () => {
+  const { phaiChua, khongChua } = phanLopMauMenu(
+    {
+      phaiChua: ['8517\\.62\\.43', 'menu:Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên'],
+      khongChua: ['Tự động chọn gói'],
+    },
+    false,
+  );
+  assert.deepEqual(phaiChua, ['8517\\.62\\.43']);
+  assert.deepEqual(khongChua, ['Tự động chọn gói', 'Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên']);
+});
+
+test('evaluateStep: mẫu "menu:" bám cờ — TẮT thì tin không menu ĐẠT và có menu TRƯỢT, BẬT thì ngược lại', () => {
+  const step = { kyVong: { phaiCoPhanHoi: true, phaiChua: ['menu:Gõ 1 thuế & C/O'] } };
+  const tinCoMenu = [{ text: 'Dạ mã phù hợp nhất là 8517.62.43 (card mạng).\nGõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên' }];
+  const tinKhongMenu = [{ text: 'Dạ mã phù hợp nhất là 8517.62.43 (card mạng).' }];
+
+  const tatCoMenu = evaluateStep(step, tinCoMenu, {}, { menuBat: false });
+  assert.equal(tatCoMenu.ok, false, 'Cờ TẮT mà tin có menu phải TRƯỢT');
+  assert.match(tatCoMenu.lyDo, /chứa mẫu bị cấm/);
+
+  const tatKhongMenu = evaluateStep(step, tinKhongMenu, {}, { menuBat: false });
+  assert.equal(tatKhongMenu.ok, true, 'Cờ TẮT tin không menu phải ĐẠT');
+
+  const batCoMenu = evaluateStep(step, tinCoMenu, {}, { menuBat: true });
+  assert.equal(batCoMenu.ok, true, 'Cờ BẬT tin có menu phải ĐẠT');
+
+  const batKhongMenu = evaluateStep(step, tinKhongMenu, {}, { menuBat: true });
+  assert.equal(batKhongMenu.ok, false, 'Cờ BẬT mà tin không có menu phải TRƯỢT');
+  assert.match(batKhongMenu.lyDo, /khớp mẫu bắt buộc/);
+});
+
+test('runSingleScenario: cờ TẮT — kịch bản đánh dấu "menu:" đạt, không trượt oan vì menu (OZV-2327)', async () => {
+  const cu = process.env.MENU_SO_0_3;
+  delete process.env.MENU_SO_0_3;
+  try {
+    const scenario = {
+      id: 'ozv-2327-menu-tat',
+      dich: 'OZV-2327',
+      ten: 'OZV-2327 · Cờ TẮT: mẫu "menu:" tự lật thành cấm có — QA không trượt oan vì menu',
+      chatType: 'PRIVATE',
+      chatId: 'khach_2327_menu_tat_01',
+      userId: 'khach_2327_menu_tat_01',
+      userName: 'Trần Thị Mai',
+      steps: [
+        { step: 1, mieuTa: "'Tra hs card mạng' → bot hỏi lại để tách mã (chưa có menu vì chưa có kết quả)", text: 'Tra hs card mạng', kyVong: { phaiCoPhanHoi: true, phaiChua: ['cổng RJ45'], khongChua: ['menu:Gõ 1 thuế & C/O'], khongBaoDangTra: true } },
+        { step: 2, mieuTa: 'Khách trả lời đủ → kết quả 8517.62.43; mẫu "menu:" cờ TẮT tự lật thành cấm có — tin không menu vẫn ĐẠT', cachTruoc: '1m', text: 'kết nối mạng LAN cổng RJ45 ạ', kyVong: { phaiCoPhanHoi: true, phaiChua: ['8517\\.62\\.43', 'menu:Gõ 1 thuế & C/O'], khongChua: ['Tự động chọn gói'] } },
+        { step: 3, mieuTa: "Phím '1' sau tin không menu → vẫn chạy Gói 2 với mã vừa tra", cachTruoc: '1m', text: '1', kyVong: { phaiCoPhanHoi: true, phaiChua: ['Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra', '8517\\.62\\.43'] } },
+      ],
+    };
+
+    const res = await runSingleScenario(scenario, { isMock: true });
+    assert.equal(res.ok, true, `Kịch bản cờ TẮT với mẫu "menu:" phải đạt toàn bộ ${scenario.steps.length} bước nhưng trượt vì: ${res.lyDo}`);
+    assert.equal(res.zaloApiCalls, 0);
+    assert.equal(res.stepResults.length, scenario.steps.length);
+    for (const st of res.stepResults) {
+      assert.equal(st.ok, true, `Bước ${st.stepIndex} (${st.mieuTa}) phải ĐẠT nhưng trượt: ${st.lyDo}`);
     }
   } finally {
     process.env.MENU_SO_0_3 = cu;
