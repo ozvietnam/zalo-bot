@@ -14,6 +14,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-25 — OZV-634: `maCuoiCau` tách chữ Unicode trước khi nhận mã ISO — không đọc `"hàng ĐỒNG"` thành `"NG"` (nhánh `ozv-634-macuoicau-tach-chu-unicode`, gốc `476b128`)
+
+- **Vì sao:** `maCuoiCau` (`packs/hs/input.js:348`) dùng regex ASCII `\b([A-Z]{2})\s*$`, mà `\b` của JS chỉ coi `[A-Za-z0-9_]` là ký tự từ nên cắt ngay sau nguyên âm có dấu (`Ồ`, `Ạ`, `À`, `Ắ`) và lấy 2 chữ cái ASCII cuối làm mã nước khi đứng sau từ dẫn hoặc mã HS: `"hàng ĐỒNG"` → `"NG"` (Nigeria), `"hàng GẠCH"` → `"CH"` (Thụy Sĩ), `"64041190 ĐỒNG"` → `"NG"`.
+- **Vá (`packs/hs/input.js:348-360`):** dùng `tachTuViTri` (tách từ theo chữ Unicode `[\p{L}\p{N}][\p{L}\p{N}\p{M}]*`) thay cho regex ASCII, loại token có dấu `\p{M}` hoặc không khớp `/^[A-Z]{2}$/` trước khi kiểm tra đơn vị đo và từ dẫn xuất xứ (đồng nhất với `maNuocTrongCau` tại `packs/hs/input.js:400-406`). Test đỏ trước tại `packs/hs/test/xuat-xu-ma-nuoc-ozv-634.test.mjs:1` (3/4 đỏ trước vá, 4/4 xanh sau vá).
+- **Trang đổi:** `docs/wiki/an-toan.md` (cập nhật số dòng `packs/hs/input.js` lên 587 dòng), `docs/wiki/log.md`.
+
 ## 2026-11-24 — OZV-2105: đồng bộ wiki (`docs/wiki/goi-nghiep-vu.md` & `docs/wiki/tien-do.md`) với Phương án 1 OZV-1527 trên `main` (`0057d5c`) (nhánh `ozv-2105-dong-bo-wiki-ozv-1527`)
 
 - **Vì sao:** Sau khi hoàn tất trọn 5 PR (#256–#260: OZV-2019, OZV-2081, OZV-2082, OZV-2092, OZV-2100) của Phương án 1 OZV-1527 trên `main` (`0057d5c`), hai trang `docs/wiki/goi-nghiep-vu.md` (đang ở commit `0842386`) và `docs/wiki/tien-do.md` (đang ở commit `1e48e7b`) chưa ghi nhận luồng menu số `0–3` Giọng Quyên, nhận phím tắt số trần `0–3`, câu hỏi tách mã card mạng `8471.80.10` vs `8517.62.43`, cảnh báo giấy phép kèm số hiệu `CON_HIEU_LUC` + thời gian cấp phép tin đầu, cũng như số kịch bản eval `33/33` và kịch bản QA thật G4 `10/10` bước.
