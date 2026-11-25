@@ -1,0 +1,120 @@
+{
+  "id": "g10-hoi-them-chuyen-gia",
+  "dich": "G10",
+  "ten": "G10 · Cổng trả NEEDS_FACTS/NEEDS_EXPERT: bot không bịa mã chốt — hỏi thêm đúng nhánh, phím 0–3 sau mỗi nhánh",
+  "moTa": "Khoá hồi quy luồng \"Cổng trả NEEDS_EXPERT/NEEDS_FACTS\" (OZV-2331): đo thật 26/11 có 3/50 lượt rơi nhánh này nhưng chỉ có test đơn vị (packs/hs/test/hs.test.mjs), chưa có ca qa-that trọn luồng. Ghi HÀNH VI THẬT của code hiện giờ qua hai nhánh Cổng (bộ giả lập --mock trả khung đúng hợp đồng thật, scripts/qa-that.mjs): (1) món 'hút bụi' → Cổng trả CAN_DU_KIEN/NEED_FACTS — có mã CÓ THỂ 8508.11.00 kèm câu hỏi (render.js:402 in 'Mã có thể (chưa chốt, cần thêm thông tin)', KHÔNG in 'Mã đề xuất'), bot hỏi thêm và mở lượt bổ sung (packages.js:413); khách bổ sung dữ kiện → Cổng chốt mã XONG (luồng bo_sung_du_kien → ket_qua_phan_loai, packages.js:283). LƯU Ý hành vi thật: dù trạng thái CAN_DU_KIEN, khi có mã ứng viên bot vẫn gắn kèm thuế+thủ tục (packages.js:425 chỉ cần maHs) và ghi 'GỢI Ý tham khảo'. Sau đó phím '1' tự chạy gói 2 với mã vừa tra, phím '3' tự chạy gói 3 (có mã + tên hàng — luong-chu.js:162), phím '0' khi đang trong gói 3 thoát về TỰ ĐỘNG, phím '0' lần nữa khi tự do nhưng còn mã → gặp nhân viên (luong-chu.js:148). (2) món 'nén khí' → Cổng trả NEEDS_EXPERT với results RỖNG (khung đúng hs.test.mjs) → bot chỉ in lời nhắn 'chuyên gia' (render.js:425), KHÔNG in 'Mã đề xuất', KHÔNG hỏi thêm hộ Cổng; xong() không đặt session.last.maHs nên phím '1' sau đó chỉ đưa bảng mẫu gói 1 (luong-chu.js:162 đòi mã), phím '0' chỉ reset TỰ ĐỘNG (không có mã/bàn đầy đủ để chuyển người). Tên người và hội thoại là dữ liệu giả phục vụ QA.",
+  "chatType": "PRIVATE",
+  "chatId": "khach_g10_hoithe_01",
+  "userId": "khach_g10_hoithe_01",
+  "userName": "Trần Quốc Bảo",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "(b1) Cổng trả NEED_FACTS: bot hỏi thêm, KHÔNG chốt 'Mã đề xuất' dù có mã ứng viên kèm theo",
+      "text": "Tra giúp em mã HS máy hút bụi dùng trong nhà công suất 1200W",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": ["Cần bạn cho biết thêm", "chưa chốt", "8508\\.11\\.00", "gửi lại mô tả đầy đủ hơn"],
+        "khongChua": ["✅ Mã đề xuất", "Mã HS đề xuất"],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 2,
+      "mieuTa": "(b2) Khách bổ sung dữ kiện đúng lượt đang mở → Cổng chốt mã → bot ra kết quả đầy đủ với mã 8508.11.00",
+      "cachTruoc": "1m",
+      "text": "loại dùng trong nhà, công suất 1200W, mới 100%",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": ["✅ Mã HS đề xuất", "8508\\.11\\.00"],
+        "khongChua": ["Cần bạn cho biết thêm"],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 3,
+      "mieuTa": "(b3) Phím '1' sau khi có mã+tenHang: tự chạy gói 2 với mã vừa tra (tăng lên gói 2 — luong-chu.js:162)",
+      "cachTruoc": "1m",
+      "text": "1",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": ["Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra", "8508\\.11\\.00"],
+        "khongChua": ["Gửi thông tin theo mẫu", "hotline OZ", "lỗi tạm thời"]
+      }
+    },
+    {
+      "step": 4,
+      "mieuTa": "(b4) Phím '3': tự chạy gói 3 soạn mô tả với mã + tên hàng vừa có",
+      "cachTruoc": "1m",
+      "text": "3",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": ["Gói 3: Viết mô tả khai báo — mã vừa tra", "mới 100%"],
+        "khongChua": ["Gửi thông tin theo mẫu", "hotline OZ"]
+      }
+    },
+    {
+      "step": 5,
+      "mieuTa": "(b5) Phím '0' khi ĐANG KẸT TRONG gói 3 (session.goi=3): thoát gói về TỰ ĐỘNG, KHÔNG gặp nhân viên",
+      "cachTruoc": "1m",
+      "text": "0",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": ["Đã chuyển sang chế độ TỰ ĐỘNG"],
+        "khongChua": ["hotline OZ", "Gói [0-9]:"]
+      }
+    },
+    {
+      "step": 6,
+      "mieuTa": "(b6) Phím '0' lần nữa, đã thoát gói và phiên còn mã hút bụi → MỚI chuyển gặp nhân viên",
+      "cachTruoc": "1m",
+      "text": "0",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": ["gọi hoặc nhắn Zalo hotline OZ", "Em vẫn ở đây"],
+        "khongChua": ["Đã chuyển sang chế độ TỰ ĐỘNG"],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 7,
+      "mieuTa": "(b7) KHÁCH 02 — Cổng trả NEEDS_EXPERT (results rỗng): bot chỉ nhắn 'chuyên gia', KHÔNG bịa 'Mã đề xuất', KHÔNG hỏi thêm hộ Cổng. Món nén khí dùng phiên riêng: khi dựng ca, tin mô tả món mới trong CÙNG phiên sau handoff bị GỘP vào hồ sơ cũ (mã hút bụi gắn cho mô tả trộn hai món) — hành vi thật đã quan sát, ghi tại đây cho người soát",
+      "cachTruoc": "1m",
+      "chatId": "khach_g10_hoithe_02",
+      "userId": "khach_g10_hoithe_02",
+      "text": "Tra giúp em mã HS máy nén khí 8 bát mới 100% dùng cho xe tải đầu kéo",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": ["chuyên gia"],
+        "khongChua": ["✅ Mã đề xuất", "Mã HS đề xuất", "Cần bạn cho biết thêm"],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 8,
+      "mieuTa": "(b8) KHÁCH 02 — Phím '1' sau nhánh NEEDS_EXPERT: KHÔNG có mã trong phiên (xong() không đặt last.maHs) → chỉ đưa bảng mẫu gói 1",
+      "cachTruoc": "1m",
+      "chatId": "khach_g10_hoithe_02",
+      "userId": "khach_g10_hoithe_02",
+      "text": "1",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": ["Gói 1: Phân loại mã HS", "Gửi thông tin theo mẫu"],
+        "khongChua": ["mã vừa tra", "Mã HS đề xuất"]
+      }
+    },
+    {
+      "step": 9,
+      "mieuTa": "(b9) KHÁCH 02 — Phím '0' sau bảng mẫu: không có mã/bàn đầy đủ phân loại → chỉ reset TỰ ĐỘNG, KHÔNG gặp nhân viên",
+      "cachTruoc": "1m",
+      "chatId": "khach_g10_hoithe_02",
+      "userId": "khach_g10_hoithe_02",
+      "text": "0",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": ["Đã chuyển sang chế độ TỰ ĐỘNG"],
+        "khongChua": ["gọi hoặc nhắn Zalo hotline OZ"]
+      }
+    }
+  ]
+}
