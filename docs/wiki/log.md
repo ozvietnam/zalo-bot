@@ -14,6 +14,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-25 — OZV-2274 (zalo-bot): khách buông "không rõ, cứ tra đi" thì công dụng khách đã gõ trong `tenGoc` không rụng khỏi `moTaTraCuu` (lát 4 OZV-437, nhánh `ozv-437-lat4-cong-dung`)
+
+- **Vì sao:** nhánh "cứ tra đi" ở `packs/hs/doc-tra-loi.js` dựng `moTaTraCuu` từ `tenGoiY` (tên bot đoán) kể cả khi tên KHÁCH GÕ (`tenGoc`) mở rộng tên bot ở phần chữ: khách gõ "máy sấy thực phẩm gia đình", bot đoán "máy sấy thực phẩm", khách buông "không rõ, cứ tra đi" ⇒ Cổng nhận "máy sấy thực phẩm theo thông số phổ biến" — rụng chữ "gia đình" khách đã gõ, tra mã của món thiếu công dụng (Điều III). Buông câu này tức khách CHƯA nhận tên đoán, nên phần khách gõ dư ra phải được giữ.
+- **Vá (`packs/hs/doc-tra-loi.js:45-64`):** ở `nhanDienCuTraDi`, đo `chuTrong(tenGoc)` (phần CHỮ, đã bóc thông số và cụm xuất xứ) có MỞ RỘNG `chuTrong(tenGoiY)` không (`chuGoc !== chuBot && chuGoc.includes(chuBot)`, đo trên `norm` để không lệch dấu) — mở rộng thì dựng nền mô tả từ `boThongSo(tenGoc)` (tên khách gõ, bỏ thông số rồi bù lại qua `giuThongSo`, xuất xứ vẫn qua `giuXuatXu` — không hồi quy OZV-2255); NGẮN hơn hay khác hẳn tên bot → giữ `tenGoiY` như cũ (tên bot đầy đủ hơn, không ghép lai hai tên). Giữ `packs/hs/doc-tra-loi.js` 238/300 dòng (Điều VI).
+- **Test & Trang đổi:** `packs/hs/test/tra-loi-hoi-lai.test.mjs` (+2 test: "gia đình" còn nguyên trong `moTaTraCuu` khi khách buông "cứ tra đi"; chốt ngược — tenGoc cùng tên hay NGẮN hơn thì giữ dạng cũ, xuất xứ "hàng Nhật" vẫn giữ — đỏ trước khi sửa, xanh sau khi sửa); `docs/wiki/an-toan.md` (số dòng mới của `packs/hs/doc-tra-loi.js`), `docs/wiki/log.md`.
+
 ## 2026-11-25 — OZV-2266 (zalo-bot): bóc đúng lệnh tra mã HS kèm tên hàng ("tra mã hs ống thép", "tra hscode ống thép"…) — bot hỏi lại thay vì tự chốt (lát 3 OZV-437, nhánh `ozv-437-lat3-tra-ma-hs`, gốc `ce339ca`)
 
 - **Vì sao:** `LENH_DAU_RE` (`packs/hs/ky-luat-hoi.js:144`) chỉ nhận "tra hs", "mã hs", "tìm mã", "phân loại" và thiếu biên cuối từ sau `hs`: "tra hscode ống thép" bị bóc nửa thành "code ống thép"; "tra mã hs ống thép", "tra cứu mã hs ống thép", "xin mã hs ống thép", "check mã hs ống thép" không bóc gì ⇒ `soTu > 4` ⇒ `kiemTraThongTinPhanLoai` trả `canHoi: false` ⇒ bot tự chốt, không hỏi lại chất liệu (Điều II).

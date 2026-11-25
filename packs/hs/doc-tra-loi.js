@@ -42,13 +42,25 @@ export function xuLyTraLoiHoiLai(text, sessionHoiLai = {}) {
     };
   }
 
-  // Khách nói "không rõ, cứ tra đi"
+  // Khách nói "không rõ, cứ tra đi" — khách không chắc tên, tức KHÔNG xác nhận tên bot đoán.
   if (nhanDienCuTraDi(s)) {
-    const giaDinh = sessionHoiLai.giaDinhMacDinh || `${sessionHoiLai.tenGoiY || sessionHoiLai.tenGoc || 'hàng'} theo thông số phổ biến`;
+    // Nền mô tả là tên KHÁCH ĐÃ GÕ khi nó MỞ RỘNG tên bot đoán ở phần chữ ("máy sấy thực phẩm
+    // gia đình" so với tenGoiY "máy sấy thực phẩm"): khách buông câu này là chưa nhận tên đoán,
+    // dựng từ `tenGoiY` là vứt mất công dụng khách đã gõ — Cổng tra "máy sấy thực phẩm" thay vì
+    // "máy sấy thực phẩm gia đình" (OZV-2274, lát 4 OZV-437; Điều III). tenGoc NGẮN hơn hay khác
+    // hẳn tên bot đoán → tenGoiY đầy đủ hơn, giữ như cũ.
+    const tenBot = String(sessionHoiLai.tenGoiY || '').replace(LENH_DAU_RE, '').trim();
+    const chuBot = norm(chuTrong(tenBot));
+    const chuGoc = norm(chuTrong(tenGoc));
+    const gocMoRong = Boolean(tenBot) && chuGoc !== chuBot && chuGoc.includes(chuBot);
+    const ten = gocMoRong ? boThongSo(tenGoc) : tenBot || tenGoc || 'hàng';
+    // Thông số khách gõ trong tenGoc đi qua `giuThongSo` (bóc rồi bù lại), xuất xứ qua `giuXuatXu`
+    // (không hồi quy OZV-2255, lát 2): mô tả gửi Cổng không rụng dữ kiện khách đã gõ.
+    const giaDinh = sessionHoiLai.giaDinhMacDinh || `${ten} theo thông số phổ biến`;
     return {
       sanSangTra: true,
       giaDinh,
-      moTaTraCuu: giuXuatXu(giaDinh, tenGoc),
+      moTaTraCuu: giuXuatXu(giuThongSo(giaDinh, gocMoRong ? tenGoc : ''), tenGoc),
     };
   }
 
