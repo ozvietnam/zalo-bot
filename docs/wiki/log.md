@@ -14,6 +14,15 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-25 — OZV-644: đơn vị đo ngoài danh sách (`"500 MG"`, `"100 VA"`) và danh từ hàng không dấu sau tên hàng (`"Hoa Phat tu BT"`) không còn bị đọc thành mã nước (nhánh `ozv-644-don-vi-do-tu-hang`, gốc `141de67`)
+
+- **Vì sao:** đo lại trên main `141de67` qua `countryCode` (ô có nhãn) và luật gói 6 `maCuoiCau` (đường vào `kiem_tra_shtt`): cả 9 câu của thẻ vẫn ra mã bịa (`BI` `AL` `BT` `RO` `MG` `VA` `LU` `PE` `BA`). `xuatXuCua` chuỗi tự do ra giả định CN vì chỉ đi `findCountryInText`, nên đo riêng đường đó thì tưởng đã đúng.
+- **Nhóm B (`packs/hs/input.js`, `DON_VI_DO`):** thêm `MG VA KM MW GW LU PE BA` — đơn vị đo / hậu tố kỹ thuật hay đứng sau số. Rào số lượng (< 8 chữ số) giữ nguyên: `"Nike 64041190 PE"` vẫn Peru, `"Xuất xứ: LU"` vẫn Luxembourg. Cố ý không thêm `CL` (Chile), `PA` (Panama).
+- **Nhóm A (`packs/hs/input.js`, `TRUOC_DAN_KHONG_DAU` + `laTuDanXuatXu`):** bản không dấu `tu`/`tai`/`o`/`cua` chỉ là từ dẫn khi từ đứng trước là từ ngữ cảnh nguồn gốc/mua bán (`hang`, `sx`, `nhap`, `mua`, `lam`, `xuat`…), không còn "mọi từ không phải số". Không dấu thì "tu" = "từ" = "tủ", nên phân biệt bằng từ đứng trước; hụt từ ngữ cảnh thì rơi về giả định CN có báo (trung thực), còn nhận nhầm tên hàng là nước bịa trông như thật.
+- **Không hồi quy:** `"hàng tu GB"`, `"hàng từ GB"`, `"made in UK"` → GB; `"Nike 64041190 CN"` → CN; `"Xuất xứ: MM"` → MM; `"SX tai TQ"` → CN; `"hang o UK"` → GB — giống main. `"made in India"` không ra `IN` ở đường nào, kể cả trên main (có sẵn, ngoài phạm vi thẻ).
+- **Test:** `packs/hs/test/xuat-xu-ma-nuoc-ozv-644.test.mjs` (12 test: 9 câu × 4 đường, không hồi quy, mã thật sau mã HS 8 số / ô có nhãn).
+- **Trang đổi:** `docs/wiki/an-toan.md` (số dòng `packs/hs/input.js` 605 → 626), `docs/wiki/log.md`.
+
 ## 2026-11-25 — OZV-635: `findCountryInText` nới biên ngoặc/nháy, bỏ dấu câu ở token trước khi so `'made'` và chống bịa xuất xứ trong thông số (nhánh `ozv-635-made-in-ngoac-tach-tu`, gốc `76f2ebd`)
 
 - **Vì sao:** Bước quét mã trơ cuối `findCountryInText` (`packs/hs/input.js:534-545`) trên `main` dùng regex `/(?:^|\s)(CN|JP|KR|TW|TH|US|DE|IN|MY|ID|VN)(?=\s|$|,)/g` và lấy token trước bằng `raw.slice(0, mm.index).trim().split(/\s+/).pop()`, nên khi khách gõ `"(MADE IN JP)"` hoặc `"[MADE IN JP]"` thì token trước `"IN"` là `"(MADE"` / `"[MADE"` (dính dấu ngoặc mở) làm `norm(truoc) === 'made'` trả `false` ⇒ trả về `"IN"` (Ấn Độ); khi khách gõ `"(made in JP)"` thì sau `"JP"` là dấu đóng ngoặc `)` không khớp `(?=\s|$|,)` ⇒ mất `"JP"`, `xuatXuCua` rơi về mặc định `'CN'` (`giaDinh: true`). Ngược lại, nếu bỏ regex biên để duyệt `tachTu(raw)` thì mã dính ký hiệu kỹ thuật (`6205-DE`, `ID:123`, `TH-500`, `US-STD`, `IN/OUT`, `2.5mm/VN`, `TW/CN`) hoặc kèm thông số trong ngoặc (`(ID 18mm)`) bị đọc nhầm thành xuất xứ (`giaDinh: false`).
