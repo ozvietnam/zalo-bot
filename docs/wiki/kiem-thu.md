@@ -1,6 +1,6 @@
 # Kiểm thử
 
-> Cập nhật: 2026-11-14 · commit: 85f8815
+> Cập nhật: 2026-11-26 · commit: 88447d9
 
 Trang này nói: repo có những cổng kiểm nào, chạy lệnh gì, bộ test nằm ở đâu, số liệu kiểm thử thực tế và các công cụ đo lường chất lượng.
 
@@ -13,7 +13,7 @@ Trang này nói: repo có những cổng kiểm nào, chạy lệnh gì, bộ te
 | Audit | `npm run audit` | CLI chỉ đọc tra cứu sổ nhật ký audit, che số điện thoại và bí mật | `package.json:15` |
 | Đo SC | `npm run do-sc` | Đo lường SC-002, SC-007, SC-009 trên database SQLite thật | `package.json:16` |
 | Wiki | `node scripts/kiem-wiki.mjs` | Kiểm tiêu đề, mốc cập nhật, trích dẫn tới tệp thật, link sống | `scripts/kiem-wiki.mjs:1` |
-| QA thật | `node scripts/qa-that.mjs` | Bộ chạy QA kịch bản thực tế đích G2–G4 (5 kịch bản tự nhiên) | `scripts/qa-that.mjs:1` |
+| QA thật | `node scripts/qa-that.mjs` | Bộ chạy QA kịch bản thực tế đích G2–G6 (8 kịch bản: nhóm, ảnh, 1-1, giọng Quyên hỏi lại, hồ sơ mặt hàng, menu số 0–3, phím số 0–3, lỗi Cổng) | `scripts/qa-that.mjs:1` |
 | Đo độ đúng HS | `node scripts/do-dung-hs.mjs` | Chấm top-1/top-3 mã HS tám số trên bộ đề dựng từ văn bản pháp luật | `scripts/do-dung-hs.mjs:1` |
 | Webhook | `npm run webhook:info` | Đặt hoặc xem cấu hình webhook của bot Zalo | `package.json:17`, `package.json:18` |
 | Giám sát | `npm run giam-sat` | Chạy bộ quét giám sát 9 tín hiệu chất lượng và sự cố | `package.json:19`, `package.json:20` |
