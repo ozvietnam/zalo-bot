@@ -16,6 +16,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-26 — OZV-2329 (zalo-bot): trien-khai mục 10 bỏ câu "menu bật sẵn khi chuyển" + thêm bước chạy Số đo 1 (qa-that) sau `/health` (nhánh `2329-wiki-trien-khai-qa-that`, gốc `4f6b268`)
+
+- **Vì sao:** sau OZV-2326 (PR #290/#291) cờ `MENU_SO_0_3` mặc định TẮT nhưng bước 1 của lượt chuyển đường tin còn cụm cũ "menu `0–3` bật sẵn khi chuyển" — mâu thuẫn với bảng "Phải biết / phải làm" (#256–#259) ngay trong trang; lượt 5 bước cũng chưa có bước đo Số đo 1 (qa-that) sau khi `/health` trả commit mới, QT chuyển xong còn phải lục wiki khác mới biết đo gì.
+- **Vá:** `docs/wiki/trien-khai-van-hanh.md` mục 10 (chỉ phần "Lượt chuyển đường tin"): bước 1 nói rõ cờ TẮT mặc định, chỉ đặt `MENU_SO_0_3=1` trong `.env` bot thật SAU khi CEO duyệt Phương án 1; thêm bước 4 chạy Số đo 1 theo khuôn "Khuôn kịch bản qa-that" (`docs/wiki/kiem-thu.md`) — hai lệnh mock kỳ vọng 12/12, báo cáo tự xuất `qa-that/ket-qua-<ngày>.md` (`scripts/qa-that.mjs:798`), máy có đủ khoá `OZ_MCP_TOKEN` + `GEMINI_API_KEY` thì chạy thêm `node scripts/qa-that.mjs` Cổng thật (script tự kiểm hai khoá ở `scripts/qa-that.mjs:756`, thiếu thì dừng không chạy nửa vời); lượt cũ 5 bước thành 6 bước. Docs-only, không đụng mã, `eval/`, `test/`, `core/`, `packs/`.
+- **Cổng:** `node scripts/kiem-wiki.mjs --nghiem` ĐẠT · `npm test` xanh.
+
 ## 2026-11-26 — OZV-2328 (zalo-bot): wiki kiem-thu thêm mục "Khuôn kịch bản qa-that" — ghi khuôn tiền tố `menu:` bám cờ MENU_SO_0_3 (nhánh `2328-wiki-khuon-qa-that`, gốc `4b34b45`)
 
 - **Vì sao:** OZV-2327 (PR #291) thêm `menuSo03Bat()` + `phanLopMauMenu()` vào `scripts/qa-that.mjs` nhưng wiki chưa có chỗ nào ghi khuôn viết kịch bản `menu:` — người viết kịch bản qa-that phải mò mã thay vì đọc wiki.

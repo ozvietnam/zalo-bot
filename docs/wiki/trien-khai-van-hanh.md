@@ -347,15 +347,26 @@ Không có gì khác phải làm: **không dependency mới** (repo không khai,
 
 ### Lượt chuyển đường tin (một lượt cho QT)
 
-1. Lấy duyệt CEO cho Phương án 1 (menu `0–3` bật sẵn khi chuyển); kiểm `PUBLIC_BASE_URL`
-   trong env máy chủ theo dòng #254 ở bảng trên.
+1. Lấy duyệt CEO cho Phương án 1; kiểm `PUBLIC_BASE_URL` trong env máy chủ theo dòng
+   #254 ở bảng trên. Cờ `MENU_SO_0_3` **mặc định TẮT** từ OZV-2326 (dòng #256–#259 ở
+   bảng trên): lượt chuyển KHÔNG kèm menu số `0–3` — chỉ đặt `MENU_SO_0_3=1` trong
+   `.env` bot thật rồi khởi động lại SAU khi CEO duyệt Phương án 1.
 2. Sao lưu `DATA_DIR/bot.db` như mục 7, rồi **build lại ảnh Docker từ `main`** (nhận
    ffmpeg, `Dockerfile:5`) và triển khai ảnh mới.
 3. Kiểm `/health` trả commit mới (`server.js:25`); gửi thử một tin hỏi phân loại HS và
    một tin xin trả lời bằng giọng nói.
-4. Theo dõi `/metrics` và log hôm đó, để ý dòng `error stage=voice` (`core/giong-noi.js`);
+4. Chạy ngay Số đo 1 (qa-that) trên máy chủ sau khi `/health` OK — theo khuôn
+   [Khuôn kịch bản qa-that](kiem-thu.md#khuôn-kịch-bản-qa-that): `node
+   scripts/qa-that.mjs --mock` kỳ vọng **12/12**, rồi `MENU_SO_0_3=1 node
+   scripts/qa-that.mjs --mock` kỳ vọng **12/12**. Mỗi lượt tự xuất báo cáo
+   `qa-that/ket-qua-<ngày>.md` (`scripts/qa-that.mjs:798`) — ghi đường dẫn báo cáo đó
+   làm kết quả Số đo 1. Máy có đủ khoá `OZ_MCP_TOKEN` **và** `GEMINI_API_KEY` trong
+   `.env` gốc thì chạy thêm `node scripts/qa-that.mjs` (Cổng OZ thật + Gemini thật —
+   script tự kiểm hai khoá này ở `scripts/qa-that.mjs:756`); thiếu khoá thì script tự
+   báo "THIẾU CẤU HÌNH" rồi dừng, không chạy nửa vời.
+5. Theo dõi `/metrics` và log hôm đó, để ý dòng `error stage=voice` (`core/giong-noi.js`);
    sự cố thì theo mục 6.
-5. Muốn tinh chỉnh: các biến tùy chọn ở mục 3 (giọng nói, hạn giờ) — đặt trong `.env`
+6. Muốn tinh chỉnh: các biến tùy chọn ở mục 3 (giọng nói, hạn giờ) — đặt trong `.env`
    rồi khởi động lại.
 
 ## Trang liên quan
