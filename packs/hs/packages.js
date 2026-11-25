@@ -13,6 +13,7 @@ import { hoiLaiUuTien } from './so-tay-hoi.js';
 import { renderPhanLoaiGiongQuyen } from './giong-quyen.js';
 import { goiCanCu, dongCanCuNgan } from './can-cu.js';
 import { laTenHangCam, laLenhTroHoSo, laCauXemLai, cungMonVoi, boYeuCauDau } from './ho-so.js';
+import { LENH_DAU_RE } from './ky-luat-hoi.js';
 
 export { notice, hetHan, toJob, waitJob, WAIT_JOB_MAX_MS } from './jobs.js';
 
@@ -70,12 +71,24 @@ function thongSoObj(s) {
   return Object.keys(obj).length ? obj : { 'Thông số': String(s).slice(0, 500) };
 }
 
+// Lệnh HS còn đứng LẠI giữa câu ("cảm biến tiệm cận hs code bao nhiêu"): dựng từ chính
+// LENH_DAU_RE (bỏ neo ^), cộng đuôi "hs(code)" — lõi "hs" mà LENH_DAU_RE chỉ với tới khi có
+// "tra/mã/xin/check/tìm" đi trước. Chỉ bóc các dạng CÓ chữ "hs": "phân loại"/"tìm mã" nằm giữa
+// câu là CHỮ CỦA MÓN HÀNG ("máy phân loại gạo", "máy tìm mã vạch") nên phải giữ. Thêm lệnh mới
+// vào LENH_DAU_RE (ky-luat-hoi.js) thì dạng giữa câu tự theo — hết bảng chép tay (OZV-2307).
+const LENH_HS_TRONG_CAU = new RegExp(`(^|\\s)(?:${LENH_DAU_RE.source.replace(/^\^/, '')}|hs(?:\\s*code)?)(?=\\s)`, 'giu');
+
 /** "cảm biến tiệm cận hs code bao nhiêu em." → "cảm biến tiệm cận" (bỏ phần hỏi, giữ mô tả hàng). */
 export function lamGonCauHoi(s) {
-  // Lời nhờ ở đầu ("tra hs máy xay sinh tố") là câu khách nói VỚI BOT, không phải món hàng
-  // (điểm [S25] của người soát) — bỏ trước khi cắt phần hỏi.
-  let t = ` ${boYeuCauDau(String(s || '')).replace(/[?!]+/g, ' ').replace(/\.+(\s|$)/g, ' ')} `;
-  const bo = ['cho (?:mình|tôi|em|anh|chị) hỏi', 'xin hỏi', 'mã số hs', 'mã hs code', 'mã hs', 'hs code', 'hscode', 'mã số', 'mã gì', 'là bao nhiêu',
+  // Lời nhờ + lệnh HS ở đầu ("tra hs máy xay sinh tố", "check mã hs …", "phân loại …") là câu khách
+  // nói VỚI BOT, không phải món hàng (điểm [S25] của người soát) — bỏ trước khi cắt phần hỏi.
+  // Lệnh lấy từ LENH_DAU_RE DÙNG CHUNG với lớp hỏi lại (dien-cho-thieu.js): bảng chép tay ở đây
+  // đã lạc hậu sau lát 6 (OZV-2287 thêm lệnh mới vào LENH_DAU_RE) nên 'phân loại', 'tra cứu',
+  // 'check', 'xin', 'tìm mã' dính vào tên hàng gửi Cổng (OZV-2307, lát 11 OZV-437).
+  let t = ` ${boYeuCauDau(String(s || '')).replace(LENH_DAU_RE, ' ').replace(/[?!]+/g, ' ').replace(/\.+(\s|$)/g, ' ')} `;
+  t = t.replace(LENH_HS_TRONG_CAU, (m) => (/hs/i.test(m) ? ' ' : m));
+  // Chữ đệm hỏi/xã giao — KHÔNG phải mẫu lệnh HS (lệnh đã bóc ở trên bằng nguồn chung).
+  const bo = ['cho (?:mình|tôi|em|anh|chị) hỏi', 'xin hỏi', 'mã số', 'mã gì', 'là bao nhiêu',
     'bao nhiêu', 'là gì', 'là mã nào', 'mã nào', 'có thể áp vào', 'có thể áp', 'áp vào', 'có bao nhiêu', 'thế nào', 'vậy', 'nhé', 'nhỉ', 'ạ', 'ơi',
     // "em" ở "trẻ em" / "bé em" là CHỮ CỦA MÓN HÀNG (xe đạp trẻ em khác xe đạp người lớn),
     // không phải cách khách xưng hô — giữ lại, chỉ bỏ khi đứng một mình.
