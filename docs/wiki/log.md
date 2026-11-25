@@ -14,6 +14,13 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-25 — OZV-2243 (OZV-371 điểm 1): rào `maNuocTrongCau` không bắt mã ISO 2 chữ sau `"của/cua"` và `"hàng/hang"` ở ô có nhãn `{ nhan }` & Gói 2 (nhánh `ozv-371-diem1-xuat-xu-goi2`, gốc `70384fe`)
+
+- **Vì sao:** PR #265 (OZV-2239) đã thêm `laTuDanCauTuDo` (`packs/hs/input.js:382-385`) trên đường câu tự do, nhưng Gói 2 (`packs/hs/packages.js:479`) truyền `{ nhan: text.replace(/[\d.\s]{4,}/, '').trim() }` qua `countryCode` → `maNuocTrongCau` (`packs/hs/input.js:485-523`), nơi dòng `packs/hs/input.js:514` vẫn dùng `laTuDanXuatXu` cho mã ISO 2 chữ. Hệ quả: khi khách gõ `"84137090 của SK hynix"`, `"84137090 hàng của GE"`, `"84137090 hang cua GE"`, bot vẫn đọc `"SK"`/`"GE"` thành mã nước Slovakia/Gruzia với `giaDinh: false` (tra thuế sai nước mà không báo giả định — Điều III & Điều VIII).
+- **Vá (`packs/hs/input.js:514`):** dùng `laTuDanCauTuDo(tu, i - 1)` cho mã ISO 2 chữ trong `maNuocTrongCau` (giữ `tuDan` = `laTuDanXuatXu` cho `ALIAS_TRONG_CAU` ở dòng 513 để ca hồi quy `countryCode("hang cua UK") === "GB"` tiếp tục xanh; 0 dòng thêm, `packs/hs/input.js` giữ nguyên 713 dòng).
+- **Test:** `packs/hs/test/xuat-xu-ten-nuoc-anh.test.mjs` bổ sung kiểm chứng `maNuocTrongCau`, `countryCode`, `xuatXuCua({ nhan })` và đường thật Gói 2 (`hs.handle` với `"84137090 của SK hynix"`, `"84137090 hàng của GE"`, `"84137090 hang cua GE"` → `tra_thue` với `xuatXu: "CN"` kèm chữ `"giả định"`, đối chứng `"84137090 SK"` → `xuatXu: "SK"` không giả định).
+- **Trang đổi:** `docs/wiki/an-toan.md`, `docs/wiki/log.md`.
+
 ## 2026-11-25 — OZV-645: ghi luật đọc xuất xứ chống bịa mã nước (#214, #216, #263–#265) và đánh đổi `64041190 tu GB` vào `docs/wiki/an-toan.md` (nhánh `ozv-645-wiki-an-toan-xuat-xu`, gốc `0ee743f`)
 
 - **Vì sao:** Sau khi các PR #214, #216, #263, #264, #265 lên `main` (`0ee743f`), `packs/hs/input.js` (713 dòng) đã có hệ thống rào nhiều lớp chống đọc nhầm từ thường, đơn vị đo và tên hãng thành mã nước xuất xứ (`giaDinh: false`), nhưng `docs/wiki/an-toan.md` mới chỉ nhắc `packs/hs/input.js` ở mục độ dài tệp (Điều VI) mà chưa ghi nhận cơ chế bảo vệ xuất xứ ở Điều III và Điều VIII.

@@ -8,7 +8,9 @@
 // "made in HK") ra CN giả định, trong khi ô có nhãn `{ nhan }` ra đúng GB/HK.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { xuatXuCua, TEN_NUOC_ANH, NUOC } from '../input.js';
+import hs from '../index.js';
+import { fakeMcp } from '../../../test/helpers/fakes.mjs';
+import { xuatXuCua, countryCode, maNuocTrongCau, TEN_NUOC_ANH, NUOC } from '../input.js';
 
 const hai = (s) => [['chuỗi tự do', s], ['ô có nhãn', { nhan: s }]];
 
@@ -75,12 +77,51 @@ test('mã sau từ dẫn mà dính ký hiệu kỹ thuật không phải nước
   assert.deepEqual(xuatXuCua('hàng TW/CN'), { ma: 'CN', giaDinh: true });
 });
 
-// Soát PR #265 — Điểm 1: "của/cua" trước tên viết tắt hãng (SK, GE…) không phải từ dẫn xuất xứ ở câu tự do.
-for (const s of ['chip nhớ của SK hynix', 'hàng của SK hynix', 'hàng của GE', 'hang cua GE']) {
-  test(`soát PR #265 điểm 1: "của/cua" trước tên hãng ${JSON.stringify(s)} ⇒ giả định CN, không bịa nước`, () => {
-    assert.deepEqual(xuatXuCua(s), { ma: 'CN', giaDinh: true });
+// Soát PR #265 — Điểm 1 & OZV-2243 (OZV-371 điểm 1): "của/cua" và "hàng/hang" trước tên viết tắt
+// hãng (SK, GE…) không phải từ dẫn xuất xứ ở CẢ câu tự do, ô có nhãn `{ nhan }` VÀ đường Gói 2.
+for (const s of ['của SK hynix', 'chip nhớ của SK hynix', 'hàng của SK hynix', 'hàng của GE', 'hang cua GE']) {
+  test(`soát PR #265 điểm 1 & OZV-2243: "của/cua" trước tên hãng ${JSON.stringify(s)} ⇒ giả định CN ở cả 2 đường`, () => {
+    assert.equal(maNuocTrongCau(s), null, 'maNuocTrongCau');
+    assert.equal(countryCode(s), null, 'countryCode');
+    assert.deepEqual(xuatXuCua(s), { ma: 'CN', giaDinh: true }, 'chuỗi tự do');
+    assert.deepEqual(xuatXuCua({ nhan: s }), { ma: 'CN', giaDinh: true }, 'ô có nhãn');
   });
 }
+
+const ALL_GOI2 = ['phan_loai_hs', 'ket_qua_phan_loai', 'tra_thue', 'tra_thu_tuc_nhap_khau', 'tim_ma_hs', 'sinh_mo_ta_khai_bao',
+  'soat_to_khai', 'kiem_ma_to_khai', 'ket_qua_soat', 'tra_hieu_luc_van_ban', 'tra_chu_giai', 'tra_tien_le', 'kiem_tra_shtt',
+  'soan_ho_so_giai_trinh', 'kiem_tra_shtt_anh', 'bo_sung_du_kien'];
+const turnGoi2 = (text) => ({ turnId: 't', chatId: 'u1', userId: 'u1', userName: 'T', isGroup: false, text,
+  photoUrl: null, caption: null, receivedAt: '2026-11-10T03:00:00.000Z', isStaff: false });
+const ctxGoi2 = (sessionInit = { goi: 2 }) => {
+  const script = Object.fromEntries(ALL_GOI2.map((n) => [n, () => ({ ok: true, data: { ketQua: `ok ${n}` } })]));
+  const store = { ...sessionInit };
+  return { mcp: fakeMcp(script), tools: new Set(ALL_GOI2), vision: null, customer: null, history: () => [],
+    session: { get: () => structuredClone(store), set: (p) => Object.assign(store, structuredClone(p)) },
+    now: () => new Date('2026-11-10T03:00:00Z'), log: { info() {}, error() {} } };
+};
+const tinRa = (res) => ((res?.replies) ?? []).map((x) => x.text ?? x).join('\n');
+
+test('OZV-2243 (OZV-371 điểm 1): đường thật Gói 2 không bịa mã nước SK/GE sau "của/cua", đối chứng "84137090 SK" giữ nguyên', async () => {
+  for (const q of ['84137090 của SK hynix', '84137090 hàng của GE', '84137090 hang cua GE']) {
+    for (const [tin, sInit] of [[q, { goi: 2 }], [`gói 2: ${q}`, {}]]) {
+      const ctx = ctxGoi2(sInit);
+      const res = await hs.handle(turnGoi2(tin), ctx);
+      const thue = ctx.mcp.calls.find((c) => c.name === 'tra_thue');
+      assert.ok(thue, `"${tin}" phải gọi tra_thue`);
+      assert.equal(thue.args.maHs, '84137090');
+      assert.equal(thue.args.xuatXu, 'CN', `"${tin}": không được bịa nước SK/GE`);
+      assert.match(tinRa(res), /giả định/i, `"${tin}": tin trả lời phải nói rõ là giả định`);
+    }
+  }
+
+  const ctxSk = ctxGoi2({});
+  const resSk = await hs.handle(turnGoi2('84137090 SK'), ctxSk);
+  const thueSk = ctxSk.mcp.calls.find((c) => c.name === 'tra_thue');
+  assert.ok(thueSk, '"84137090 SK" phải gọi tra_thue');
+  assert.equal(thueSk.args.xuatXu, 'SK', '"84137090 SK" phải giữ nguyên mã nước SK');
+  assert.doesNotMatch(tinRa(resSk), /giả định/i, '"84137090 SK": khách đã khai nước SK thì không nói giả định');
+});
 
 // Soát PR #265 — Điểm 2: tên nước tiếng Anh đứng giữa tên hàng/tên hãng (không có từ dẫn xuất xứ) không phải xuất xứ.
 for (const s of ['hạt Brazil nuts rang muối', 'mực India ink', 'áo Canada Goose']) {
