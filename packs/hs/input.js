@@ -373,6 +373,21 @@ const maAliasTrongCau = (s) => {
   return null;
 };
 
+/**
+ * Từ dẫn xuất xứ cho đường CÂU TỰ DO (OZV-2239 soát PR #265 điểm 1): không nhận "của/cua" và
+ * "hàng/hang" đứng trực tiếp trước mã/tên nước — "chip nhớ của SK hynix", "hàng của GE",
+ * "hang cua GE" là tên hãng, không phải xuất xứ. Giữ "từ/tu", "tại/tai", "ở/o", "made in",
+ * "from", "origin", "xuất xứ", "nước/nuoc".
+ */
+const laTuDanCauTuDo = (tu, i) => {
+  const tN = norm(tu[i]);
+  return tN !== 'cua' && tN !== 'hang' && laTuDanXuatXu(tu, i);
+};
+
+/** Tên nước tiếng Anh ở `tu[i..i+len-1]` có dấu hiệu xuất xứ đi kèm không? (soát PR #265 điểm 2). */
+const coDauHieuXuatXuAnh = (tu, i, len) =>
+  tu.length === len || (i > 0 && laTuDanCauTuDo(tu, i - 1)) || (i + len < tu.length && norm(tu[i + len]) === 'made');
+
 /** Mã ISO-2 in hoa đứng NGAY SAU từ dẫn xuất xứ trong câu tự do (OZV-2239, xem `findCountryInText`). */
 const maIsoSauTuDan = (s) => {
   const raw = String(s || '');
@@ -387,7 +402,7 @@ const maIsoSauTuDan = (s) => {
     const sauKt = raw[ds[i].viTri + 2] || '';
     if (truocKt && !/[\s(\["“]/.test(truocKt)) continue;
     if (sauKt && !/[\s)\]"”,.;]/.test(sauKt)) continue;
-    if (laTuDanXuatXu(tu, i - 1)) return ma;
+    if (laTuDanCauTuDo(tu, i - 1)) return ma;
   }
   return null;
 };
@@ -545,6 +560,7 @@ export function countryCode(s) {
   // Tên nước (có dấu hay không) và viết tắt tiếng Việt: "TQ" không phải mã ISO nên tới đây, và
   // phải ra CN chứ không ra mã "TQ". "Mỹ" có dấu cũng về đây (còn dấu nên không khớp hình trên).
   if (NUOC[nGoc]) return NUOC[nGoc];
+  if (TEN_NUOC_ANH[nGoc]) return TEN_NUOC_ANH[nGoc];
   if (/^[A-Za-z]{2}$/.test(nGoc)) return null;
   // Ngữ cảnh 2 — mã lẫn trong câu.
   const trongCau = maNuocTrongCau(t);
@@ -585,9 +601,11 @@ export function findCountryInText(s) {
     // TÊN NƯỚC TIẾNG ANH (OZV-2239) xét TRƯỚC khoá tiếng Việt cùng số từ: tên Anh không trùng từ
     // tiếng Việt nào, còn khoá Việt 1 từ va chạm danh từ hàng ("máy hàn made in Germany" mà xét
     // "hàn" trước thì ra KR). Khoá dài vẫn thắng khoá ngắn ("North Korea" ⇒ KP, không ra KR).
+    // Chỉ nhận khi có dấu hiệu xuất xứ đi kèm (soát PR #265 điểm 2) để không bắt "Brazil nuts",
+    // "India ink", "Canada Goose" đứng giữa tên hàng.
     for (const khoa of NHOM_KHOA_ANH[len]) {
       for (let i = 0; i + len <= tu.length; i++) {
-        if (norm(tu.slice(i, i + len).join(' ')) === khoa) return TEN_NUOC_ANH[khoa];
+        if (norm(tu.slice(i, i + len).join(' ')) === khoa && coDauHieuXuatXuAnh(tu, i, len)) return TEN_NUOC_ANH[khoa];
       }
     }
     for (const khoa of NHOM_KHOA[len]) {

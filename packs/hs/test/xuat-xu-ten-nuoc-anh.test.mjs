@@ -64,7 +64,7 @@ test('bảng tên Anh tách khỏi NUOC (từ điển tên Việt có test "mọ
 });
 
 // Lỗi phụ: mã ISO ngay sau từ dẫn xuất xứ trong chuỗi tự do.
-for (const [s, ma] of [['hang tu GB', 'GB'], ['hàng từ GB', 'GB'], ['made in HK', 'HK']]) {
+for (const [s, ma] of [['hang tu GB', 'GB'], ['hàng từ GB', 'GB'], ['made in HK', 'HK'], ['nhập từ PL', 'PL']]) {
   test(`chuỗi tự do: mã ISO sau từ dẫn ${JSON.stringify(s)} ⇒ ${ma} (khớp ô có nhãn)`, () => {
     assert.deepEqual(xuatXuCua(s), { ma, giaDinh: false });
     assert.deepEqual(xuatXuCua({ nhan: s }), { ma, giaDinh: false });
@@ -74,6 +74,21 @@ for (const [s, ma] of [['hang tu GB', 'GB'], ['hàng từ GB', 'GB'], ['made in 
 test('mã sau từ dẫn mà dính ký hiệu kỹ thuật không phải nước: "hàng TW/CN" vẫn giả định CN', () => {
   assert.deepEqual(xuatXuCua('hàng TW/CN'), { ma: 'CN', giaDinh: true });
 });
+
+// Soát PR #265 — Điểm 1: "của/cua" trước tên viết tắt hãng (SK, GE…) không phải từ dẫn xuất xứ ở câu tự do.
+for (const s of ['chip nhớ của SK hynix', 'hàng của SK hynix', 'hàng của GE', 'hang cua GE']) {
+  test(`soát PR #265 điểm 1: "của/cua" trước tên hãng ${JSON.stringify(s)} ⇒ giả định CN, không bịa nước`, () => {
+    assert.deepEqual(xuatXuCua(s), { ma: 'CN', giaDinh: true });
+  });
+}
+
+// Soát PR #265 — Điểm 2: tên nước tiếng Anh đứng giữa tên hàng/tên hãng (không có từ dẫn xuất xứ) không phải xuất xứ.
+for (const s of ['hạt Brazil nuts rang muối', 'mực India ink', 'áo Canada Goose']) {
+  test(`soát PR #265 điểm 2: tên Anh trong tên món/hãng ${JSON.stringify(s)} ⇒ giả định CN ở cả 2 đường`, () => {
+    assert.deepEqual(xuatXuCua(s), { ma: 'CN', giaDinh: true }, 'chuỗi tự do');
+    assert.deepEqual(xuatXuCua({ nhan: s }), { ma: 'CN', giaDinh: true }, 'ô có nhãn');
+  });
+}
 
 // KHÔNG HỒI QUY — kết quả ghi lại từ main `8daaf32` (cột trái chuỗi tự do, cột phải ô có nhãn).
 const NHU_MAIN = [
