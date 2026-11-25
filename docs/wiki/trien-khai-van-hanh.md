@@ -1,6 +1,6 @@
 # Triển khai và vận hành
 
-> Cập nhật: 2026-11-07 · commit: 0842386
+> Cập nhật: 2026-11-26 · commit: 7b9c55b
 
 Trang này nói cách cài, chạy, theo dõi và khôi phục bot. Mọi nhận định về code kèm
 `tệp:dòng` để mở ra kiểm.
@@ -145,6 +145,20 @@ khởi động (`server.js:30`). Từ T016, chúng có tác dụng với khách 
 | `TRUOT_DIR` | Thư mục ghi sổ trượt từ vựng; đặt `off` để tắt | `server.js:49` |
 | `GITHUB_TOKEN` / `GH_TOKEN` | Mở issue khi giám sát phát hiện sự cố | `scripts/giam-sat/issue.js:12` |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Gửi bản tin giám sát; thiếu thì bỏ qua | `scripts/giam-sat/telegram.js:11-12` |
+
+### Giọng nói, hạn giờ và hồ sơ HS (thêm sau bản `a84e8bb` 11/11)
+
+Các biến dưới đây đều có giá trị mặc định trong code nên **không bắt buộc đặt**, nhưng
+riêng `PUBLIC_BASE_URL` đổi cả tên miền mặc định — người chuyển bản phải biết (mục 10):
+
+| Biến | Ý nghĩa | Bằng chứng |
+|---|---|---|
+| `PUBLIC_BASE_URL` | Tiền tố URL tệp giọng nói gửi khách; **mặc định đổi** từ `zalo-bot.` sang `chatbot.uythacnhapkhau.com` (PR #254 / OZV-1703) | `core/config.js:72`, dựng URL ở `core/giong-noi.js:144` |
+| `GEMINI_TTS_TIMEOUT_MS` | Hạn mỗi lần gọi Gemini TTS, mặc định 30 giây (PR #225 / OZV-709) | `core/config.js:80` |
+| `FFMPEG_TIMEOUT_MS` | Hạn mỗi lần chạy `ffmpeg` đổi PCM sang AAC, mặc định 20 giây (PR #225 / OZV-709) | `core/config.js:81` |
+| `CAU_TAM_SAU_MS` | Đã báo "đang tra" mà lượt chưa xong sau ngần này thì gửi một câu tạm đúng giọng; mặc định 120000, `0` tắt (PR #215 / OZV-496) | `core/config.js:86` |
+| `SEND_TIMEOUT_MS` | Hạn lời gọi gửi tin của adapter kênh, mặc định 15 giây — kênh Zalo bot để 40 giây vì còn tải tệp (PR #226 / OZV-763) | `core/config.js:90` |
+| `HS_HO_SO` | Bật động cơ hỏi lại theo `so_tay_questions`/`cauHoi` hồ sơ; **mặc định BẬT**, tắt bằng `0`/`false`/`off` (PR #228, #245) | `packs/hs/so-tay-hoi.js:10` |
 
 ## 4. Chạy 24/7 với Docker
 
@@ -296,6 +310,53 @@ node scripts/kiem-wiki.mjs
 | Hằng ngày | Job giám sát lúc 07:30 tự chạy; kiểm tra issue mới và bản tin Telegram (`scripts/giam-sat.mjs:2`) |
 | Trước khi mở PR | `npm test`, `npm run eval`, `node scripts/kiem-wiki.mjs` phải xanh (`CONTRIBUTING.md:23`) |
 | Đổi hành vi | Cập nhật wiki cùng PR (`AGENTS.md`) |
+
+## 10. Chuyển đường tin từ `a84e8bb` (11/11) sang `main` (2026-11)
+
+Bản đang chạy đường tin Zalo thật là `a84e8bb` (11/11). Khoảng `a84e8bb..main` (`7b9c55b`)
+gồm **77 commit / 79 số PR** (#187–#283) — nhiều hơn con số 14 commit nhìn thấy ở
+`git log --oneline | head` lúc chia việc. Bảng dưới gom theo nhóm: mỗi dòng nói cần làm gì
+khi chuyển đường tin; mọi số PR trong khoảng đều có mặt.
+
+### Không cần gì thêm (chỉ việc deploy)
+
+| Nhóm PR | Việc chính | Khi chuyển đường tin |
+|---|---|---|
+| #202, #213, #214, #216, #218, #219, #227, #229, #230, #231, #233, #234, #237, #239, #242, #244, #247, #248, #249, #250, #253, #262, #263, #264, #265, #267, #268, #269, #270–#283 | Sửa bóc câu, giữ tên hàng, đọc mã nước, hỏi lại thuộc tính, việc nền gọi lại (OZV-437 và các vá trước đó) | Không cần gì — code thuần trong `packs/hs/`, `core/` |
+| #232, #235, #241 | Khoá hồi quy bằng dữ liệu thật (123 khoá câu hỏi Cổng, gói hs thật, ffmpeg) | Không cần gì — chỉ thêm/chỉnh test |
+| #209, #204 | Đo thật trên main bằng chính gói `packs/hs`; dựng bộ đo độ đúng phân loại | Không cần gì — công cụ đo |
+| #220, #238, #240, #243, #246, #251, #252, #255, #260, #261, #266 | Sửa script giám sát/QA/eval, khoá `qa-that/` khỏi git, script gpu-nha, cập nhật wiki | Không cần gì trên máy chủ bot; `qa-that/*.md` cũ còn sót trên đĩa do `git rm --cached` thì xoá tay được |
+| #187, #190, #192, #208, #210, #211, #221, #223, #224 và commit `f0ecd11` (T808) | Hạng mục Spec 008: `gateway/` (hàng đợi, `/metrics` dịch vụ, anonymizer hai chiều) | Không cần gì cho đường tin Zalo — `gateway/` là dịch vụ riêng, `server.js` không nạp (xem `server.js:1-2`) |
+
+### Phải biết / phải làm
+
+| PR | Việc | Khi chuyển đường tin |
+|---|---|---|
+| #236 (OZV-804) | `Dockerfile` thêm `RUN apk add --no-cache ffmpeg` (`Dockerfile:5`) | **Build lại ảnh Docker**, không chỉ restart container cũ. Không có ffmpeg thì mỗi tin thoại lỗi `spawn ffmpeg ENOENT`, khách chỉ nhận tin chữ |
+| #254 (OZV-1703) | Mặc định `PUBLIC_BASE_URL` đổi từ `zalo-bot.` sang `chatbot.uythacnhapkhau.com` (`core/config.js:72`) | Kiểm tra biến này trong env máy chủ. Chưa đặt thì URL tệp giọng nói (`core/giong-noi.js:144`) đổi sang tên miền mới — phải chắc tên miền đó phục vụ được `/am-thanh/` từ Internet. Đang đặt sẵn thì không đổi gì |
+| #225 (OZV-709) | Thêm `GEMINI_TTS_TIMEOUT_MS`, `FFMPEG_TIMEOUT_MS` | Không bắt buộc đặt — đã có mặc định (mục 3) |
+| #226 (OZV-763) | Thêm `SEND_TIMEOUT_MS` | Không bắt buộc đặt — đã có mặc định (mục 3) |
+| #215 (OZV-496) | Thêm `CAU_TAM_SAU_MS` — câu tạm "Cổng đang bận" sau 2 phút | Không bắt buộc đặt — mặc định 120000 (mục 3) |
+| #228, #245 (OZV-770, OZV-868) | Động cơ hỏi lại theo `so_tay_questions`/`cauHoi` hồ sơ, cờ `HS_HO_SO` | Hành vi mới **bật sẵn** sau khi chuyển (`packs/hs/so-tay-hoi.js:10`); hiện pctx không mang `env` nên chưa tắt được qua biến — biết trước là bot hỏi lại theo sổ tay Cổng |
+| #256–#259 (Phương án 1 OZV-1527) | Menu số `0–3` cuối tin Giọng Quyên, nhận phím `0–3`, câu hỏi tách mã card mạng, cảnh báo giấy phép kèm số hiệu + thời gian cấp | **Bật sẵn ngay khi chuyển** — dòng menu render vô điều kiện (`packs/hs/giong-quyen.js:118`). Chuyển đường tin chỉ khi đã có duyệt của CEO cho Phương án 1 |
+| #222 (OZV-686) | `npm test` chạy thêm `test/gateway/**/*.test.mjs` | Không đụng máy chủ — chỉ máy tính và CI |
+
+Không có gì khác phải làm: **không dependency mới** (repo không khai, `package.json:1-21`;
+`package-lock.json` không đổi trong khoảng), **không migration** — không bảng mới, không
+`ALTER`; cột `outbox.ctx` đọc ở bản mới đã có từ trước `a84e8bb` (`core/store/queue.js:41`).
+
+### Lượt chuyển đường tin (một lượt cho QT)
+
+1. Lấy duyệt CEO cho Phương án 1 (menu `0–3` bật sẵn khi chuyển); kiểm `PUBLIC_BASE_URL`
+   trong env máy chủ theo dòng #254 ở bảng trên.
+2. Sao lưu `DATA_DIR/bot.db` như mục 7, rồi **build lại ảnh Docker từ `main`** (nhận
+   ffmpeg, `Dockerfile:5`) và triển khai ảnh mới.
+3. Kiểm `/health` trả commit mới (`server.js:25`); gửi thử một tin hỏi phân loại HS và
+   một tin xin trả lời bằng giọng nói.
+4. Theo dõi `/metrics` và log hôm đó, để ý dòng `error stage=voice` (`core/giong-noi.js`);
+   sự cố thì theo mục 6.
+5. Muốn tinh chỉnh: các biến tùy chọn ở mục 3 (giọng nói, hạn giờ) — đặt trong `.env`
+   rồi khởi động lại.
 
 ## Trang liên quan
 
