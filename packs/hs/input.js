@@ -101,6 +101,41 @@ export const NUOC = { 'trung quoc': 'CN', tq: 'CN', china: 'CN', 'nhat ban': 'JP
   'indonesia': 'ID', 'vuong quoc anh': 'GB', 'hong kong': 'HK' };
 
 /**
+ * TÊN NƯỚC TIẾNG ANH → mã ISO-2 (OZV-2239). Khoá đã hạ thường, so bằng `norm` như `NUOC`.
+ *
+ * Khách hay chép nguyên nhãn hàng: "made in Germany", "(Made in Korea)", "Japan made". Trước đây
+ * từ điển chỉ có tên tiếng Việt (+ "china") nên mọi câu đó rơi về giả định Trung Quốc — khách đã
+ * nói rõ hàng Đức mà bot tra thuế TQ.
+ *
+ * Gốc bảng: 20 nước trong danh mục Cổng OZ (`hs-code-api/data/iso-3166-vn.json`, trường `nameEn`)
+ * thêm vài cách viết thông dụng (usa, england, south korea, holland…) và bạn hàng FTA hay gặp.
+ * Tách riêng khỏi `NUOC` vì test của `NUOC` neo "mọi khoá có bản có dấu" — tên Anh không có dấu.
+ *
+ * CỐ Ý KHÔNG CÓ:
+ *   - "us"      — đại từ tiếng Anh ("contact us"), đọc thành Hoa Kỳ là bịa nước.
+ *   - "america" — "South America" / "Latin America" là châu lục; dùng "usa" / "united states".
+ *   - "turkey"  — còn nghĩa gà tây (hàng thực phẩm).
+ *   - tính từ quốc tịch ("German", "Japanese"…) — chưa có ca thật, để thẻ sau nếu cần.
+ * "north korea" (2 từ) đứng trong nhóm 2 từ nên được xét TRƯỚC "korea" (1 từ) ⇒ KP, không ra KR.
+ */
+export const TEN_NUOC_ANH = { 'republic of korea': 'KR', 'united states': 'US', 'united kingdom': 'GB',
+  'great britain': 'GB', 'south korea': 'KR', 'north korea': 'KP', 'russian federation': 'RU',
+  'new zealand': 'NZ', 'czech republic': 'CZ', 'saudi arabia': 'SA',
+  vietnam: 'VN', japan: 'JP', korea: 'KR', taiwan: 'TW', thailand: 'TH', usa: 'US', germany: 'DE',
+  india: 'IN', singapore: 'SG', philippines: 'PH', cambodia: 'KH', laos: 'LA', myanmar: 'MM',
+  england: 'GB', britain: 'GB', france: 'FR', italy: 'IT', spain: 'ES', netherlands: 'NL', holland: 'NL',
+  belgium: 'BE', switzerland: 'CH', austria: 'AT', sweden: 'SE', denmark: 'DK', poland: 'PL',
+  russia: 'RU', australia: 'AU', canada: 'CA', mexico: 'MX', brazil: 'BR', czechia: 'CZ' };
+// "Viet Nam" (2 từ) đã có trong `NUOC` — tên Việt viết không dấu trùng tên Anh, không lặp ở đây.
+
+/** Khoá `TEN_NUOC_ANH` nhóm theo số từ — cùng luật ưu tiên với `NHOM_KHOA`. */
+const NHOM_KHOA_ANH = (() => {
+  const g = { 1: [], 2: [], 3: [] };
+  for (const k of Object.keys(TEN_NUOC_ANH)) { const n = k.split(' ').length; if (g[n]) g[n].push(k); }
+  return g;
+})();
+
+/**
  * Cách ghi mà khách hay dùng ở ô "Xuất xứ:" nhưng Cổng OZ KHÔNG so như vậy.
  *
  * CHỈ áp ở ô CÓ NHÃN — tức chỗ khách CỐ Ý khai đúng một mã/tên nước (`countryCode`), KHÔNG áp
@@ -339,6 +374,40 @@ const maAliasTrongCau = (s) => {
 };
 
 /**
+ * Từ dẫn xuất xứ cho đường CÂU TỰ DO (OZV-2239 soát PR #265 điểm 1): không nhận "của/cua" và
+ * "hàng/hang" đứng trực tiếp trước mã/tên nước — "chip nhớ của SK hynix", "hàng của GE",
+ * "hang cua GE" là tên hãng, không phải xuất xứ. Giữ "từ/tu", "tại/tai", "ở/o", "made in",
+ * "from", "origin", "xuất xứ", "nước/nuoc".
+ */
+const laTuDanCauTuDo = (tu, i) => {
+  const tN = norm(tu[i]);
+  return tN !== 'cua' && tN !== 'hang' && laTuDanXuatXu(tu, i);
+};
+
+/** Tên nước tiếng Anh ở `tu[i..i+len-1]` có dấu hiệu xuất xứ đi kèm không? (soát PR #265 điểm 2). */
+const coDauHieuXuatXuAnh = (tu, i, len) =>
+  tu.length === len || (i > 0 && laTuDanCauTuDo(tu, i - 1)) || (i + len < tu.length && norm(tu[i + len]) === 'made');
+
+/** Mã ISO-2 in hoa đứng NGAY SAU từ dẫn xuất xứ trong câu tự do (OZV-2239, xem `findCountryInText`). */
+const maIsoSauTuDan = (s) => {
+  const raw = String(s || '');
+  const ds = tachTuViTri(raw);
+  const tu = ds.map((x) => x.tu);
+  for (let i = 1; i < tu.length; i++) {
+    const ma = tu[i];
+    if (!/^[A-Z]{2}$/.test(ma) || !laMaIso2(ma) || VIET_TAT_KHONG_PHAI_NUOC.has(ma)) continue;
+    // Biên như regex mã trơ của `findCountryInText` (OZV-635): mã dính ký hiệu kỹ thuật không
+    // phải nước — "hàng TW/CN", "6205-DE", "ID:123".
+    const truocKt = raw[ds[i].viTri - 1] || '';
+    const sauKt = raw[ds[i].viTri + 2] || '';
+    if (truocKt && !/[\s(\["“]/.test(truocKt)) continue;
+    if (sauKt && !/[\s)\]"”,.;]/.test(sauKt)) continue;
+    if (laTuDanCauTuDo(tu, i - 1)) return ma;
+  }
+  return null;
+};
+
+/**
  * ALIAS ở CUỐI câu — chỉ nhận khi đứng NGAY SAU từ dẫn xuất xứ ("made in UK" ⇒ GB).
  *
  * Cùng luật với `maNuocTrongCau` (vòng soát 9 PR #214): alias cuối câu mà không có từ dẫn thì
@@ -491,6 +560,7 @@ export function countryCode(s) {
   // Tên nước (có dấu hay không) và viết tắt tiếng Việt: "TQ" không phải mã ISO nên tới đây, và
   // phải ra CN chứ không ra mã "TQ". "Mỹ" có dấu cũng về đây (còn dấu nên không khớp hình trên).
   if (NUOC[nGoc]) return NUOC[nGoc];
+  if (TEN_NUOC_ANH[nGoc]) return TEN_NUOC_ANH[nGoc];
   if (/^[A-Za-z]{2}$/.test(nGoc)) return null;
   // Ngữ cảnh 2 — mã lẫn trong câu.
   const trongCau = maNuocTrongCau(t);
@@ -528,6 +598,16 @@ export function findCountryInText(s) {
   // mọi vị trí của câu.
   const tu = tachTu(raw);
   for (const len of [3, 2, 1]) {
+    // TÊN NƯỚC TIẾNG ANH (OZV-2239) xét TRƯỚC khoá tiếng Việt cùng số từ: tên Anh không trùng từ
+    // tiếng Việt nào, còn khoá Việt 1 từ va chạm danh từ hàng ("máy hàn made in Germany" mà xét
+    // "hàn" trước thì ra KR). Khoá dài vẫn thắng khoá ngắn ("North Korea" ⇒ KP, không ra KR).
+    // Chỉ nhận khi có dấu hiệu xuất xứ đi kèm (soát PR #265 điểm 2) để không bắt "Brazil nuts",
+    // "India ink", "Canada Goose" đứng giữa tên hàng.
+    for (const khoa of NHOM_KHOA_ANH[len]) {
+      for (let i = 0; i + len <= tu.length; i++) {
+        if (norm(tu.slice(i, i + len).join(' ')) === khoa && coDauHieuXuatXuAnh(tu, i, len)) return TEN_NUOC_ANH[khoa];
+      }
+    }
     for (const khoa of NHOM_KHOA[len]) {
       for (let i = 0; i + len <= tu.length; i++) {
         const phan = tu.slice(i, i + len);
@@ -546,6 +626,13 @@ export function findCountryInText(s) {
   // Alias trong câu tự do ("made in UK" ⇒ GB) — có rào vị trí, xem `maAliasTrongCau`.
   const alias = maAliasTrongCau(raw);
   if (alias) return alias;
+  // Mã ISO đứng NGAY SAU từ dẫn xuất xứ ("hàng từ GB", "hang tu GB", "made in HK") — OZV-2239
+  // lỗi phụ: ô có nhãn đọc ra GB/HK (qua `maNuocTrongCau`) mà chuỗi tự do lại rơi về giả định CN.
+  // Chỉ lấy đúng rào VỊ TRÍ "sau từ dẫn" của `maNuocTrongCau` (không lấy luật "một mã trơ" hay
+  // "cuối câu sau số"), cùng rào TÊN (`VIET_TAT_KHONG_PHAI_NUOC`) — "Hoa Phat tu BT", "vong o BI"
+  // không qua được `laTuDanXuatXu` nên vẫn như cũ.
+  const sauTuDan = maIsoSauTuDan(raw);
+  if (sauTuDan) return sauTuDan;
   // Regex mã trơ cuối cùng GIỮ DANH SÁCH CỦA MAIN (không GB/HK — vòng soát 7 PR #214): thêm
   // "GB" vào đây là bắt "500 GB" của "ổ cứng 500 GB SSD" thành Vương quốc Anh (dung lượng).
   // GB/HK trần trong câu vẫn đọc được qua `maNuocTrongCau` ("hàng từ GB", "made in HK",
