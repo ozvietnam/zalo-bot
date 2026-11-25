@@ -15,6 +15,13 @@
 // chữ của câu hỏi thành TÊN HÀNG MỚI ⇒ tên hàng khách đã gõ rụng hẳn và bot đi tra mã của chữ
 // "sao" — mã chắc chắn sai, mà mô tả khai báo in thẳng cho khách dùng (Điều III, Điều VIII).
 import { norm } from './input.js';
+// Nhập về để `bocCumHoi` ĐO lại câu hỏi bằng một bộ đo duy nhất (`thongSoTrong`, `ky-luat-hoi.js`)
+// thay vì chép lại danh sách thông số ở đây — chép lại chính là cách sinh hồi quy OZV-782 (bộ chữ
+// nơi dựng khác bộ chữ nơi đọc, không ai thấy cho tới khi tên hàng rụng khỏi tin gửi Cổng).
+// Vòng nhập hai chiều `cau-hoi-khach ↔ ky-luat-hoi` an toàn: hai bên chỉ GỌI hàm của nhau bên
+// trong thân hàm lúc chạy, không gọi lúc nạp mô-đun, mà cả hai bên đều khai báo bằng `function`
+// (hỗ nội tuyến của ESM giữ liên kết sẵn từ lúc nạp).
+import { thongSoTrong } from './ky-luat-hoi.js';
 
 // Biên ĐẦU/CUỐI một từ tiếng Việt. KHÔNG dùng `\b`: `\b` của JS chỉ tính `[A-Za-z0-9_]`, nên mọi
 // mẫu mở (hoặc kết) bằng chữ CÓ DẤU đều trượt (bệnh đã ghi ở `ky-luat-hoi.js`, vòng soát 3).
@@ -27,9 +34,27 @@ const CUOI_TU = '(?![\\p{L}\\p{N}])';
 // Mẫu "… là gì" phải viết ĐỦ cụm, đừng tách riêng "gì": chữ "gia" trong "gia dụng", "gia đình"
 // khớp `g[iì]` nếu không chốt biên cuối từ, nên câu TRẢ LỜI công dụng ("không, loại gia dụng
 // 350W") bị bắt oan thành câu hỏi rồi rụng mất tên hàng (đỏ `[#213-7]` khi vá vòng soát 5).
+// Dấu ngắt và từ xã giao đứng SAU câu hỏi ngược: "phải không ạ?", "đúng không em?", "phai khong
+// a?" (bản norm — khách Zalo gõ không dấu). Chỉ từ này và "?" được phép đứng giữa cặp hỏi và
+// cuối câu; chữ khác ("mạ kẽm", "máy sấy") là câu trả lời, không được nhận là câu hỏi.
+const NGAT_HOI = '[\\s,.!:;-]*';
+const TAN_GIAO_HOI = '(?:[ạa]|em|anh|ch[iị]|nh[ỉi]|nh[ée]|h[ảa]|v[ậâ]y|th[ếe])';
 const CUM_HOI = 'l[aà]\\s*sao|th[iì]\\s*sao|t[aạ]i\\s*sao|sao\\s*(?:v[aậ]y|th[eế]|c[oơ])'
   + '|l[aà]\\s*g[iì]|g[iì]\\s*(?:v[aậ]y|c[oơ])|(?:nh[uư]\\s*)?th[eế]\\s*n[aà]o'
-  + '|(?:kh[oô]ng|ch[uư]a|ko)\\s*(?:hi[eể]u|r[oõ]\\s*[yý])|hi[eể]u\\s*sao';
+  + '|(?:kh[oô]ng|ch[uư]a|ko)\\s*(?:hi[eể]u|r[oõ]\\s*[yý])|hi[eể]u\\s*sao'
+  // OZV-2263 (lát 2c OZV-437): các câu hỏi thông dụng bộ trên bỏ sót — "xem ở đâu ạ?", "chỗ nào?",
+  // "bao nhiêu?", "làm gì/làm sao?". Thiếu thì `laCauHoiKhach` trả false ⇒ `coTenTrong` đếm chữ
+  // câu hỏi thành TÊN MỚI ⇒ tenGoc rụng hẳn khỏi mô tả gửi Cổng ("xem công suất ở đâu ạ?" →
+  // mô tả thành "phải không ạ?"), mà mã + thuế in ra là của món khác (Điều III, VIII).
+  + '|[oở]\\s*[đd][aâ]u|ch[oỗ]\\s*n[aà]o|bao\\s*nhi[eê]u|l[aà]m\\s*(?:g[iì]|sao)'
+  // Câu hỏi ngược xác nhận ("phải không ạ?", "đúng không em?", "đúng không nhỉ?"). Bắt buộc neo
+  // CUỐI câu — sau cặp "(đúng|phải|chính xác|chuẩn) (không|chưa|ko|kg)" chỉ được còn từ xã giao
+  // và dấu "?" — nếu không sẽ bắt oan câu TRẢ LỜI phủ định thuộc tính: "đúng, không mạ kẽm"
+  // (dấu phẩy ngắt cặp), "đúng không mạ kẽm" (sau cặp còn cả câu trả lời), "phải, không có màn
+  // hình" — mà đọc thành câu hỏi là bóc chữ "không" của khách ⇒ bot nói NGƯỢC điều khách vừa
+  // nói (lỗi điểm 2 nặng nhất của PR #213).
+  + '|(?:ph[aả]i|[đd][uú]ng|ch[ií]nh\\s*x[aá]c|chu[aẩ]n)(?:\\s*r[oồ]i)?\\s+'
+  + `(?:kh[oô]ng|ch[uư]a|ko|kg)(?=${NGAT_HOI}(?:${TAN_GIAO_HOI}${NGAT_HOI})?\\?*\\s*$)`;
 const HOI_RE = new RegExp(`${DAU_TU}(?:${CUM_HOI})${CUOI_TU}`, 'iu');
 
 /**
@@ -44,21 +69,21 @@ export function laCauHoiKhach(s) {
   return Boolean(t) && (HOI_RE.test(t) || HOI_RE.test(norm(t)));
 }
 
-// Đại từ chỉ người/vật đi kèm trong câu hỏi ("Ý EM là sao", "CÁI NÀY là gì") và chữ "nghĩa".
-// Chỉ bóc khi câu ĐÃ được `laCauHoiKhach` nhận là câu hỏi, và chỉ bóc khi ĐO — không bóc khi dựng
-// mô tả gửi Cổng. Bóc vô điều kiện là cắt oan tên hàng chứa từ đồng âm.
-const DAI_TU_HOI = '[yý]|em|anh|ch[iị]|m[iì]nh|b[aạ]n|n[oó]|[đd][aâ]y|[đd][oó]'
-  + '|c[aá]i\\s*(?:n[aà]y|[đd][oó])|ngh[iĩ]a';
-const BOC_HOI_RE = new RegExp(`${DAU_TU}(?:${CUM_HOI}|${DAI_TU_HOI})${CUOI_TU}`, 'giu');
-
 /**
  * Bóc cụm HỎI ra khỏi câu, để `coTenTrong` không đếm chữ của câu hỏi thành tên hàng.
  * Câu không phải câu hỏi thì trả NGUYÊN VĂN — không cắt oan ("máy sấy thực phẩm ạ" giữ nguyên).
+ *
+ * OZV-2263 (lát 2c OZV-437): khi câu ĐÃ được nhận là câu hỏi thì chữ của câu hỏi KHÔNG phải tên
+ * hàng hay thuộc tính — chỉ giữ lại ĐÚNG các thông số đo được khách nêu kèm ("350W thì sao ạ" →
+ * "350W"), mọi chữ khác đều bỏ. Bóc bằng replace từng cụm hỏi/đại từ là SÓT chủ ngữ câu hỏi
+ * ("đúc hay hàn là gì ạ" → còn "đúc hay hàn", "mạ kẽm là sao ạ" → còn "mạ kẽm") ⇒ bot tự chốt
+ * tra món khách chưa từng chốt (canHoi:false); đo lại bằng `thongSoTrong` — một bộ đo thông số
+ * duy nhất, cùng nguồn với `ky-luat-hoi.js` — là hết chỗ lọt.
  */
 export function bocCumHoi(s) {
   const t = String(s || '');
   if (!laCauHoiKhach(t)) return t;
-  return t.replace(BOC_HOI_RE, ' ').replace(/[?¿]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return thongSoTrong(t).join(' ');
 }
 
 // Các đại lượng là THUỘC TÍNH của mặt hàng (không phải tên món). Nhánh nào đang hỏi một trong
