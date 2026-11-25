@@ -15,7 +15,7 @@
 // Lớp nhận dạng tin nằm ở `nhan-dang.js`, bộ lọc tạp âm ở `loc-tap-am.js` (Điều VI: mỗi tệp một
 // trách nhiệm, dưới 300 dòng).
 
-import { norm, parseLabeled, dai } from './input.js';
+import { norm, parseLabeled, dai, xuatXuCua } from './input.js';
 import {
   laLenhTroHoSo, laTenHangCam, laCauXemLai, laLenhCauTruc, cungMonVoi, coNhanTruong, TRUONG,
   CO_KHI_RE, DIEN_RE, boLoiChao, boYeuCauDau,
@@ -177,7 +177,9 @@ export function themSua(hoSo, text) {
   if (DIEN_RE.test(norm(t)) || laCauXemLai(t)) {
     h.daGiaiMauThuan = true;
     h.boHuongAnh = dai(h.chuAnh) || dai(h.tenAnh) || null;
-    h.chuAnh = null;
+    // Khách chỉ gỡ CÁCH HIỂU "điện", không gỡ nước in trên tem: còn nước thì giữ `chuAnh` (nguồn
+    // xuất xứ của `chuHoSoChoXuatXu`), xoá đi là rơi về mặc định CN (OZV-2248, khuôn lỗi PR #214).
+    if (xuatXuCua(h.chuAnh).giaDinh) h.chuAnh = null;
     h.tenAnh = null;
   }
   h.dau = (h.dau || 0) + 1;
