@@ -48,8 +48,9 @@ test('OZV-635: bảng 7 câu chuẩn — "(MADE IN JP)", "(made in JP)", "[MADE 
     ['MADE IN JP,', { ma: 'JP', giaDinh: false }, 'JP'],
     ['MADE IN JP', { ma: 'JP', giaDinh: false }, 'JP'],
     ['hàng made in CN', { ma: 'CN', giaDinh: false }, 'CN'],
-    // "made in India": bảng tên nước hiện chưa có "india" (lớp lỗi khác, ngoài phạm vi OZV-635) → giữ nguyên hiện trạng.
-    ['made in India', { ma: 'CN', giaDinh: true }, null],
+    // "made in India": OZV-2239 thêm bảng tên nước tiếng Anh nên nay ra IN — chuyển sang
+    // `xuat-xu-ten-nuoc-anh.test.mjs` (bảng này đòi cả `maNuocTrongCau` ra cùng giá trị, mà hàm đó
+    // chỉ đọc MÃ 2 chữ, không đọc tên nước).
   ];
   for (const [cau, mongXuatXu, mongFind] of BANG_CHUAN) {
     assert.deepEqual(xuatXuCua(cau), mongXuatXu, `xuatXuCua(${JSON.stringify(cau)}) phải ra ${JSON.stringify(mongXuatXu)}`);

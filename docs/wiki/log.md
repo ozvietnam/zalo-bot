@@ -14,6 +14,15 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-25 — OZV-2239: tên nước tiếng Anh đầy đủ (`"made in Germany"`, `"(Made in Korea)"`, `"Japan made"`) đọc đúng mã nước, không rơi về giả định CN (nhánh `ozv-ten-nuoc-anh`, gốc `8daaf32`)
+
+- **Vì sao:** đo trên main `8daaf32`: 20 câu "made in <tên nước tiếng Anh>" đều ra `{ ma: 'CN', giaDinh: true }` ở cả chuỗi tự do lẫn `{ nhan }` — từ điển `NUOC` chỉ có tên Việt (+ `china`). Khách khai hàng Đức mà bot tra thuế Trung Quốc.
+- **`packs/hs/input.js` — `TEN_NUOC_ANH`:** bảng tên Anh → ISO-2, gốc là 20 nước `nameEn` của danh mục Cổng (bảng ISO-3166 tiếng Việt của repo `ozvietnam/hs-code-api`) + cách viết thông dụng (`usa`, `england`, `south korea`, `holland`…) + vài bạn hàng FTA. Tách khỏi `NUOC` (test `NUOC` neo "mọi khoá có bản có dấu"). `findCountryInText` xét tên Anh TRƯỚC khoá Việt cùng số từ (tên Anh không trùng từ Việt; `"máy hàn made in Germany"` → DE), khoá dài vẫn thắng (`"North Korea"` → KP). Cố ý không có `us` (đại từ), `america` (South/Latin America), `turkey` (gà tây).
+- **Lỗi phụ — mã ISO sau từ dẫn trong chuỗi tự do:** `"hàng từ GB"`, `"hang tu GB"`, `"made in HK"` trước ra CN giả định (chỉ ô có nhãn ra GB/HK). Nay `maIsoSauTuDan` đọc mã ISO in hoa ngay sau từ dẫn (cùng `laTuDanXuatXu`, cùng rào `VIET_TAT_KHONG_PHAI_NUOC`, cùng biên ký tự của OZV-635 nên `"hàng TW/CN"` vẫn giả định). Hệ quả có chủ ý: `"Xuất xứ: PE"` chuỗi tự do nay ra PE (khớp ô có nhãn).
+- **Không hồi quy:** `"(MADE IN JP)"` JP, `"made in UK"` GB, `"Hoa Phat tu BT"` / `"thuoc 500 MG"` / `"ống 110 PE"` / `"áo size UK 10"` / `"anh gửi hàng"` / `"made in America"` giả định CN, `"Nike 64041190 CN"` CN — như main.
+- **Test:** `packs/hs/test/xuat-xu-ten-nuoc-anh.test.mjs` (mới); `packs/hs/test/xuat-xu-ngoac-ozv-635.test.mjs` bỏ dòng neo `"made in India"` → CN (dòng đó ghi rõ "giữ hiện trạng tới khi có india"), chuyển sang test mới.
+- **Trang đổi:** `docs/wiki/an-toan.md` (số dòng `packs/hs/input.js` 626 → 695), `docs/wiki/log.md`.
+
 ## 2026-11-25 — OZV-644: đơn vị đo ngoài danh sách (`"500 MG"`, `"100 VA"`) và danh từ hàng không dấu sau tên hàng (`"Hoa Phat tu BT"`) không còn bị đọc thành mã nước (nhánh `ozv-644-don-vi-do-tu-hang`, gốc `141de67`)
 
 - **Vì sao:** đo lại trên main `141de67` qua `countryCode` (ô có nhãn) và luật gói 6 `maCuoiCau` (đường vào `kiem_tra_shtt`): cả 9 câu của thẻ vẫn ra mã bịa (`BI` `AL` `BT` `RO` `MG` `VA` `LU` `PE` `BA`). `xuatXuCua` chuỗi tự do ra giả định CN vì chỉ đi `findCountryInText`, nên đo riêng đường đó thì tưởng đã đúng.
