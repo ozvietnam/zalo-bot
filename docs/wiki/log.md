@@ -1350,3 +1350,11 @@ Quy ước:
 - **Test đỏ trước (commit `8966ddf`):** test khuôn cờ ở `test/core/config.test.mjs`; test cờ TẮT — tin kết quả không có menu, dòng cuối là cảnh báo gợi ý — ở `packs/hs/test/giong-quyen.test.mjs:387`; test QA thật cờ TẮT — phím `1` vẫn chạy Gói 2 với mã vừa tra — ở `test/core/qa-that.test.mjs:814`.
 - **Trang wiki đã sửa:** `docs/wiki/trien-khai-van-hanh.md` (bảng #256–#259), `docs/wiki/goi-nghiep-vu.md`, `docs/wiki/tien-do.md`, trang này.
 - **Cổng:** `npm test` 1772 pass · 0 fail · `npm run eval` 33/33 · `MENU_SO_0_3=1 node scripts/qa-that.mjs --mock` **12/12 ĐẠT**, cờ TẮT **6/12** (6 ca trượt đúng thiết kế ở bước expect dòng menu) · `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.
+
+## 2026-11-26 — OZV-2330 (zalo-bot): rà vùng che qa-that cho phím menu 0–3 — chốt kẽ còn lại thành kịch bản G9 "mã trần" (nhánh `ozv-2330-g9-qa-that`)
+
+- **Vấn đề:** các kịch bản G6/G8 đều bắn phím `0–3` sau khi đi từ gói 1 (phiên có mã VỪA có tên hàng); chưa ca nào đo phím khi phiên có mã từ MÃ TRẦN, và cũng chưa ca nào đo phím `0` khi khách đang kẹt trong một gói.
+- **Kết quả rà:** (1) phím `0` sau gói 1 → G6/G8; phiên trống → G7; (2) phím `1`/`2`/`3` sau gói 1 → G6, lặp → G8-phim-lap, sau phím `0` → G8-sau-xin-nguoi; (3) phím lạ 4–9/chữ → G7. Hai kẽ hở: **A** — mã trần (gói 2 tự bóc, `packs/hs/packages.js:514` chỉ ghi `maHs`, không `tenHang`): phím `1`/`2` vẫn tự chạy Gói 2 với mã vừa tra, phím `3` KHÔNG chạy (bot đưa bảng mẫu gói 3, không bịa mô tả cho mã không tên); **B** — phím `0` khi `s.goi != null`: `packs/hs/luong-chu.js:148` đòi `s.goi == null` nên chỉ thoát gói về "chế độ TỰ ĐỘNG", không gặp nhân viên; gõ `0` lần nữa (đã thoát gói, mã còn) mới gặp.
+- **Việc làm:** thêm `eval/qa-that/g9-ma-tran-phim.json:1` (7 bước, riêng tư) khoá cả hai kẽ; không mẫu `menu:` vì các tin trả lời không qua Giọng Quyên — kỳ vọng giống nhau cả hai chế độ cờ `MENU_SO_0_3`. KHÔNG đổi hành vi `packs/`, `core/`, `scripts/`.
+- **Trang wiki đã sửa:** `docs/wiki/kiem-thu.md` (đếm 12 → 13 kịch bản, dòng mô tả bộ QA thật, ví dụ ca không dùng mẫu `menu:`), `docs/wiki/tien-do.md`, trang này.
+- **Cổng:** `node scripts/qa-that.mjs --mock` **13/13 ĐẠT** · `MENU_SO_0_3=1 node scripts/qa-that.mjs --mock` **13/13 ĐẠT** · `npm test` 34 test đạt · `npm run eval` 33/33.

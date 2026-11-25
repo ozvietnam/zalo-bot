@@ -13,7 +13,7 @@ Trang này nói: repo có những cổng kiểm nào, chạy lệnh gì, bộ te
 | Audit | `npm run audit` | CLI chỉ đọc tra cứu sổ nhật ký audit, che số điện thoại và bí mật | `package.json:15` |
 | Đo SC | `npm run do-sc` | Đo lường SC-002, SC-007, SC-009 trên database SQLite thật | `package.json:16` |
 | Wiki | `node scripts/kiem-wiki.mjs` | Kiểm tiêu đề, mốc cập nhật, trích dẫn tới tệp thật, link sống | `scripts/kiem-wiki.mjs:1` |
-| QA thật | `node scripts/qa-that.mjs` | Bộ chạy QA kịch bản thực tế đích G2–G8 (12 kịch bản: nhóm, ảnh, 1-1, giọng Quyên hỏi lại, hồ sơ mặt hàng, menu số 0–3, phím số 0–3, biên menu 0–3 khi chưa có kết quả tra (riêng tư + nhóm), lỗi Cổng, biên trạng thái menu 0–3 (phím lặp + phím sau phím 0)) | `scripts/qa-that.mjs:1` |
+| QA thật | `node scripts/qa-that.mjs` | Bộ chạy QA kịch bản thực tế đích G2–G9 (13 kịch bản: nhóm, ảnh, 1-1, giọng Quyên hỏi lại, hồ sơ mặt hàng, menu số 0–3, phím số 0–3, biên menu 0–3 khi chưa có kết quả tra (riêng tư + nhóm), lỗi Cổng, biên trạng thái menu 0–3 (phím lặp + phím sau phím 0), phím 0–3 sau MÃ TRẦN — phiên có mã không tên hàng + phím 0 khi đang kẹt trong gói) | `scripts/qa-that.mjs:1` |
 | Đo độ đúng HS | `node scripts/do-dung-hs.mjs` | Chấm top-1/top-3 mã HS tám số trên bộ đề dựng từ văn bản pháp luật | `scripts/do-dung-hs.mjs:1` |
 | Webhook | `npm run webhook:info` | Đặt hoặc xem cấu hình webhook của bot Zalo | `package.json:17`, `package.json:18` |
 | Giám sát | `npm run giam-sat` | Chạy bộ quét giám sát 9 tín hiệu chất lượng và sự cố | `package.json:19`, `package.json:20` |
@@ -105,7 +105,7 @@ Bộ eval gồm 12 kịch bản tích hợp luồng và 5 ca kiểm trung lập:
 
 ## Khuôn kịch bản qa-that
 
-Bộ QA thật gồm 12 kịch bản, mỗi kịch bản một tệp `eval/qa-that/*.json` (ví dụ `eval/qa-that/g6-phim-so.json:1`), chạy qua `scripts/qa-that.mjs:1`. Tệp khai `ten`, `moTa`, `chatId`, `chatType` (nhóm hay riêng tư), `userId`, `userName` và danh sách `steps`. Mỗi bước có khối `kyVong` (kỳ vọng): `phaiCoPhanHoi` (bot phải trả lời), `phaiChua` (mẫu regex phải xuất hiện), `khongChua` (mẫu regex bị cấm), `khongBaoDangTra`, `botIm`… Mẫu `phaiChua`/`khongChua` đo trên **tin kết quả**, tách khỏi câu "đang tra" (`scripts/qa-that.mjs:277`).
+Bộ QA thật gồm 13 kịch bản, mỗi kịch bản một tệp `eval/qa-that/*.json` (ví dụ `eval/qa-that/g6-phim-so.json:1`), chạy qua `scripts/qa-that.mjs:1`. Tệp khai `ten`, `moTa`, `chatId`, `chatType` (nhóm hay riêng tư), `userId`, `userName` và danh sách `steps`. Mỗi bước có khối `kyVong` (kỳ vọng): `phaiCoPhanHoi` (bot phải trả lời), `phaiChua` (mẫu regex phải xuất hiện), `khongChua` (mẫu regex bị cấm), `khongBaoDangTra`, `botIm`… Mẫu `phaiChua`/`khongChua` đo trên **tin kết quả**, tách khỏi câu "đang tra" (`scripts/qa-that.mjs:277`).
 
 ### Tiền tố `menu:` bám cờ MENU_SO_0_3 (OZV-2327)
 
@@ -116,7 +116,9 @@ Mẫu trong `kyVong.phaiChua` đánh dấu tiền tố `menu:` là mẫu đòi *
 
 Nhờ lật theo cờ, kịch bản QA không trượt oan khi bot đúng luật không render menu, và vẫn bắt được bot lén render menu khi cờ TẮT. Mẫu không tiền tố giữ nguyên vị trí. Ví dụ thật: `eval/qa-that/g6-phim-so.json:34` đặt `"menu:Gõ 1 thuế & C/O · 2 giấy phép/thủ tục · 3 mô tả khai báo · 0 gặp nhân viên"` — chạy không cờ thì tin kết quả phải không chứa dòng menu, chạy `MENU_SO_0_3=1` thì phải chứa.
 
-Hai lệnh chạy chế độ mock (cả hai 12/12 trên main `4b34b45`, đo ngày 2026-11-26):
+Kịch bản G9 `eval/qa-that/g9-ma-tran-phim.json:1` (OZV-2330) là ví dụ ca **không dùng mẫu `menu:`**: các bước bắn phím `0–3` khi phiên có mã từ MÃ TRẦN (khách gõ thẳng mã HS, gói 2 tự bóc — chưa từng qua tin Giọng Quyên kết quả) nên tin trả lời không kèm dòng menu — kỳ vọng giống nhau ở cả hai chế độ cờ.
+
+Hai lệnh chạy chế độ mock (cả hai 13/13, đo ngày 2026-11-26):
 
 ```bash
 node scripts/qa-that.mjs --mock                 # cờ TẮT (mặc định)

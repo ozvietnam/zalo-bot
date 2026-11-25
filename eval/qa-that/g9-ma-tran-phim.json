@@ -1,0 +1,109 @@
+{
+  "id": "g9-ma-tran-phim",
+  "dich": "G9",
+  "ten": "G9 · Phím menu 0–3 sau MÃ TRẦN (gói 2, chưa từng phân loại): phiên có mã nhưng KHÔNG tên hàng",
+  "moTa": "Khoá hồi quy kẽ còn lại của menu 0–3 (Phương án 1 OZV-1527): mọi kịch bản G6/G8 đều vào từ gói 1 nên phiên vừa có mã VỪA có tên hàng; chưa ca nào vào phím khi phiên có mã từ MÃ TRẦN (khách gõ thẳng mã HS, gói 2 tự bóc — packs/hs/packages.js:514 chỉ ghi maHs vào session.last, KHÔNG có tenHang). Ghi HÀNH VI THẬT của code hiện giờ trong đúng trạng thái đó: phím '0' vẫn chuyển gặp nhân viên (điều kiện chỉ cần mã — packs/hs/luong-chu.js:148); phím '1'/'2' vẫn chạy Gói 2 với mã vừa tra (luong-chu.js:162 chấp gói 2 chỉ cần mã); phím '3' KHÔNG chạy — thiếu tên hàng bot đưa bảng mẫu gói 3 (luong-chu.js:162 đòi thêm s.last.tenHang cho gói 3, rơi về nhánh hướng dẫn luong-chu.js:165), không soạn mô tả mù cho mã không tên. Ca này chốt thêm biên 'phím 0 khi đang kẹt trong gói': sau khi '3' đã set session.goi=3 (luong-chu.js:159), phím '0' KHÔNG gặp nhân viên mà thoát gói về chế độ TỰ ĐỘNG (luong-chu.js:148 đòi session.goi==null); gõ '0' lần nữa khi đã thoát gói thì mới gặp nhân viên. Tên người và hội thoại là dữ liệu giả phục vụ QA.",
+  "chatType": "PRIVATE",
+  "chatId": "khach_g9_mtran_01",
+  "userId": "khach_g9_mtran_01",
+  "userName": "Lê Minh Tú",
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "(a1) Khách gõ thẳng MÃ TRẦN 8471.80.10 — gói 2 tự bóc mã và trả thuế, phiên có mã nhưng KHÔNG có tên hàng",
+      "text": "8471.80.10",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": ["8471\\.80\\.10", "Thuế"],
+        "khongChua": ["Gõ 1 thuế & C/O"],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 2,
+      "mieuTa": "(a2) Phím '0' khi phiên có mã trần — vẫn chuyển gặp nhân viên (hotline), KHÔNG rơi nhánh 'chế độ TỰ ĐỘNG'",
+      "cachTruoc": "1m",
+      "text": "0",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "gọi hoặc nhắn Zalo hotline OZ",
+          "Em vẫn ở đây"
+        ],
+        "khongChua": [
+          "Đã chuyển sang chế độ TỰ ĐỘNG",
+          "Gói [0-9]"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 3,
+      "mieuTa": "(a3) Phím '1' — bot TỰ CHẠY Gói 2 với mã vừa tra (đủ điều kiện: có mã, không cần tên hàng)",
+      "cachTruoc": "1m",
+      "text": "1",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra",
+          "8471\\.80\\.10"
+        ],
+        "khongChua": ["hotline OZ", "Gửi thông tin theo mẫu", "lỗi tạm thời"]
+      }
+    },
+    {
+      "step": 4,
+      "mieuTa": "(a4) Phím '2' lặp lại gói 2 — vẫn chạy lại với mã vừa tra, không bắt gõ lại mẫu",
+      "cachTruoc": "1m",
+      "text": "2",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Gói 2: Thuế & thủ tục nhập khẩu — mã vừa tra",
+          "8471\\.80\\.10"
+        ],
+        "khongChua": ["hotline OZ", "Gửi thông tin theo mẫu", "lỗi tạm thời"]
+      }
+    },
+    {
+      "step": 5,
+      "mieuTa": "(a5) Phím '3' — KHÔNG tự chạy: phiên không có tên hàng nên bot đưa bảng mẫu gói 3, KHÔNG soạn mô tả mù",
+      "cachTruoc": "1m",
+      "text": "3",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "Gói 3: Viết mô tả khai báo",
+          "Gửi thông tin theo mẫu"
+        ],
+        "khongChua": ["mã vừa tra", "hotline OZ", "lỗi tạm thời"]
+      }
+    },
+    {
+      "step": 6,
+      "mieuTa": "(a6) Phím '0' khi ĐANG KẸT TRONG GÓI 3 (session.goi=3) — không gặp nhân viên mà THOÁT GÓI về chế độ TỰ ĐỘNG",
+      "cachTruoc": "1m",
+      "text": "0",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": ["Đã chuyển sang chế độ TỰ ĐỘNG"],
+        "khongChua": ["hotline OZ", "Gói [0-9]:"]
+      }
+    },
+    {
+      "step": 7,
+      "mieuTa": "(a7) Phím '0' lần nữa, đã thoát gói (session.goi==null) và mã còn — giờ MỚI gặp nhân viên",
+      "cachTruoc": "1m",
+      "text": "0",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "phaiChua": [
+          "gọi hoặc nhắn Zalo hotline OZ",
+          "Em vẫn ở đây"
+        ],
+        "khongChua": ["Đã chuyển sang chế độ TỰ ĐỘNG"],
+        "khongBaoDangTra": true
+      }
+    }
+  ]
+}
