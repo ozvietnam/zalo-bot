@@ -190,6 +190,11 @@ test('[#213-9b] OZV-371 điểm 2: chất liệu nằm sẵn trong tên cơ khí
   // Đối chứng: đã đủ 2 chi tiết ngoài tên ("ống thép đúc DN25" hoặc "van bi đồng DN25") → không hỏi
   assert.equal(kiemTraThongTinPhanLoai('ống thép đúc DN25', { vongHoi: 0 }).canHoi, false);
   assert.equal(kiemTraThongTinPhanLoai('van bi đồng DN25', { vongHoi: 0 }).canHoi, false);
+  // Đối chứng soát PR #268: chỉ bóc "thép/nhôm" khi đi kèm hình dạng (cuộn/tấm/hình, thỏi/tấm/định
+  // hình). "thép"/"nhôm" trần ở van, khung, lưới, nồi là chất liệu NGOÀI tên hàng, vẫn đếm như `main`.
+  for (const mon of ['van bi thép DN25', 'van thép DN50', 'khung nhôm 2m', 'lưới thép 1m', 'nồi nhôm 5 lít']) {
+    assert.equal(kiemTraThongTinPhanLoai(mon, { vongHoi: 0 }).canHoi, false, `"${mon}" đã đủ 2 chi tiết`);
+  }
 });
 
 test('[#213-9c] OZV-371 điểm 2 đường thật: "Tra hs ống thép DN50" → "không mạ kẽm, đúc" giữ đủ chữ gửi Cổng', async () => {

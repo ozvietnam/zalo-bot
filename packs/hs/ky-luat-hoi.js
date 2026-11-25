@@ -74,7 +74,7 @@ export function nhanDienCuTraDi(text) {
 // cho `soChiTiet` để "ống thép DN50" / "ống thép hàn" / "thép tấm 3mm" vẫn hỏi phần thiếu (OZV-371).
 const TEN_CO_SAN_CHAT_LIEU_RE = new RegExp(
   `${DAU_TU}(?:[oố]ng\\s*(?:th[eé]p(?:\\s*kh[oô]ng\\s*g[iỉ])?|nh[uự]a|[đd][oồ]ng|inox(?:\\s*\\d+)?)`
-  + '|th[eé]p(?:\\s*(?:cu[oộ]n|t[aấ]m|h[iì]nh))?|nh[oô]m(?:\\s*(?:th[oỏ]i|t[aấ]m|[đd][iị]nh\\s*h[iì]nh))?'
+  + '|th[eé]p\\s*(?:cu[oộ]n|t[aấ]m|h[iì]nh)|nh[oô]m\\s*(?:th[oỏ]i|t[aấ]m|[đd][iị]nh\\s*h[iì]nh)'
   + `|(?:t[aấ]m|m[aà]ng)\\s*nh[uự]a)${CUOI_TU}`, 'giu');
 
 /**
