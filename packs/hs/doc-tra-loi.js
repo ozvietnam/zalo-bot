@@ -145,9 +145,9 @@ const DEM_SAU_DAU_RE = new RegExp(`^(?:${DEM}${HET_TU}\\s*)+[,.!:;-]+\\s*`, 'iu'
 // không thì "mica" bị cắt đuôi thành "mic". KHÔNG có "da" không dấu: "túi da", "ví bằng da" là
 // CHẤT LIỆU, mà chất liệu đổi chương thuế (túi da 4202 ≠ túi nhựa) — điểm 3 của người soát PR #213.
 const XA_GIAO_CUOI_RE = /(?:^|[\s,.!:;-])(?:ạ|a|nh[eé]|nha|nh[aá]|[oơ]i|th[eế]|v[aậ]y|dạ)\s*$/iu;
-// Từ xã giao mở đầu câu XÁC NHẬN ("đúng, 350W", "phải rồi, 350W" → "350W"). Gắn `HET_TU` và không nhận "dung"/"vang"/"u"/"da"/"dạ dày" (OZV-885, OZV-2257).
+// Từ xã giao mở đầu câu XÁC NHẬN ("đúng, 350W", "phải rồi, 350W" → "350W"); loại trừ câu hỏi ngược "(phải|đúng|chuẩn) (không|chưa|ko)" (OZV-885, OZV-2257).
 const CHI_DA_RE = new RegExp(`^dạ(?!\\s*d[aà]y)${HET_TU}[,.\\s]*`, 'iu');
-const XAC_NHAN_DAU_RE = new RegExp(`^(?:(?:vâng|ừ|dạ(?!\\s*d[aà]y))${HET_TU}[,.\\s]*)?(?:[đd]úng|đung|phải|ph[aả]i\\s*r[oồ]i|ch[ií]nh\\s*x[aá]c|chu[aẩ]n|oke|ok|vâng|ừ|dạ(?!\\s*d[aà]y))(?:\\s*r[oồ]i)?${HET_TU}[,.\\s]*`, 'iu');
+const XAC_NHAN_DAU_RE = new RegExp(`^(?!(?:(?:vâng|ừ|dạ(?!\\s*d[aà]y))${HET_TU}[,.\\s]*)?(?:[đd][uú]ng|ph[aả]i|ch[ií]nh\\s*x[aá]c|chu[aẩ]n)(?:\\s*r[oồ]i)?\\s+(?:kh[oô]ng|ch[uư]a|ko|kg)${HET_TU})(?:(?:vâng|ừ|dạ(?!\\s*d[aà]y))${HET_TU}[,.\\s]*)?(?:[đd]úng|đung|phải|ph[aả]i\\s*r[oồ]i|ch[ií]nh\\s*x[aá]c|chu[aẩ]n|oke|ok|vâng|ừ|dạ(?!\\s*d[aà]y))(?:\\s*r[oồ]i)?${HET_TU}[,.\\s]*`, 'iu');
 
 /** Bỏ từ xã giao đầu và cuối câu, giữ lại phần DỮ KIỆN khách nói. */
 export function bocXaGiao(s) {

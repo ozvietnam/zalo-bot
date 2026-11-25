@@ -25,7 +25,7 @@
 //      chưa đưa thông số thì bot đi tra luôn với mô tả cụt, trong khi trần của #136 là 2 vòng.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { docTraLoiTen, bocXaGiao } from '../doc-tra-loi.js';
+import { docTraLoiTen, bocXaGiao, laXacNhan } from '../doc-tra-loi.js';
 import { kiemTraThongTinPhanLoai, xuLyTraLoiHoiLai } from '../dien-cho-thieu.js';
 import { fakeMcp } from '../../../test/helpers/fakes.mjs';
 import hs from '../index.js';
@@ -344,4 +344,20 @@ test('OZV-2257 [4/4]: khách đáp "dạ máy sấy thực phẩm 350W 220V" →
   );
   // Chốt ngược: "dạ 350W 220V" (chỉ có thông số, không có tên mới) vẫn là xác nhận tenGoiY.
   assert.equal(xuLyTraLoiHoiLai('dạ 350W 220V', SS_2257).moTaTraCuu, 'máy xay sinh tố 350W 220V');
+});
+
+test('OZV-2257 [soát #271 1/2]: khách hỏi ngược "phải không ạ?" → KHÔNG phải xác nhận, không đổi sang tenGoiY', () => {
+  for (const cau of ['phải không ạ?', 'phải chưa ạ?', 'phải ko ạ?']) {
+    assert.equal(laXacNhan(cau), false, `"${cau}" là câu hỏi ngược, không phải xác nhận`);
+    const { moTaTraCuu } = xuLyTraLoiHoiLai(cau, SS_2257);
+    assert.doesNotMatch(moTaTraCuu, /máy xay sinh tố/i, `"${cau}" không được tráo sang tenGoiY: "${moTaTraCuu}"`);
+  }
+});
+
+test('OZV-2257 [soát #271 2/2]: khách hỏi ngược "đúng không em?" / "chuẩn chưa nhỉ?" → KHÔNG phải xác nhận, không đổi sang tenGoiY', () => {
+  for (const cau of ['đúng không em?', 'chuẩn chưa nhỉ?', 'đúng ko em?']) {
+    assert.equal(laXacNhan(cau), false, `"${cau}" là câu hỏi ngược, không phải xác nhận`);
+    const { moTaTraCuu } = xuLyTraLoiHoiLai(cau, SS_2257);
+    assert.doesNotMatch(moTaTraCuu, /máy xay sinh tố/i, `"${cau}" không được tráo sang tenGoiY: "${moTaTraCuu}"`);
+  }
 });
