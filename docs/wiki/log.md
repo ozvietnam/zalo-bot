@@ -14,6 +14,12 @@ Quy ước:
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
 
+## 2026-11-25 — OZV-2287 (zalo-bot): `LENH_DAU_RE` nhận "hs code" có khoảng trắng — chữ "code" không còn dính tên hàng gửi Cổng (lát 6 OZV-437, nhánh `ozv-437-lat6-len-hs-code`)
+
+- **Vì sao:** `hs(?:code)?` chỉ nhận "code" dính sát "hs" ("hscode"); khách gõ "tra hs code van bi" thì lệnh chỉ bóc "tra hs " ⇒ chữ "code" rác dính đầu tên hàng gửi Cổng (Điều III: tra mã của món sai tên). Đo trên main 25/11: `'tra hs code van bi'.replace(LENH_DAU_RE,'')` → "code van bi".
+- **Vá:** `(?:code)?` → `(?:\s*code)?` ở cả hai nhánh `mã…hs` và `tra…hs` của `LENH_DAU_RE` (`packs/hs/ky-luat-hoi.js:144`). Biên cuối từ `(?![\p{L}\p{N}])` giữ nguyên nên không ăn nửa chữ (không hồi quy OZV-2266); "code" sau chữ khác ("mã hs của đèn code 55") không bị bóc oan vì `\s*code` chỉ khớp ngay sau `hs`. Tệp giữ nguyên 299 dòng (Điều VI).
+- **Test & Trang đổi:** `packs/hs/test/ky-luat-hoi-lenh-hs-code.test.mjs` (mới, 3 test: "hs code" cách trắng bóc trọn cả 5 giống lệnh; chốt ngược "hscode"/"hs" như cũ + "code" sau chữ khác còn nguyên + biên cuối từ; "tra hs code <tên>" vẫn `canHoi` hỏi lại) — đỏ trước khi sửa, xanh sau khi sửa; `docs/wiki/log.md`.
+
 ## 2026-11-25 — OZV-2285 (zalo-bot): `chuHoSoChoXuatXu` đọc cả ô `thongSo` — nước khách khai trong thông số không bị hỏi lại (lát 5 OZV-437, nhánh `ozv-437-lat5-xuat-xu-thong-so`)
 
 - **Vì sao:** hồ sơ mạch (#170) có ô `thongSo` riêng, được điền khi khách khai theo nhãn có dấu hai chấm ("thông số: 50W 220V hàng Nhật" → `themChu`, `packs/hs/ho-so.js:68-71`) hoặc khi AI đọc ảnh (`themAnh`, `packs/hs/ho-so.js:143-146`). Nhưng `chuHoSoChoXuatXu` (`packs/hs/input.js:709-713`) chỉ gộp `moTa`/`congDung`/`chuAnh`/`sua` ⇒ nước nằm trong `thongSo` bị coi là CHƯA nêu ⇒ lượt sau `daNeu().xuatXu` false ⇒ bot hỏi lại đúng nước khách vừa trả lời (luật 2 của kỷ luật hỏi #177), còn nếu hết vòng hỏi thì tự giả định CN (Điều VIII).
