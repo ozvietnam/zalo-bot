@@ -139,8 +139,10 @@ export function cauXinThem(muc, co, duoi, noi = ' và ') {
   return `Anh/chị cho em xin thêm ${con.map((m) => m.chu).join(noi)} nhé — ${duoi}`;
 }
 
-/** Lệnh mở đầu tin khách ("Tra hs …", "mã hs …") — không phải tên hàng, không gửi Cổng. */
-export const LENH_DAU_RE = /^(?:tra\s*hs|m[aã]\s*hs|t[iì]m\s*m[aã]|ph[aâ]n\s*lo[aạ]i)\s*/i;
+/** Lệnh mở đầu tin khách ("tra hs/code", "tra (cứu) mã hs", "xin/check mã hs", "tìm mã", "phân loại")
+ * — không phải tên hàng, không gửi Cổng. Biên cuối từ sau `hs` để không ăn nửa chữ "hscode" (OZV-2266). */
+export const LENH_DAU_RE
+  = /^(?:(?:(?:tra(?:\s*c[uứ]u)?|x[ií]n|check|t[iì]m)\s*)?m[aã]\s*hs(?:code)?|tra\s*hs(?:code)?|t[iì]m\s*m[aã]|ph[aâ]n\s*lo[aạ]i)(?![\p{L}\p{N}])\s*/iu;
 
 /** Các LOẠI đại lượng đo được. Chia theo LOẠI để số MỚI của khách thắng số CŨ cùng loại. */
 const RE_THONG_SO = [CONG_SUAT_RE, DIEN_AP_RE, DUNG_TICH_RE, KICH_THUOC_RE];

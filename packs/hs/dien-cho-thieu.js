@@ -9,6 +9,7 @@
 import { norm } from './input.js';
 import {
   coThongSo, nhanDienCuTraDi, daNeu, gomCau, cauXinThem, ketQuaHoi, chuTrong, bocCumXuatXu,
+  LENH_DAU_RE,
 } from './ky-luat-hoi.js';
 import { xuLyTraLoiHoiLai } from './doc-tra-loi.js';
 import {
@@ -76,7 +77,7 @@ export function kiemTraThongTinPhanLoai(text, {
     return { canHoi: false, giaDinh: null, thieu: [] };
   }
 
-  const sSach = s.replace(/^(tra\s*hs|m[aã]\s*hs|t[iì]m\s*m[aã]|ph[aâ]n\s*lo[aạ]i)\s*/i, '').trim();
+  const sSach = s.replace(LENH_DAU_RE, '').trim();
   const cacTu = bocCumXuatXu(sSach).split(/\s+/).filter(Boolean);
   const soTu = cacTu.length;
 
