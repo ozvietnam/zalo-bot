@@ -1,5 +1,6 @@
 # Nhật ký wiki
 
+> Cập nhật: 2026-11-26 · commit: 7b9c55b
 > Cập nhật: 2026-11-13 · commit: (OZV-693 / MST checksum bắt đầu bằng 0)
 > Cập nhật: 2026-11-13 · commit: (OZV-685 / T808 vòng 3)
 > Cập nhật: 2026-11-13 · commit: f0ecd11
@@ -13,6 +14,12 @@ Quy ước:
 - Ghi rõ **vì sao** đổi, không chỉ ghi "sửa lỗi".
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
+
+## 2026-11-26 — OZV-2316 (zalo-bot): bảng checklist chuyển đường tin `a84e8bb` → `main` cho QT — trang vận hành thêm mục 10 (nhánh `ozv-2316-checklist-chuyen-duong-tin`, gốc `7b9c55b`)
+
+- **Vì sao:** bản chạy đường tin Zalo thật còn đứng ở `a84e8bb` (11/11) trong khi `main` đã đi xa; QT cần biết TRƯỚC mọi env / migration / lệnh bootstrap / dependency mới để chuyển trong MỘT lượt không phá bản đang chạy. Thẻ việc ghi 14 commit nhưng `git log a84e8bb..main` thật ra gồm 77 commit / 79 số PR (#187–#283) — bảng phải phủ hết số đó.
+- **Vá:** trang vận hành (`docs/wiki/trien-khai-van-hanh.md`) thêm mục 3 con "Giọng nói, hạn giờ và hồ sơ HS" (6 biến mới sau `a84e8bb`: `PUBLIC_BASE_URL` đổi cả mặc định, 4 biến hạn giờ, `HS_HO_SO`) và mục 10 "Chuyển đường tin" — bảng gom 79 PR theo 6 nhóm, mỗi dòng nói cần làm gì khi chuyển; lượt 5 bước cho QT. Kết luận chính: KHÔNG dependency mới, KHÔNG migration (`outbox.ctx` có từ trước `a84e8bb`, `core/store/queue.js:41`), KHÔNG lệnh bootstrap; PHẢI build lại ảnh Docker (ffmpeg, `Dockerfile:5`), kiểm `PUBLIC_BASE_URL` (`core/config.js:72`); menu `0–3` Phương án 1 và `HS_HO_SO` bật sẵn khi chuyển nên cần duyệt CEO trước.
+- **Cổng:** `node scripts/kiem-wiki.mjs --nghiem` ĐẠT · `npm test` xanh (1758 test).
 
 ## 2026-11-26 — OZV-2314 (zalo-bot): `boYeuCauDau` bóc lệnh đầu câu suy từ `LENH_DAU_RE` — hết bảng chép tay cuối cùng của mạch lệnh HS (lát 13 OZV-437, nhánh `ozv-2314-boyeucaudau-suy-lenh-dau`, gốc `cd7d911`)
 
