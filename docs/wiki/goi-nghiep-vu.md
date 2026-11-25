@@ -67,7 +67,7 @@ Khi khách hỏi tự do về `"card mạng"`, `"card điều khiển máy tính
    - `canCuChinhSach` (`packs/hs/can-cu.js:117`) đọc cả `policyLines` lẫn mảng `giayPhep` từ kết quả `tra_thu_tuc_nhap_khau` (`packs/hs/can-cu.js:146-158`), giữ trường `thoiGianCap`/`thoiHanCap` và chỉ đánh dấu `dung: true` khi văn bản có `tinhTrang === 'CON_HIEU_LUC'` (`packs/hs/can-cu.js:158`).
    - `renderPhanLoaiGiongQuyen` gọi `chonCanhBaoChinhSach` (`packs/hs/giong-quyen.js:51`, `packs/hs/giong-quyen.js:128-145`) để dựng dòng `• Lưu ý:` kèm số hiệu văn bản còn hiệu lực và thời gian cấp phép ở cuối dòng (nâng trần cắt lên 140 ký tự tại `packs/hs/giong-quyen.js:107-115`), không tự bịa khi Cổng không trả (`docs/hop-dong/luat-ung-xu.md:53`).
 2. **Menu số `0–3` cuối tin Giọng Quyên (OZV-2019):**
-   - Cuối tin kết quả phân loại Giọng Quyên gắn hằng `MENU_SO_GIONG_QUYEN` (`packs/hs/giong-quyen.js:16`, `packs/hs/giong-quyen.js:118`) ngay trước dòng cảnh báo gợi ý tham khảo, tổng độ dài tin vẫn ≤ 7 dòng.
+   - Cuối tin kết quả phân loại Giọng Quyên gắn hằng `MENU_SO_GIONG_QUYEN` (`packs/hs/giong-quyen.js:16`, `packs/hs/giong-quyen.js:118`) ngay trước dòng cảnh báo gợi ý tham khảo, tổng độ dài tin vẫn ≤ 7 dòng. Từ OZV-2326 dòng menu này chỉ render khi cờ `MENU_SO_0_3` bật (mặc định TẮT, khai báo ở `core/config.js:95`); phím `0–3` vẫn nhận bình thường vì dựa phiên (`packs/hs/luong-chu.js:138`).
 3. **Nhận phím tắt số trần `0–3` sau phân loại (OZV-2081):**
    - Trong `textFlow`, biến `soTran` (`packs/hs/luong-chu.js:138`) chỉ khớp khi tin khách là đúng một chữ số trần `/^[0-3]$/` (không bắt nhầm `"1 gói"`, `"chọn 2"`):
      - Gõ `"1"` hoặc `"2"` khi phiên vừa có mã HS (`s.last?.maHs`) → chạy ngay Gói 2 (`thue-thu-tuc`) cho mã vừa tra (`packs/hs/luong-chu.js:156-164`).

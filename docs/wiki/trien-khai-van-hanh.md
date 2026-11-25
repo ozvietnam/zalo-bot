@@ -338,7 +338,7 @@ khi chuyển đường tin; mọi số PR trong khoảng đều có mặt.
 | #226 (OZV-763) | Thêm `SEND_TIMEOUT_MS` | Không bắt buộc đặt — đã có mặc định (mục 3) |
 | #215 (OZV-496) | Thêm `CAU_TAM_SAU_MS` — câu tạm "Cổng đang bận" sau 2 phút | Không bắt buộc đặt — mặc định 120000 (mục 3) |
 | #228, #245 (OZV-770, OZV-868) | Động cơ hỏi lại theo `so_tay_questions`/`cauHoi` hồ sơ, cờ `HS_HO_SO` | Hành vi mới **bật sẵn** sau khi chuyển (`packs/hs/so-tay-hoi.js:10`); hiện pctx không mang `env` nên chưa tắt được qua biến — biết trước là bot hỏi lại theo sổ tay Cổng |
-| #256–#259 (Phương án 1 OZV-1527) | Menu số `0–3` cuối tin Giọng Quyên, nhận phím `0–3`, câu hỏi tách mã card mạng, cảnh báo giấy phép kèm số hiệu + thời gian cấp | **Bật sẵn ngay khi chuyển** — dòng menu render vô điều kiện (`packs/hs/giong-quyen.js:118`). Chuyển đường tin chỉ khi đã có duyệt của CEO cho Phương án 1 |
+| #256–#259 (Phương án 1 OZV-1527) | Menu số `0–3` cuối tin Giọng Quyên, nhận phím `0–3`, câu hỏi tách mã card mạng, cảnh báo giấy phép kèm số hiệu + thời gian cấp | **Mặc định TẮT từ OZV-2326** — dòng menu chỉ render khi cờ `MENU_SO_0_3` bật (`packs/hs/giong-quyen.js:118`, khai báo field `menuSo03` ở `core/config.js:95`); set `MENU_SO_0_3=1` trên bot thật chỉ sau khi CEO duyệt Phương án 1. Nhận phím `0–3` dựa phiên (`packs/hs/luong-chu.js:138`) nên vẫn chạy kể cả khi cờ TẮT |
 | #222 (OZV-686) | `npm test` chạy thêm `test/gateway/**/*.test.mjs` | Không đụng máy chủ — chỉ máy tính và CI |
 
 Không có gì khác phải làm: **không dependency mới** (repo không khai, `package.json:1-21`;
