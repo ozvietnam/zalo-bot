@@ -1358,3 +1358,11 @@ Quy ước:
 - **Việc làm:** thêm `eval/qa-that/g9-ma-tran-phim.json:1` (7 bước, riêng tư) khoá cả hai kẽ; không mẫu `menu:` vì các tin trả lời không qua Giọng Quyên — kỳ vọng giống nhau cả hai chế độ cờ `MENU_SO_0_3`. KHÔNG đổi hành vi `packs/`, `core/`, `scripts/`.
 - **Trang wiki đã sửa:** `docs/wiki/kiem-thu.md` (đếm 12 → 13 kịch bản, dòng mô tả bộ QA thật, ví dụ ca không dùng mẫu `menu:`), `docs/wiki/tien-do.md`, trang này.
 - **Cổng:** `node scripts/qa-that.mjs --mock` **13/13 ĐẠT** · `MENU_SO_0_3=1 node scripts/qa-that.mjs --mock` **13/13 ĐẠT** · `npm test` 34 test đạt · `npm run eval` 33/33.
+
+## 2026-11-26 — OZV-2331 (zalo-bot): kịch bản QA G10 — Cổng trả NEEDS_EXPERT/NEEDS_FACTS: bot không bịa mã chốt, hỏi đúng nhánh, phím 0–3 sau mỗi nhánh (nhánh `2331-qa-that-g10`)
+
+- **Vấn đề:** nhánh Cổng trả NEEDS_EXPERT/NEEDS_FACTS (bài đo 26/11: 3/50 lượt) chỉ có test đơn vị (`packs/hs/test/hs.test.mjs`), chưa ca qa-that trọn luồng nào khoá lời hứa "không bịa mã" đầu-cuối.
+- **Việc làm:** thêm móc giả HẸP ở phần FAKE `scripts/qa-that.mjs` (`createMockMcp` — món 'hút bụi' trả khung NEED_FACTS đúng hợp đồng thật, có mã ứng viên kèm câu hỏi, không có mã chốt cấp trên; món 'nén khí' trả NEEDS_EXPERT results rỗng + nextAction; đếm lượt hỏi để mô phỏng "Cổng nhớ lượt" khi khách bổ sung) và kịch bản `eval/qa-that/g10-hoi-them-chuyen-gia.json:1` (9 bước, riêng tư, 2 khách giả): NEED_FACTS → bot in "Mã có thể (chưa chốt…)" + hỏi thêm, KHÔNG in "Mã đề xuất"; khách bổ sung → chốt mã; phím 1/3 tự chạy gói 2/3, phím 0 trong gói thoát về TỰ ĐỘNG, phím 0 lần nữa gặp nhân viên; NEEDS_EXPERT → bot chỉ nhắn "chuyên gia", phím '1' chỉ ra bảng mẫu (không có mã trong phiên), phím '0' chỉ reset. KHÔNG đổi `packs/`, `core/`.
+- **Ghi chú hành vi thật khi dựng ca:** tin mô tả món MỚI trong cùng phiên sau handoff bị GỘP vào hồ sơ cũ (mã món cũ gắn cho mô tả trộn hai món) — ca dùng phiên khách 02 cho món nén khí; đã ghi ở `docs/wiki/kiem-thu.md` cho người soát đối chiếu mạch gộp hồ sơ.
+- **Trang wiki đã sửa:** `docs/wiki/kiem-thu.md` (đếm 13 → 14 kịch bản, dòng QA thật, đoạn giải thích G10), `docs/wiki/tien-do.md`, trang này.
+- **Cổng:** `node scripts/qa-that.mjs --mock` **14/14 ĐẠT** · `MENU_SO_0_3=1 node scripts/qa-that.mjs --mock` **14/14 ĐẠT** · `npm test` 1777 pass / 0 fail · `npm run eval` 33/33 · `node scripts/kiem-wiki.mjs --nghiem` ĐẠT.

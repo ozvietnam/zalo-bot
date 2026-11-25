@@ -150,6 +150,8 @@ function createMockMcp() {
   const traDanhMucMock = (n) => {
     if (n.includes('8413') || n.includes('bom')) return { maHs: '84137090', nameVi: 'Máy bơm ly tâm' };
     if (n.includes('8504') || n.includes('bien doi')) return { maHs: '85044090', nameVi: 'Bộ biến đổi tĩnh điện' };
+    // Máy hút bụi (case G10 của OZV-2331): tên trong biểu khi Cổng chốt mã sau dữ kiện bổ sung.
+    if (n.includes('8508') || n.includes('hut bui')) return { maHs: '85081100', nameVi: 'Máy hút bụi gia dụng' };
     if (n.includes('8509') || n.includes('xay') || n.includes('sinh to')) return { maHs: '85094000', nameVi: 'Máy xay, ép trái cây gia dụng' };
     // Chốt kẹp cơ khí (case G5 của issue #170): mã thật của Cổng là 8302.42.00, KHÔNG phải 8537.10.99.
     if (n.includes('8302') || n.includes('chot kep') || n.includes('chot xoay') || n.includes('chot ')) {
@@ -167,6 +169,9 @@ function createMockMcp() {
 
   return {
     calls: [],
+    // Bộ đếm nội bộ cho ca G10 (OZV-2331): mô phỏng Cổng nhớ lượt — lần HỎI đầu trả NEED_FACTS,
+    // lần khách đã bổ sung (lượt tra lại) trả XONG. Reset khi món khác để không ám ca khác.
+    __soLanHoiHutBui: 0,
     async listTools() {
       return tools;
     },
@@ -174,7 +179,56 @@ function createMockMcp() {
       this.calls.push({ name, args, at: new Date() });
       if (name === 'phan_loai_hs') {
         const text = String(args.tenHang || args.moTa || '');
-        const { maHs, nameVi } = traDanhMucMock(normMock(text));
+        const nMock = normMock(text);
+        if (nMock.includes('hut bui')) this.__soLanHoiHutBui += 1; else this.__soLanHoiHutBui = 0;
+        // Cổng trả "thiếu dữ kiện" (case G10 của OZV-2331): khung CAN_DU_KIEN + NEED_FACTS đúng
+        // hợp đồng thật (mẫu packs/hs/test/hs.test.mjs) — có mã CÓ THỂ kèm lý do và câu hỏi,
+        // KHÔNG có mã chốt ở cấp trên (nếu có, bot sẽ in "Mã đề xuất" và hứa sai).
+        if (nMock.includes('hut bui')) {
+          // Mô tả đã có đủ dữ kiện (khách bổ sung "mới …" hoặc đây là lượt tra lại sau khi bot
+          // hỏi thêm) → Cổng chốt được mã, khung XONG như thật.
+          if (nMock.includes('moi') || this.__soLanHoiHutBui >= 2) {
+            return {
+              ok: true,
+              maLuot: 'ML-TEST-G10-NEEDFACTS',
+              trangThai: 'XONG',
+              maHs: '85081100',
+              doChac: 0.72,
+              data: {
+                maHs: '85081100',
+                ketQua: { results: [{ hsCode: '85081100', nameVi: 'Máy hút bụi gia dụng', confidence: 0.72, reasoning: 'Khách xác nhận máy hút bụi dùng trong nhà, mới 100% → nhóm máy hút bụi gia dụng.' }] },
+              },
+            };
+          }
+          return {
+            ok: true,
+            maLuot: 'ML-TEST-G10-NEEDFACTS',
+            trangThai: 'CAN_DU_KIEN',
+            hoi: [{ questionVi: 'Bạn cho biết thêm máy hút bụi này là loại dùng trong nhà hay công nghiệp, công suất bao nhiêu W?' }],
+            ketQua: {
+              status: 'NEED_FACTS',
+              results: [{ hs: '85081100', reason: 'Nếu là máy hút bụi gia dụng có motor tự chứa thì rơi nhóm 8508.11; cần biết công suất và mục đích dùng để chốt.' }],
+            },
+          };
+        }
+        // Cổng trả "cần chuyên gia" (case G10 của OZV-2331): khung NEEDS_EXPERT đúng hợp đồng thật —
+        // results RỖNG (không có mã nào đáng để đề xuất), chỉ có nextAction lí do chuyển người xem.
+        if (nMock.includes('nen khi')) {
+          return {
+            ok: true,
+            maLuot: 'ML-TEST-G10-NEEDEXPERT',
+            trangThai: 'XONG',
+            ketQua: {
+              status: 'NEEDS_EXPERT',
+              results: [],
+              nextAction: {
+                type: 'HUMAN_REVIEW',
+                reasonVi: 'Máy nén khí mô tả còn mờ giữa các nhóm hàng, cần chuyên gia phân loại xem lại trước khi chốt mã.',
+              },
+            },
+          };
+        }
+        const { maHs, nameVi } = traDanhMucMock(nMock);
         return {
           ok: true,
           maLuot: 'ML-TEST-' + maHs,
@@ -190,6 +244,20 @@ function createMockMcp() {
         };
       }
       if (name === 'ket_qua_phan_loai') {
+        // Kết quả lượt G10 sau khi khách bổ sung dữ kiện (OZV-2331): Cổng chốt được mã → khung XONG như thật.
+        if (String(args.maLuot || '').includes('G10-NEEDFACTS')) {
+          return {
+            ok: true,
+            maLuot: args.maLuot,
+            maHs: '85081100',
+            trangThai: 'XONG',
+            data: {
+              maHs: '85081100',
+              ketQua: { results: [{ hsCode: '85081100', nameVi: 'Máy hút bụi gia dụng', confidence: 0.72, reasoning: 'Khách xác nhận dùng trong nhà, công suất 1200W → nhóm máy hút bụi gia dụng.' }] },
+            },
+            deXuat: [{ ma: '85081100', moTa: 'Máy hút bụi gia dụng' }],
+          };
+        }
         const { maHs, nameVi } = traDanhMucMock(normMock(args.maLuot || ''));
         return {
           ok: true,
