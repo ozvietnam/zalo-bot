@@ -245,14 +245,35 @@ const DAN_XUAT_XU_VN_YEU = new Set(['nước', 'nuoc']);
  * có dấu ("tủ BT", "cửa AL") — mã đứng sau danh từ hàng là viết tắt kỹ thuật, không phải nước.
  */
 const DAN_XUAT_XU_ASCII_KHONG_DAU_DAU = new Set(['tu', 'tai', 'o', 'cua']);
+/**
+ * TỪ NGỮ CẢNH được đứng TRƯỚC bản không dấu của từ dẫn (OZV-644 nhóm A).
+ *
+ * "đứng sau MỘT TỪ" vẫn chưa đủ: từ đó có thể là TÊN HÀNG / THƯƠNG HIỆU — "vong o BI" (vòng
+ * ổ bi), "khung cua AL" (khung cửa nhôm), "Hoa Phat tu BT" (tủ BT), "may tu nuoc RO". Không
+ * dấu thì "tu" (từ) và "tủ" trùng hệt, nên phân biệt bằng TỪ ĐỨNG TRƯỚC: chỉ nhận khi đó là từ
+ * nói về nguồn gốc / mua bán ("hàng tu GB", "SX tai TQ", "nhap tu JP", "san xuat tai KR").
+ * Hụt một từ ngữ cảnh thì rơi về giả định CN CÓ BÁO giả định (trung thực), còn đọc nhầm tên
+ * hàng thì ra nước bịa trông như thật — nên chọn danh sách cho phép, không danh sách cấm.
+ * So trên chữ đã rụng dấu + hạ thường (`norm`).
+ */
+const TRUOC_DAN_KHONG_DAU = new Set(['hang', 'sx', 'xuat', 'nhap', 'mua', 'lay', 'giao', 'gui', 'ship', 've',
+  'den', 'sang', 'nguon', 'goc', 'lam', 'che', 'tao', 'khau', 'xx', 'qc']);
 
 /**
  * ĐƠN VỊ ĐO hay gặp ở CUỐI câu mô tả hàng — mã 2 chữ trùng mã nước ISO-2 (OZV-535 nhóm 1).
  *
  * Chỉ loại khi mã đứng NGAY SAU một CON SỐ: "ổ cứng 500 GB" là 500 gigabyte, không phải
  * Vương quốc Anh. Ô CÓ NHÃN không đổi: "Xuất xứ: MM" vẫn là Malta (khách CỐ Ý khai mã).
+ *
+ * OZV-644 nhóm B — thêm đơn vị đo và HẬU TỐ KỸ THUẬT hay đứng sau số mà trùng mã ISO-2:
+ *   MG miligam ("thuốc 500 MG")   VA volt-ampere ("biến áp 100 VA")   KM ki-lô-mét
+ *   MW / GW megawatt / gigawatt   LU phớt vòng bi ("6205 LU")         PE nhựa polyetylen ("ống 110 PE")
+ *   BA bề mặt ủ sáng inox ("304 BA")
+ * Rào số lượng (< 8 chữ số) giữ nguyên nên "Nike 64041190 PE" vẫn là Peru, "Xuất xứ: LU" vẫn là
+ * Luxembourg. CỐ Ý không thêm `CL` (Chile) / `PA` (Panama): bạn hàng có FTA, khách hay khai.
  */
-export const DON_VI_DO = new Set(['GB', 'KG', 'MM', 'CM', 'ML', 'KW', 'MT', 'LT']);
+export const DON_VI_DO = new Set(['GB', 'KG', 'MM', 'CM', 'ML', 'KW', 'MT', 'LT',
+  'MG', 'VA', 'KM', 'MW', 'GW', 'LU', 'PE', 'BA']);
 
 /**
  * Mã đứng ngay sau một CON SỐ LƯỢNG và nằm trong danh sách đơn vị đo ⇒ đơn vị đo, không phải nước.
@@ -300,7 +321,7 @@ const laTuDanXuatXu = (tu, i) => {
   if (DAN_XUAT_XU_VN.has(tK)) return true;
   if (DAN_XUAT_XU_ASCII.has(tK)) return true;
   if (DAN_XUAT_XU_VN_YEU.has(tK)) return i === 0 || (i > 0 && laTuDanXuatXu(tu, i - 1));
-  if (DAN_XUAT_XU_ASCII_KHONG_DAU_DAU.has(tK)) return i > 0 && !laSo(tu[i - 1]);
+  if (DAN_XUAT_XU_ASCII_KHONG_DAU_DAU.has(tK)) return i > 0 && TRUOC_DAN_KHONG_DAU.has(norm(tu[i - 1]));
   return false;
 };
 
