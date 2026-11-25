@@ -1,0 +1,113 @@
+{
+  "id": "g7-bien-nhom",
+  "dich": "G7",
+  "ten": "G7 · Biên menu 0–3 (nhóm): phím 0/2/8 tag bot khi chưa tra gì vẫn không rẽ nhánh gói; phím 3 không tag bot thì bot im",
+  "moTa": "Khoá hồi quy BIÊN menu 0–3 (OZV-1527) trong NHÓM: thành viên tag bot bắn phím khi phiên chưa có kết quả tra trước đó thì bot KHÔNG rẽ nhánh đặc biệt — '0' chỉ chuyển chế độ TỰ ĐỘNG (không hotline), '2' chỉ giới thiệu gói kèm mẫu nhập (không chạy gói), phím lạ '8' không có gói tương ứng thì in menu đầy đủ; tin phím '3' KHÔNG tag bot thì bot im lặng như luật nhóm (G2). Mỗi thành viên có mạch riêng nên phím của người này không ăn quả vào mạch người kia. Thành viên trong kịch bản đều là dữ liệu giả phục vụ QA.",
+  "chatType": "GROUP",
+  "chatId": "nhom_g7_xnk",
+  "botNames": ["OZ Tra cứu HS", "Bot OZ"],
+  "thanhVien": [
+    { "userId": "u_g7_quan", "userName": "Quân" },
+    { "userId": "u_g7_linh", "userName": "Linh" },
+    { "userId": "u_g7_phuc", "userName": "Phúc" },
+    { "userId": "u_g7_mai", "userName": "Mai" }
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "mieuTa": "(a) Quân tag bot bắn phím '0' khi chưa tra gì → bot tag đúng Quân, chỉ chuyển chế độ TỰ ĐỘNG, không hotline, không gói",
+      "userId": "u_g7_quan",
+      "userName": "Quân",
+      "text": "@OZ Tra cứu HS 0",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "tagDungNguoi": "@Quân",
+        "phaiChua": [
+          "@Quân",
+          "Đã chuyển sang chế độ TỰ ĐỘNG"
+        ],
+        "khongChua": [
+          "hotline OZ",
+          "gặp nhân viên",
+          "Gói [0-9]"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 2,
+      "mieuTa": "(b) Linh tag bot bắn phím '2' → bot tag đúng Linh, chỉ giới thiệu Gói 2 kèm mẫu nhập, không chạy gói (mã 84137090 trong tin là ví dụ mẫu chung)",
+      "userId": "u_g7_linh",
+      "userName": "Linh",
+      "text": "@OZ Tra cứu HS 2",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "tagDungNguoi": "@Linh",
+        "phaiChua": [
+          "@Linh",
+          "Gói 2: Thuế & thủ tục nhập khẩu",
+          "Gửi thông tin theo mẫu"
+        ],
+        "khongChua": [
+          "mã vừa tra",
+          "8537"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 3,
+      "mieuTa": "(c) Phúc tag bot bắn phím lạ '8' (menu không có gói 8) → bot tag đúng Phúc, in menu đầy đủ",
+      "userId": "u_g7_phuc",
+      "userName": "Phúc",
+      "text": "@OZ Tra cứu HS 8",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "tagDungNguoi": "@Phúc",
+        "phaiChua": [
+          "@Phúc",
+          "CHỌN GÓI TRA CỨU"
+        ],
+        "khongChua": [
+          "mã vừa tra",
+          "8537"
+        ],
+        "khongBaoDangTra": true
+      }
+    },
+    {
+      "step": 4,
+      "mieuTa": "(d) Mai gõ phím '3' KHÔNG tag bot → bot im lặng theo luật nhóm, không rẽ nhánh gói",
+      "userId": "u_g7_mai",
+      "userName": "Mai",
+      "text": "3",
+      "kyVong": {
+        "botIm": true,
+        "soTinGoi": 0
+      }
+    },
+    {
+      "step": 5,
+      "mieuTa": "(e) Quân tag bot bắn tiếp phím '1' sau phím '0' của mình → mạch Quân vẫn chưa có kết quả tra, bot chỉ giới thiệu Gói 1 kèm mẫu nhập",
+      "userId": "u_g7_quan",
+      "userName": "Quân",
+      "cachTruoc": "1m",
+      "text": "@OZ Tra cứu HS 1",
+      "kyVong": {
+        "phaiCoPhanHoi": true,
+        "tagDungNguoi": "@Quân",
+        "phaiChua": [
+          "@Quân",
+          "Gói 1: Phân loại mã HS",
+          "Gửi thông tin theo mẫu"
+        ],
+        "khongChua": [
+          "mã vừa tra",
+          "8537",
+          "hotline OZ"
+        ],
+        "khongBaoDangTra": true
+      }
+    }
+  ]
+}
