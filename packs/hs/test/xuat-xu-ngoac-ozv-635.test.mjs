@@ -1,6 +1,6 @@
-// OZV-635 — "(MADE IN JP)" bị đọc thành IN (Ấn Độ): tách từ theo chữ Unicode trước khi so 'made'.
+// OZV-635 — "(MADE IN JP)" bị đọc thành IN (Ấn Độ): nới biên ngoặc/nháy và bỏ dấu câu ở token trước khi so 'made'.
 //
-// Gốc lỗi: bước quét mã trơ cuối `findCountryInText` (`packs/hs/input.js:521-527`) vẫn dùng regex
+// Gốc lỗi: bước quét mã trơ cuối `findCountryInText` (`packs/hs/input.js:521-527`) trên `main` dùng regex
 // `/(?:^|\s)(CN|JP|KR|TW|TH|US|DE|IN|MY|ID|VN)(?=\s|$|,)/g` và lấy token trước bằng
 // `raw.slice(0, mm.index).trim().split(/\s+/).pop()`.
 //   1. Khi khách gõ "(MADE IN JP)" / "[MADE IN JP]", token trước "IN" là "(MADE" / "[MADE" (dính
@@ -9,8 +9,8 @@
 //      ngoặc `)` / `]` nên lookahead `(?=\s|$|,)` không khớp ⇒ mất "JP", `xuatXuCua` rơi về mặc
 //      định CN (`giaDinh: true`).
 //
-// Vá: dùng danh sách từ đã tách theo chữ Unicode `tu = tachTu(raw)` (`tachTuViTri`) ở đầu hàm
-// `findCountryInText` — cùng cách với `maNuocTrongCau` và `maCuoiCau` (PR #262 / OZV-634).
+// Vá: giữ quét theo chuỗi gốc, chỉ nới biên cho ngoặc/nháy/dấu câu cuối, kiểm tra khi mã nằm trong
+// ngoặc chỉ nhận `MADE IN XX` hoặc đúng một mã `XX`, và bỏ dấu câu ở token trước khi so với `made`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import hs from '../index.js';
@@ -59,6 +59,24 @@ test('OZV-635: bảng 7 câu chuẩn — "(MADE IN JP)", "(made in JP)", "[MADE 
   }
 });
 
+test('OZV-635: chống hồi quy "bịa xuất xứ" — mã dính ký hiệu kỹ thuật (-, /, :) hoặc kèm thông số trong ngoặc phải trả null', () => {
+  const KHONG_PHAI_XUAT_XU = [
+    'Ổ bi 6205-DE mới',
+    'mã ID:123 máy bơm',
+    'model TH-500 quạt',
+    'chuẩn US-STD dây cáp',
+    'máy bơm IN/OUT 2 inch',
+    'dây cáp 2.5mm/VN',
+    'Ống PVC phi 21 (ID 18mm)',
+    'hàng TW/CN',
+    'JP-made bơm',
+  ];
+  for (const cau of KHONG_PHAI_XUAT_XU) {
+    assert.equal(findCountryInText(cau), null, `findCountryInText(${JSON.stringify(cau)}) không được bịa xuất xứ`);
+    assert.deepEqual(xuatXuCua(cau), { ma: 'CN', giaDinh: true }, `xuatXuCua(${JSON.stringify(cau)}) phải giữ mặc định CN (giaDinh: true)`);
+  }
+});
+
 test('OZV-635: cụm xuất xứ bọc trong ngoặc / dấu câu giữa câu mô tả hàng tự do', () => {
   const CAU_MO_TA = [
     ['Máy bơm nước 350W 220V (MADE IN JP)', 'JP'],
@@ -67,6 +85,7 @@ test('OZV-635: cụm xuất xứ bọc trong ngoặc / dấu câu giữa câu m�
     ['Ổ bi SKF (MADE IN DE), mới 100%', 'DE'],
     ['Linh kiện điện tử "MADE IN TW"', 'TW'],
     ['Hàng gia vị (MADE IN IN)', 'IN'],
+    ['Máy bơm nước (JP)', 'JP'],
   ];
   for (const [cau, mong] of CAU_MO_TA) {
     assert.deepEqual(xuatXuCua(cau), { ma: mong, giaDinh: false }, `xuatXuCua(${JSON.stringify(cau)}) phải ra ${mong}`);
