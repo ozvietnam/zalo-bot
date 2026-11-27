@@ -71,3 +71,55 @@ test('OZV-2333: câu hỏi THEO món cũ có chữ "mã hs" KHÔNG bị tách oa
   assert.match(String(store.hoSo?.moTa || ''), /hút bụi/i, 'hồ sơ món cũ không bị xoá oan');
   assert.ok(plain(r.replies[0].text).length > 0);
 });
+
+test('OZV-2433 nhóm 1: tin tra mã HS món mới có "ạ/ơi/nhé", từ hàng hoá ("đo/độ/dây/chứa/rời") hoặc "là bao nhiêu" mở được hồ sơ mới sau handoff', async () => {
+  const cacCauMonMoi = [
+    { cau: 'Tra giúp em mã HS máy nén khí 8 bar mới 100% ạ', khop: /nén khí|nen khi/i },
+    { cau: 'Tra giúp em mã HS máy đo nhiệt độ hồng ngoại cầm tay', khop: /đo nhiệt độ|do nhiet do/i },
+    { cau: 'Tra giúp em mã HS dây cáp điện bọc nhựa PVC 4x16mm2', khop: /dây cáp điện|day cap dien/i },
+    { cau: 'Tra giúp em mã HS bình chứa khí nén bằng thép 500 lít', khop: /bình chứa khí nén|binh chua khi nen/i },
+    { cau: 'Tra giúp em mã HS linh kiện rời bằng nhựa cho quạt công nghiệp nhé', khop: /linh kiện rời|linh kien roi/i },
+    { cau: 'Tra giúp em mã HS máy nén khí trục vít công suất 15kW là bao nhiêu', khop: /nén khí trục vít|nen khi truc vit/i },
+  ];
+
+  for (const { cau, khop } of cacCauMonMoi) {
+    const { ctx, store, calls } = fakeCtx();
+    await hs.handle(turn('Tra giúp em mã HS máy hút bụi dùng trong nhà công suất 1200W'), ctx);
+    assert.equal(calls.length, 1);
+
+    await hs.handle(turn(cau), ctx);
+    assert.equal(calls.length, 2, `phải mở lượt tra mới cho câu: "${cau}"`);
+    const tenB = String(calls[1].args.tenHang || '');
+    assert.match(tenB, khop, `tenHang gửi Cổng phải mang mô tả món B cho "${cau}", hiện: "${tenB}"`);
+    assert.doesNotMatch(tenB, /hút bụi|hut bui/i, `tenHang KHÔNG được gộp mô tả món A cho "${cau}", hiện: "${tenB}"`);
+    assert.doesNotMatch(tenB, /khách nói thêm/, `món B không phải "nói thêm" của món A cho "${cau}", hiện: "${tenB}"`);
+    assert.doesNotMatch(String(store.hoSo?.moTa || ''), /hút bụi/i, `hồ sơ phiên phải đã chuyển sang món B cho "${cau}"`);
+  }
+});
+
+test('OZV-2433 nhóm 2: câu hỏi thủ tục/giấy phép/thuế hoặc hỏi lại theo mã HS vừa tra KHÔNG bị tách oan thành hồ sơ mới', async () => {
+  const cacCauHoiTheoMaCu = [
+    { cau: 'thủ tục nhập khẩu của mã hs vừa tra cần giấy phép chuyên ngành gì', goiPhanLoaiMoi: false },
+    { cau: 'mã hs này đúng chưa ạ', goiPhanLoaiMoi: true },
+    { cau: 'thuế nhập khẩu của mã hs này bao nhiêu phần trăm', goiPhanLoaiMoi: false },
+  ];
+
+  for (const { cau, goiPhanLoaiMoi } of cacCauHoiTheoMaCu) {
+    const { ctx, store, calls } = fakeCtx();
+    await hs.handle(turn('Tra giúp em mã HS máy hút bụi dùng trong nhà công suất 1200W'), ctx);
+    assert.equal(calls.filter((c) => c.name === 'phan_loai_hs').length, 1);
+
+    const r = await hs.handle(turn(cau), ctx);
+    const luotPhanLoai = calls.filter((c) => c.name === 'phan_loai_hs');
+    if (!goiPhanLoaiMoi) {
+      assert.equal(luotPhanLoai.length, 1, `KHÔNG gọi phan_loai_hs trên câu hỏi thuế/thủ tục theo mã cũ: "${cau}"`);
+    }
+    for (const c of luotPhanLoai) {
+      assert.match(String(c.args.tenHang || ''), /hút bụi|hut bui/i,
+        `phan_loai_hs KHÔNG được nhận câu hỏi "${cau}" làm tên hàng mới, hiện: "${c.args.tenHang}"`);
+    }
+    assert.match(String(store.hoSo?.moTa || ''), /hút bụi/i, `hồ sơ món cũ không bị xoá oan bởi câu: "${cau}"`);
+    assert.ok(plain(r.replies[0].text).length > 0);
+  }
+});
+
