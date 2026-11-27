@@ -7,7 +7,7 @@ import { routeThongMinh } from './brain.js';
 import { menuText } from './packages.js';
 import { renderResult, clipReply } from './render.js';
 import { result } from './flow-turn.js';
-import { norm } from './input.js';
+import { norm, coDau } from './input.js';
 import { runPkg, trenHoSo } from './chay-goi.js';
 import { danhSachDayDu, KHONG_CO_CAN_CU } from './can-cu.js';
 import { fmtHs } from './format.js';
@@ -33,24 +33,35 @@ const ANH_RE = /(ten hang|thong so|model|thuong hieu|chat lieu)\s*:/;
 //   • phần còn lại sau lời nhờ phải THẬT SỰ là mô tả món (≥3 từ, không chỉ toàn từ trỏ "này/chưa"),
 //     nếu không "mã hs này đúng chưa ạ" sẽ thành tên hàng gửi Cổng.
 const HOI_MA_HS_RE = /(hs\s*code|ma\s+hs|ma\s+so\s+hs)/;
-const HOI_THEO_MA_RE = /(thue|thu tu nhap khau|bao nhieu|phan tram)/;
-const TU_CHI_TRO = new Set('nay do day chu chua sai roi the a ah vay oi'.split(' '));
+const HOI_THEO_MA_RE = /\b(thue|phan\s+tram|thu\s+tuc(?:\s+nhap\s+khau)?|giay\s+phep|chinh\s+sach|kiem\s+tra\s+chuyen\s+nganh|(?:ma\s+(?:so\s+)?hs|hs\s*code)\s+(?:nay|vua\s+tra|vua\s+roi|tren|cu|kia))\b/;
+const TRO_MA_CU_RE = /(?:mã\s+(?:số\s+)?hs|ma\s+(?:so\s+)?hs|hs\s*code)\s+(?:này|nay|đó|đây|đấy|kia|vừa\s+tra|vua\s+tra|vừa\s+rồi|trên|tren|cũ|cu)(?![\p{L}\p{N}])/iu;
+// Từ trỏ / tiểu từ hỏi-lịch sự giữ nguyên dấu để không chặn nhầm từ hàng hoá rụng dấu trùng
+// ("đo/độ" ≠ "đó", "dây" ≠ "đây", "chứa" ≠ "chưa/chứ", "rời" ≠ "rồi", "thẻ" ≠ "thế", "dùng" ≠ "đúng").
+const TU_TRO_CO_DAU = new Set('này nay đó đây đấy kia chứ chưa sai đúng rồi thế ạ à ả ah vậy ơi nhé nha nhỉ vâng dạ không ko là gì nào đâu sao vừa trên cũ hả ư ừ'.split(' '));
+const TU_TRO_KHONG_DAU = new Set('nay do day chu chua dung sai roi the a ah vay oi khong ko la gi nao dau sao vua tren cu'.split(' '));
 // Từ LỜI NHỜ ("tra giúp em…") không mang đặc trưng món, nhưng `moTa` của mạch giữ nguyên câu
 // nên `cungMonVoi` đếm luôn "tra/giup" là đặc trưng — đúng 2 từ là coi "cùng món" và CA CHÍNH
 // CỦA OZV-2333 ("tra giúp em mã HS máy hút bụi…" → "tra giúp em mã HS máy nén khí…") bị hụt.
 // Lọc bộ từ này RA ở CẢ HAI BÊN trước khi so, rồi vẫn giao việc so cho `cungMonVoi` (tập
 // `TU_CHUNG`, mã riêng, ngưỡng 2 từ đặc trưng giữ nguyên một chỗ).
-const TU_LOI_NHO = new Set('tra cuu giup em minh toi anh chi ban nho ho cho xin check tim ma so hs code a oi nhe gi lam on xem co'.split(' '));
+const TU_LOI_NHO = new Set('tra cuu giup em minh toi anh chi ban nho ho cho xin check tim ma so hs hscode code a oi nhe nha nhi gi lam on xem co'.split(' '));
 const catLoiNho = (s) => norm(s).split(/[^a-z0-9]+/).filter((w) => w && !TU_LOI_NHO.has(w)).join(' ');
 function laCauTraMonMoiSauHandoff(text, hoSo) {
   const moTaCu = String(hoSo?.moTa ?? '').trim();
   if (!moTaCu) return false;                        // chưa có hồ sơ thì không có gì để tách
-  if (!HOI_MA_HS_RE.test(norm(text))) return false;
-  if (HOI_THEO_MA_RE.test(norm(text))) return false;
+  const n = norm(text);
+  if (!HOI_MA_HS_RE.test(n)) return false;
+  if (HOI_THEO_MA_RE.test(n) || TRO_MA_CU_RE.test(String(text ?? '').normalize('NFC'))) return false;
   if (laLenhTroHoSo(text) || laTenHangCam(text) || laCauXemLai(text)) return false;
   if (cungMonVoi(catLoiNho(text), catLoiNho(moTaCu))) return false;
-  const tenMoi = boYeuCauDau(String(text)).split(/\s+/).filter(Boolean);
-  return tenMoi.length >= 3 && !tenMoi.some((w) => TU_CHI_TRO.has(norm(w)));
+  const goc = boYeuCauDau(String(text)).toLowerCase().normalize('NFC')
+    .replace(/\b(?:là\s+|la\s+)?bao\s+nhi[êe]u\b/gu, ' ');
+  const coDauCau = coDau(goc);
+  const tenMoi = goc.split(/[^\p{L}\p{N}%]+/u).filter((w) => w
+    && !TU_TRO_CO_DAU.has(w)
+    && !TU_LOI_NHO.has(norm(w))
+    && (coDauCau || !TU_TRO_KHONG_DAU.has(w)));
+  return tenMoi.length >= 3;
 }
 
 export async function textFlow(turn, ctx, st) {

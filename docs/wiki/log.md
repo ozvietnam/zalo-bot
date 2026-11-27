@@ -1,5 +1,6 @@
 # Nhật ký wiki
 
+> Cập nhật: 2026-11-27 · commit: b625f56
 > Cập nhật: 2026-11-26 · commit: 0ecfb2f
 > Cập nhật: 2026-11-26 · commit: 7b9c55b
 > Cập nhật: 2026-11-13 · commit: (OZV-693 / MST checksum bắt đầu bằng 0)
@@ -15,6 +16,13 @@ Quy ước:
 - Ghi rõ **vì sao** đổi, không chỉ ghi "sửa lỗi".
 - Khi trích dẫn trong wiki không còn khớp code, ghi lại ở mục "Cần sửa lại" của trang đó
   và sửa khi có đợt cập nhật tiếp theo.
+
+## 2026-11-27 — OZV-2433 (zalo-bot): sửa `laCauTraMonMoiSauHandoff` trong `packs/hs/luong-chu.js` — không chặn nhầm chữ `"ạ"`/từ hàng hoá (`"đo/dây/chứa/rời"`) và chặn đúng câu hỏi `"thủ tục nhập khẩu"` theo mã cũ (nhánh `ozv-2433-sua-mon-moi-sau-handoff`, gốc `b625f56`)
+
+- **Vì sao:** đợt Săn lỗi tuần (OZV-2432) trên PR #296 (OZV-2333) phát hiện 2 lỗi ở `laCauTraMonMoiSauHandoff` (`packs/hs/luong-chu.js:35-54`): (1) lọt chiều âm — dùng `!tenMoi.some((w) => TU_CHI_TRO.has(norm(w)))` trên từ đã bỏ dấu nên mọi tin có chữ `"ạ"` cuối câu hoặc tên hàng chứa `"đo/độ"`, `"dây"`, `"chứa"`, `"rời"`, `"thẻ"` bị trả `false`, đồng thời `HOI_THEO_MA_RE` chặn cứng `bao nhieu` làm câu hỏi mã HS tự nhiên có `"là bao nhiêu"` bị gộp vào hồ sơ món cũ; (2) lọt chiều dương — `HOI_THEO_MA_RE` gõ nhầm `'thu tu nhap khau'` (thiếu `'c'`) và chưa phủ `thu tuc`, `giay phep`, `chinh sach`, `kiem tra chuyen nganh` hay cụm trỏ thẳng mã cũ (`mã hs này/đó/đây/vừa tra/trên`), làm câu `"thủ tục nhập khẩu của mã hs vừa tra cần giấy phép chuyên ngành gì"` xoá oan hồ sơ cũ và gọi `phan_loai_hs`.
+- **Vá:** tại `packs/hs/luong-chu.js:35-65` (264 dòng < 300 dòng, Điều VI): (1) sửa `HOI_THEO_MA_RE` phủ `thue`, `phan tram`, `thu tuc (nhap khau)`, `giay phep`, `chinh sach`, `kiem tra chuyen nganh`, cụm `(ma (so) hs|hs code) (nay|vua tra|vua roi|tren|cu|kia)` và thêm `TRO_MA_CU_RE` giữ dấu cho `này/đó/đây/đấy/kia/vừa tra/trên/cũ` (tránh trùng `"mã HS dây cáp"` / `"mã HS đo nhiệt"` khi rụng dấu), bỏ chặn cứng `bao nhieu`; (2) lọc tiểu từ lịch sự / từ trỏ giữ dấu (`TU_TRO_CO_DAU`), từ lời nhờ (`TU_LOI_NHO`) và cụm `"là bao nhiêu"` ra khỏi danh sách từ mô tả trước khi đếm `tenMoi.length >= 3` thay vì `.some()` trên `norm(w)`.
+- **Test đỏ trước:** `packs/hs/test/hai-mon-sau-handoff.test.mjs` thêm 2 test (Nhóm 1: 6 câu mở hồ sơ mới có `"ạ/nhé"`, `"đo/độ"`, `"dây"`, `"chứa"`, `"rời"`, `"là bao nhiêu"`; Nhóm 2: 3 câu hỏi thủ tục/thuế/xác nhận theo mã cũ giữ nguyên hồ sơ cũ).
+- **Cổng:** `npm test` xanh · `npm run eval` 33/33 · `node scripts/qa-that.mjs --mock` 15/15 ĐẠT · `node scripts/kiem-wiki.mjs --nghiem` ĐẠT (16 trang).
 
 ## 2026-11-26 — OZV-2329 (zalo-bot): trien-khai mục 10 bỏ câu "menu bật sẵn khi chuyển" + thêm bước chạy Số đo 1 (qa-that) sau `/health` (nhánh `2329-wiki-trien-khai-qa-that`, gốc `4f6b268`)
 
